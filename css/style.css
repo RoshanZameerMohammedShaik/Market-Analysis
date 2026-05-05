@@ -423,6 +423,94 @@ body {
 .confidence-fill.medium { background: var(--yellow); }
 .confidence-fill.low { background: var(--red); }
 
+/* ─── PRICE TARGETS ────────────────────────────────────────────────────────── */
+
+.price-targets {
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.price-targets-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.price-targets-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.price-target-card {
+    text-align: center;
+    padding: 12px 8px;
+    border-radius: 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+.price-target-card.high {
+    border-color: var(--green);
+    background: var(--green-bg);
+}
+
+.price-target-card.low {
+    border-color: var(--red);
+    background: var(--red-bg);
+}
+
+.price-target-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.price-target-value {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.price-target-value.high { color: var(--green); }
+.price-target-value.low { color: var(--red); }
+
+.price-target-pct {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 4px;
+    color: var(--text-secondary);
+}
+
+.price-target-pct.up { color: var(--green); }
+.price-target-pct.down { color: var(--red); }
+
+.price-targets-meta {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .price-targets-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .price-target-value {
+        font-size: 1.1rem;
+    }
+}
+
 .signal-reasons {
     list-style: none;
     padding: 0;

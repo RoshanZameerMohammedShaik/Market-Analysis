@@ -262,12 +262,43 @@ function updateChartHeader(data) {
 
 function renderSignal(prediction) {
     const section = document.getElementById('signal-section');
-    const { signal, confidence, reasons } = prediction;
+    const { signal, confidence, reasons, priceTargets } = prediction;
 
     const signalClass = signal.toLowerCase();
     const arrow = signal === 'BUY' ? '▲' : signal === 'SELL' ? '▼' : '◆';
     const arrowClass = signal === 'BUY' ? 'up' : signal === 'SELL' ? 'down' : 'neutral';
     const confidenceClass = confidence >= 65 ? 'high' : confidence >= 50 ? 'medium' : 'low';
+
+    // Price targets HTML
+    let priceTargetHTML = '';
+    if (priceTargets) {
+        const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
+        priceTargetHTML = `
+            <div class="price-targets fade-in">
+                <div class="price-targets-title">Predicted Price Range — ${tfLabel}</div>
+                <div class="price-targets-grid">
+                    <div class="price-target-card high">
+                        <div class="price-target-label">Predicted High</div>
+                        <div class="price-target-value high">$${priceTargets.predictedHigh.toLocaleString()}</div>
+                        <div class="price-target-pct up">▲ +${priceTargets.highPercent}%</div>
+                    </div>
+                    <div class="price-target-card current">
+                        <div class="price-target-label">Current Price</div>
+                        <div class="price-target-value">$${priceTargets.currentPrice.toLocaleString()}</div>
+                        <div class="price-target-pct">ATR: $${priceTargets.atr}</div>
+                    </div>
+                    <div class="price-target-card low">
+                        <div class="price-target-label">Predicted Low</div>
+                        <div class="price-target-value low">$${priceTargets.predictedLow.toLocaleString()}</div>
+                        <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%</div>
+                    </div>
+                </div>
+                <div class="price-targets-meta">
+                    Support: $${priceTargets.support} | Resistance: $${priceTargets.resistance} | Expected Move: ±$${priceTargets.expectedMove}
+                </div>
+            </div>
+        `;
+    }
 
     section.innerHTML = `
         <div class="signal-box ${signalClass} fade-in">
@@ -279,6 +310,7 @@ function renderSignal(prediction) {
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
+            ${priceTargetHTML}
             <ul class="signal-reasons">
                 ${reasons.map(r => `<li>${r}</li>`).join('')}
             </ul>

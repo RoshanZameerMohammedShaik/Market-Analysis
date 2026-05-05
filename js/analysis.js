@@ -363,6 +363,9 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
     if (allAgree) allReasons.unshift(`All timeframes align ${finalSignal} — high confluence`);
     if (hasBuy && hasSell) allReasons.unshift('Timeframe conflict detected — reduced confidence');
 
+    // Calculate price targets
+    const priceTargets = calculatePriceTargets(multiData.daily.candles, finalSignal, baseConfidence, timeframe);
+
     return {
         signal: finalSignal,
         confidence: baseConfidence,
@@ -373,5 +376,87 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
             fourHour: fourHourPred,
         },
         meta: { confluenceBonus, conflictPenalty, allAgree },
+        priceTargets,
+    };
+}
+
+// ─── PRICE TARGET PREDICTION ─────────────────────────────────────────────────
+
+export function calculatePriceTargets(candles, signal, confidence, timeframe = 'today') {
+    if (!candles || candles.length < 20) return null;
+
+    const currentPrice = candles[candles.length - 1].close;
+    const atr = calculateATR(candles, 14);
+    if (!atr) return null;
+
+    // Calculate recent support/resistance levels
+    const recent = candles.slice(-20);
+    const highs = recent.map(c => c.high);
+    const lows = recent.map(c => c.low);
+    const recentHigh = Math.max(...highs);
+    const recentLow = Math.min(...lows);
+
+    // Bollinger Bands for price envelope
+    const closes = candles.map(c => c.close);
+    const bb = calculateBollingerBands(closes, 20, 2);
+
+    // ATR-based movement expectation
+    // Today: expect ~0.7-1.0x ATR movement (intraday)
+    // Tomorrow: expect ~1.0-1.5x ATR movement (next full day)
+    const atrMultiplier = timeframe === 'today' ? 0.8 : 1.2;
+    const expectedMove = atr * atrMultiplier;
+
+    // Confidence adjusts how aggressively we project
+    const confidenceFactor = confidence / 100; // 0.35 to 0.88
+
+    // Calculate predicted high and low
+    let predictedHigh, predictedLow;
+
+    if (signal === 'BUY') {
+        // Bullish: higher upside, limited downside
+        predictedHigh = currentPrice + (expectedMove * (0.8 + confidenceFactor * 0.7));
+        predictedLow = currentPrice - (expectedMove * (0.3 + (1 - confidenceFactor) * 0.3));
+    } else if (signal === 'SELL') {
+        // Bearish: limited upside, higher downside
+        predictedHigh = currentPrice + (expectedMove * (0.3 + (1 - confidenceFactor) * 0.3));
+        predictedLow = currentPrice - (expectedMove * (0.8 + confidenceFactor * 0.7));
+    } else {
+        // Neutral: symmetric range
+        predictedHigh = currentPrice + (expectedMove * 0.6);
+        predictedLow = currentPrice - (expectedMove * 0.6);
+    }
+
+    // Constrain within reasonable bounds using support/resistance
+    if (bb) {
+        // Don't predict beyond 1.5x Bollinger Band width from current price
+        const maxUp = currentPrice + (bb.upper - bb.middle) * 2;
+        const maxDown = currentPrice - (bb.middle - bb.lower) * 2;
+        predictedHigh = Math.min(predictedHigh, maxUp);
+        predictedLow = Math.max(predictedLow, maxDown);
+    }
+
+    // Use support/resistance as soft caps
+    if (predictedHigh > recentHigh * 1.05) {
+        predictedHigh = recentHigh + (predictedHigh - recentHigh) * 0.5;
+    }
+    if (predictedLow < recentLow * 0.95) {
+        predictedLow = recentLow - (recentLow - predictedLow) * 0.5;
+    }
+
+    // Calculate percentage moves
+    const highPct = ((predictedHigh - currentPrice) / currentPrice) * 100;
+    const lowPct = ((predictedLow - currentPrice) / currentPrice) * 100;
+
+    return {
+        currentPrice,
+        predictedHigh: +predictedHigh.toFixed(2),
+        predictedLow: +predictedLow.toFixed(2),
+        highPercent: +highPct.toFixed(2),
+        lowPercent: +lowPct.toFixed(2),
+        expectedMove: +expectedMove.toFixed(2),
+        atr: +atr.toFixed(2),
+        support: +recentLow.toFixed(2),
+        resistance: +recentHigh.toFixed(2),
+        timeframe,
     };
 }

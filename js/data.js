@@ -1,31 +1,43 @@
 // Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto)
 
 const CORS_PROXIES = [
+    'https://corsproxy.io/?url=',
     'https://api.allorigins.win/raw?url=',
-    'https://corsproxy.io/?',
+    'https://api.codetabs.com/v1/proxy?quest=',
 ];
 
 let currentProxy = 0;
+let workingProxy = null;
 
 async function fetchWithProxy(url) {
-    // Try direct first (works if CORS allows)
+    // If we found a working proxy before, try it first
+    if (workingProxy !== null) {
+        try {
+            const res = await fetch(CORS_PROXIES[workingProxy] + encodeURIComponent(url));
+            if (res.ok) return res;
+        } catch (e) { workingProxy = null; }
+    }
+
+    // Try direct first (works for CoinGecko which has permissive CORS)
     try {
         const res = await fetch(url);
         if (res.ok) return res;
     } catch (e) { /* fall through to proxies */ }
 
-    // Try proxies
+    // Try all proxies
     for (let i = 0; i < CORS_PROXIES.length; i++) {
-        const proxy = CORS_PROXIES[(currentProxy + i) % CORS_PROXIES.length];
+        const idx = (currentProxy + i) % CORS_PROXIES.length;
+        const proxy = CORS_PROXIES[idx];
         try {
             const res = await fetch(proxy + encodeURIComponent(url));
             if (res.ok) {
-                currentProxy = (currentProxy + i) % CORS_PROXIES.length;
+                workingProxy = idx;
+                currentProxy = idx;
                 return res;
             }
         } catch (e) { continue; }
     }
-    throw new Error(`Failed to fetch: ${url}`);
+    throw new Error(`Failed to fetch data. Try refreshing the page.`);
 }
 
 // ─── STOCK DATA (Yahoo Finance) ───────────────────────────────────────────────
@@ -140,28 +152,65 @@ export async function fetchCryptoMultiTimeframe(coinId) {
 
 export async function searchStocks(query) {
     if (!query || query.length < 1) return [];
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0`;
-    const res = await fetchWithProxy(url);
-    const json = await res.json();
-    return (json.quotes || []).map(q => ({
-        symbol: q.symbol,
-        name: q.shortname || q.longname || q.symbol,
-        exchange: q.exchange,
-        type: q.quoteType,
-    }));
+
+    // Try Yahoo Finance search
+    try {
+        const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0&enableFuzzyQuery=true&quotesQueryId=tss_match_phrase_query`;
+        const res = await fetchWithProxy(url);
+        const json = await res.json();
+        if (json.quotes && json.quotes.length > 0) {
+            return json.quotes
+                .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'INDEX')
+                .map(q => ({
+                    symbol: q.symbol,
+                    name: q.shortname || q.longname || q.symbol,
+                    exchange: q.exchange,
+                    type: q.quoteType,
+                }));
+        }
+    } catch (e) { /* fall through to fallback */ }
+
+    // Fallback: try autocomplete endpoint
+    try {
+        const url = `https://query2.finance.yahoo.com/v6/finance/autocomplete?query=${encodeURIComponent(query)}&lang=en`;
+        const res = await fetchWithProxy(url);
+        const json = await res.json();
+        return (json.ResultSet?.Result || []).map(r => ({
+            symbol: r.symbol,
+            name: r.name,
+            exchange: r.exchDisp || r.exch,
+            type: r.typeDisp || 'EQUITY',
+        }));
+    } catch (e) {
+        // Final fallback: construct symbol directly for common patterns
+        const upper = query.toUpperCase();
+        return [{ symbol: upper, name: upper, exchange: 'Search', type: 'EQUITY' }];
+    }
 }
 
 export async function searchCrypto(query) {
     if (!query || query.length < 1) return [];
-    const url = `${COINGECKO_BASE}/search?query=${encodeURIComponent(query)}`;
-    const res = await fetchWithProxy(url);
-    const json = await res.json();
-    return (json.coins || []).slice(0, 10).map(c => ({
-        symbol: c.symbol.toUpperCase(),
-        name: c.name,
-        id: c.id,
-        thumb: c.thumb,
-    }));
+    try {
+        const url = `${COINGECKO_BASE}/search?query=${encodeURIComponent(query)}`;
+        const res = await fetchWithProxy(url);
+        const json = await res.json();
+        return (json.coins || []).slice(0, 10).map(c => ({
+            symbol: c.symbol.toUpperCase(),
+            name: c.name,
+            id: c.id,
+            thumb: c.thumb,
+        }));
+    } catch (e) {
+        // Fallback: try matching against known cryptos
+        const lower = query.toLowerCase();
+        const matches = HOT_CRYPTO.filter(c => c.includes(lower));
+        return matches.map(id => ({
+            symbol: id.toUpperCase(),
+            name: id.charAt(0).toUpperCase() + id.slice(1),
+            id: id,
+            thumb: '',
+        }));
+    }
 }
 
 // ─── HOT PICKS LISTS ─────────────────────────────────────────────────────────
