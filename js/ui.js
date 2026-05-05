@@ -220,7 +220,7 @@ function loadChart() {
         autosize: true,
         symbol: symbol,
         interval: 'D',
-        timezone: 'Etc/UTC',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         theme: themeMap[state.theme],
         style: '3', // Line/area chart (ECG style)
         locale: 'en',
