@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Analyzer — Stock & Crypto Predictions</title>
+    <meta name="description" content="Real-time stock and cryptocurrency analysis with BUY/SELL prediction signals powered by multi-timeframe technical analysis">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1 class="app-title">Market Analyzer</h1>
+            <button class="theme-toggle" id="theme-toggle" title="Switch theme">🌙</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Controls: Tabs + Timeframe -->
+        <section class="controls-section">
+            <div class="tabs-row">
+                <div class="tab-group">
+                    <button class="tab-btn active" data-tab="stock">Stock Analysis</button>
+                    <button class="tab-btn" data-tab="crypto">Crypto Analysis</button>
+                </div>
+                <div class="tab-group">
+                    <button class="tab-btn active" data-timeframe="today">Today</button>
+                    <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)..." autocomplete="off">
+                <div class="search-results" id="search-results"></div>
+            </div>
+        </section>
+
+        <!-- Chart -->
+        <section class="chart-section">
+            <div class="chart-header hidden" id="chart-header">
+                <span class="chart-symbol" id="chart-symbol"></span>
+                <span class="chart-price" id="chart-price"></span>
+            </div>
+            <div class="chart-container">
+                <div id="tradingview-widget">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <p>Search for a stock or crypto to see the chart</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Signal -->
+        <section class="signal-section" id="signal-section"></section>
+
+        <!-- Hot Picks -->
+        <section class="hotpicks-section">
+            <h2 class="section-title">🔥 Hot Picks — Highest Confidence BUY Signals</h2>
+            <div class="hotpicks-grid" id="hotpicks-grid">
+                <div class="loading" style="grid-column: 1/-1;">
+                    <div class="loader"></div>
+                    <span class="loading-text">Scanning markets for hot picks...</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- App Script -->
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
