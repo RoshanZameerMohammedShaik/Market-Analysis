@@ -3,6 +3,8 @@ import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStock
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
 import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
+import { computeFullConfidence } from './confidence.js';
+import { loadModel } from './ai-model.js';
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 
@@ -242,47 +244,38 @@ async function runAnalysis() {
     const signalSection = document.getElementById('signal-section');
     signalSection.innerHTML = `<div class="loading fade-in">
         <div class="loader"></div>
-        <span class="loading-text">Analyzing ${state.currentSymbol || state.currentCoinId}...</span>
+        <span class="loading-text">Running full analysis: AI + Technicals + Sentiment + Market...</span>
     </div>`;
 
     try {
-        let prediction, newsData, sentiment;
+        let multiData = null;
+        const symbolId = state.mode === 'stock' ? state.currentSymbol : state.currentCoinId;
+        const symbolName = state.currentSymbol;
 
         if (state.mode === 'stock') {
-            const [multiData, news] = await Promise.all([
-                fetchStockMultiTimeframe(state.currentSymbol),
-                fetchStockNews(state.currentSymbol).catch(() => []),
-            ]);
-            prediction = generateMultiTimeframePrediction(multiData, state.timeframe);
-            newsData = news;
-            sentiment = aggregateNewsSentiment(news);
-            updateChartHeader(multiData.daily);
+            multiData = await fetchStockMultiTimeframe(state.currentSymbol);
         } else {
-            // Crypto: try cached sparkline first, then OHLC, then market endpoint
-            let multiData = null;
+            // Crypto: try OHLC -> cached sparkline -> market_chart fallback
             const coinId = state.currentCoinId;
-            const coinName = state.currentSymbol;
-
-            // Try fetching OHLC data
             try {
                 multiData = await fetchCryptoMultiTimeframe(coinId);
             } catch (ohlcError) {
-                // OHLC failed — try using cached sparkline from hot picks
                 const cached = state.cryptoCache[coinId];
                 if (cached && cached.sparkline && cached.sparkline.length >= 20) {
                     const candles = sparklineToCandlesUI(cached.sparkline);
                     multiData = {
-                        daily: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
-                        weekly: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
-                        fourHour: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                        daily: { symbol: symbolName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                        weekly: { symbol: symbolName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                        fourHour: { symbol: symbolName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
                     };
                 }
             }
 
             if (!multiData) {
-                // Final fallback: try the single market data endpoint
                 try {
-                    const marketRes = await fetchWithProxy(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30`);
+                    const marketRes = await fetchWithProxy(
+                        `https://api.coingecko.com/api/v3/coins/${state.currentCoinId}/market_chart?vs_currency=usd&days=30`
+                    );
                     const marketData = await marketRes.json();
                     if (marketData.prices && marketData.prices.length > 20) {
                         const candles = marketData.prices.map(([time, price]) => ({
@@ -290,56 +283,30 @@ async function runAnalysis() {
                         }));
                         const currentPrice = candles[candles.length - 1].close;
                         multiData = {
-                            daily: { symbol: coinName, name: coinName, currentPrice, previousClose: candles[candles.length - 2]?.close, candles },
-                            weekly: { symbol: coinName, name: coinName, currentPrice, previousClose: null, candles },
-                            fourHour: { symbol: coinName, name: coinName, currentPrice, previousClose: null, candles },
+                            daily: { symbol: symbolName, name: symbolName, currentPrice, previousClose: candles[candles.length - 2]?.close, candles },
+                            weekly: { symbol: symbolName, name: symbolName, currentPrice, previousClose: null, candles },
+                            fourHour: { symbol: symbolName, name: symbolName, currentPrice, previousClose: null, candles },
                         };
                     }
                 } catch (e) { /* give up */ }
             }
 
             if (!multiData) {
-                throw new Error(`Could not fetch data for ${coinName}. This coin may not have enough trading history.`);
+                throw new Error(`Could not fetch data for ${symbolName}.`);
             }
-
-            const news = await fetchCryptoNews(coinName).catch(() => []);
-            prediction = generateMultiTimeframePrediction(multiData, state.timeframe);
-            newsData = news;
-            sentiment = aggregateNewsSentiment(news);
-            updateChartHeader(multiData.daily);
         }
 
-        // Adjust prediction confidence based on news sentiment
-        prediction = adjustWithSentiment(prediction, sentiment);
+        updateChartHeader(multiData.daily);
 
-        renderSignal(prediction, newsData, sentiment);
+        // Run the FULL 4-source confidence engine
+        const result = await computeFullConfidence(multiData, state.mode, symbolId, state.timeframe);
+
+        renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
     } catch (e) {
         signalSection.innerHTML = `<div class="error-message fade-in">Analysis failed: ${e.message}. Try another symbol.</div>`;
     }
 }
 
-function adjustWithSentiment(prediction, sentiment) {
-    if (!sentiment || sentiment.overall === 'neutral') return prediction;
-
-    let adjustment = 0;
-    const sentimentAligns = (
-        (prediction.signal === 'BUY' && sentiment.overall === 'positive') ||
-        (prediction.signal === 'SELL' && sentiment.overall === 'negative')
-    );
-    const sentimentConflicts = (
-        (prediction.signal === 'BUY' && sentiment.overall === 'negative') ||
-        (prediction.signal === 'SELL' && sentiment.overall === 'positive')
-    );
-
-    if (sentimentAligns) {
-        adjustment = Math.round(Math.abs(sentiment.score) * 5); // +1 to +5
-    } else if (sentimentConflicts) {
-        adjustment = -Math.round(Math.abs(sentiment.score) * 5); // -1 to -5
-    }
-
-    const newConfidence = Math.max(35, Math.min(88, prediction.confidence + adjustment));
-    return { ...prediction, confidence: newConfidence, sentimentAdjustment: adjustment };
-}
 
 function updateChartHeader(data) {
     const symbolEl = document.getElementById('chart-symbol');
@@ -438,6 +405,41 @@ function renderSignal(prediction, newsData = [], sentiment = null) {
         </details>
     `;
 
+    // Source breakdown (4 bars showing each component's contribution)
+    let breakdownHTML = '';
+    if (prediction.breakdown) {
+        const bd = prediction.breakdown;
+        breakdownHTML = `
+            <div class="source-breakdown">
+                <div class="breakdown-title">Confidence Sources</div>
+                <div class="breakdown-bars">
+                    ${bd.ai.available ? `<div class="breakdown-item">
+                        <span class="breakdown-label">AI Model (${bd.ai.weight}%)</span>
+                        <div class="breakdown-bar"><div class="breakdown-fill" style="width: ${bd.ai.score}%; background: var(--accent);"></div></div>
+                        <span class="breakdown-score">${bd.ai.score}</span>
+                    </div>` : ''}
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Technicals (${bd.technical.weight}%)</span>
+                        <div class="breakdown-bar"><div class="breakdown-fill" style="width: ${bd.technical.score}%; background: var(--green);"></div></div>
+                        <span class="breakdown-score">${bd.technical.score}</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Sentiment (${bd.sentiment.weight}%)</span>
+                        <div class="breakdown-bar"><div class="breakdown-fill" style="width: ${bd.sentiment.score}%; background: var(--yellow);"></div></div>
+                        <span class="breakdown-score">${bd.sentiment.score}</span>
+                    </div>
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Market (${bd.market.weight}%)</span>
+                        <div class="breakdown-bar"><div class="breakdown-fill" style="width: ${bd.market.score}%; background: #a371f7;"></div></div>
+                        <span class="breakdown-score">${bd.market.score}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    const methodLabel = prediction.method || 'Technical + News + Multi-Timeframe';
+
     section.innerHTML = `
         <div class="signal-box ${signalClass} fade-in">
             <div class="signal-header">
@@ -449,13 +451,14 @@ function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
+            ${breakdownHTML}
             <div class="insight-summary">${insightSummary}</div>
             ${priceTargetHTML}
             ${newsHTML}
             ${technicalHTML}
             <div class="signal-meta" style="margin-top: 12px;">
                 Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
-                Analysis: Technical + News Sentiment + Multi-Timeframe
+                ${methodLabel}
             </div>
         </div>
     `;
@@ -686,6 +689,11 @@ export function init() {
     initSearch();
     updatePlaceholder();
     loadHotPicks();
+
+    // Preload AI model in background
+    loadModel().then(loaded => {
+        if (loaded) console.log('[Market Analyzer] AI model loaded');
+    });
 
     document.getElementById('theme-toggle').addEventListener('click', cycleTheme);
 
