@@ -37,10 +37,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     // Weights adjust if AI model isn't available
     let weights;
+    // Weights: Technical leads (real indicators), then market conditions (VIX, Fear/Greed),
+    // then sentiment (news NLP), then AI model (pattern recognition supplement)
     if (ai.available) {
-        weights = { ai: 0.30, technical: 0.25, sentiment: 0.25, market: 0.20 };
+        weights = { ai: 0.15, technical: 0.35, sentiment: 0.25, market: 0.25 };
     } else {
-        // Redistribute AI weight to others
         weights = { ai: 0, technical: 0.40, sentiment: 0.30, market: 0.30 };
     }
 
@@ -53,11 +54,12 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     // Convert 0-100 score to signal + confidence
     let finalSignal;
-    if (weightedScore > 58) finalSignal = 'BUY';
-    else if (weightedScore < 42) finalSignal = 'SELL';
+    if (weightedScore > 56) finalSignal = 'BUY';
+    else if (weightedScore < 44) finalSignal = 'SELL';
     else finalSignal = 'NEUTRAL';
 
-    // Confidence is how far from 50 (neutral) we are, scaled to 38-88 range
+    // Confidence: how strongly the sources agree on direction
+    // Ranges from 38 (all sources at 50 = total uncertainty) to 88 (all sources strongly agree)
     const deviation = Math.abs(weightedScore - 50) / 50; // 0 to 1
     const confidence = Math.round(38 + deviation * 50); // 38 to 88
 

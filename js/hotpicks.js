@@ -1,9 +1,10 @@
 // Hot Picks Scanner — FULLY DYNAMIC
 // Fetches real-time market movers, trending, top gainers from live APIs
-// Then runs prediction engine on each one
+// Runs technical analysis + applies shared market conditions for consistent scoring
 
 import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
+import { getMarketConditionsScore } from './market.js';
 
 // ─── STOCK HOT PICKS (Dynamic from live market) ──────────────────────────────
 
@@ -43,7 +44,10 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20) {
         return []; // Total API failure
     }
 
-    // Run multi-timeframe predictions on each symbol (same engine as detailed analysis)
+    // Fetch market conditions ONCE (applies to all stocks equally)
+    const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
+
+    // Run predictions on each symbol, blend with market conditions
     const results = [];
     const batchSize = 6;
 
@@ -55,17 +59,28 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20) {
                     const data = await fetchStockData(symbol, '3mo', '1d');
                     if (!data.candles || data.candles.length < 30) return null;
 
-                    // Derive multi-timeframe from daily candles (no extra API calls)
                     const multiData = deriveMultiTimeframe(data);
                     const prediction = generateMultiTimeframePrediction(multiData, timeframe);
                     const meta = symbolMeta[symbol] || {};
+
+                    // Blend: 60% technical + 40% market conditions (same as full engine minus per-stock news/AI)
+                    const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
+                    const blended = techScore * 0.60 + marketScore.score * 0.40;
+
+                    let signal;
+                    if (blended > 56) signal = 'BUY';
+                    else if (blended < 44) signal = 'SELL';
+                    else signal = 'NEUTRAL';
+
+                    const deviation = Math.abs(blended - 50) / 50;
+                    const confidence = Math.round(38 + deviation * 50);
 
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
                         price: data.currentPrice || meta.price,
-                        signal: prediction.signal,
-                        confidence: prediction.confidence,
+                        signal,
+                        confidence,
                         reasons: prediction.reasons,
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
@@ -153,7 +168,10 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
 
     if (coins.length === 0) return [];
 
-    // Run multi-timeframe predictions using sparkline data
+    // Fetch crypto market conditions ONCE (applies to all coins)
+    const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
+
+    // Run predictions blended with market conditions
     const results = [];
 
     for (const coin of coins) {
@@ -162,11 +180,9 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
             let sparklineData = null;
 
             if (coin.sparkline && coin.sparkline.length >= 20) {
-                // Use sparkline for fast analysis (168 hourly data points = 7 days)
                 candles = sparklineToCandles(coin.sparkline);
                 sparklineData = coin.sparkline;
             } else {
-                // Fallback: fetch OHLC data
                 const data = await fetchCryptoData(coin.id, 30);
                 candles = data.candles;
                 await new Promise(r => setTimeout(r, 500));
@@ -174,7 +190,6 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
 
             if (!candles || candles.length < 20) continue;
 
-            // Derive multi-timeframe from candles (same analysis as detailed view)
             const multiData = {
                 daily: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
                 weekly: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles: aggregateCandlesPeriod(candles, 7) },
@@ -182,16 +197,28 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
             };
             const prediction = generateMultiTimeframePrediction(multiData, timeframe);
 
+            // Blend: 60% technical + 40% market conditions
+            const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
+            const blended = techScore * 0.60 + marketScore.score * 0.40;
+
+            let signal;
+            if (blended > 56) signal = 'BUY';
+            else if (blended < 44) signal = 'SELL';
+            else signal = 'NEUTRAL';
+
+            const deviation = Math.abs(blended - 50) / 50;
+            const confidence = Math.round(38 + deviation * 50);
+
             results.push({
                 symbol: coin.symbol.toUpperCase(),
                 name: coin.name,
                 id: coin.id,
                 price: coin.price,
-                signal: prediction.signal,
-                confidence: prediction.confidence,
+                signal,
+                confidence,
                 reasons: prediction.reasons,
                 change: coin.change24h || 0,
-                _sparkline: sparklineData, // Pass to UI for caching
+                _sparkline: sparklineData,
             });
         } catch (e) {
             continue;
@@ -310,4 +337,11 @@ function aggregateCandlesPeriod(candles, periodSize) {
         });
     }
     return aggregated;
+}
+
+// Convert signal + confidence to 0-100 bullish score (same as confidence.js)
+function convertSignalToScore(signal, confidence) {
+    if (signal === 'BUY') return 50 + (confidence - 38) * (50 / 50);
+    if (signal === 'SELL') return 50 - (confidence - 38) * (50 / 50);
+    return 50;
 }
