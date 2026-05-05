@@ -11,24 +11,26 @@ import { getMarketConditionsScore } from './market.js';
 export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
     const isTomorrow = timeframe === 'tomorrow';
 
-    if (isTomorrow) {
-        if (onProgress) onProgress('Fetching most active stocks and momentum leaders to predict tomorrow...');
-    } else {
-        if (onProgress) onProgress('Fetching today\'s top gainers, most active, and losers...');
-    }
+    if (onProgress) onProgress('Scanning all real-time market sources for movers...');
 
-    // For tomorrow: focus on most active + trending (momentum setups likely to continue)
-    // For today: include gainers and losers for immediate signals
-    const [gainers, active, trending] = await Promise.allSettled([
-        isTomorrow ? fetchYahooScreener('most_actives') : fetchYahooScreener('day_gainers'),
-        fetchYahooScreener('most_actives'),
-        isTomorrow ? fetchYahooScreener('undervalued_growth_stocks') : fetchYahooScreener('day_losers'),
-    ]);
+    // Cast the WIDEST net — pull from every available real-time screener
+    // These are ALL dynamic — whatever the market is doing RIGHT NOW
+    const screeners = isTomorrow
+        ? ['most_actives', 'undervalued_growth_stocks', 'aggressive_small_caps', 'growth_technology_stocks', 'most_actives']
+        : ['day_gainers', 'most_actives', 'day_losers', 'undervalued_growth_stocks', 'aggressive_small_caps'];
+
+    const screenerResults = await Promise.allSettled(
+        screeners.map(s => fetchYahooScreener(s))
+    );
+
+    // Also fetch trending tickers
+    const trendingResult = await fetchYahooTrending().catch(() => []);
 
     const symbolSet = new Set();
     const symbolMeta = {};
 
-    [gainers, active, trending].forEach(result => {
+    // Collect from all screener sources
+    screenerResults.forEach(result => {
         if (result.status === 'fulfilled' && result.value) {
             result.value.forEach(stock => {
                 if (!symbolSet.has(stock.symbol)) {
@@ -39,30 +41,26 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         }
     });
 
-    let symbols = [...symbolSet].slice(0, 40);
+    // Add trending
+    trendingResult.forEach(s => {
+        if (!symbolSet.has(s.symbol)) {
+            symbolSet.add(s.symbol);
+            symbolMeta[s.symbol] = s;
+        }
+    });
 
-    if (symbols.length === 0) {
-        if (onProgress) onProgress('Primary sources failed, trying trending stocks...');
-        const fallback = await fetchYahooTrending().catch(() => []);
-        symbols = fallback.map(s => s.symbol).slice(0, 30);
-        fallback.forEach(s => { symbolMeta[s.symbol] = s; });
-    }
+    // No cap — analyze everything we find
+    let symbols = [...symbolSet];
+
+    if (onProgress) onProgress(`Found ${symbols.length} stocks from ${screeners.length + 1} real-time sources...`);
 
     if (symbols.length === 0) return [];
 
-    if (isTomorrow) {
-        if (onProgress) onProgress(`Found ${symbols.length} candidates. Fetching market conditions to predict tomorrow...`);
-    } else {
-        if (onProgress) onProgress(`Found ${symbols.length} market movers. Fetching Fear & Greed, VIX, S&P 500...`);
-    }
+    if (onProgress) onProgress(`Fetching market conditions (Fear & Greed, VIX, S&P 500 trend)...`);
 
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
 
-    if (isTomorrow) {
-        if (onProgress) onProgress(`Predicting tomorrow's movers from ${symbols.length} stocks using today's data...`);
-    } else {
-        if (onProgress) onProgress(`Running technical analysis on ${symbols.length} stocks...`);
-    }
+    if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${symbols.length} stocks...`);
 
     const results = [];
     const batchSize = 6;
@@ -128,9 +126,9 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     return [...buy, ...neutral, ...sell].slice(0, maxPicks);
 }
 
-// Yahoo Finance Screener — fetches real-time market movers
+// Yahoo Finance Screener — fetches real-time market movers (no static lists)
 async function fetchYahooScreener(screener) {
-    const url = `https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${screener}&count=25`;
+    const url = `https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=US&scrIds=${screener}&count=50`;
     const res = await fetchWithProxy(url);
     const json = await res.json();
 
@@ -147,9 +145,9 @@ async function fetchYahooScreener(screener) {
         }));
 }
 
-// Yahoo Finance Trending — fallback if screener fails
+// Yahoo Finance Trending — real-time trending tickers
 async function fetchYahooTrending() {
-    const url = 'https://query2.finance.yahoo.com/v1/finance/trending/US?count=30';
+    const url = 'https://query2.finance.yahoo.com/v1/finance/trending/US?count=50';
     const res = await fetchWithProxy(url);
     const json = await res.json();
 
@@ -161,23 +159,23 @@ async function fetchYahooTrending() {
 
 export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
     const isTomorrow = timeframe === 'tomorrow';
-    if (isTomorrow) {
-        if (onProgress) onProgress('Fetching crypto market data to predict tomorrow\'s movers...');
-    } else {
-        if (onProgress) onProgress('Fetching top crypto by market cap + trending coins...');
-    }
 
-    const [marketCoins, trendingCoins] = await Promise.allSettled([
-        fetchCryptoMarket(),
+    if (onProgress) onProgress('Scanning all crypto sources — market cap, trending, gainers...');
+
+    // Pull from multiple pages and sources — no cap
+    const [marketPage1, marketPage2, trendingCoins] = await Promise.allSettled([
+        fetchCryptoMarket(1),
+        fetchCryptoMarket(2), // Page 2 for more coins beyond top 30
         fetchCryptoTrending(),
     ]);
 
-    // Combine market top + trending into one list
     const coinMap = new Map();
 
-    if (marketCoins.status === 'fulfilled' && marketCoins.value) {
-        marketCoins.value.forEach(coin => coinMap.set(coin.id, coin));
-    }
+    [marketPage1, marketPage2].forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+            result.value.forEach(coin => coinMap.set(coin.id, coin));
+        }
+    });
 
     if (trendingCoins.status === 'fulfilled' && trendingCoins.value) {
         trendingCoins.value.forEach(coin => {
@@ -185,27 +183,18 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
         });
     }
 
-    // Filter out stablecoins — they don't move, useless for predictions
+    // Filter out stablecoins
     const STABLECOINS = ['usdt', 'usdc', 'dai', 'busd', 'tusd', 'usdp', 'usdd', 'frax', 'lusd', 'gusd', 'usd1', 'usde', 'fdusd', 'pyusd', 'eusd'];
     const coins = [...coinMap.values()]
-        .filter(coin => !STABLECOINS.includes(coin.symbol.toLowerCase()) && !coin.name.toLowerCase().includes('usd'))
-        .slice(0, 35);
+        .filter(coin => !STABLECOINS.includes(coin.symbol.toLowerCase()) && !coin.name.toLowerCase().includes('usd'));
 
     if (coins.length === 0) return [];
 
-    if (isTomorrow) {
-        if (onProgress) onProgress(`Found ${coins.length} coins. Analyzing patterns to predict tomorrow...`);
-    } else {
-        if (onProgress) onProgress(`Found ${coins.length} coins. Fetching Crypto Fear & Greed Index...`);
-    }
+    if (onProgress) onProgress(`Found ${coins.length} coins. Fetching market conditions...`);
 
     const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
 
-    if (isTomorrow) {
-        if (onProgress) onProgress(`Predicting tomorrow's crypto movers from today's data...`);
-    } else {
-        if (onProgress) onProgress(`Running technical analysis on ${coins.length} cryptocurrencies...`);
-    }
+    if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${coins.length} cryptocurrencies...`);
 
     const results = [];
     let analyzed = 0;
@@ -271,9 +260,9 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
     return [...buy, ...neutral, ...sell].slice(0, maxPicks);
 }
 
-// CoinGecko Markets — top coins by market cap + gainers with sparkline data
-async function fetchCryptoMarket() {
-    const url = 'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=30&page=1&sparkline=true&price_change_percentage=24h';
+// CoinGecko Markets — dynamic, fetches whatever the market has
+async function fetchCryptoMarket(page = 1) {
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=${page}&sparkline=true&price_change_percentage=24h`;
     const res = await fetchWithProxy(url);
     const data = await res.json();
 
