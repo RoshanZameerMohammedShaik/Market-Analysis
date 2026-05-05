@@ -452,12 +452,20 @@ function renderSignal(prediction, newsData = [], sentiment = null) {
             ${priceTargetHTML}
             ${newsHTML}
             ${technicalHTML}
-            <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-muted);">
-                Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
-                Analysis: Technical (RSI, MACD, Bollinger, MA) + News Sentiment + Multi-Timeframe
+            <div class="signal-footer">
+                <div class="signal-meta">
+                    Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
+                    Analysis: Technical + News Sentiment + Multi-Timeframe
+                </div>
+                <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis with latest data">↻ Refresh Analysis</button>
             </div>
         </div>
     `;
+
+    // Attach refresh handler
+    document.getElementById('refresh-analysis')?.addEventListener('click', () => {
+        runAnalysis();
+    });
 }
 
 // ─── HUMAN-READABLE INSIGHTS ─────────────────────────────────────────────────
@@ -682,4 +690,13 @@ export function init() {
     loadHotPicks();
 
     document.getElementById('theme-toggle').addEventListener('click', cycleTheme);
+
+    // Hot picks refresh button
+    document.getElementById('refresh-hotpicks').addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        btn.classList.add('spinning');
+        loadHotPicks().finally(() => {
+            btn.classList.remove('spinning');
+        });
+    });
 }
