@@ -261,60 +261,18 @@ export async function searchCrypto(query) {
             thumb: c.thumb,
         }));
     } catch (e) {
-        // Fallback: try matching against known cryptos
-        const lower = query.toLowerCase();
-        const matches = HOT_CRYPTO.filter(c => c.includes(lower));
-        return matches.map(id => ({
-            symbol: id.toUpperCase(),
-            name: id.charAt(0).toUpperCase() + id.slice(1),
-            id: id,
-            thumb: '',
-        }));
+        // Fallback: return query as-is
+        return [{ symbol: query.toUpperCase(), name: query, id: query.toLowerCase(), thumb: '' }];
     }
 }
 
-// ─── HOT PICKS LISTS ─────────────────────────────────────────────────────────
-// Large pool for scanning — top stocks across sectors
-
-export const HOT_STOCKS = [
-    // Mega caps / Tech
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AVGO', 'ORCL', 'CRM',
-    // Semis / AI
-    'AMD', 'INTC', 'MU', 'QCOM', 'ARM', 'MRVL', 'SMCI', 'TSM',
-    // Growth / SaaS
-    'NFLX', 'PLTR', 'SNOW', 'SHOP', 'SQ', 'COIN', 'HOOD', 'SOFI', 'AFRM', 'RBLX',
-    // Finance
-    'JPM', 'GS', 'V', 'MA', 'BAC', 'WFC', 'AXP', 'BLK',
-    // Energy / EV
-    'XOM', 'CVX', 'RIVN', 'NIO', 'LCID', 'ENPH', 'FSLR',
-    // Consumer
-    'DIS', 'SBUX', 'NKE', 'MCD', 'WMT', 'COST', 'TGT', 'LULU',
-    // Healthcare / Biotech
-    'JNJ', 'UNH', 'LLY', 'MRNA', 'PFE', 'ABBV',
-    // Aerospace / Industrial
-    'BA', 'LMT', 'RTX', 'CAT', 'DE',
-    // Meme / High Vol
-    'GME', 'AMC', 'MARA', 'RIOT', 'SNAP', 'PYPL', 'BABA', 'UBER', 'ABNB',
-];
-
-export const HOT_CRYPTO = [
-    'bitcoin', 'ethereum', 'solana', 'cardano', 'dogecoin', 'ripple',
-    'polkadot', 'avalanche-2', 'chainlink', 'matic-network',
-    'litecoin', 'uniswap', 'stellar', 'cosmos', 'near', 'sui',
-    'pepe', 'shiba-inu', 'render-token', 'arbitrum', 'optimism',
-    'aptos', 'injective-protocol', 'celestia', 'sei-network',
-];
+// ─── CRYPTO NAME LOOKUP ──────────────────────────────────────────────────────
 
 export const CRYPTO_NAMES = {
     'bitcoin': 'Bitcoin', 'ethereum': 'Ethereum', 'solana': 'Solana',
     'cardano': 'Cardano', 'dogecoin': 'Dogecoin', 'ripple': 'XRP',
     'polkadot': 'Polkadot', 'avalanche-2': 'Avalanche', 'chainlink': 'Chainlink',
     'matic-network': 'Polygon', 'litecoin': 'Litecoin', 'uniswap': 'Uniswap',
-    'stellar': 'Stellar', 'cosmos': 'Cosmos', 'near': 'NEAR Protocol',
-    'sui': 'Sui', 'pepe': 'Pepe', 'shiba-inu': 'Shiba Inu',
-    'render-token': 'Render', 'arbitrum': 'Arbitrum', 'optimism': 'Optimism',
-    'aptos': 'Aptos', 'injective-protocol': 'Injective', 'celestia': 'Celestia',
-    'sei-network': 'Sei',
 };
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────

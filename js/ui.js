@@ -1,5 +1,5 @@
 // UI Rendering Module
-import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, HOT_STOCKS, HOT_CRYPTO } from './data.js';
+import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
 import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
@@ -500,10 +500,9 @@ export async function loadHotPicks() {
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
     if (title) title.textContent = `🔥 Hot Picks — Top ${modeLabel} for ${tfLabel}`;
 
-    const scanCount = state.mode === 'stock' ? HOT_STOCKS.length : HOT_CRYPTO.length;
     grid.innerHTML = `<div class="loading" style="grid-column: 1/-1;">
         <div class="loader"></div>
-        <span class="loading-text">Scanning ${scanCount} ${modeLabel.toLowerCase()} for signals...</span>
+        <span class="loading-text">Fetching live market movers and running predictions...</span>
     </div>`;
 
     try {
