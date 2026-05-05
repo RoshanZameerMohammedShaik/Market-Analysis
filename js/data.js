@@ -1,54 +1,95 @@
 // Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto)
+// With robust CORS proxy handling and JSON validation
 
 const CORS_PROXIES = [
     'https://corsproxy.io/?url=',
     'https://api.allorigins.win/raw?url=',
     'https://api.codetabs.com/v1/proxy?quest=',
+    'https://thingproxy.freeboard.io/fetch/',
 ];
 
-let currentProxy = 0;
 let workingProxy = null;
 
 export async function fetchWithProxy(url) {
+    // Try direct first (works for CoinGecko which has permissive CORS)
+    try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+            const text = await res.text();
+            if (isValidResponse(text)) return createTextResponse(text, res);
+        }
+    } catch (e) { /* fall through to proxies */ }
+
     // If we found a working proxy before, try it first
     if (workingProxy !== null) {
         try {
-            const res = await fetch(CORS_PROXIES[workingProxy] + encodeURIComponent(url));
-            if (res.ok) return res;
+            const res = await tryProxy(CORS_PROXIES[workingProxy], url);
+            if (res) return res;
         } catch (e) { workingProxy = null; }
     }
 
-    // Try direct first (works for CoinGecko which has permissive CORS)
-    try {
-        const res = await fetch(url);
-        if (res.ok) return res;
-    } catch (e) { /* fall through to proxies */ }
-
     // Try all proxies
     for (let i = 0; i < CORS_PROXIES.length; i++) {
-        const idx = (currentProxy + i) % CORS_PROXIES.length;
-        const proxy = CORS_PROXIES[idx];
+        if (i === workingProxy) continue; // Already tried
         try {
-            const res = await fetch(proxy + encodeURIComponent(url));
-            if (res.ok) {
-                workingProxy = idx;
-                currentProxy = idx;
+            const res = await tryProxy(CORS_PROXIES[i], url);
+            if (res) {
+                workingProxy = i;
                 return res;
             }
         } catch (e) { continue; }
     }
-    throw new Error(`Failed to fetch data. Try refreshing the page.`);
+    throw new Error(`Unable to reach data source. Please try again.`);
+}
+
+async function tryProxy(proxy, url) {
+    const res = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!isValidResponse(text)) return null;
+    return createTextResponse(text, res);
+}
+
+function isValidResponse(text) {
+    // Must start with valid JSON characters or XML (for RSS)
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<?xml') || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) {
+        return true;
+    }
+    // Reject HTML error pages, "Edge: Too" errors, etc.
+    return false;
+}
+
+function createTextResponse(text, originalRes) {
+    return {
+        ok: true,
+        status: originalRes.status,
+        json: () => Promise.resolve(JSON.parse(text)),
+        text: () => Promise.resolve(text),
+    };
 }
 
 // ─── STOCK DATA (Yahoo Finance) ───────────────────────────────────────────────
 
 export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`;
-    const res = await fetchWithProxy(url);
-    const json = await res.json();
+    // Try v8 chart endpoint first
+    const urls = [
+        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
+        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
+    ];
 
-    if (!json.chart || !json.chart.result || json.chart.result.length === 0) {
-        throw new Error(`No data found for symbol: ${symbol}`);
+    let json = null;
+    for (const url of urls) {
+        try {
+            const res = await fetchWithProxy(url);
+            json = await res.json();
+            if (json.chart && json.chart.result && json.chart.result.length > 0) break;
+            json = null;
+        } catch (e) { continue; }
+    }
+
+    if (!json || !json.chart || !json.chart.result || json.chart.result.length === 0) {
+        throw new Error(`No data found for: ${symbol}`);
     }
 
     const result = json.chart.result[0];
@@ -82,16 +123,29 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
 }
 
 export async function fetchStockMultiTimeframe(symbol) {
-    const [daily, weekly, fourHour] = await Promise.all([
+    // Fetch all timeframes, but don't fail if one timeframe fails
+    const [dailyRes, weeklyRes, fourHourRes] = await Promise.allSettled([
         fetchStockData(symbol, '3mo', '1d'),
         fetchStockData(symbol, '1y', '1wk'),
         fetchStockData(symbol, '1mo', '1h'),
     ]);
 
-    // Aggregate 1h candles into 4h
-    const fourHourCandles = aggregateCandles(fourHour.candles, 4);
+    const daily = dailyRes.status === 'fulfilled' ? dailyRes.value : null;
+    const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
+    const fourHourRaw = fourHourRes.status === 'fulfilled' ? fourHourRes.value : null;
 
-    return { daily, weekly, fourHour: { ...fourHour, candles: fourHourCandles } };
+    if (!daily) throw new Error(`Could not fetch data for ${symbol}`);
+
+    // Aggregate 1h candles into 4h
+    const fourHour = fourHourRaw
+        ? { ...fourHourRaw, candles: aggregateCandles(fourHourRaw.candles, 4) }
+        : daily; // Fallback to daily if 4h fails
+
+    return {
+        daily,
+        weekly: weekly || daily, // Fallback to daily if weekly fails
+        fourHour,
+    };
 }
 
 // ─── CRYPTO DATA (CoinGecko) ─────────────────────────────────────────────────
@@ -113,38 +167,47 @@ export async function fetchCryptoData(coinId, days = 90) {
     }));
 
     // Get current price
-    const priceRes = await fetchWithProxy(
-        `${COINGECKO_BASE}/simple/price?ids=${coinId}&vs_currency=usd&include_24hr_vol=true&include_24hr_change=true`
-    );
-    const priceData = await priceRes.json();
-    const coinPrice = priceData[coinId] || {};
+    let currentPrice = candles[candles.length - 1]?.close;
+    let change24h = 0;
+    try {
+        const priceRes = await fetchWithProxy(
+            `${COINGECKO_BASE}/simple/price?ids=${coinId}&vs_currency=usd&include_24hr_vol=true&include_24hr_change=true`
+        );
+        const priceData = await priceRes.json();
+        const coinPrice = priceData[coinId] || {};
+        if (coinPrice.usd) currentPrice = coinPrice.usd;
+        if (coinPrice.usd_24h_change) change24h = coinPrice.usd_24h_change;
+    } catch (e) { /* use candle price as fallback */ }
 
     return {
         symbol: coinId.toUpperCase(),
         name: coinId.charAt(0).toUpperCase() + coinId.slice(1),
         currency: 'USD',
         exchange: 'Crypto',
-        currentPrice: coinPrice.usd || candles[candles.length - 1]?.close,
+        currentPrice,
         previousClose: candles.length > 1 ? candles[candles.length - 2]?.close : null,
-        volume24h: coinPrice.usd_24h_vol,
-        change24h: coinPrice.usd_24h_change,
+        change24h,
         candles,
     };
 }
 
 export async function fetchCryptoMultiTimeframe(coinId) {
-    const [daily, weekly] = await Promise.all([
+    const [dailyRes, weeklyRes] = await Promise.allSettled([
         fetchCryptoData(coinId, 90),
         fetchCryptoData(coinId, 365),
     ]);
 
-    // For crypto, aggregate daily into weekly
+    const daily = dailyRes.status === 'fulfilled' ? dailyRes.value : null;
+    const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
+
+    if (!daily) throw new Error(`Could not fetch data for ${coinId}`);
+
     const weeklyCandles = aggregateCandles(daily.candles, 7);
 
     return {
         daily,
-        weekly: { ...weekly, candles: weeklyCandles },
-        fourHour: daily, // CoinGecko free doesn't give 4h, use daily as proxy
+        weekly: weekly || { ...daily, candles: weeklyCandles },
+        fourHour: daily,
     };
 }
 
@@ -153,39 +216,32 @@ export async function fetchCryptoMultiTimeframe(coinId) {
 export async function searchStocks(query) {
     if (!query || query.length < 1) return [];
 
-    // Try Yahoo Finance search
-    try {
-        const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0&enableFuzzyQuery=true&quotesQueryId=tss_match_phrase_query`;
-        const res = await fetchWithProxy(url);
-        const json = await res.json();
-        if (json.quotes && json.quotes.length > 0) {
-            return json.quotes
-                .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'INDEX')
-                .map(q => ({
-                    symbol: q.symbol,
-                    name: q.shortname || q.longname || q.symbol,
-                    exchange: q.exchange,
-                    type: q.quoteType,
-                }));
-        }
-    } catch (e) { /* fall through to fallback */ }
+    // Try Yahoo Finance search endpoints
+    const searchUrls = [
+        `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0&enableFuzzyQuery=true`,
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0`,
+    ];
 
-    // Fallback: try autocomplete endpoint
-    try {
-        const url = `https://query2.finance.yahoo.com/v6/finance/autocomplete?query=${encodeURIComponent(query)}&lang=en`;
-        const res = await fetchWithProxy(url);
-        const json = await res.json();
-        return (json.ResultSet?.Result || []).map(r => ({
-            symbol: r.symbol,
-            name: r.name,
-            exchange: r.exchDisp || r.exch,
-            type: r.typeDisp || 'EQUITY',
-        }));
-    } catch (e) {
-        // Final fallback: construct symbol directly for common patterns
-        const upper = query.toUpperCase();
-        return [{ symbol: upper, name: upper, exchange: 'Search', type: 'EQUITY' }];
+    for (const url of searchUrls) {
+        try {
+            const res = await fetchWithProxy(url);
+            const json = await res.json();
+            if (json.quotes && json.quotes.length > 0) {
+                return json.quotes
+                    .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'INDEX' || q.quoteType === 'CRYPTOCURRENCY')
+                    .map(q => ({
+                        symbol: q.symbol,
+                        name: q.shortname || q.longname || q.symbol,
+                        exchange: q.exchange,
+                        type: q.quoteType,
+                    }));
+            }
+        } catch (e) { continue; }
     }
+
+    // Final fallback: return the symbol as-is so user can still try to analyze it
+    const upper = query.toUpperCase();
+    return [{ symbol: upper, name: upper, exchange: '', type: 'EQUITY' }];
 }
 
 export async function searchCrypto(query) {
@@ -214,17 +270,35 @@ export async function searchCrypto(query) {
 }
 
 // ─── HOT PICKS LISTS ─────────────────────────────────────────────────────────
+// Large pool for scanning — top stocks across sectors
 
 export const HOT_STOCKS = [
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD',
-    'NFLX', 'JPM', 'V', 'DIS', 'BA', 'PYPL', 'SQ', 'COIN', 'PLTR',
-    'SOFI', 'NIO', 'RIVN', 'MARA', 'RIOT', 'GME', 'AMC', 'SNAP',
+    // Mega caps / Tech
+    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AVGO', 'ORCL', 'CRM',
+    // Semis / AI
+    'AMD', 'INTC', 'MU', 'QCOM', 'ARM', 'MRVL', 'SMCI', 'TSM',
+    // Growth / SaaS
+    'NFLX', 'PLTR', 'SNOW', 'SHOP', 'SQ', 'COIN', 'HOOD', 'SOFI', 'AFRM', 'RBLX',
+    // Finance
+    'JPM', 'GS', 'V', 'MA', 'BAC', 'WFC', 'AXP', 'BLK',
+    // Energy / EV
+    'XOM', 'CVX', 'RIVN', 'NIO', 'LCID', 'ENPH', 'FSLR',
+    // Consumer
+    'DIS', 'SBUX', 'NKE', 'MCD', 'WMT', 'COST', 'TGT', 'LULU',
+    // Healthcare / Biotech
+    'JNJ', 'UNH', 'LLY', 'MRNA', 'PFE', 'ABBV',
+    // Aerospace / Industrial
+    'BA', 'LMT', 'RTX', 'CAT', 'DE',
+    // Meme / High Vol
+    'GME', 'AMC', 'MARA', 'RIOT', 'SNAP', 'PYPL', 'BABA', 'UBER', 'ABNB',
 ];
 
 export const HOT_CRYPTO = [
     'bitcoin', 'ethereum', 'solana', 'cardano', 'dogecoin', 'ripple',
     'polkadot', 'avalanche-2', 'chainlink', 'polygon-ecosystem-token',
-    'litecoin', 'uniswap', 'stellar', 'cosmos', 'near',
+    'litecoin', 'uniswap', 'stellar', 'cosmos', 'near', 'sui',
+    'pepe', 'shiba-inu', 'render-token', 'arbitrum', 'optimism',
+    'aptos', 'injective-protocol', 'celestia', 'sei-network',
 ];
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────

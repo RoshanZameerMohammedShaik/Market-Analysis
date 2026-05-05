@@ -1,5 +1,5 @@
 // UI Rendering Module
-import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from './data.js';
+import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, HOT_STOCKS, HOT_CRYPTO } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
 import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
@@ -492,9 +492,15 @@ function getTimeAgo(date) {
 
 export async function loadHotPicks() {
     const grid = document.getElementById('hotpicks-grid');
+    const title = document.getElementById('hotpicks-title');
+    const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
+    const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
+    if (title) title.textContent = `🔥 Hot Picks — Top ${modeLabel} for ${tfLabel}`;
+
+    const scanCount = state.mode === 'stock' ? HOT_STOCKS.length : HOT_CRYPTO.length;
     grid.innerHTML = `<div class="loading" style="grid-column: 1/-1;">
         <div class="loader"></div>
-        <span class="loading-text">Scanning for hot picks...</span>
+        <span class="loading-text">Scanning ${scanCount} ${modeLabel.toLowerCase()} for signals...</span>
     </div>`;
 
     try {
@@ -513,16 +519,22 @@ export async function loadHotPicks() {
             return;
         }
 
-        grid.innerHTML = picks.map(pick => `
-            <div class="hot-pick-card fade-in" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
+        grid.innerHTML = picks.map(pick => {
+            const isBuy = pick.signal === 'BUY';
+            const arrow = isBuy ? '▲' : '◆';
+            const signalClass = isBuy ? 'buy' : 'neutral';
+            const signalLabel = isBuy ? 'BUY' : 'HOLD';
+            return `
+            <div class="hot-pick-card ${signalClass} fade-in" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
                 <div class="hot-pick-symbol">${pick.symbol}</div>
                 <div class="hot-pick-name">${pick.name}</div>
-                <div class="hot-pick-confidence">
-                    <span class="hot-pick-arrow">▲</span> ${pick.confidence}%
+                <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
+                <div class="hot-pick-confidence ${signalClass}">
+                    <span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%
                 </div>
-                <div class="hot-pick-price">$${pick.price ? pick.price.toFixed(2) : '—'}</div>
-            </div>
-        `).join('');
+                <div class="hot-pick-price">$${pick.price ? pick.price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'}</div>
+            </div>`;
+        }).join('');
 
         // Click to analyze
         grid.querySelectorAll('.hot-pick-card').forEach(card => {

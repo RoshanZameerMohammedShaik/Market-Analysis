@@ -693,55 +693,93 @@ body {
 
 .hotpicks-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 10px;
 }
 
 .hot-pick-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px 12px;
     cursor: pointer;
     transition: all var(--transition);
     text-align: center;
+    position: relative;
+}
+
+.hot-pick-card.buy {
+    border-color: rgba(63, 185, 80, 0.3);
+}
+
+.hot-pick-card.neutral {
+    border-color: var(--border);
+    opacity: 0.85;
 }
 
 .hot-pick-card:hover {
     border-color: var(--accent);
     transform: translateY(-2px);
     box-shadow: var(--shadow);
+    opacity: 1;
 }
 
 .hot-pick-symbol {
     font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 .hot-pick-name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.hot-pick-confidence {
-    font-size: 1.4rem;
-    font-weight: 800;
+.hot-pick-signal-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hot-pick-signal-badge.buy {
+    background: var(--green-bg);
     color: var(--green);
 }
 
-.hot-pick-arrow {
+.hot-pick-signal-badge.neutral {
+    background: var(--bg-hover);
+    color: var(--yellow);
+}
+
+.hot-pick-confidence {
+    font-size: 1.3rem;
+    font-weight: 800;
+}
+
+.hot-pick-confidence.buy {
     color: var(--green);
+}
+
+.hot-pick-confidence.neutral {
+    color: var(--yellow);
+}
+
+.hot-pick-arrow {
     font-weight: bold;
 }
 
 .hot-pick-price {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     margin-top: 4px;
 }
