@@ -377,6 +377,11 @@ body {
     align-items: center;
     gap: 16px;
     margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.signal-header .refresh-btn {
+    margin-left: auto;
 }
 
 .signal-arrow {
@@ -737,17 +742,6 @@ body {
 .refresh-btn.small {
     padding: 5px 12px;
     font-size: 0.75rem;
-}
-
-.signal-footer {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
 }
 
 .signal-meta {

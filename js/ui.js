@@ -444,6 +444,7 @@ function renderSignal(prediction, newsData = [], sentiment = null) {
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
                 <span class="signal-label ${signalClass}">${signal}</span>
                 <span class="signal-confidence">Confidence: ${confidence}%</span>
+                <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis with latest data">↻ Refresh Analysis</button>
             </div>
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
@@ -452,12 +453,9 @@ function renderSignal(prediction, newsData = [], sentiment = null) {
             ${priceTargetHTML}
             ${newsHTML}
             ${technicalHTML}
-            <div class="signal-footer">
-                <div class="signal-meta">
-                    Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
-                    Analysis: Technical + News Sentiment + Multi-Timeframe
-                </div>
-                <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis with latest data">↻ Refresh Analysis</button>
+            <div class="signal-meta" style="margin-top: 12px;">
+                Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
+                Analysis: Technical + News Sentiment + Multi-Timeframe
             </div>
         </div>
     `;
