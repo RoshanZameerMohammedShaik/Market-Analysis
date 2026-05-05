@@ -511,6 +511,146 @@ body {
     }
 }
 
+/* ─── INSIGHT SUMMARY ──────────────────────────────────────────────────────── */
+
+.insight-summary {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+
+.highlight-green { color: var(--green); font-weight: 600; }
+.highlight-red { color: var(--red); font-weight: 600; }
+.highlight-yellow { color: var(--yellow); font-weight: 600; }
+
+/* ─── NEWS SECTION ─────────────────────────────────────────────────────────── */
+
+.news-section {
+    margin: 16px 0;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.news-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.news-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.news-sentiment-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.news-sentiment-badge.positive { background: var(--green-bg); color: var(--green); }
+.news-sentiment-badge.negative { background: var(--red-bg); color: var(--red); }
+.news-sentiment-badge.neutral { background: var(--bg-hover); color: var(--text-muted); }
+
+.news-summary {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.news-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.news-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.news-item:last-child { border-bottom: none; }
+
+.news-item-sentiment {
+    font-size: 0.7rem;
+    margin-top: 3px;
+}
+
+.news-item-content {
+    flex: 1;
+}
+
+.news-item-title {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.news-item-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+/* ─── TECHNICAL DETAILS (Collapsible) ──────────────────────────────────────── */
+
+.technical-details {
+    margin-top: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.technical-details summary {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    background: var(--bg-secondary);
+    transition: all var(--transition);
+}
+
+.technical-details summary:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.technical-details[open] summary {
+    border-bottom: 1px solid var(--border);
+}
+
+.technical-details .signal-reasons {
+    padding: 12px 16px;
+}
+
+.badge-tf {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.badge-tf.daily { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+.badge-tf.weekly { background: rgba(163, 113, 247, 0.15); color: #a371f7; }
+.badge-tf.fourh { background: rgba(219, 171, 9, 0.15); color: var(--yellow); }
+
 .signal-reasons {
     list-style: none;
     padding: 0;

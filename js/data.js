@@ -9,7 +9,7 @@ const CORS_PROXIES = [
 let currentProxy = 0;
 let workingProxy = null;
 
-async function fetchWithProxy(url) {
+export async function fetchWithProxy(url) {
     // If we found a working proxy before, try it first
     if (workingProxy !== null) {
         try {

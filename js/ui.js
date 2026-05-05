@@ -2,6 +2,7 @@
 import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
+import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
 
@@ -226,22 +227,58 @@ async function runAnalysis() {
     </div>`;
 
     try {
-        let prediction;
+        let prediction, newsData, sentiment;
 
         if (state.mode === 'stock') {
-            const multiData = await fetchStockMultiTimeframe(state.currentSymbol);
+            const [multiData, news] = await Promise.all([
+                fetchStockMultiTimeframe(state.currentSymbol),
+                fetchStockNews(state.currentSymbol).catch(() => []),
+            ]);
             prediction = generateMultiTimeframePrediction(multiData, state.timeframe);
+            newsData = news;
+            sentiment = aggregateNewsSentiment(news);
             updateChartHeader(multiData.daily);
         } else {
-            const multiData = await fetchCryptoMultiTimeframe(state.currentCoinId);
+            const [multiData, news] = await Promise.all([
+                fetchCryptoMultiTimeframe(state.currentCoinId),
+                fetchCryptoNews(state.currentCoinId).catch(() => []),
+            ]);
             prediction = generateMultiTimeframePrediction(multiData, state.timeframe);
+            newsData = news;
+            sentiment = aggregateNewsSentiment(news);
             updateChartHeader(multiData.daily);
         }
 
-        renderSignal(prediction);
+        // Adjust prediction confidence based on news sentiment
+        prediction = adjustWithSentiment(prediction, sentiment);
+
+        renderSignal(prediction, newsData, sentiment);
     } catch (e) {
         signalSection.innerHTML = `<div class="error-message fade-in">Analysis failed: ${e.message}. Try another symbol.</div>`;
     }
+}
+
+function adjustWithSentiment(prediction, sentiment) {
+    if (!sentiment || sentiment.overall === 'neutral') return prediction;
+
+    let adjustment = 0;
+    const sentimentAligns = (
+        (prediction.signal === 'BUY' && sentiment.overall === 'positive') ||
+        (prediction.signal === 'SELL' && sentiment.overall === 'negative')
+    );
+    const sentimentConflicts = (
+        (prediction.signal === 'BUY' && sentiment.overall === 'negative') ||
+        (prediction.signal === 'SELL' && sentiment.overall === 'positive')
+    );
+
+    if (sentimentAligns) {
+        adjustment = Math.round(Math.abs(sentiment.score) * 5); // +1 to +5
+    } else if (sentimentConflicts) {
+        adjustment = -Math.round(Math.abs(sentiment.score) * 5); // -1 to -5
+    }
+
+    const newConfidence = Math.max(35, Math.min(88, prediction.confidence + adjustment));
+    return { ...prediction, confidence: newConfidence, sentimentAdjustment: adjustment };
 }
 
 function updateChartHeader(data) {
@@ -260,7 +297,7 @@ function updateChartHeader(data) {
     }
 }
 
-function renderSignal(prediction) {
+function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
     const { signal, confidence, reasons, priceTargets } = prediction;
 
@@ -300,6 +337,47 @@ function renderSignal(prediction) {
         `;
     }
 
+    // Human-readable insight summary
+    const insightSummary = generateHumanInsight(prediction, sentiment);
+
+    // News sentiment section
+    let newsHTML = '';
+    if (newsData.length > 0) {
+        const sentimentIcon = sentiment.overall === 'positive' ? '🟢' : sentiment.overall === 'negative' ? '🔴' : '🟡';
+        newsHTML = `
+            <div class="news-section">
+                <div class="news-header">
+                    <span class="news-title">📰 Market News & Sentiment</span>
+                    <span class="news-sentiment-badge ${sentiment.overall}">${sentimentIcon} ${sentiment.overall.toUpperCase()}</span>
+                </div>
+                <div class="news-summary">${sentiment.summary}</div>
+                <div class="news-list">
+                    ${newsData.slice(0, 5).map(item => {
+                        const sentIcon = item.sentiment.label === 'positive' ? '🟢' : item.sentiment.label === 'negative' ? '🔴' : '⚪';
+                        const timeAgo = getTimeAgo(item.date);
+                        return `<div class="news-item">
+                            <span class="news-item-sentiment">${sentIcon}</span>
+                            <div class="news-item-content">
+                                <div class="news-item-title">${item.title}</div>
+                                <div class="news-item-meta">${item.source} • ${timeAgo}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    // Technical details (collapsible)
+    const technicalHTML = `
+        <details class="technical-details">
+            <summary>Technical Indicators Detail</summary>
+            <ul class="signal-reasons">
+                ${reasons.map(r => `<li>${humanizeReason(r)}</li>`).join('')}
+            </ul>
+        </details>
+    `;
+
     section.innerHTML = `
         <div class="signal-box ${signalClass} fade-in">
             <div class="signal-header">
@@ -310,16 +388,104 @@ function renderSignal(prediction) {
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
+            <div class="insight-summary">${insightSummary}</div>
             ${priceTargetHTML}
-            <ul class="signal-reasons">
-                ${reasons.map(r => `<li>${r}</li>`).join('')}
-            </ul>
+            ${newsHTML}
+            ${technicalHTML}
             <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-muted);">
                 Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} |
-                Multi-timeframe confluence analysis (Daily + Weekly + 4H)
+                Analysis: Technical (RSI, MACD, Bollinger, MA) + News Sentiment + Multi-Timeframe
             </div>
         </div>
     `;
+}
+
+// ─── HUMAN-READABLE INSIGHTS ─────────────────────────────────────────────────
+
+function generateHumanInsight(prediction, sentiment) {
+    const { signal, confidence, priceTargets } = prediction;
+    const tfWord = state.timeframe === 'today' ? 'today' : 'tomorrow';
+    let insight = '';
+
+    if (signal === 'BUY') {
+        if (confidence >= 70) {
+            insight = `<strong>Strong bullish signal.</strong> Multiple technical indicators align upward. `;
+        } else if (confidence >= 55) {
+            insight = `<strong>Moderate buy signal.</strong> More indicators point up than down. `;
+        } else {
+            insight = `<strong>Weak buy signal.</strong> Slight bullish edge but low conviction. `;
+        }
+
+        if (priceTargets) {
+            insight += `Price could reach <span class="highlight-green">$${priceTargets.predictedHigh}</span> ${tfWord} (+${priceTargets.highPercent}%). `;
+            insight += `Downside risk to $${priceTargets.predictedLow} (${priceTargets.lowPercent}%).`;
+        }
+    } else if (signal === 'SELL') {
+        if (confidence >= 70) {
+            insight = `<strong>Strong bearish signal.</strong> Multiple indicators point to decline. `;
+        } else if (confidence >= 55) {
+            insight = `<strong>Moderate sell signal.</strong> Bearish pressure building. `;
+        } else {
+            insight = `<strong>Weak sell signal.</strong> Slight bearish edge but uncertain. `;
+        }
+
+        if (priceTargets) {
+            insight += `Price may drop to <span class="highlight-red">$${priceTargets.predictedLow}</span> ${tfWord} (${priceTargets.lowPercent}%). `;
+            insight += `Upside capped around $${priceTargets.predictedHigh} (+${priceTargets.highPercent}%).`;
+        }
+    } else {
+        insight = `<strong>No clear direction.</strong> Indicators are conflicting — the market is undecided. `;
+        insight += `Consider waiting for a clearer setup before entering a position.`;
+    }
+
+    // Add sentiment context
+    if (sentiment && sentiment.overall !== 'neutral') {
+        if (sentiment.overall === 'positive' && signal === 'BUY') {
+            insight += ` <span class="highlight-green">News sentiment confirms bullish bias.</span>`;
+        } else if (sentiment.overall === 'negative' && signal === 'SELL') {
+            insight += ` <span class="highlight-red">Negative news reinforces bearish outlook.</span>`;
+        } else if (sentiment.overall === 'negative' && signal === 'BUY') {
+            insight += ` <span class="highlight-yellow">Caution: news sentiment is negative despite bullish technicals.</span>`;
+        } else if (sentiment.overall === 'positive' && signal === 'SELL') {
+            insight += ` <span class="highlight-yellow">Note: positive news may limit downside despite bearish technicals.</span>`;
+        }
+    }
+
+    return insight;
+}
+
+function humanizeReason(reason) {
+    // Convert technical jargon to human-readable
+    return reason
+        .replace(/\[Daily\]\s*/g, '<span class="badge-tf daily">Daily</span> ')
+        .replace(/\[Weekly\]\s*/g, '<span class="badge-tf weekly">Weekly</span> ')
+        .replace(/\[4H\]\s*/g, '<span class="badge-tf fourh">4H</span> ')
+        .replace(/RSI oversold at ([\d.]+)/g, 'Oversold (RSI: $1) — price is cheap, bounce expected')
+        .replace(/RSI overbought at ([\d.]+)/g, 'Overbought (RSI: $1) — price stretched too high')
+        .replace(/MACD bullish crossover/g, 'Momentum just flipped bullish (MACD cross)')
+        .replace(/MACD bearish crossunder/g, 'Momentum just flipped bearish (MACD cross)')
+        .replace(/MACD positive momentum/g, 'Momentum is building upward')
+        .replace(/MACD negative momentum/g, 'Momentum is fading / turning down')
+        .replace(/Golden cross — 9 MA crossed above 21 MA/g, 'Short-term trend crossed above longer trend (bullish)')
+        .replace(/Death cross — 9 MA crossed below 21 MA/g, 'Short-term trend crossed below longer trend (bearish)')
+        .replace(/Short MA above long MA — bullish trend/g, 'Trending upward on daily timeframe')
+        .replace(/Short MA below long MA — bearish trend/g, 'Trending downward on daily timeframe')
+        .replace(/Price below lower Bollinger Band/g, 'Price is unusually low vs. its range')
+        .replace(/Price above upper Bollinger Band/g, 'Price is unusually high vs. its range')
+        .replace(/Volume spike \(([\d.]+)x avg\) confirms upward move/g, 'High volume ($1x normal) backing the move up')
+        .replace(/Volume spike \(([\d.]+)x avg\) confirms selling pressure/g, 'Heavy selling volume ($1x normal)')
+        .replace(/Strong upward momentum \(([^)]+)\)/g, 'Strong upward push ($1)')
+        .replace(/Strong downward momentum \(([^)]+)\)/g, 'Strong downward push ($1)')
+        .replace(/All timeframes align (BUY|SELL) — high confluence/g, 'All timeframes agree: $1 — strong setup')
+        .replace(/Timeframe conflict detected — reduced confidence/g, 'Short-term vs long-term disagree — proceed with caution');
+}
+
+function getTimeAgo(date) {
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 // ─── HOT PICKS ───────────────────────────────────────────────────────────────
