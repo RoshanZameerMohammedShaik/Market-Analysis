@@ -1,8 +1,6 @@
 // UI Rendering Module
-import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from './data.js';
-import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
+import { searchStocks, searchCrypto, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from './data.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
-import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
 import { computeFullConfidence } from './confidence.js';
 import { loadModel } from './ai-model.js';
 
