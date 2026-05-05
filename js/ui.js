@@ -12,6 +12,7 @@ const state = {
     theme: localStorage.getItem('ma-theme') || 'dark',
     currentSymbol: null,
     currentCoinId: null,
+    currentPrice: null, // For P&L calculator auto-fill
     cryptoCache: {},    // Cache sparkline/market data from hot picks scan
 };
 
@@ -311,14 +312,17 @@ function updateChartHeader(data) {
     const priceEl = document.getElementById('chart-price');
 
     if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
-    if (priceEl && data.currentPrice) {
-        const change = data.previousClose
-            ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
-            : 0;
-        const changeClass = change >= 0 ? 'up' : 'down';
-        const arrow = change >= 0 ? '▲' : '▼';
-        priceEl.innerHTML = `$${data.currentPrice.toFixed(2)}
-            <span class="chart-change ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}%</span>`;
+    if (data.currentPrice) {
+        state.currentPrice = data.currentPrice; // Store for P&L calculator auto-fill
+        if (priceEl) {
+            const change = data.previousClose
+                ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
+                : 0;
+            const changeClass = change >= 0 ? 'up' : 'down';
+            const arrow = change >= 0 ? '▲' : '▼';
+            priceEl.innerHTML = `$${data.currentPrice.toFixed(2)}
+                <span class="chart-change ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}%</span>`;
+        }
     }
 }
 
@@ -817,6 +821,7 @@ export function init() {
     initSearch();
     updatePlaceholder();
     loadHotPicks();
+    initPLCalculator();
 
     // Preload AI model in background
     loadModel().then(loaded => {
@@ -833,4 +838,80 @@ export function init() {
             btn.classList.remove('spinning');
         });
     });
+}
+
+// ─── P&L CALCULATOR ─────────────────────────────────────────────────────────
+
+function initPLCalculator() {
+    const fab = document.getElementById('pl-fab');
+    const panel = document.getElementById('pl-panel');
+    const overlay = document.getElementById('pl-overlay');
+    const closeBtn = document.getElementById('pl-close');
+    const calcBtn = document.getElementById('pl-calcBtn');
+
+    // Open panel
+    fab.addEventListener('click', () => {
+        panel.classList.add('open');
+        overlay.classList.add('open');
+        // Auto-fill current price from active analysis
+        if (state.currentPrice) {
+            document.getElementById('pl-currentPrice').value = state.currentPrice;
+        }
+    });
+
+    // Close panel
+    const closePanel = () => {
+        panel.classList.remove('open');
+        overlay.classList.remove('open');
+    };
+    closeBtn.addEventListener('click', closePanel);
+    overlay.addEventListener('click', closePanel);
+
+    // Calculate
+    calcBtn.addEventListener('click', calculatePL);
+    document.getElementById('pl-panel').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') calculatePL();
+    });
+}
+
+function calculatePL() {
+    const errEl = document.getElementById('pl-error');
+    const resEl = document.getElementById('pl-result');
+    errEl.classList.remove('show');
+    resEl.classList.remove('show', 'profit', 'loss', 'neutral');
+
+    const investment = parseFloat(document.getElementById('pl-investment').value);
+    const buyPrice = parseFloat(document.getElementById('pl-buyPrice').value);
+    const currentPrice = parseFloat(document.getElementById('pl-currentPrice').value);
+
+    if ([investment, buyPrice, currentPrice].some(v => isNaN(v) || v < 0)) {
+        errEl.textContent = 'Please enter valid positive numbers for all fields.';
+        errEl.classList.add('show');
+        return;
+    }
+    if (buyPrice === 0) {
+        errEl.textContent = 'Purchase price cannot be zero.';
+        errEl.classList.add('show');
+        return;
+    }
+
+    const fmt = n => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const shares = investment / buyPrice;
+    const currentValue = shares * currentPrice;
+    const plDollar = currentValue - investment;
+    const plPct = ((currentPrice - buyPrice) / buyPrice) * 100;
+
+    const isProfit = plDollar > 0;
+    const isLoss = plDollar < 0;
+    const type = isProfit ? 'profit' : isLoss ? 'loss' : 'neutral';
+
+    document.getElementById('pl-resIcon').textContent = isProfit ? '📈' : isLoss ? '📉' : '➖';
+    document.getElementById('pl-resLabel').textContent = isProfit ? 'Total Profit' : isLoss ? 'Total Loss' : 'Break Even';
+    document.getElementById('pl-resAmount').textContent = (plDollar >= 0 ? '+$' : '-$') + fmt(Math.abs(plDollar));
+    document.getElementById('pl-resPct').textContent = (plPct >= 0 ? '+' : '') + fmt(plPct) + '%';
+    document.getElementById('pl-resShares').textContent = fmt(shares);
+    document.getElementById('pl-resValue').textContent = '$' + fmt(currentValue);
+
+    resEl.classList.add(type);
+    requestAnimationFrame(() => resEl.classList.add('show'));
 }

@@ -74,6 +74,57 @@
         </section>
     </main>
 
+    <!-- P&L Calculator Panel -->
+    <button class="pl-fab" id="pl-fab" title="P&L Calculator">💰</button>
+    <div class="pl-overlay" id="pl-overlay"></div>
+    <div class="pl-panel" id="pl-panel">
+        <div class="pl-panel-header">
+            <h3>P&L Calculator</h3>
+            <button class="pl-close" id="pl-close">✕</button>
+        </div>
+        <div class="pl-body">
+            <div class="pl-field">
+                <label>Investment Amount</label>
+                <div class="pl-input-wrap">
+                    <span class="pl-prefix">$</span>
+                    <input type="number" id="pl-investment" placeholder="0.00">
+                </div>
+            </div>
+            <div class="pl-field">
+                <label>Purchase Price per Share</label>
+                <div class="pl-input-wrap">
+                    <span class="pl-prefix">$</span>
+                    <input type="number" id="pl-buyPrice" placeholder="0.00">
+                </div>
+            </div>
+            <div class="pl-field">
+                <label>Current / Target Price per Share</label>
+                <div class="pl-input-wrap">
+                    <span class="pl-prefix">$</span>
+                    <input type="number" id="pl-currentPrice" placeholder="Auto-filled from analysis">
+                </div>
+            </div>
+            <button class="pl-btn" id="pl-calcBtn">Calculate P&L</button>
+            <div class="pl-error" id="pl-error"></div>
+            <div class="pl-result" id="pl-result">
+                <div class="pl-result-icon" id="pl-resIcon"></div>
+                <div class="pl-result-label" id="pl-resLabel"></div>
+                <div class="pl-result-amount" id="pl-resAmount"></div>
+                <div class="pl-result-pct" id="pl-resPct"></div>
+                <div class="pl-result-details">
+                    <div class="pl-detail">
+                        <span class="pl-dl">Shares</span>
+                        <span class="pl-dv" id="pl-resShares">—</span>
+                    </div>
+                    <div class="pl-detail">
+                        <span class="pl-dl">Current Value</span>
+                        <span class="pl-dv" id="pl-resValue">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- App Script -->
     <script type="module" src="js/app.js"></script>
 </body>
