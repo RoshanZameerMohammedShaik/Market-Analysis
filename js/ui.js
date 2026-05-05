@@ -571,16 +571,21 @@ export async function loadHotPicks() {
 
     grid.innerHTML = `<div class="loading" style="grid-column: 1/-1;">
         <div class="loader"></div>
-        <span class="loading-text">Fetching live market movers and running predictions...</span>
+        <span class="loading-text" id="hotpicks-progress">Initializing...</span>
     </div>`;
+
+    const updateProgress = (msg) => {
+        const el = document.getElementById('hotpicks-progress');
+        if (el) el.textContent = msg;
+    };
 
     try {
         let picks;
-        const currentMode = state.mode; // Capture mode at call time
+        const currentMode = state.mode;
         if (currentMode === 'stock') {
-            picks = await scanStockHotPicks(state.timeframe);
+            picks = await scanStockHotPicks(state.timeframe, 20, updateProgress);
         } else {
-            picks = await scanCryptoHotPicks(state.timeframe);
+            picks = await scanCryptoHotPicks(state.timeframe, 20, updateProgress);
         }
 
         // If user switched tabs while we were loading, discard these results
