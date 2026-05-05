@@ -166,9 +166,9 @@ body {
 /* ─── MAIN CONTAINER ───────────────────────────────────────────────────────── */
 
 .main-container {
-    max-width: 1200px;
-    margin: 0 auto;
+    max-width: 100%;
     padding: 24px;
+    overflow-y: auto;
 }
 
 /* ─── TABS ─────────────────────────────────────────────────────────────────── */
@@ -1197,77 +1197,32 @@ body {
     50% { opacity: 0.7; }
 }
 
-/* ─── P&L CALCULATOR PANEL ─────────────────────────────────────────────────── */
+/* ─── APP LAYOUT (2-column split) ──────────────────────────────────────────── */
 
-.pl-fab {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: none;
-    background: linear-gradient(135deg, #7c3aed, #3b82f6);
-    color: #fff;
-    font-size: 1.4rem;
-    cursor: pointer;
-    z-index: 200;
-    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
-    transition: all var(--transition);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.app-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    min-height: calc(100vh - 65px);
 }
 
-.pl-fab:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 28px rgba(124, 58, 237, 0.6);
-}
+/* ─── P&L CALCULATOR SIDEBAR ──────────────────────────────────────────────── */
 
-.pl-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 300;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.pl-overlay.open {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.pl-panel {
-    position: fixed;
-    top: 0;
-    right: -420px;
-    width: 380px;
-    max-width: 90vw;
-    height: 100vh;
+.pl-sidebar {
     background: var(--bg-secondary);
     border-left: 1px solid var(--border);
-    z-index: 400;
+    position: sticky;
+    top: 65px;
+    height: calc(100vh - 65px);
     overflow-y: auto;
-    transition: right 0.3s ease;
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.3);
 }
 
-.pl-panel.open {
-    right: 0;
-}
-
-.pl-panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 20px 16px;
+.pl-sidebar-header {
+    padding: 20px 18px 14px;
     border-bottom: 1px solid var(--border);
 }
 
-.pl-panel-header h3 {
-    font-size: 1.1rem;
+.pl-sidebar-header h3 {
+    font-size: 1rem;
     font-weight: 700;
     background: linear-gradient(90deg, #a78bfa, #60a5fa);
     -webkit-background-clip: text;
@@ -1275,25 +1230,8 @@ body {
     background-clip: text;
 }
 
-.pl-close {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
-    color: var(--text-secondary);
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all var(--transition);
-}
-
-.pl-close:hover {
-    border-color: var(--red);
-    color: var(--red);
-}
-
 .pl-body {
-    padding: 20px;
+    padding: 18px;
 }
 
 .pl-field {
@@ -1402,17 +1340,22 @@ body {
 .pl-dl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; display: block; }
 .pl-dv { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
 
-@media (max-width: 480px) {
-    .pl-fab {
-        bottom: 16px;
-        right: 16px;
-        width: 48px;
-        height: 48px;
-        font-size: 1.2rem;
+@media (max-width: 1024px) {
+    .app-layout {
+        grid-template-columns: 1fr;
     }
 
-    .pl-panel {
-        width: 100vw;
-        right: -100vw;
+    .pl-sidebar {
+        position: relative;
+        top: 0;
+        height: auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+}
+
+@media (max-width: 768px) {
+    .pl-sidebar-header h3 {
+        font-size: 0.9rem;
     }
 }

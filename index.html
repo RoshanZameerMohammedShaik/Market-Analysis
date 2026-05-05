@@ -17,112 +17,112 @@
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="main-container">
-        <!-- Controls: Tabs + Timeframe -->
-        <section class="controls-section">
-            <div class="tabs-row">
-                <div class="tab-group">
-                    <button class="tab-btn active" data-tab="stock">Stock Analysis</button>
-                    <button class="tab-btn" data-tab="crypto">Crypto Analysis</button>
+    <!-- App Layout: Main + P&L Sidebar -->
+    <div class="app-layout">
+        <!-- Left: Main Content -->
+        <main class="main-container">
+            <!-- Controls: Tabs + Timeframe -->
+            <section class="controls-section">
+                <div class="tabs-row">
+                    <div class="tab-group">
+                        <button class="tab-btn active" data-tab="stock">Stock Analysis</button>
+                        <button class="tab-btn" data-tab="crypto">Crypto Analysis</button>
+                    </div>
+                    <div class="tab-group">
+                        <button class="tab-btn active" data-timeframe="today">Today</button>
+                        <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
+                    </div>
                 </div>
-                <div class="tab-group">
-                    <button class="tab-btn active" data-timeframe="today">Today</button>
-                    <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
+
+                <!-- Search -->
+                <div class="search-container">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)..." autocomplete="off">
+                    <div class="search-results" id="search-results"></div>
                 </div>
-            </div>
+            </section>
 
-            <!-- Search -->
-            <div class="search-container">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)..." autocomplete="off">
-                <div class="search-results" id="search-results"></div>
-            </div>
-        </section>
+            <!-- Chart -->
+            <section class="chart-section">
+                <div class="chart-header hidden" id="chart-header">
+                    <span class="chart-symbol" id="chart-symbol"></span>
+                    <span class="chart-price" id="chart-price"></span>
+                </div>
+                <div class="chart-container">
+                    <div id="tradingview-widget">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📊</div>
+                            <p>Search for a stock or crypto to see the chart</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <!-- Chart -->
-        <section class="chart-section">
-            <div class="chart-header hidden" id="chart-header">
-                <span class="chart-symbol" id="chart-symbol"></span>
-                <span class="chart-price" id="chart-price"></span>
+            <!-- Signal -->
+            <section class="signal-section" id="signal-section"></section>
+
+            <!-- Hot Picks -->
+            <section class="hotpicks-section">
+                <div class="section-header">
+                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Top 20 Predictions</h2>
+                    <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks with latest market data">↻ Refresh Hot-Picks</button>
+                </div>
+                <div class="hotpicks-grid" id="hotpicks-grid">
+                    <div class="loading" style="grid-column: 1/-1;">
+                        <div class="loader"></div>
+                        <span class="loading-text">Scanning markets for hot picks...</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Right: P&L Calculator (permanent sidebar) -->
+        <aside class="pl-sidebar" id="pl-sidebar">
+            <div class="pl-sidebar-header">
+                <h3>P&L Calculator</h3>
             </div>
-            <div class="chart-container">
-                <div id="tradingview-widget">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📊</div>
-                        <p>Search for a stock or crypto to see the chart</p>
+            <div class="pl-body">
+                <div class="pl-field">
+                    <label>Investment Amount</label>
+                    <div class="pl-input-wrap">
+                        <span class="pl-prefix">$</span>
+                        <input type="number" id="pl-investment" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="pl-field">
+                    <label>Purchase Price per Share</label>
+                    <div class="pl-input-wrap">
+                        <span class="pl-prefix">$</span>
+                        <input type="number" id="pl-buyPrice" placeholder="0.00">
+                    </div>
+                </div>
+                <div class="pl-field">
+                    <label>Current / Target Price</label>
+                    <div class="pl-input-wrap">
+                        <span class="pl-prefix">$</span>
+                        <input type="number" id="pl-currentPrice" placeholder="Auto-filled from analysis">
+                    </div>
+                </div>
+                <button class="pl-btn" id="pl-calcBtn">Calculate P&L</button>
+                <div class="pl-error" id="pl-error"></div>
+                <div class="pl-result" id="pl-result">
+                    <div class="pl-result-icon" id="pl-resIcon"></div>
+                    <div class="pl-result-label" id="pl-resLabel"></div>
+                    <div class="pl-result-amount" id="pl-resAmount"></div>
+                    <div class="pl-result-pct" id="pl-resPct"></div>
+                    <div class="pl-result-details">
+                        <div class="pl-detail">
+                            <span class="pl-dl">Shares</span>
+                            <span class="pl-dv" id="pl-resShares">—</span>
+                        </div>
+                        <div class="pl-detail">
+                            <span class="pl-dl">Current Value</span>
+                            <span class="pl-dv" id="pl-resValue">—</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
-
-        <!-- Signal -->
-        <section class="signal-section" id="signal-section"></section>
-
-        <!-- Hot Picks -->
-        <section class="hotpicks-section">
-            <div class="section-header">
-                <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Top 20 Predictions</h2>
-                <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks with latest market data">↻ Refresh Hot-Picks</button>
-            </div>
-            <div class="hotpicks-grid" id="hotpicks-grid">
-                <div class="loading" style="grid-column: 1/-1;">
-                    <div class="loader"></div>
-                    <span class="loading-text">Scanning markets for hot picks...</span>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- P&L Calculator Panel -->
-    <button class="pl-fab" id="pl-fab" title="P&L Calculator">💰</button>
-    <div class="pl-overlay" id="pl-overlay"></div>
-    <div class="pl-panel" id="pl-panel">
-        <div class="pl-panel-header">
-            <h3>P&L Calculator</h3>
-            <button class="pl-close" id="pl-close">✕</button>
-        </div>
-        <div class="pl-body">
-            <div class="pl-field">
-                <label>Investment Amount</label>
-                <div class="pl-input-wrap">
-                    <span class="pl-prefix">$</span>
-                    <input type="number" id="pl-investment" placeholder="0.00">
-                </div>
-            </div>
-            <div class="pl-field">
-                <label>Purchase Price per Share</label>
-                <div class="pl-input-wrap">
-                    <span class="pl-prefix">$</span>
-                    <input type="number" id="pl-buyPrice" placeholder="0.00">
-                </div>
-            </div>
-            <div class="pl-field">
-                <label>Current / Target Price per Share</label>
-                <div class="pl-input-wrap">
-                    <span class="pl-prefix">$</span>
-                    <input type="number" id="pl-currentPrice" placeholder="Auto-filled from analysis">
-                </div>
-            </div>
-            <button class="pl-btn" id="pl-calcBtn">Calculate P&L</button>
-            <div class="pl-error" id="pl-error"></div>
-            <div class="pl-result" id="pl-result">
-                <div class="pl-result-icon" id="pl-resIcon"></div>
-                <div class="pl-result-label" id="pl-resLabel"></div>
-                <div class="pl-result-amount" id="pl-resAmount"></div>
-                <div class="pl-result-pct" id="pl-resPct"></div>
-                <div class="pl-result-details">
-                    <div class="pl-detail">
-                        <span class="pl-dl">Shares</span>
-                        <span class="pl-dv" id="pl-resShares">—</span>
-                    </div>
-                    <div class="pl-detail">
-                        <span class="pl-dl">Current Value</span>
-                        <span class="pl-dv" id="pl-resValue">—</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </aside>
     </div>
 
     <!-- App Script -->

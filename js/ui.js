@@ -313,7 +313,10 @@ function updateChartHeader(data) {
 
     if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
     if (data.currentPrice) {
-        state.currentPrice = data.currentPrice; // Store for P&L calculator auto-fill
+        state.currentPrice = data.currentPrice;
+        // Auto-fill P&L calculator with current price
+        const plPriceInput = document.getElementById('pl-currentPrice');
+        if (plPriceInput) plPriceInput.value = data.currentPrice.toFixed(2);
         if (priceEl) {
             const change = data.previousClose
                 ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
@@ -843,33 +846,11 @@ export function init() {
 // ─── P&L CALCULATOR ─────────────────────────────────────────────────────────
 
 function initPLCalculator() {
-    const fab = document.getElementById('pl-fab');
-    const panel = document.getElementById('pl-panel');
-    const overlay = document.getElementById('pl-overlay');
-    const closeBtn = document.getElementById('pl-close');
     const calcBtn = document.getElementById('pl-calcBtn');
 
-    // Open panel
-    fab.addEventListener('click', () => {
-        panel.classList.add('open');
-        overlay.classList.add('open');
-        // Auto-fill current price from active analysis
-        if (state.currentPrice) {
-            document.getElementById('pl-currentPrice').value = state.currentPrice;
-        }
-    });
-
-    // Close panel
-    const closePanel = () => {
-        panel.classList.remove('open');
-        overlay.classList.remove('open');
-    };
-    closeBtn.addEventListener('click', closePanel);
-    overlay.addEventListener('click', closePanel);
-
-    // Calculate
+    // Calculate on button click or Enter
     calcBtn.addEventListener('click', calculatePL);
-    document.getElementById('pl-panel').addEventListener('keydown', (e) => {
+    document.getElementById('pl-sidebar').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') calculatePL();
     });
 }
