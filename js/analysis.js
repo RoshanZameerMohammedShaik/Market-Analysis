@@ -294,12 +294,14 @@ export function generatePrediction(candles, timeframe = 'today') {
     const maxPossible = totalWeight;
     const normalizedScore = netScore / maxPossible; // -1 to +1
 
-    // Convert to confidence (40% to 88% range)
-    const absConfidence = Math.min(88, 40 + Math.abs(normalizedScore) * 48);
+    // Convert to confidence (42% to 88% range)
+    // Use a curve that rewards strong signals more
+    const absNorm = Math.abs(normalizedScore);
+    const absConfidence = Math.min(88, 42 + absNorm * 35 + Math.pow(absNorm, 0.7) * 15);
 
     let signal;
-    if (normalizedScore > 0.15) signal = 'BUY';
-    else if (normalizedScore < -0.15) signal = 'SELL';
+    if (normalizedScore > 0.12) signal = 'BUY';
+    else if (normalizedScore < -0.12) signal = 'SELL';
     else signal = 'NEUTRAL';
 
     // Tomorrow adjustment: slightly reduce confidence for next-day predictions
@@ -322,9 +324,9 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
     const weeklyPred = generatePrediction(multiData.weekly.candles, timeframe);
     const fourHourPred = generatePrediction(multiData.fourHour.candles, timeframe);
 
-    // Confluence scoring
+    // Confluence scoring — daily is primary, others confirm or warn
     const signals = [dailyPred, weeklyPred, fourHourPred];
-    const weights = [0.45, 0.30, 0.25]; // Daily most important, then weekly, then 4H
+    const weights = [0.50, 0.25, 0.25]; // Daily dominates
 
     let weightedBull = 0;
     let weightedBear = 0;
@@ -336,22 +338,30 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
 
     // Confluence bonus: if all timeframes agree, boost confidence
     const allAgree = signals.every(s => s.signal === signals[0].signal) && signals[0].signal !== 'NEUTRAL';
-    const confluenceBonus = allAgree ? 8 : 0;
+    const twoAgree = (signals[0].signal === signals[1].signal || signals[0].signal === signals[2].signal) && signals[0].signal !== 'NEUTRAL';
+    const confluenceBonus = allAgree ? 10 : twoAgree ? 4 : 0;
 
-    // Disagreement penalty: if timeframes conflict, reduce confidence
-    const hasBuy = signals.some(s => s.signal === 'BUY');
-    const hasSell = signals.some(s => s.signal === 'SELL');
-    const conflictPenalty = (hasBuy && hasSell) ? 12 : 0;
+    // Conflict penalty: only when daily and weekly ACTIVELY disagree (BUY vs SELL)
+    // Neutral doesn't count as conflict — it just means unclear
+    const dailyBuy = dailyPred.signal === 'BUY';
+    const dailySell = dailyPred.signal === 'SELL';
+    const weeklyBuy = weeklyPred.signal === 'BUY';
+    const weeklySell = weeklyPred.signal === 'SELL';
+    const hardConflict = (dailyBuy && weeklySell) || (dailySell && weeklyBuy);
+    const conflictPenalty = hardConflict ? 8 : 0;
 
+    // Determine signal — daily gets tie-breaking power
     let finalSignal;
-    if (weightedBull > weightedBear + 0.1) finalSignal = 'BUY';
-    else if (weightedBear > weightedBull + 0.1) finalSignal = 'SELL';
-    else finalSignal = 'NEUTRAL';
+    if (weightedBull > weightedBear + 0.05) finalSignal = 'BUY';
+    else if (weightedBear > weightedBull + 0.05) finalSignal = 'SELL';
+    else finalSignal = dailyPred.signal; // Daily breaks ties
 
-    // Weighted average confidence
-    let baseConfidence = signals.reduce((sum, pred, i) => sum + pred.confidence * weights[i], 0);
+    // Weighted average confidence — use the stronger of daily vs combined
+    const combinedConfidence = signals.reduce((sum, pred, i) => sum + pred.confidence * weights[i], 0);
+    // Don't let multi-timeframe reduce below what daily alone shows
+    let baseConfidence = Math.max(combinedConfidence, dailyPred.confidence * 0.9);
     baseConfidence = Math.round(baseConfidence + confluenceBonus - conflictPenalty);
-    baseConfidence = Math.max(35, Math.min(88, baseConfidence));
+    baseConfidence = Math.max(38, Math.min(88, baseConfidence));
 
     // Combine reasons from all timeframes (prioritize daily)
     const allReasons = [
@@ -361,7 +371,7 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
     ];
 
     if (allAgree) allReasons.unshift(`All timeframes align ${finalSignal} — high confluence`);
-    if (hasBuy && hasSell) allReasons.unshift('Timeframe conflict detected — reduced confidence');
+    if (hardConflict) allReasons.unshift('Daily vs Weekly conflict — proceed with caution');
 
     // Calculate price targets
     const priceTargets = calculatePriceTargets(multiData.daily.candles, finalSignal, baseConfidence, timeframe);
