@@ -9,12 +9,20 @@ import { getMarketConditionsScore } from './market.js';
 // ─── STOCK HOT PICKS (Dynamic from live market) ──────────────────────────────
 
 export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
-    if (onProgress) onProgress('Fetching today\'s top gainers, most active, and losers...');
+    const isTomorrow = timeframe === 'tomorrow';
 
+    if (isTomorrow) {
+        if (onProgress) onProgress('Fetching most active stocks and momentum leaders to predict tomorrow...');
+    } else {
+        if (onProgress) onProgress('Fetching today\'s top gainers, most active, and losers...');
+    }
+
+    // For tomorrow: focus on most active + trending (momentum setups likely to continue)
+    // For today: include gainers and losers for immediate signals
     const [gainers, active, trending] = await Promise.allSettled([
-        fetchYahooScreener('day_gainers'),
+        isTomorrow ? fetchYahooScreener('most_actives') : fetchYahooScreener('day_gainers'),
         fetchYahooScreener('most_actives'),
-        fetchYahooScreener('day_losers'),
+        isTomorrow ? fetchYahooScreener('undervalued_growth_stocks') : fetchYahooScreener('day_losers'),
     ]);
 
     const symbolSet = new Set();
@@ -42,12 +50,19 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 
     if (symbols.length === 0) return [];
 
-    if (onProgress) onProgress(`Found ${symbols.length} market movers. Fetching Fear & Greed, VIX, S&P 500...`);
+    if (isTomorrow) {
+        if (onProgress) onProgress(`Found ${symbols.length} candidates. Fetching market conditions to predict tomorrow...`);
+    } else {
+        if (onProgress) onProgress(`Found ${symbols.length} market movers. Fetching Fear & Greed, VIX, S&P 500...`);
+    }
 
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
 
-    // Run predictions on each symbol, blend with market conditions
-    if (onProgress) onProgress(`Running technical analysis on ${symbols.length} stocks...`);
+    if (isTomorrow) {
+        if (onProgress) onProgress(`Predicting tomorrow's movers from ${symbols.length} stocks using today's data...`);
+    } else {
+        if (onProgress) onProgress(`Running technical analysis on ${symbols.length} stocks...`);
+    }
 
     const results = [];
     const batchSize = 6;
@@ -55,7 +70,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     for (let i = 0; i < symbols.length; i += batchSize) {
         const batch = symbols.slice(i, i + batchSize);
         const analyzed = i + batch.length;
-        if (onProgress) onProgress(`Analyzing ${batch.join(', ')}... (${analyzed}/${symbols.length})`);
+        if (onProgress) onProgress(`${isTomorrow ? 'Predicting' : 'Analyzing'} ${batch.join(', ')}... (${analyzed}/${symbols.length})`);
 
         const batchResults = await Promise.allSettled(
             batch.map(async (symbol) => {
@@ -145,7 +160,12 @@ async function fetchYahooTrending() {
 // ─── CRYPTO HOT PICKS (Dynamic from live market) ─────────────────────────────
 
 export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
-    if (onProgress) onProgress('Fetching top crypto by market cap + trending coins...');
+    const isTomorrow = timeframe === 'tomorrow';
+    if (isTomorrow) {
+        if (onProgress) onProgress('Fetching crypto market data to predict tomorrow\'s movers...');
+    } else {
+        if (onProgress) onProgress('Fetching top crypto by market cap + trending coins...');
+    }
 
     const [marketCoins, trendingCoins] = await Promise.allSettled([
         fetchCryptoMarket(),
@@ -173,18 +193,26 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
 
     if (coins.length === 0) return [];
 
-    if (onProgress) onProgress(`Found ${coins.length} coins. Fetching Crypto Fear & Greed Index...`);
+    if (isTomorrow) {
+        if (onProgress) onProgress(`Found ${coins.length} coins. Analyzing patterns to predict tomorrow...`);
+    } else {
+        if (onProgress) onProgress(`Found ${coins.length} coins. Fetching Crypto Fear & Greed Index...`);
+    }
 
     const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
 
-    if (onProgress) onProgress(`Running technical analysis on ${coins.length} cryptocurrencies...`);
+    if (isTomorrow) {
+        if (onProgress) onProgress(`Predicting tomorrow's crypto movers from today's data...`);
+    } else {
+        if (onProgress) onProgress(`Running technical analysis on ${coins.length} cryptocurrencies...`);
+    }
 
     const results = [];
     let analyzed = 0;
 
     for (const coin of coins) {
         analyzed++;
-        if (onProgress) onProgress(`Analyzing ${coin.name} (${coin.symbol.toUpperCase()})... (${analyzed}/${coins.length})`);
+        if (onProgress) onProgress(`${isTomorrow ? 'Predicting' : 'Analyzing'} ${coin.name} (${coin.symbol.toUpperCase()})... (${analyzed}/${coins.length})`);
         try {
             let candles;
             let sparklineData = null;
