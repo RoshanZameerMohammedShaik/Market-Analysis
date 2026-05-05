@@ -3,7 +3,7 @@
 // Then runs prediction engine on each one
 
 import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
-import { generatePrediction } from './analysis.js';
+import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 
 // ─── STOCK HOT PICKS (Dynamic from live market) ──────────────────────────────
 
@@ -43,7 +43,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20) {
         return []; // Total API failure
     }
 
-    // Run predictions on each symbol
+    // Run multi-timeframe predictions on each symbol (same engine as detailed analysis)
     const results = [];
     const batchSize = 6;
 
@@ -55,7 +55,9 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20) {
                     const data = await fetchStockData(symbol, '3mo', '1d');
                     if (!data.candles || data.candles.length < 30) return null;
 
-                    const prediction = generatePrediction(data.candles, timeframe);
+                    // Derive multi-timeframe from daily candles (no extra API calls)
+                    const multiData = deriveMultiTimeframe(data);
+                    const prediction = generateMultiTimeframePrediction(multiData, timeframe);
                     const meta = symbolMeta[symbol] || {};
 
                     return {
@@ -151,7 +153,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
 
     if (coins.length === 0) return [];
 
-    // Run predictions using sparkline data (faster than individual OHLC calls)
+    // Run multi-timeframe predictions using sparkline data
     const results = [];
 
     for (const coin of coins) {
@@ -172,7 +174,13 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
 
             if (!candles || candles.length < 20) continue;
 
-            const prediction = generatePrediction(candles, timeframe);
+            // Derive multi-timeframe from candles (same analysis as detailed view)
+            const multiData = {
+                daily: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
+                weekly: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles: aggregateCandlesPeriod(candles, 7) },
+                fourHour: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
+            };
+            const prediction = generateMultiTimeframePrediction(multiData, timeframe);
 
             results.push({
                 symbol: coin.symbol.toUpperCase(),
@@ -268,6 +276,38 @@ function sparklineToCandles(prices) {
 // Parse sparkline SVG path data into price array (CoinGecko trending returns SVG)
 function parseSparklineSVG(svgString) {
     if (!svgString || typeof svgString !== 'string') return [];
-    // SVG sparklines aren't useful enough — return empty and fallback to OHLC
     return [];
+}
+
+// Derive multi-timeframe data from daily candles (for stocks)
+// Aggregates daily into weekly, uses recent portion as "4H equivalent"
+function deriveMultiTimeframe(data) {
+    const candles = data.candles;
+    const weeklyCandles = aggregateCandlesPeriod(candles, 5); // 5 trading days = 1 week
+    const fourHourCandles = candles.slice(-20); // Last 20 days as short-term proxy
+
+    return {
+        daily: data,
+        weekly: { ...data, candles: weeklyCandles },
+        fourHour: { ...data, candles: fourHourCandles },
+    };
+}
+
+// Aggregate candles into larger periods
+function aggregateCandlesPeriod(candles, periodSize) {
+    if (!candles || candles.length < periodSize) return candles;
+    const aggregated = [];
+    for (let i = 0; i < candles.length; i += periodSize) {
+        const slice = candles.slice(i, i + periodSize);
+        if (slice.length === 0) continue;
+        aggregated.push({
+            time: slice[0].time,
+            open: slice[0].open,
+            high: Math.max(...slice.map(c => c.high)),
+            low: Math.min(...slice.map(c => c.low)),
+            close: slice[slice.length - 1].close,
+            volume: slice.reduce((sum, c) => sum + (c.volume || 0), 0),
+        });
+    }
+    return aggregated;
 }
