@@ -179,9 +179,13 @@ export async function fetchCryptoData(coinId, days = 90) {
         if (coinPrice.usd_24h_change) change24h = coinPrice.usd_24h_change;
     } catch (e) { /* use candle price as fallback */ }
 
+    // Get proper display name
+    const displayName = CRYPTO_NAMES[coinId] || coinId.charAt(0).toUpperCase() + coinId.slice(1).replace(/-/g, ' ');
+    const displaySymbol = coinId === 'ripple' ? 'XRP' : coinId.split('-')[0].toUpperCase();
+
     return {
-        symbol: coinId.toUpperCase(),
-        name: coinId.charAt(0).toUpperCase() + coinId.slice(1),
+        symbol: displaySymbol,
+        name: displayName,
         currency: 'USD',
         exchange: 'Crypto',
         currentPrice,
@@ -295,11 +299,23 @@ export const HOT_STOCKS = [
 
 export const HOT_CRYPTO = [
     'bitcoin', 'ethereum', 'solana', 'cardano', 'dogecoin', 'ripple',
-    'polkadot', 'avalanche-2', 'chainlink', 'polygon-ecosystem-token',
+    'polkadot', 'avalanche-2', 'chainlink', 'matic-network',
     'litecoin', 'uniswap', 'stellar', 'cosmos', 'near', 'sui',
     'pepe', 'shiba-inu', 'render-token', 'arbitrum', 'optimism',
     'aptos', 'injective-protocol', 'celestia', 'sei-network',
 ];
+
+export const CRYPTO_NAMES = {
+    'bitcoin': 'Bitcoin', 'ethereum': 'Ethereum', 'solana': 'Solana',
+    'cardano': 'Cardano', 'dogecoin': 'Dogecoin', 'ripple': 'XRP',
+    'polkadot': 'Polkadot', 'avalanche-2': 'Avalanche', 'chainlink': 'Chainlink',
+    'matic-network': 'Polygon', 'litecoin': 'Litecoin', 'uniswap': 'Uniswap',
+    'stellar': 'Stellar', 'cosmos': 'Cosmos', 'near': 'NEAR Protocol',
+    'sui': 'Sui', 'pepe': 'Pepe', 'shiba-inu': 'Shiba Inu',
+    'render-token': 'Render', 'arbitrum': 'Arbitrum', 'optimism': 'Optimism',
+    'aptos': 'Aptos', 'injective-protocol': 'Injective', 'celestia': 'Celestia',
+    'sei-network': 'Sei',
+};
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 

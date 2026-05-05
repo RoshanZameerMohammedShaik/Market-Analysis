@@ -490,7 +490,10 @@ function getTimeAgo(date) {
 
 // ─── HOT PICKS ───────────────────────────────────────────────────────────────
 
+let hotPicksRequestId = 0; // Cancellation token for race conditions
+
 export async function loadHotPicks() {
+    const requestId = ++hotPicksRequestId; // Increment to invalidate previous requests
     const grid = document.getElementById('hotpicks-grid');
     const title = document.getElementById('hotpicks-title');
     const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
@@ -505,11 +508,15 @@ export async function loadHotPicks() {
 
     try {
         let picks;
-        if (state.mode === 'stock') {
+        const currentMode = state.mode; // Capture mode at call time
+        if (currentMode === 'stock') {
             picks = await scanStockHotPicks(state.timeframe);
         } else {
             picks = await scanCryptoHotPicks(state.timeframe);
         }
+
+        // If user switched tabs while we were loading, discard these results
+        if (requestId !== hotPicksRequestId) return;
 
         if (picks.length === 0) {
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
