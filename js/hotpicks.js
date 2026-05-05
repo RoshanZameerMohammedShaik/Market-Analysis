@@ -143,7 +143,11 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
         });
     }
 
-    const coins = [...coinMap.values()].slice(0, 35);
+    // Filter out stablecoins — they don't move, useless for predictions
+    const STABLECOINS = ['usdt', 'usdc', 'dai', 'busd', 'tusd', 'usdp', 'usdd', 'frax', 'lusd', 'gusd', 'usd1', 'usde', 'fdusd', 'pyusd', 'eusd'];
+    const coins = [...coinMap.values()]
+        .filter(coin => !STABLECOINS.includes(coin.symbol.toLowerCase()) && !coin.name.toLowerCase().includes('usd'))
+        .slice(0, 35);
 
     if (coins.length === 0) return [];
 
@@ -153,10 +157,12 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
     for (const coin of coins) {
         try {
             let candles;
+            let sparklineData = null;
 
             if (coin.sparkline && coin.sparkline.length >= 20) {
                 // Use sparkline for fast analysis (168 hourly data points = 7 days)
                 candles = sparklineToCandles(coin.sparkline);
+                sparklineData = coin.sparkline;
             } else {
                 // Fallback: fetch OHLC data
                 const data = await fetchCryptoData(coin.id, 30);
@@ -177,6 +183,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20) {
                 confidence: prediction.confidence,
                 reasons: prediction.reasons,
                 change: coin.change24h || 0,
+                _sparkline: sparklineData, // Pass to UI for caching
             });
         } catch (e) {
             continue;

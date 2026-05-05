@@ -1,5 +1,5 @@
 // UI Rendering Module
-import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from './data.js';
+import { searchStocks, searchCrypto, fetchStockData, fetchCryptoData, fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from './hotpicks.js';
 import { fetchStockNews, fetchCryptoNews, aggregateNewsSentiment } from './news.js';
@@ -12,6 +12,7 @@ const state = {
     theme: localStorage.getItem('ma-theme') || 'dark',
     currentSymbol: null,
     currentCoinId: null,
+    cryptoCache: {},    // Cache sparkline/market data from hot picks scan
 };
 
 // ─── THEME MANAGEMENT ────────────────────────────────────────────────────────
@@ -182,9 +183,27 @@ function loadChart() {
 
     if (!state.currentSymbol && !state.currentCoinId) return;
 
-    const symbol = state.mode === 'stock'
-        ? state.currentSymbol
-        : `${state.currentSymbol}USD`;
+    // Map to TradingView symbol format
+    let symbol;
+    if (state.mode === 'stock') {
+        symbol = state.currentSymbol;
+    } else {
+        // TradingView crypto format: BTCUSD, ETHUSD, etc.
+        // Use common exchange prefixes for better chart availability
+        const sym = state.currentSymbol.toUpperCase();
+        const tvCryptoMap = {
+            'BTC': 'BINANCE:BTCUSDT', 'ETH': 'BINANCE:ETHUSDT', 'SOL': 'BINANCE:SOLUSDT',
+            'XRP': 'BINANCE:XRPUSDT', 'DOGE': 'BINANCE:DOGEUSDT', 'ADA': 'BINANCE:ADAUSDT',
+            'DOT': 'BINANCE:DOTUSDT', 'AVAX': 'BINANCE:AVAXUSDT', 'LINK': 'BINANCE:LINKUSDT',
+            'MATIC': 'BINANCE:MATICUSDT', 'LTC': 'BINANCE:LTCUSDT', 'UNI': 'BINANCE:UNIUSDT',
+            'ATOM': 'BINANCE:ATOMUSDT', 'NEAR': 'BINANCE:NEARUSDT', 'SUI': 'BINANCE:SUIUSDT',
+            'BNB': 'BINANCE:BNBUSDT', 'SHIB': 'BINANCE:SHIBUSDT', 'PEPE': 'BINANCE:PEPEUSDT',
+            'ARB': 'BINANCE:ARBUSDT', 'OP': 'BINANCE:OPUSDT', 'APT': 'BINANCE:APTUSDT',
+            'INJ': 'BINANCE:INJUSDT', 'HBAR': 'BINANCE:HBARUSDT', 'BCH': 'BINANCE:BCHUSDT',
+            'XMR': 'BINANCE:XMRUSDT', 'HYPE': 'BINANCE:HYPEUSDT', 'TIA': 'BINANCE:TIAUSDT',
+        };
+        symbol = tvCryptoMap[sym] || `BINANCE:${sym}USDT`;
+    }
 
     const themeMap = { dark: 'dark', light: 'light', colourful: 'dark' };
 
@@ -239,10 +258,51 @@ async function runAnalysis() {
             sentiment = aggregateNewsSentiment(news);
             updateChartHeader(multiData.daily);
         } else {
-            const [multiData, news] = await Promise.all([
-                fetchCryptoMultiTimeframe(state.currentCoinId),
-                fetchCryptoNews(state.currentCoinId).catch(() => []),
-            ]);
+            // Crypto: try cached sparkline first, then OHLC, then market endpoint
+            let multiData = null;
+            const coinId = state.currentCoinId;
+            const coinName = state.currentSymbol;
+
+            // Try fetching OHLC data
+            try {
+                multiData = await fetchCryptoMultiTimeframe(coinId);
+            } catch (ohlcError) {
+                // OHLC failed — try using cached sparkline from hot picks
+                const cached = state.cryptoCache[coinId];
+                if (cached && cached.sparkline && cached.sparkline.length >= 20) {
+                    const candles = sparklineToCandlesUI(cached.sparkline);
+                    multiData = {
+                        daily: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                        weekly: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                        fourHour: { symbol: coinName, name: cached.name, currentPrice: cached.price, previousClose: null, candles },
+                    };
+                }
+            }
+
+            if (!multiData) {
+                // Final fallback: try the single market data endpoint
+                try {
+                    const marketRes = await fetchWithProxy(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=30`);
+                    const marketData = await marketRes.json();
+                    if (marketData.prices && marketData.prices.length > 20) {
+                        const candles = marketData.prices.map(([time, price]) => ({
+                            time: time / 1000, open: price, high: price * 1.005, low: price * 0.995, close: price, volume: 0,
+                        }));
+                        const currentPrice = candles[candles.length - 1].close;
+                        multiData = {
+                            daily: { symbol: coinName, name: coinName, currentPrice, previousClose: candles[candles.length - 2]?.close, candles },
+                            weekly: { symbol: coinName, name: coinName, currentPrice, previousClose: null, candles },
+                            fourHour: { symbol: coinName, name: coinName, currentPrice, previousClose: null, candles },
+                        };
+                    }
+                } catch (e) { /* give up */ }
+            }
+
+            if (!multiData) {
+                throw new Error(`Could not fetch data for ${coinName}. This coin may not have enough trading history.`);
+            }
+
+            const news = await fetchCryptoNews(coinName).catch(() => []);
             prediction = generateMultiTimeframePrediction(multiData, state.timeframe);
             newsData = news;
             sentiment = aggregateNewsSentiment(news);
@@ -517,6 +577,19 @@ export async function loadHotPicks() {
         // If user switched tabs while we were loading, discard these results
         if (requestId !== hotPicksRequestId) return;
 
+        // Cache crypto data for click-through analysis
+        if (currentMode === 'crypto') {
+            picks.forEach(pick => {
+                if (pick.id && pick._sparkline) {
+                    state.cryptoCache[pick.id] = {
+                        name: pick.name,
+                        price: pick.price,
+                        sparkline: pick._sparkline,
+                    };
+                }
+            });
+        }
+
         if (picks.length === 0) {
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
@@ -565,6 +638,27 @@ export async function loadHotPicks() {
     } catch (e) {
         grid.innerHTML = `<div class="error-message" style="grid-column: 1/-1;">Failed to load hot picks: ${e.message}</div>`;
     }
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+function sparklineToCandlesUI(prices) {
+    if (!prices || prices.length < 20) return [];
+    const periodSize = 4;
+    const candles = [];
+    for (let i = 0; i < prices.length; i += periodSize) {
+        const slice = prices.slice(i, i + periodSize);
+        if (slice.length === 0) continue;
+        candles.push({
+            time: Date.now() / 1000 - (prices.length - i) * 3600,
+            open: slice[0],
+            high: Math.max(...slice),
+            low: Math.min(...slice),
+            close: slice[slice.length - 1],
+            volume: 0,
+        });
+    }
+    return candles;
 }
 
 // ─── CLEAR STATE ─────────────────────────────────────────────────────────────
