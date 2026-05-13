@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
+import { isDev } from '../dev-mode.js';
 
 export function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
@@ -86,14 +87,17 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             </div>`;
     }
 
-    // Calibration badge: shows whether the displayed confidence has been
-    // adjusted against backtested reality. Without this, users have no way
-    // to tell whether they're seeing heuristic or empirical numbers.
-    const calibrationBadge = calibrationApplied
-        ? `<span class="cal-badge calibrated" title="Confidence adjusted to match backtested hit rate">✓ calibrated</span>`
-        : `<span class="cal-badge raw" title="No backtest data yet — confidence is heuristic, not empirical. Run backtest.py to calibrate.">! raw</span>`;
+    // Calibration meta-info: only operators (?dev=1) need to see whether
+    // the displayed confidence is calibrated or raw. Public users get
+    // the calibrated number itself — they just don't get the badge
+    // explaining how it was produced.
+    const calibrationBadge = isDev()
+        ? (calibrationApplied
+            ? `<span class="cal-badge calibrated" title="Confidence adjusted to match backtested hit rate">✓ calibrated</span>`
+            : `<span class="cal-badge raw" title="No backtest data yet — confidence is heuristic, not empirical. Run backtest.py to calibrate.">! raw</span>`)
+        : '';
 
-    const calibrationDelta = (calibrationApplied && rawConfidence !== confidence)
+    const calibrationDelta = (isDev() && calibrationApplied && rawConfidence !== confidence)
         ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>`
         : '';
 

@@ -11,6 +11,7 @@ import { computeFullConfidence } from '../confidence.js';
 import { loadModel } from '../ai-model.js';
 import { loadCalibration } from '../calibration.js';
 import { logPrediction, resolvePending } from '../outcome-tracker.js';
+import { isDev } from '../dev-mode.js';
 
 export function init() {
     initTheme();
@@ -20,10 +21,11 @@ export function init() {
     initPLCalculator();
     loadHotPicks(onSelectFromCard);
 
-    // Load AI model + backtest calibration in parallel; both are optional.
     loadModel().then(loaded => loaded && console.log('[Market Analyzer] AI model loaded'));
-    loadCalibration().then(() => renderAccuracyStrip());
-    renderAccuracyStrip();
+    // Always load calibration data — it's used to remap displayed confidence
+    // for everyone. Only the badge/delta describing it is dev-gated.
+    loadCalibration().then(() => maybeRenderAccuracyStrip());
+    maybeRenderAccuracyStrip();
 
     document.getElementById('theme-toggle').addEventListener('click', () => {
         cycleTheme(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
@@ -34,6 +36,16 @@ export function init() {
         btn.classList.add('spinning');
         loadHotPicks(onSelectFromCard).finally(() => btn.classList.remove('spinning'));
     });
+}
+
+function maybeRenderAccuracyStrip() {
+    const container = document.getElementById('accuracy-strip');
+    if (!container) return;
+    if (!isDev()) {
+        container.innerHTML = '';
+        return;
+    }
+    renderAccuracyStrip();
 }
 
 function initTabs() {
@@ -128,8 +140,6 @@ async function runAnalysis() {
 
         updateChartHeader(multiData.daily);
 
-        // Resolve any old predictions for this symbol against the latest price
-        // BEFORE we compute a new one — keeps the live accuracy strip current.
         if (multiData.daily.currentPrice) {
             resolvePending(state.currentSymbol, multiData.daily.currentPrice);
         }
@@ -137,7 +147,6 @@ async function runAnalysis() {
         const result = await computeFullConfidence(multiData, state.mode, symbolId, state.timeframe);
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
 
-        // Log this prediction so we can score it later.
         logPrediction({
             mode: state.mode,
             symbol: state.currentSymbol,
@@ -146,7 +155,7 @@ async function runAnalysis() {
             price: multiData.daily.currentPrice,
             timeframe: state.timeframe,
         });
-        renderAccuracyStrip();
+        maybeRenderAccuracyStrip();
 
         document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis());
     } catch (e) {
