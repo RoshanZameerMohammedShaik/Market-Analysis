@@ -1,22 +1,27 @@
 """
-Single source of truth for the 8 engineered features used by:
+Single source of truth for engineered features used by:
   - train_model.py        (LSTM training)
   - train_walkforward.py  (LSTM with walk-forward CV)
   - train_xgboost.py      (XGBoost + isotonic calibration)
   - backtest.py           (replays the signal pipeline)
 
-The browser (js/ai-model.js) duplicates this logic in JavaScript. Both
-sides MUST stay in sync — see the matching comment in js/ai-model.js.
+The browser (js/ai-model.js, js/analysis.js) duplicates this logic in
+JavaScript. Both sides MUST stay in sync.
+
+The LSTM uses 8 features (FEATURES, compute_features_at). The newer
+ADX and MFI indicators feed the rules-based pipeline (js/analysis.js)
+but are not yet in the LSTM input — adding them requires a retrain,
+which the GitHub Action workflow will handle on schedule.
 """
+import math
 import numpy as np
 
 SEQUENCE_LENGTH = 20
 FEATURES = 8
-LOOKBACK = 21  # longest indicator window (sma21 / vol_ratio)
+LOOKBACK = 21
 
 
 def extract_ohlcv(df):
-    """Pull flat OHLCV arrays out of a yfinance DataFrame, handling MultiIndex."""
     if hasattr(df.columns, 'levels'):
         df.columns = df.columns.get_level_values(0)
     return (
@@ -28,10 +33,7 @@ def extract_ohlcv(df):
 
 
 def compute_features_at(close, high, low, volume, j):
-    """Compute the 8-feature vector at index j. Returns list of length 8.
-
-    Mirrors js/ai-model.js computeFeatures() exactly.
-    """
+    """8-feature vector at index j. Mirrors js/ai-model.js exactly."""
     price_change = (close[j] - close[j - 1]) / (close[j - 1] + 1e-8) if j > 0 else 0
     high_low_range = (high[j] - low[j]) / (close[j] + 1e-8)
 
@@ -82,13 +84,64 @@ def compute_features_at(close, high, low, volume, j):
     ]
 
 
-def compute_sequences(df, sequence_length=SEQUENCE_LENGTH):
-    """Compute (sequence, label) pairs for an LSTM. Each sequence is shape (seq_len, FEATURES)."""
-    close, high, low, volume = extract_ohlcv(df)
+# ─── ADX (mirrors js/analysis.js calculateADX) ───────────────────────────────────
 
+def compute_adx(highs, lows, closes, period=14):
+    n = len(closes)
+    if n < period * 2 + 1:
+        return None
+    tr = [0.0] * n
+    plus_dm = [0.0] * n
+    minus_dm = [0.0] * n
+    for i in range(1, n):
+        up_move = highs[i] - highs[i - 1]
+        down_move = lows[i - 1] - lows[i]
+        tr[i] = max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1]))
+        plus_dm[i] = up_move if (up_move > down_move and up_move > 0) else 0
+        minus_dm[i] = down_move if (down_move > up_move and down_move > 0) else 0
+
+    sm_tr = sum(tr[1:period + 1])
+    sm_plus = sum(plus_dm[1:period + 1])
+    sm_minus = sum(minus_dm[1:period + 1])
+    dx_values = []
+    for i in range(period + 1, n):
+        sm_tr = sm_tr - sm_tr / period + tr[i]
+        sm_plus = sm_plus - sm_plus / period + plus_dm[i]
+        sm_minus = sm_minus - sm_minus / period + minus_dm[i]
+        plus_di = 0 if sm_tr == 0 else 100 * sm_plus / sm_tr
+        minus_di = 0 if sm_tr == 0 else 100 * sm_minus / sm_tr
+        sum_di = plus_di + minus_di
+        dx = 0 if sum_di == 0 else 100 * abs(plus_di - minus_di) / sum_di
+        dx_values.append(dx)
+    if len(dx_values) < period:
+        return None
+    adx = sum(dx_values[:period]) / period
+    for i in range(period, len(dx_values)):
+        adx = (adx * (period - 1) + dx_values[i]) / period
+    return adx
+
+
+def compute_mfi(highs, lows, closes, volumes, period=14):
+    n = len(closes)
+    if n < period + 1:
+        return None
+    tp = [(highs[i] + lows[i] + closes[i]) / 3 for i in range(n)]
+    pos_flow = neg_flow = 0.0
+    start = max(1, n - period)
+    for i in range(start, n):
+        money_flow = tp[i] * volumes[i]
+        if tp[i] > tp[i - 1]: pos_flow += money_flow
+        elif tp[i] < tp[i - 1]: neg_flow += money_flow
+    if neg_flow == 0: return 100
+    ratio = pos_flow / neg_flow
+    return 100 - (100 / (1 + ratio))
+
+
+def compute_sequences(df, sequence_length=SEQUENCE_LENGTH):
+    """(sequence, label) pairs for an LSTM."""
+    close, high, low, volume = extract_ohlcv(df)
     features = []
     labels = []
-
     for i in range(sequence_length, len(close) - 1):
         window = [
             compute_features_at(close, high, low, volume, j)
@@ -97,24 +150,16 @@ def compute_sequences(df, sequence_length=SEQUENCE_LENGTH):
         features.append(window)
         next_change = (close[i + 1] - close[i]) / close[i]
         labels.append(1 if next_change > 0 else 0)
-
     return features, labels
 
 
 def compute_flat_features(df):
-    """Compute (X, y) for tree models — flatten the sequence into one row per sample.
-
-    Each row is the 8-feature vector at the LAST bar of the window. Trees don't
-    need the full sequence and overfit on it.
-    """
+    """(X, y) for tree models."""
     close, high, low, volume = extract_ohlcv(df)
-
     X = []
     y = []
-
     for i in range(SEQUENCE_LENGTH, len(close) - 1):
         X.append(compute_features_at(close, high, low, volume, i - 1))
         next_change = (close[i + 1] - close[i]) / close[i]
         y.append(1 if next_change > 0 else 0)
-
     return X, y

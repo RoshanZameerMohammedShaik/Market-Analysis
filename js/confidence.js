@@ -1,9 +1,5 @@
-// Weighted Confidence Engine — blends 4 analysis sources, then calibrates
-// the result against backtested empirical hit rate.
-//
-// Composition: AI (15-30%) + Technicals (35-40%) + Sentiment (25-30%) +
-// Market (25-30%). Output passes through calibrate() so the displayed
-// number reflects historical accuracy, not raw heuristic strength.
+// Weighted Confidence Engine — blends 4 analysis sources, applies
+// disagreement penalty, then calibrates against backtested hit rate.
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -49,7 +45,22 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     else finalSignal = 'NEUTRAL';
 
     const deviation = Math.abs(weightedScore - 50) / 50;
-    const rawConfidence = Math.round(38 + deviation * 50); // 38-88 heuristic
+    let rawConfidence = Math.round(38 + deviation * 50);
+
+    // Disagreement penalty: when sources span a wide range, that's real
+    // information about uncertainty. We can't show high confidence when
+    // our own components are voting in different directions.
+    const sourceScores = [technicalScore, sentiment.score, market.score];
+    if (ai.available) sourceScores.push(ai.score);
+    const minScore = Math.min(...sourceScores);
+    const maxScore = Math.max(...sourceScores);
+    const dispersion = maxScore - minScore;
+    let disagreementPenalty = 0;
+    if (dispersion > 50) disagreementPenalty = 12;       // sources span > half the scale
+    else if (dispersion > 35) disagreementPenalty = 7;
+    else if (dispersion > 25) disagreementPenalty = 3;
+    rawConfidence = Math.max(38, rawConfidence - disagreementPenalty);
+
     const calibratedConfidence = calibrate(rawConfidence);
     const calibrationApplied = getCalibrationStatus() === 'loaded';
 
@@ -58,12 +69,17 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     technicalPred.reasons.slice(0, 3).forEach(r => allReasons.push(r));
     sentiment.reasons.forEach(r => allReasons.push(`[Sentiment] ${r}`));
     market.reasons.slice(0, 2).forEach(r => allReasons.push(`[Market] ${r}`));
+    if (disagreementPenalty > 0) {
+        allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
+    }
 
     return {
         signal: finalSignal,
         confidence: calibratedConfidence,
         rawConfidence,
         calibrationApplied,
+        disagreementPenalty,
+        dispersion: Math.round(dispersion),
         reasons: allReasons.slice(0, 8),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
@@ -80,6 +96,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
         method: ai.available ? '4-source (AI + Technical + Sentiment + Market)' : '3-source (Technical + Sentiment + Market)',
+        trendRegime: technicalPred.meta?.trendRegime || 'unknown',
     };
 }
 
