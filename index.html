@@ -11,7 +11,7 @@
 <body>
     <header class="app-header">
         <div class="header-content">
-            <h1 class="app-title">Market Analyzer</h1>
+            <h1 class="app-title">Market Analyzer<span id="dev-dot" class="dev-dot" style="display:none"></span></h1>
             <button class="theme-toggle" id="theme-toggle" title="Switch theme">🌙</button>
         </div>
     </header>
@@ -31,7 +31,7 @@
                 </div>
                 <div class="search-container">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)..." autocomplete="off">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)... press / to focus" autocomplete="off">
                     <div class="search-results" id="search-results"></div>
                 </div>
             </section>
@@ -58,7 +58,7 @@
             <section class="hotpicks-section">
                 <div class="section-header">
                     <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Top 20 Predictions</h2>
-                    <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks with latest market data">↻ Refresh</button>
+                    <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks (r)">↻ Refresh</button>
                 </div>
                 <div class="hotpicks-grid" id="hotpicks-grid">
                     <div class="loading" style="grid-column: 1/-1;">

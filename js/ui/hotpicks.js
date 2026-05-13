@@ -1,6 +1,7 @@
 import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { state, nextHotPicksId } from './state.js';
 import { fmtPrice } from './format.js';
+import { sparkline } from './sparkline.js';
 
 export async function loadHotPicks(onPick) {
     const requestId = nextHotPicksId();
@@ -26,7 +27,7 @@ export async function loadHotPicks(onPick) {
             ? await scanStockHotPicks(state.timeframe, 20, updateProgress)
             : await scanCryptoHotPicks(state.timeframe, 20, updateProgress);
 
-        if (requestId !== state.hotPicksRequestId) return; // user switched tabs
+        if (requestId !== state.hotPicksRequestId) return;
 
         if (currentMode === 'crypto') {
             picks.forEach(pick => {
@@ -49,10 +50,13 @@ export async function loadHotPicks(onPick) {
             const arrow = isBuy ? '▲' : '◆';
             const signalClass = isBuy ? 'buy' : 'neutral';
             const signalLabel = isBuy ? 'BUY' : 'HOLD';
+            const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
+            const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
             return `
             <div class="hot-pick-card ${signalClass} fade-in" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
                 <div class="hot-pick-symbol">${pick.symbol}</div>
                 <div class="hot-pick-name">${pick.name}</div>
+                <div class="hot-pick-spark">${sparkSvg}</div>
                 <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
                 <div class="hot-pick-confidence ${signalClass}"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
                 <div class="hot-pick-price">${fmtPrice(pick.price)}</div>

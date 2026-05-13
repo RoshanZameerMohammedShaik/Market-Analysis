@@ -1,0 +1,73 @@
+/* Extras: sparklines, dev dot, trend chip, keyboard help.
+ * Loaded after css/style.css. Keeping it separate to avoid touching
+ * the big file for small visual additions. */
+
+.sparkline { display: block; width: 100%; height: 28px; }
+.sparkline.spark-up { color: var(--green); }
+.sparkline.spark-down { color: var(--red); }
+.sparkline .spark-area { fill: currentColor; opacity: 0.12; }
+.spark-placeholder { height: 28px; }
+
+.hot-pick-spark { margin: 4px 0 6px; min-height: 28px; }
+
+.dev-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-left: 8px;
+    vertical-align: middle;
+    cursor: help;
+}
+.dev-dot.calibrated { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dev-dot.raw { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+
+.trend-chip {
+    font-size: 0.66rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+.trend-chip.trending { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+.trend-chip.ranging { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-bg); }
+.trend-chip.transitional { border-color: var(--border-strong); color: var(--text-secondary); }
+
+/* Keyboard help overlay */
+.kbd-help-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.18s ease;
+    cursor: pointer;
+}
+.kbd-help-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    padding: 22px 26px;
+    min-width: 280px;
+    box-shadow: var(--shadow);
+    cursor: default;
+}
+.kbd-help-title { font-size: 1rem; font-weight: 800; margin-bottom: 14px; color: var(--text-primary); }
+.kbd-help-row { display: flex; align-items: center; gap: 14px; padding: 6px 0; color: var(--text-secondary); font-size: 0.88rem; }
+.kbd-help-row kbd {
+    display: inline-block;
+    min-width: 28px;
+    padding: 3px 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    font-family: var(--num-font);
+    font-size: 0.78rem;
+    text-align: center;
+    color: var(--text-primary);
+    box-shadow: 0 1px 0 var(--border-strong);
+}
+.kbd-help-foot { margin-top: 14px; font-size: 0.72rem; color: var(--text-muted); text-align: center; }

@@ -1,0 +1,84 @@
+name: Refresh model data
+
+on:
+  schedule:
+    # Daily backtest at 04:00 UTC
+    - cron: '0 4 * * *'
+    # Monthly LSTM retrain at 04:30 UTC on the 1st
+    - cron: '30 4 1 * *'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Which task to run'
+        required: true
+        default: 'backtest'
+        type: choice
+        options:
+          - backtest
+          - retrain
+          - both
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Decide which tasks to run
+        id: decide
+        run: |
+          # Default booleans
+          do_backtest=false
+          do_retrain=false
+          # Schedule (cron) detection
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # cron field tells us which schedule fired
+            if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; fi
+            if [ "${{ github.event.schedule }}" = "30 4 1 * *" ]; then do_retrain=true; fi
+          fi
+          # Manual dispatch
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            case "${{ github.event.inputs.task }}" in
+              backtest) do_backtest=true;;
+              retrain) do_retrain=true;;
+              both) do_backtest=true; do_retrain=true;;
+            esac
+          fi
+          echo "do_backtest=$do_backtest" >> $GITHUB_OUTPUT
+          echo "do_retrain=$do_retrain" >> $GITHUB_OUTPUT
+
+      - name: Run backtest
+        if: steps.decide.outputs.do_backtest == 'true'
+        run: python backtest.py
+
+      - name: Retrain LSTM (walk-forward)
+        if: steps.decide.outputs.do_retrain == 'true'
+        run: python train_walkforward.py
+
+      - name: Commit refreshed artifacts
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -f model/*.json || true
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          msg="chore(data): auto-refresh"
+          if [ "${{ steps.decide.outputs.do_backtest }}" = "true" ]; then msg="$msg backtest"; fi
+          if [ "${{ steps.decide.outputs.do_retrain }}" = "true" ]; then msg="$msg retrain"; fi
+          msg="$msg [skip ci]"
+          git commit -m "$msg"
+          git push
