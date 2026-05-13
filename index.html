@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Market Analyzer — Stock & Crypto Predictions</title>
-    <meta name="description" content="Real-time stock and cryptocurrency analysis with calibrated BUY/SELL signals — multi-timeframe technicals, FinBERT sentiment, market context, and backtested confidence.">
+    <meta name="description" content="Calibrated BUY/SELL signals with multi-timeframe technicals, FinBERT sentiment, market context, and Mia — your in-app market intelligence analyst.">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
 </head>
 <body>
     <header class="app-header">
         <div class="header-content">
-            <h1 class="app-title">Market Analyzer<span id="dev-dot" class="dev-dot" style="display:none"></span></h1>
+            <h1 class="app-title">Market Analyzer</h1>
             <button class="theme-toggle" id="theme-toggle" title="Switch theme">🌙</button>
         </div>
     </header>
 
     <div class="app-layout">
+        <aside class="glossary-rail" id="glossary-rail"></aside>
+
         <main class="main-container">
             <section class="controls-section">
                 <div class="tabs-row">
@@ -42,17 +44,11 @@
                     <span class="chart-price" id="chart-price"></span>
                 </div>
                 <div class="chart-container">
-                    <div id="tradingview-widget">
-                        <div class="empty-state">
-                            <div class="empty-state-icon">📊</div>
-                            <p>Search for a stock or crypto to see the chart</p>
-                        </div>
-                    </div>
+                    <div id="tradingview-widget"></div>
                 </div>
             </section>
 
             <section class="accuracy-strip" id="accuracy-strip"></section>
-
             <section class="signal-section" id="signal-section"></section>
 
             <section class="hotpicks-section">
@@ -64,6 +60,7 @@
                     <div class="loading" style="grid-column: 1/-1;">
                         <div class="loader"></div>
                         <span class="loading-text">Scanning markets for hot picks...</span>
+                        <span class="loading-tip" id="loading-tip"></span>
                     </div>
                 </div>
             </section>
@@ -81,8 +78,8 @@
                     <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-buyPrice" placeholder="0.00"></div>
                 </div>
                 <div class="pl-field">
-                    <label>Current / Target Price</label>
-                    <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-currentPrice" placeholder="Auto-filled from analysis"></div>
+                    <label>Current / Target Price <button type="button" class="pl-use-current" id="pl-useCurrent" title="Load current price for selected symbol">Use current</button></label>
+                    <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-currentPrice" placeholder="0.00"></div>
                 </div>
                 <button class="pl-btn" id="pl-calcBtn">Calculate P&amp;L</button>
                 <div class="pl-error" id="pl-error"></div>
@@ -99,6 +96,12 @@
             </div>
         </aside>
     </div>
+
+    <button id="mia-launcher" class="mia-launcher" title="Ask Mia—your Market Intelligence Analyst" aria-label="Open Mia chat">
+        <span class="mia-launcher-emoji">💬</span>
+        <span class="mia-launcher-label">Mia</span>
+    </button>
+    <div id="mia-panel" class="mia-panel" aria-hidden="true"></div>
 
     <script type="module" src="js/app.js"></script>
 </body>

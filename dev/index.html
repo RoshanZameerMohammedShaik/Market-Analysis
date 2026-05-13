@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<title>Enabling dev mode…</title>
+<meta http-equiv="refresh" content="0; url=../">
+<script>
+// Tiny redirector: enable dev mode and bounce home.
+// Path-based UX: yoursite/dev → dev mode on, persists, redirects to /
+try { localStorage.setItem('ma-dev-mode', '1'); } catch (_) {}
+location.replace('../');
+</script>
+</head><body>Enabling dev mode… <a href="../">click here</a> if not redirected.</body></html>

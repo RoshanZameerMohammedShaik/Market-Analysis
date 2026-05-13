@@ -1,4 +1,5 @@
 import { fmt } from './format.js';
+import { state } from './state.js';
 
 export function initPLCalculator() {
     const calcBtn = document.getElementById('pl-calcBtn');
@@ -7,6 +8,23 @@ export function initPLCalculator() {
     document.getElementById('pl-sidebar').addEventListener('keydown', e => {
         if (e.key === 'Enter') calculatePL();
     });
+
+    const useBtn = document.getElementById('pl-useCurrent');
+    if (useBtn) {
+        useBtn.addEventListener('click', () => {
+            const input = document.getElementById('pl-currentPrice');
+            if (state.currentPrice != null) {
+                input.value = state.currentPrice.toFixed(2);
+                input.classList.add('flash');
+                setTimeout(() => input.classList.remove('flash'), 600);
+            } else {
+                const errEl = document.getElementById('pl-error');
+                errEl.textContent = 'Select a stock or crypto first.';
+                errEl.classList.add('show');
+                setTimeout(() => errEl.classList.remove('show'), 2500);
+            }
+        });
+    }
 }
 
 function calculatePL() {

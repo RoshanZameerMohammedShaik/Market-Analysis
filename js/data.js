@@ -1,5 +1,6 @@
-// Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto)
-// With robust CORS proxy handling and JSON validation
+// Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto).
+// CORS-proxy chain with JSON validation. Stock searches strictly
+// filter to EQUITY/ETF/INDEX so crypto hits don't leak into stock UI.
 
 const CORS_PROXIES = [
     'https://corsproxy.io/?url=',
@@ -11,16 +12,14 @@ const CORS_PROXIES = [
 let workingProxy = null;
 
 export async function fetchWithProxy(url) {
-    // Try direct first (works for CoinGecko which has permissive CORS)
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
             const text = await res.text();
             if (isValidResponse(text)) return createTextResponse(text, res);
         }
-    } catch (e) { /* fall through to proxies */ }
+    } catch (e) { /* fall through */ }
 
-    // If we found a working proxy before, try it first
     if (workingProxy !== null) {
         try {
             const res = await tryProxy(CORS_PROXIES[workingProxy], url);
@@ -28,9 +27,8 @@ export async function fetchWithProxy(url) {
         } catch (e) { workingProxy = null; }
     }
 
-    // Try all proxies
     for (let i = 0; i < CORS_PROXIES.length; i++) {
-        if (i === workingProxy) continue; // Already tried
+        if (i === workingProxy) continue;
         try {
             const res = await tryProxy(CORS_PROXIES[i], url);
             if (res) {
@@ -51,12 +49,8 @@ async function tryProxy(proxy, url) {
 }
 
 function isValidResponse(text) {
-    // Must start with valid JSON characters or XML (for RSS)
     const trimmed = text.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<?xml') || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) {
-        return true;
-    }
-    // Reject HTML error pages, "Edge: Too" errors, etc.
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<?xml') || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) return true;
     return false;
 }
 
@@ -69,10 +63,9 @@ function createTextResponse(text, originalRes) {
     };
 }
 
-// ─── STOCK DATA (Yahoo Finance) ───────────────────────────────────────────────
+// ─── STOCK DATA ───────────────────────────────────────────────────────────────
 
 export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
-    // Try v8 chart endpoint first
     const urls = [
         `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
         `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
@@ -123,7 +116,6 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
 }
 
 export async function fetchStockMultiTimeframe(symbol) {
-    // Fetch all timeframes, but don't fail if one timeframe fails
     const [dailyRes, weeklyRes, fourHourRes] = await Promise.allSettled([
         fetchStockData(symbol, '3mo', '1d'),
         fetchStockData(symbol, '1y', '1wk'),
@@ -136,19 +128,14 @@ export async function fetchStockMultiTimeframe(symbol) {
 
     if (!daily) throw new Error(`Could not fetch data for ${symbol}`);
 
-    // Aggregate 1h candles into 4h
     const fourHour = fourHourRaw
         ? { ...fourHourRaw, candles: aggregateCandles(fourHourRaw.candles, 4) }
-        : daily; // Fallback to daily if 4h fails
+        : daily;
 
-    return {
-        daily,
-        weekly: weekly || daily, // Fallback to daily if weekly fails
-        fourHour,
-    };
+    return { daily, weekly: weekly || daily, fourHour };
 }
 
-// ─── CRYPTO DATA (CoinGecko) ─────────────────────────────────────────────────
+// ─── CRYPTO DATA ───────────────────────────────────────────────────────────────
 
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 
@@ -166,7 +153,6 @@ export async function fetchCryptoData(coinId, days = 90) {
         open, high, low, close, volume: 0,
     }));
 
-    // Get current price
     let currentPrice = candles[candles.length - 1]?.close;
     let change24h = 0;
     try {
@@ -177,9 +163,8 @@ export async function fetchCryptoData(coinId, days = 90) {
         const coinPrice = priceData[coinId] || {};
         if (coinPrice.usd) currentPrice = coinPrice.usd;
         if (coinPrice.usd_24h_change) change24h = coinPrice.usd_24h_change;
-    } catch (e) { /* use candle price as fallback */ }
+    } catch (e) { /* */ }
 
-    // Get proper display name
     const displayName = CRYPTO_NAMES[coinId] || coinId.charAt(0).toUpperCase() + coinId.slice(1).replace(/-/g, ' ');
     const displaySymbol = coinId === 'ripple' ? 'XRP' : coinId.split('-')[0].toUpperCase();
 
@@ -203,11 +188,8 @@ export async function fetchCryptoMultiTimeframe(coinId) {
 
     const daily = dailyRes.status === 'fulfilled' ? dailyRes.value : null;
     const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-
     if (!daily) throw new Error(`Could not fetch data for ${coinId}`);
-
     const weeklyCandles = aggregateCandles(daily.candles, 7);
-
     return {
         daily,
         weekly: weekly || { ...daily, candles: weeklyCandles },
@@ -215,24 +197,23 @@ export async function fetchCryptoMultiTimeframe(coinId) {
     };
 }
 
-// ─── SEARCH ──────────────────────────────────────────────────────────────────
+// ─── SEARCH ───────────────────────────────────────────────────────────────────────
+// Stock search excludes crypto/futures so the stock tab cannot return
+// non-equity hits. The crypto tab uses CoinGecko separately.
 
 export async function searchStocks(query) {
     if (!query || query.length < 1) return [];
-
-    // Try Yahoo Finance search endpoints
     const searchUrls = [
         `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0&enableFuzzyQuery=true`,
         `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12&newsCount=0`,
     ];
-
     for (const url of searchUrls) {
         try {
             const res = await fetchWithProxy(url);
             const json = await res.json();
             if (json.quotes && json.quotes.length > 0) {
                 return json.quotes
-                    .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'INDEX' || q.quoteType === 'CRYPTOCURRENCY')
+                    .filter(q => q.quoteType === 'EQUITY' || q.quoteType === 'ETF' || q.quoteType === 'INDEX')
                     .map(q => ({
                         symbol: q.symbol,
                         name: q.shortname || q.longname || q.symbol,
@@ -242,8 +223,6 @@ export async function searchStocks(query) {
             }
         } catch (e) { continue; }
     }
-
-    // Final fallback: return the symbol as-is so user can still try to analyze it
     const upper = query.toUpperCase();
     return [{ symbol: upper, name: upper, exchange: '', type: 'EQUITY' }];
 }
@@ -261,12 +240,9 @@ export async function searchCrypto(query) {
             thumb: c.thumb,
         }));
     } catch (e) {
-        // Fallback: return query as-is
         return [{ symbol: query.toUpperCase(), name: query, id: query.toLowerCase(), thumb: '' }];
     }
 }
-
-// ─── CRYPTO NAME LOOKUP ──────────────────────────────────────────────────────
 
 export const CRYPTO_NAMES = {
     'bitcoin': 'Bitcoin', 'ethereum': 'Ethereum', 'solana': 'Solana',
@@ -274,8 +250,6 @@ export const CRYPTO_NAMES = {
     'polkadot': 'Polkadot', 'avalanche-2': 'Avalanche', 'chainlink': 'Chainlink',
     'matic-network': 'Polygon', 'litecoin': 'Litecoin', 'uniswap': 'Uniswap',
 };
-
-// ─── UTILITIES ───────────────────────────────────────────────────────────────
 
 function aggregateCandles(candles, periodSize) {
     const aggregated = [];
