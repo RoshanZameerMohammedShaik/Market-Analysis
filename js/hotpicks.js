@@ -1,8 +1,6 @@
-// Hot Picks Scanner — dynamic, fetches real-time market movers,
-// runs technical analysis + applies shared market conditions.
-//
-// Stock cards now also carry _sparkline (from the daily candles) so the
-// UI can render a small visual trend per card without re-fetching.
+// Hot Picks Scanner. Stock screeners filtered strictly to EQUITY/ETF
+// so cryptocurrency entries from cross-asset Yahoo screeners can't leak
+// into the stocks tab.
 
 import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
@@ -70,7 +68,6 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     else signal = 'NEUTRAL';
                     const deviation = Math.abs(blended - 50) / 50;
                     const confidence = Math.round(38 + deviation * 50);
-                    // Last 30 close prices form the sparkline. Cheap, already in memory.
                     const sparkline = data.candles.slice(-30).map(c => c.close);
                     return {
                         symbol: data.symbol,
@@ -108,7 +105,14 @@ async function fetchYahooScreener(screener) {
     const json = await res.json();
     const quotes = json?.finance?.result?.[0]?.quotes || [];
     return quotes
-        .filter(q => q.regularMarketPrice && q.symbol && !q.symbol.includes('.'))
+        .filter(q => {
+            // Strict equity/ETF only — keeps crypto/futures from cross-asset
+            // screeners (most_actives in particular) out of the stocks tab.
+            if (!q.regularMarketPrice || !q.symbol) return false;
+            if (q.symbol.includes('.') || q.symbol.includes('=') || q.symbol.includes('-USD')) return false;
+            const t = q.quoteType;
+            return t === 'EQUITY' || t === 'ETF';
+        })
         .map(q => ({
             symbol: q.symbol,
             name: q.shortName || q.longName || q.symbol,
@@ -116,6 +120,7 @@ async function fetchYahooScreener(screener) {
             changePercent: q.regularMarketChangePercent || 0,
             volume: q.regularMarketVolume || 0,
             marketCap: q.marketCap || 0,
+            quoteType: q.quoteType,
         }));
 }
 
@@ -124,7 +129,11 @@ async function fetchYahooTrending() {
     const res = await fetchWithProxy(url);
     const json = await res.json();
     const quotes = json?.finance?.result?.[0]?.quotes || [];
-    return quotes.map(q => ({ symbol: q.symbol, name: q.symbol }));
+    // Trending API doesn't return quoteType reliably, so we filter by symbol
+    // shape — -USD suffix and = futures get dropped here too.
+    return quotes
+        .filter(q => q.symbol && !q.symbol.includes('-USD') && !q.symbol.includes('=') && !q.symbol.includes('.'))
+        .map(q => ({ symbol: q.symbol, name: q.symbol }));
 }
 
 export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
@@ -217,13 +226,10 @@ async function fetchCryptoMarket(page = 1) {
     const data = await res.json();
     if (!Array.isArray(data)) return [];
     return data.map(coin => ({
-        id: coin.id,
-        symbol: coin.symbol,
-        name: coin.name,
+        id: coin.id, symbol: coin.symbol, name: coin.name,
         price: coin.current_price,
         change24h: coin.price_change_percentage_24h || 0,
-        volume: coin.total_volume,
-        marketCap: coin.market_cap,
+        volume: coin.total_volume, marketCap: coin.market_cap,
         sparkline: coin.sparkline_in_7d?.price || [],
     }));
 }
@@ -234,9 +240,7 @@ async function fetchCryptoTrending() {
     const data = await res.json();
     if (!data.coins) return [];
     return data.coins.map(c => ({
-        id: c.item.id,
-        symbol: c.item.symbol,
-        name: c.item.name,
+        id: c.item.id, symbol: c.item.symbol, name: c.item.name,
         price: c.item.data?.price || 0,
         change24h: c.item.data?.price_change_percentage_24h?.usd || 0,
         sparkline: [],

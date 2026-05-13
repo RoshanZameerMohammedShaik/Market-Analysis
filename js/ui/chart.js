@@ -14,20 +14,17 @@ const TV_CRYPTO_MAP = {
 
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
-
     const container = document.getElementById('tradingview-widget');
     const chartHeader = document.getElementById('chart-header');
 
     let symbol;
-    if (state.mode === 'stock') {
-        symbol = state.currentSymbol;
-    } else {
+    if (state.mode === 'stock') symbol = state.currentSymbol;
+    else {
         const sym = state.currentSymbol.toUpperCase();
         symbol = TV_CRYPTO_MAP[sym] || `BINANCE:${sym}USDT`;
     }
 
     const themeMap = { dark: 'dark', light: 'light', colourful: 'dark' };
-
     container.innerHTML = '';
     const widgetDiv = document.createElement('div');
     widgetDiv.className = 'tradingview-widget-container';
@@ -38,22 +35,28 @@ export function loadChart() {
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
     script.async = true;
     script.textContent = JSON.stringify({
-        autosize: true,
-        symbol,
-        interval: 'D',
+        autosize: true, symbol, interval: 'D',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         theme: themeMap[state.theme],
-        style: '3',
-        locale: 'en',
-        hide_top_toolbar: false,
-        hide_legend: false,
-        save_image: false,
-        calendar: false,
-        hide_volume: false,
+        style: '3', locale: 'en',
+        hide_top_toolbar: false, hide_legend: false,
+        save_image: false, calendar: false, hide_volume: false,
         support_host: 'https://www.tradingview.com',
     });
     widgetDiv.appendChild(script);
     chartHeader.classList.remove('hidden');
+}
+
+export function showChartPlaceholder() {
+    const container = document.getElementById('tradingview-widget');
+    if (!container) return;
+    container.innerHTML = `
+        <div class="chart-placeholder">
+            <div class="chart-ph-glow"></div>
+            <div class="chart-ph-icon">📊</div>
+            <div class="chart-ph-title">Select a stock or crypto to start</div>
+            <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
+        </div>`;
 }
 
 export function updateChartHeader(data) {
@@ -62,8 +65,6 @@ export function updateChartHeader(data) {
     if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
     if (data.currentPrice) {
         state.currentPrice = data.currentPrice;
-        const plPriceInput = document.getElementById('pl-currentPrice');
-        if (plPriceInput) plPriceInput.value = data.currentPrice.toFixed(2);
         if (priceEl) {
             const change = data.previousClose
                 ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
