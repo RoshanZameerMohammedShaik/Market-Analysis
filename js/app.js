@@ -1,5 +1,4 @@
-// Market Analyzer — Entry Point
-import { init } from './ui.js';
+// Market Analyzer — entry point
+import { init } from './ui/core.js';
 
-// Boot the app once DOM is ready
 document.addEventListener('DOMContentLoaded', init);

@@ -1,0 +1,27 @@
+# Generated training and backtest artifacts.
+# Re-runnable, large, and machine-specific — don't commit.
+model/lstm_weights.json
+model/metrics.json
+model/xgb_model.json
+model/xgb_metrics.json
+model/backtest_results.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db

@@ -1,6 +1,10 @@
 """
-Train a small LSTM model for stock/crypto price direction prediction.
-Exports weights as JSON for browser-side inference.
+Train a small LSTM for next-bar direction prediction and export weights
+as JSON for browser-side inference (js/ai-model.js).
+
+Feature extraction here is duplicated in js/ai-model.js — they MUST stay
+in sync. If you change anything in compute_features(), mirror the change
+in computeFeatures() in js/ai-model.js or predictions will silently drift.
 """
 import torch
 import torch.nn as nn
@@ -18,13 +22,17 @@ SYMBOLS = [
     'COIN', 'SQ', 'PLTR', 'SOFI', 'RIVN', 'MARA',
 ]
 PERIOD = '5y'
-SEQUENCE_LENGTH = 20  # Look back 20 days
-FEATURES = 8  # Number of input features per day
+SEQUENCE_LENGTH = 20
+FEATURES = 8
 HIDDEN_SIZE = 32
 NUM_LAYERS = 2
 EPOCHS = 50
 BATCH_SIZE = 64
 LEARNING_RATE = 0.001
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
+MODEL_PATH = os.path.join(MODEL_DIR, 'lstm_weights.json')
 
 
 # ─── DATA PREPARATION ────────────────────────────────────────────────────────
@@ -32,7 +40,6 @@ LEARNING_RATE = 0.001
 
 def compute_features(df):
     """Compute normalized technical features from OHLCV data."""
-    # Flatten multi-index columns if present
     if hasattr(df.columns, 'levels'):
         df.columns = df.columns.get_level_values(0)
     close = df['Close'].values.flatten().astype(float)
@@ -46,11 +53,9 @@ def compute_features(df):
     for i in range(SEQUENCE_LENGTH, len(close) - 1):
         window = []
         for j in range(i - SEQUENCE_LENGTH, i):
-            # 8 features per day, all normalized
             price_change = (close[j] - close[j-1]) / close[j-1] if j > 0 else 0
             high_low_range = (high[j] - low[j]) / close[j]
 
-            # RSI approximation (14-period)
             if j >= 14:
                 gains = sum(max(0, close[k] - close[k-1]) for k in range(j-13, j+1))
                 losses = sum(max(0, close[k-1] - close[k]) for k in range(j-13, j+1))
@@ -58,13 +63,11 @@ def compute_features(df):
             else:
                 rsi = 0.5
 
-            # Volume ratio vs 20-day average
             vol_start = max(0, j - 20)
             avg_vol = np.mean(volume[vol_start:j+1]) if vol_start < j else volume[j]
             vol_ratio = volume[j] / (avg_vol + 1e-8)
-            vol_ratio = min(vol_ratio, 5.0) / 5.0  # Cap at 5x, normalize to 0-1
+            vol_ratio = min(vol_ratio, 5.0) / 5.0
 
-            # Moving average ratios
             if j >= 9:
                 sma9 = np.mean(close[j-8:j+1])
                 ma_ratio_9 = (close[j] - sma9) / (sma9 + 1e-8)
@@ -77,7 +80,6 @@ def compute_features(df):
             else:
                 ma_ratio_21 = 0
 
-            # Bollinger Band position
             if j >= 20:
                 bb_window = close[j-19:j+1]
                 bb_mean = np.mean(bb_window)
@@ -87,14 +89,13 @@ def compute_features(df):
             else:
                 bb_position = 0
 
-            # Momentum (5-day rate of change)
             if j >= 5:
                 momentum = (close[j] - close[j-5]) / (close[j-5] + 1e-8)
             else:
                 momentum = 0
 
             window.append([
-                price_change * 10,  # Scale up small values
+                price_change * 10,
                 high_low_range * 10,
                 rsi,
                 vol_ratio,
@@ -106,7 +107,6 @@ def compute_features(df):
 
         features.append(window)
 
-        # Label: 1 if price goes up tomorrow, 0 if down
         next_change = (close[i + 1] - close[i]) / close[i]
         labels.append(1 if next_change > 0 else 0)
 
@@ -152,7 +152,7 @@ class PriceLSTM(nn.Module):
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
-        last_hidden = lstm_out[:, -1, :]  # Take last timestep
+        last_hidden = lstm_out[:, -1, :]
         x = self.fc1(last_hidden)
         x = self.relu(x)
         x = self.dropout(x)
@@ -163,26 +163,21 @@ class PriceLSTM(nn.Module):
 # ─── TRAINING ────────────────────────────────────────────────────────────────
 
 def train_model():
-    # Fetch and prepare data
     X, y = fetch_and_prepare_data()
 
-    # Train/test split (80/20)
     split = int(len(X) * 0.8)
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
 
-    # Convert to tensors
     X_train_t = torch.FloatTensor(X_train)
     y_train_t = torch.FloatTensor(y_train).unsqueeze(1)
     X_test_t = torch.FloatTensor(X_test)
     y_test_t = torch.FloatTensor(y_test).unsqueeze(1)
 
-    # Create model
     model = PriceLSTM()
     criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # Training loop
     print(f"\nTraining for {EPOCHS} epochs...")
     dataset = torch.utils.data.TensorDataset(X_train_t, y_train_t)
     loader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -207,7 +202,6 @@ def train_model():
                 avg_loss = total_loss / len(loader)
                 print(f"  Epoch {epoch+1}/{EPOCHS} — Loss: {avg_loss:.4f} — Test Acc: {accuracy*100:.1f}%")
 
-    # Final evaluation
     model.eval()
     with torch.no_grad():
         test_outputs = model(X_test_t)
@@ -226,12 +220,10 @@ def export_model_to_json(model, filepath):
     """Export model weights as JSON for browser-side inference."""
     state_dict = model.state_dict()
 
-    # Convert all tensors to lists
     weights = {}
     for key, tensor in state_dict.items():
         weights[key] = tensor.cpu().numpy().tolist()
 
-    # Also export model config
     export = {
         'config': {
             'input_size': FEATURES,
@@ -254,8 +246,8 @@ def export_model_to_json(model, filepath):
 if __name__ == '__main__':
     model, accuracy = train_model()
 
-    os.makedirs('./model', exist_ok=True)
-    export_model_to_json(model, './model/lstm_weights.json')
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    export_model_to_json(model, MODEL_PATH)
 
     print("\nDone! Model ready for browser deployment.")
     print(f"Accuracy: {accuracy*100:.1f}% (vs 50% random)")
