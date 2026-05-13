@@ -1,0 +1,36 @@
+name: Feature extractor sync check
+
+on:
+  pull_request:
+    paths:
+      - 'js/ai-model.js'
+      - 'shared_features.py'
+      - 'train_model.py'
+  push:
+    branches: [main]
+    paths:
+      - 'js/ai-model.js'
+      - 'shared_features.py'
+      - 'train_model.py'
+
+# Why this exists: js/ai-model.js and shared_features.py both compute the
+# 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
+# bug from the original PR was exactly this), predictions degrade silently.
+# This job runs both extractors against synthetic OHLCV and asserts the
+# numbers match to 6 decimal places.
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: pip install numpy
+      - name: Run sync check
+        run: python tools/feature_sync_check.py

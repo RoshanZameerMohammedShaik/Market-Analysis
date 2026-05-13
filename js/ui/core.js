@@ -9,9 +9,10 @@ import { renderAccuracyStrip } from './accuracy.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from '../data.js';
 import { computeFullConfidence } from '../confidence.js';
 import { loadModel } from '../ai-model.js';
-import { loadCalibration } from '../calibration.js';
+import { loadCalibration, getCalibrationStatus } from '../calibration.js';
 import { logPrediction, resolvePending } from '../outcome-tracker.js';
 import { isDev } from '../dev-mode.js';
+import { initKeyboard } from './keyboard.js';
 
 export function init() {
     initTheme();
@@ -19,13 +20,16 @@ export function init() {
     initSearch(onSelectFromSearch);
     updatePlaceholder();
     initPLCalculator();
+    initKeyboard({ onRefresh: () => document.getElementById('refresh-hotpicks')?.click() });
     loadHotPicks(onSelectFromCard);
 
     loadModel().then(loaded => loaded && console.log('[Market Analyzer] AI model loaded'));
-    // Always load calibration data — it's used to remap displayed confidence
-    // for everyone. Only the badge/delta describing it is dev-gated.
-    loadCalibration().then(() => maybeRenderAccuracyStrip());
+    loadCalibration().then(() => {
+        maybeRenderAccuracyStrip();
+        updateDevDot();
+    });
     maybeRenderAccuracyStrip();
+    updateDevDot();
 
     document.getElementById('theme-toggle').addEventListener('click', () => {
         cycleTheme(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
@@ -46,6 +50,21 @@ function maybeRenderAccuracyStrip() {
         return;
     }
     renderAccuracyStrip();
+}
+
+function updateDevDot() {
+    const dot = document.getElementById('dev-dot');
+    if (!dot) return;
+    if (!isDev()) {
+        dot.style.display = 'none';
+        return;
+    }
+    dot.style.display = 'inline-block';
+    const status = getCalibrationStatus();
+    dot.className = `dev-dot ${status === 'loaded' ? 'calibrated' : 'raw'}`;
+    dot.title = status === 'loaded'
+        ? 'Dev mode · calibration loaded'
+        : 'Dev mode · calibration NOT loaded (run python backtest.py)';
 }
 
 function initTabs() {
@@ -156,6 +175,7 @@ async function runAnalysis() {
             timeframe: state.timeframe,
         });
         maybeRenderAccuracyStrip();
+        updateDevDot();
 
         document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis());
     } catch (e) {

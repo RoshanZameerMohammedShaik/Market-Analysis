@@ -3,10 +3,14 @@ import { fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
+import { animateNumber } from './animate.js';
+
+let lastShownConfidence = null;
+let lastShownSymbol = null;
 
 export function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
-    const { signal, confidence, rawConfidence, calibrationApplied, reasons, priceTargets } = prediction;
+    const { signal, confidence, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime } = prediction;
 
     const signalClass = signal.toLowerCase();
     const arrow = signal === 'BUY' ? '▲' : signal === 'SELL' ? '▼' : '◆';
@@ -87,10 +91,6 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             </div>`;
     }
 
-    // Calibration meta-info: only operators (?dev=1) need to see whether
-    // the displayed confidence is calibrated or raw. Public users get
-    // the calibrated number itself — they just don't get the badge
-    // explaining how it was produced.
     const calibrationBadge = isDev()
         ? (calibrationApplied
             ? `<span class="cal-badge calibrated" title="Confidence adjusted to match backtested hit rate">✓ calibrated</span>`
@@ -101,6 +101,11 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
         ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>`
         : '';
 
+    // Trend regime chip is shown to everyone — it's useful context, not internals.
+    const trendChip = trendRegime && trendRegime !== 'unknown'
+        ? `<span class="trend-chip ${trendRegime}" title="Market regime detected by ADX">${trendRegime}</span>`
+        : '';
+
     const methodLabel = prediction.method || 'Technical + News + Multi-Timeframe';
 
     section.innerHTML = `
@@ -108,7 +113,8 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="signal-header">
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
                 <span class="signal-label ${signalClass}">${signal}</span>
-                <span class="signal-confidence">${confidence}%</span>
+                <span class="signal-confidence" id="signal-conf-num">${confidence}%</span>
+                ${trendChip}
                 ${calibrationBadge}
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
@@ -128,6 +134,13 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <strong>Not financial advice.</strong> Predictions are statistical signals, not guarantees. Past performance does not predict future results. Trade at your own risk.
             </div>
         </div>`;
+
+    // Animate confidence number when staying on the same symbol.
+    if (lastShownSymbol === state.currentSymbol && lastShownConfidence !== null && lastShownConfidence !== confidence) {
+        animateNumber(document.getElementById('signal-conf-num'), lastShownConfidence, confidence);
+    }
+    lastShownConfidence = confidence;
+    lastShownSymbol = state.currentSymbol;
 }
 
 function generateHumanInsight(prediction, sentiment) {
