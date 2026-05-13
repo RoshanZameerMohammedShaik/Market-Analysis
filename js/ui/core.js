@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { initTheme, cycleTheme } from './theme.js';
 import { initSearch, updatePlaceholder } from './search.js';
-import { loadChart, updateChartHeader } from './chart.js';
+import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
 import { loadHotPicks } from './hotpicks.js';
 import { initPLCalculator } from './pl.js';
@@ -13,23 +13,31 @@ import { loadCalibration, getCalibrationStatus } from '../calibration.js';
 import { logPrediction, resolvePending } from '../outcome-tracker.js';
 import { isDev } from '../dev-mode.js';
 import { initKeyboard } from './keyboard.js';
+import { renderGlossary } from './glossary.js';
+import { startTipRotation } from './tips.js';
+import { initMia, setLatestSignal } from '../mia/mia.js';
+
+let stopTips = null;
 
 export function init() {
+    document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
+
     initTheme();
     initTabs();
     initSearch(onSelectFromSearch);
     updatePlaceholder();
     initPLCalculator();
     initKeyboard({ onRefresh: () => document.getElementById('refresh-hotpicks')?.click() });
-    loadHotPicks(onSelectFromCard);
+    renderGlossary();
+    initMia();
+    showChartPlaceholder();
+
+    startTipsForLoading();
+    loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
 
     loadModel().then(loaded => loaded && console.log('[Market Analyzer] AI model loaded'));
-    loadCalibration().then(() => {
-        maybeRenderAccuracyStrip();
-        updateDevDot();
-    });
+    loadCalibration().then(() => maybeRenderAccuracyStrip());
     maybeRenderAccuracyStrip();
-    updateDevDot();
 
     document.getElementById('theme-toggle').addEventListener('click', () => {
         cycleTheme(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
@@ -38,8 +46,22 @@ export function init() {
     document.getElementById('refresh-hotpicks').addEventListener('click', e => {
         const btn = e.currentTarget;
         btn.classList.add('spinning');
-        loadHotPicks(onSelectFromCard).finally(() => btn.classList.remove('spinning'));
+        startTipsForLoading();
+        loadHotPicks(onSelectFromCard).finally(() => {
+            btn.classList.remove('spinning');
+            stopTipsForLoading();
+        });
     });
+}
+
+function startTipsForLoading() {
+    const tipEl = document.getElementById('loading-tip');
+    if (!tipEl) return;
+    if (stopTips) stopTips();
+    stopTips = startTipRotation(tipEl, 4500);
+}
+function stopTipsForLoading() {
+    if (stopTips) { stopTips(); stopTips = null; }
 }
 
 function maybeRenderAccuracyStrip() {
@@ -52,21 +74,6 @@ function maybeRenderAccuracyStrip() {
     renderAccuracyStrip();
 }
 
-function updateDevDot() {
-    const dot = document.getElementById('dev-dot');
-    if (!dot) return;
-    if (!isDev()) {
-        dot.style.display = 'none';
-        return;
-    }
-    dot.style.display = 'inline-block';
-    const status = getCalibrationStatus();
-    dot.className = `dev-dot ${status === 'loaded' ? 'calibrated' : 'raw'}`;
-    dot.title = status === 'loaded'
-        ? 'Dev mode · calibration loaded'
-        : 'Dev mode · calibration NOT loaded (run python backtest.py)';
-}
-
 function initTabs() {
     document.querySelectorAll('[data-tab]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -75,7 +82,8 @@ function initTabs() {
             btn.classList.add('active');
             updatePlaceholder();
             clearAnalysis();
-            loadHotPicks(onSelectFromCard);
+            startTipsForLoading();
+            loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
         });
     });
     document.querySelectorAll('[data-timeframe]').forEach(btn => {
@@ -84,32 +92,23 @@ function initTabs() {
             document.querySelectorAll('[data-timeframe]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             if (state.currentSymbol || state.currentCoinId) runAnalysis();
-            loadHotPicks(onSelectFromCard);
+            startTipsForLoading();
+            loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
         });
     });
 }
 
 function onSelectFromSearch({ mode, symbol, coinId }) {
-    if (mode === 'stock') {
-        state.currentSymbol = symbol;
-        state.currentCoinId = null;
-    } else {
-        state.currentSymbol = symbol;
-        state.currentCoinId = coinId;
-    }
+    if (mode === 'stock') { state.currentSymbol = symbol; state.currentCoinId = null; }
+    else { state.currentSymbol = symbol; state.currentCoinId = coinId; }
     document.getElementById('search-input').value = symbol;
     loadChart();
     runAnalysis();
 }
 
 function onSelectFromCard({ mode, symbol, coinId }) {
-    if (mode === 'stock') {
-        state.currentSymbol = symbol;
-        state.currentCoinId = null;
-    } else {
-        state.currentSymbol = symbol;
-        state.currentCoinId = coinId;
-    }
+    if (mode === 'stock') { state.currentSymbol = symbol; state.currentCoinId = null; }
+    else { state.currentSymbol = symbol; state.currentCoinId = coinId; }
     document.getElementById('search-input').value = symbol;
     loadChart();
     runAnalysis();
@@ -158,24 +157,19 @@ async function runAnalysis() {
         }
 
         updateChartHeader(multiData.daily);
-
-        if (multiData.daily.currentPrice) {
-            resolvePending(state.currentSymbol, multiData.daily.currentPrice);
-        }
+        if (multiData.daily.currentPrice) resolvePending(state.currentSymbol, multiData.daily.currentPrice);
 
         const result = await computeFullConfidence(multiData, state.mode, symbolId, state.timeframe);
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
+        // Tell Mia about the latest signal so her grounding stays current.
+        setLatestSignal(result);
 
         logPrediction({
-            mode: state.mode,
-            symbol: state.currentSymbol,
-            signal: result.signal,
-            confidence: result.confidence,
-            price: multiData.daily.currentPrice,
-            timeframe: state.timeframe,
+            mode: state.mode, symbol: state.currentSymbol,
+            signal: result.signal, confidence: result.confidence,
+            price: multiData.daily.currentPrice, timeframe: state.timeframe,
         });
         maybeRenderAccuracyStrip();
-        updateDevDot();
 
         document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis());
     } catch (e) {
@@ -190,7 +184,6 @@ function wrapCandles(symbol, name, price, prev, candles) {
         fourHour: { symbol, name, currentPrice: price, previousClose: null, candles },
     };
 }
-
 function sparklineToCandles(prices) {
     if (!prices || prices.length < 20) return [];
     const periodSize = 4;
@@ -206,12 +199,12 @@ function sparklineToCandles(prices) {
     }
     return candles;
 }
-
 function clearAnalysis() {
     document.getElementById('signal-section').innerHTML = '';
     document.getElementById('chart-header').classList.add('hidden');
-    document.getElementById('tradingview-widget').innerHTML = '';
+    showChartPlaceholder();
     state.currentSymbol = null;
     state.currentCoinId = null;
+    state.currentPrice = null;
     document.getElementById('search-input').value = '';
 }
