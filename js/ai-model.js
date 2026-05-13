@@ -1,17 +1,27 @@
 // AI Model — LSTM inference in pure JavaScript
-// Loads pre-trained weights from JSON, runs forward pass in browser
+// Loads pre-trained weights from JSON, runs forward pass in browser.
+//
+// IMPORTANT: feature extraction here MUST match train_model.py exactly,
+// otherwise the LSTM sees a different feature distribution at inference
+// than it learned at training time. Any drift between the two is silent
+// and biases predictions in unpredictable ways.
 
 let modelWeights = null;
 let modelConfig = null;
 let modelLoaded = false;
 let modelLoading = false;
 
+// Required lookback for the longest indicator window (sma21 / vol_ratio).
+// Combined with sequence_length, this is the minimum number of candles
+// needed to compute features without any indicator falling back to its
+// boundary default.
+const LOOKBACK = 21;
+
 // ─── MODEL LOADING ───────────────────────────────────────────────────────────
 
 export async function loadModel() {
     if (modelLoaded) return true;
     if (modelLoading) {
-        // Wait for ongoing load
         while (modelLoading) await new Promise(r => setTimeout(r, 100));
         return modelLoaded;
     }
@@ -35,33 +45,33 @@ export async function loadModel() {
     }
 }
 
-// ─── FEATURE COMPUTATION (same as training) ──────────────────────────────────
+// ─── FEATURE COMPUTATION (must match train_model.py exactly) ─────────────────
 
 export function computeFeatures(candles) {
     const seqLen = modelConfig ? modelConfig.sequence_length : 20;
 
-    if (candles.length < seqLen + 1) return null;
+    // Need seqLen window + LOOKBACK history so the smallest j satisfies
+    // every indicator's minimum lookback (sma21 needs j >= 21).
+    if (candles.length < seqLen + LOOKBACK) return null;
 
-    // Take last seqLen candles
-    const window = candles.slice(-seqLen);
-    const allCandles = candles.slice(-(seqLen + 21)); // Extra for lookback calcs
+    const allCandles = candles.slice(-(seqLen + LOOKBACK));
+    const close = allCandles.map(c => c.close);
+    const high = allCandles.map(c => c.high);
+    const low = allCandles.map(c => c.low);
+    const volume = allCandles.map(c => c.volume || 0);
 
     const features = [];
 
-    for (let idx = 0; idx < window.length; idx++) {
+    for (let idx = 0; idx < seqLen; idx++) {
         const j = allCandles.length - seqLen + idx;
-        const close = allCandles.map(c => c.close);
-        const high = allCandles.map(c => c.high);
-        const low = allCandles.map(c => c.low);
-        const volume = allCandles.map(c => c.volume || 0);
 
-        // 1. Price change
+        // 1. Price change (1-bar return)
         const priceChange = j > 0 ? (close[j] - close[j - 1]) / (close[j - 1] + 1e-8) : 0;
 
-        // 2. High-low range
+        // 2. High-low range as fraction of close
         const highLowRange = (high[j] - low[j]) / (close[j] + 1e-8);
 
-        // 3. RSI approximation
+        // 3. RSI approximation over 14 bars
         let rsi = 0.5;
         if (j >= 14) {
             let gains = 0, losses = 0;
@@ -73,37 +83,49 @@ export function computeFeatures(candles) {
             rsi = gains / (gains + losses + 1e-8);
         }
 
-        // 4. Volume ratio
-        let volRatio = 0.5;
+        // 4. Volume ratio: current volume vs 21-bar average INCLUDING current bar.
+        //    train_model.py uses volume[j-20:j+1] → 21 bars including j.
+        //    Boundary default 0.2 mirrors training's volume[j]/volume[j] = 1.0
+        //    after the /5.0 normalization.
+        let volRatio = 0.2;
         if (j >= 20) {
-            const avgVol = volume.slice(j - 20, j).reduce((a, b) => a + b, 0) / 20;
+            let sum = 0;
+            for (let k = j - 20; k <= j; k++) sum += volume[k];
+            const avgVol = sum / 21;
             volRatio = Math.min(volume[j] / (avgVol + 1e-8), 5.0) / 5.0;
         }
 
-        // 5. MA ratio 9
+        // 5. MA ratio: close vs 9-bar SMA
         let maRatio9 = 0;
         if (j >= 9) {
-            const sma9 = close.slice(j - 8, j + 1).reduce((a, b) => a + b, 0) / 9;
+            let sum = 0;
+            for (let k = j - 8; k <= j; k++) sum += close[k];
+            const sma9 = sum / 9;
             maRatio9 = (close[j] - sma9) / (sma9 + 1e-8);
         }
 
-        // 6. MA ratio 21
+        // 6. MA ratio: close vs 21-bar SMA
         let maRatio21 = 0;
         if (j >= 21) {
-            const sma21 = close.slice(j - 20, j + 1).reduce((a, b) => a + b, 0) / 21;
+            let sum = 0;
+            for (let k = j - 20; k <= j; k++) sum += close[k];
+            const sma21 = sum / 21;
             maRatio21 = (close[j] - sma21) / (sma21 + 1e-8);
         }
 
-        // 7. Bollinger Band position
+        // 7. Bollinger Band position (20-bar window, 2 std dev)
         let bbPosition = 0;
         if (j >= 20) {
-            const bbWindow = close.slice(j - 19, j + 1);
-            const bbMean = bbWindow.reduce((a, b) => a + b, 0) / 20;
-            const bbStd = Math.sqrt(bbWindow.reduce((s, v) => s + Math.pow(v - bbMean, 2), 0) / 20) + 1e-8;
+            let sum = 0;
+            for (let k = j - 19; k <= j; k++) sum += close[k];
+            const bbMean = sum / 20;
+            let variance = 0;
+            for (let k = j - 19; k <= j; k++) variance += (close[k] - bbMean) ** 2;
+            const bbStd = Math.sqrt(variance / 20) + 1e-8;
             bbPosition = Math.max(-1, Math.min(1, (close[j] - bbMean) / (2 * bbStd)));
         }
 
-        // 8. Momentum (5-day)
+        // 8. Momentum: 5-bar rate of change
         let momentum = 0;
         if (j >= 5) {
             momentum = (close[j] - close[j - 5]) / (close[j - 5] + 1e-8);
@@ -151,7 +173,6 @@ function lstmCell(input, hPrev, cPrev, weights, biases) {
     const hiddenSize = hPrev.length;
     const combinedInput = [...input, ...hPrev];
 
-    // Gates: input, forget, cell, output (all packed in one weight matrix)
     const gates = addVectors(matmul(weights, combinedInput), biases);
 
     const i = gates.slice(0, hiddenSize).map(sigmoid);
@@ -170,16 +191,13 @@ function runLSTM(features) {
 
     const { hidden_size, num_layers } = modelConfig;
 
-    // Initialize hidden states
     let h = Array.from({ length: num_layers }, () => new Array(hidden_size).fill(0));
     let c = Array.from({ length: num_layers }, () => new Array(hidden_size).fill(0));
 
-    // Process each timestep
     for (const timestep of features) {
         let layerInput = timestep;
 
         for (let layer = 0; layer < num_layers; layer++) {
-            // Get weights for this layer
             const ihW = modelWeights[`lstm.weight_ih_l${layer}`];
             const hhW = modelWeights[`lstm.weight_hh_l${layer}`];
             const ihB = modelWeights[`lstm.bias_ih_l${layer}`];
@@ -187,8 +205,6 @@ function runLSTM(features) {
 
             if (!ihW || !hhW) return null;
 
-            // Combine ih and hh weights/biases for the cell
-            const inputSize = layerInput.length;
             const combinedW = ihW.map((row, i) => [...row, ...hhW[i]]);
             const combinedB = ihB.map((b, i) => b + hhB[i]);
 
@@ -196,21 +212,18 @@ function runLSTM(features) {
             h[layer] = result.h;
             c[layer] = result.c;
 
-            layerInput = result.h; // Next layer input is this layer's hidden
+            layerInput = result.h;
         }
     }
 
-    // Final hidden state -> FC layers
     const lastHidden = h[num_layers - 1];
 
-    // FC1: hidden_size -> 16
     const fc1W = modelWeights['fc1.weight'];
     const fc1B = modelWeights['fc1.bias'];
     if (!fc1W || !fc1B) return null;
 
     let fc1Out = addVectors(matmul(fc1W, lastHidden), fc1B).map(relu);
 
-    // FC2: 16 -> 1
     const fc2W = modelWeights['fc2.weight'];
     const fc2B = modelWeights['fc2.bias'];
     if (!fc2W || !fc2B) return null;
@@ -229,7 +242,7 @@ export async function getAIPrediction(candles) {
 
     const features = computeFeatures(candles);
     if (!features) {
-        return { score: 50, available: false, reason: 'Insufficient data for AI model' };
+        return { score: 50, available: false, reason: 'Insufficient data for AI model (need 41+ candles)' };
     }
 
     const probability = runLSTM(features);
@@ -237,7 +250,6 @@ export async function getAIPrediction(candles) {
         return { score: 50, available: false, reason: 'AI inference failed' };
     }
 
-    // Convert probability (0-1) to 0-100 bullish score
     const score = Math.round(probability * 100);
 
     let signal;

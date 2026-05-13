@@ -1,0 +1,8 @@
+# Training and backtesting dependencies.
+# Browser inference is dependency-free — these are only needed if you
+# want to retrain the LSTM (train_model.py) or run the backtester.
+
+torch>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.30
+scikit-learn>=1.3.0
