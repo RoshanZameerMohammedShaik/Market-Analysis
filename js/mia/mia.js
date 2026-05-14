@@ -1,20 +1,23 @@
-// Mia UI: launcher + slide-in panel + chat thread.
+// Mia v2 — welcome flow, chat with stream + abort, send/stop morph,
+// inline clear-chat next to send, usage meter pill.
 
-import { callLLM } from './llm-client.js';
+import { stream as llmStream } from './llm-client.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
+import { loadSettings, saveSettings, isConfigured, clearSettings } from './settings.js';
+import { renderWelcome } from './welcome.js';
+import { renderUsageMeter } from './usage-meter.js';
+import { webllm as webllmBackend } from './llm-client.js';
 
 let currentSignal = null;
 let panelOpen = false;
-let sending = false;
+let activeAbort = null;
 
 export function setLatestSignal(sig) { currentSignal = sig; }
 
 export function initMia() {
-    const launcher = document.getElementById('mia-launcher');
-    if (!launcher) return;
-    launcher.addEventListener('click', togglePanel);
+    document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
 }
 
 function togglePanel() {
@@ -23,18 +26,25 @@ function togglePanel() {
     if (!panel) return;
     if (panelOpen) {
         panel.setAttribute('aria-hidden', 'false');
-        renderPanel();
         panel.classList.add('open');
+        renderRoot();
     } else {
         panel.classList.remove('open');
         panel.setAttribute('aria-hidden', 'true');
     }
 }
 
-function renderPanel() {
+function renderRoot() {
     const panel = document.getElementById('mia-panel');
-    const history = loadHistory();
+    if (!isConfigured()) {
+        renderWelcome(panel, () => renderChat());
+        return;
+    }
+    renderChat();
+}
 
+function renderChat() {
+    const panel = document.getElementById('mia-panel');
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
@@ -45,34 +55,51 @@ function renderPanel() {
                 </div>
             </div>
             <div class="mia-head-actions">
-                <button class="mia-icon-btn" id="mia-clear-btn" title="Clear conversation">🗑</button>
+                <button class="mia-icon-btn" id="mia-thinking-btn" title="Toggle thinking mode">🧠⁺</button>
+                <button class="mia-icon-btn" id="mia-settings-btn" title="Settings">⚙️</button>
                 <button class="mia-icon-btn" id="mia-close-btn" title="Close">✕</button>
             </div>
         </div>
+        <div class="mia-usage-wrap" id="mia-usage-wrap"></div>
         <div class="mia-thread" id="mia-thread"></div>
         <div class="mia-foot">
+            <button id="mia-clear" class="mia-foot-icon" title="Clear conversation">🗑</button>
             <textarea id="mia-input" rows="2" placeholder="Ask Mia about a stock, an indicator, or what the signal means..."></textarea>
-            <button id="mia-send" class="mia-send-btn" title="Send">↑</button>
+            <button id="mia-send" class="mia-send-btn" title="Send" data-state="idle">↑</button>
         </div>
-        <div class="mia-disclaimer">Mia runs on the AI Horde free volunteer pool — replies take 5-30s. Numbers come from the on-screen signal; not financial advice.</div>
+        <div class="mia-disclaimer">Numbers come from the on-screen signal — not financial advice.</div>
     `;
-
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
-    document.getElementById('mia-clear-btn').addEventListener('click', () => {
-        if (confirm('Clear the conversation with Mia?')) {
-            clearHistory();
-            renderThread([]);
-        }
+    document.getElementById('mia-settings-btn').addEventListener('click', renderSettings);
+    document.getElementById('mia-thinking-btn').addEventListener('click', toggleThinking);
+    document.getElementById('mia-clear').addEventListener('click', () => {
+        clearHistory();
+        renderThread([]);
     });
-    document.getElementById('mia-send').addEventListener('click', () => sendMessage());
+    document.getElementById('mia-send').addEventListener('click', onSendOrStop);
     document.getElementById('mia-input').addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            sendMessage();
+            onSendOrStop();
         }
     });
 
-    renderThread(history);
+    refreshThinkingBadge();
+    renderUsageMeter(document.getElementById('mia-usage-wrap'));
+    renderThread(loadHistory());
+}
+
+function toggleThinking() {
+    const s = loadSettings();
+    saveSettings({ thinkingMode: !s.thinkingMode });
+    refreshThinkingBadge();
+}
+function refreshThinkingBadge() {
+    const s = loadSettings();
+    const btn = document.getElementById('mia-thinking-btn');
+    if (!btn) return;
+    btn.classList.toggle('active', !!s.thinkingMode);
+    btn.title = s.thinkingMode ? 'Thinking mode ON — deeper, slower' : 'Thinking mode OFF — faster, lighter';
 }
 
 function renderThread(history) {
@@ -94,7 +121,7 @@ function renderThread(history) {
             btn.addEventListener('click', () => {
                 const input = document.getElementById('mia-input');
                 input.value = btn.textContent;
-                sendMessage();
+                onSendOrStop();
             });
         });
         return;
@@ -108,10 +135,15 @@ function renderThread(history) {
     thread.scrollTop = thread.scrollHeight;
 }
 
-async function sendMessage(forced) {
-    if (sending) return;
+async function onSendOrStop() {
+    const sendBtn = document.getElementById('mia-send');
+    if (sendBtn.dataset.state === 'streaming') {
+        // Abort.
+        try { activeAbort?.abort(); } catch (_) {}
+        return;
+    }
     const input = document.getElementById('mia-input');
-    const text = (forced ?? input.value).trim();
+    const text = input.value.trim();
     if (!text) return;
     input.value = '';
 
@@ -119,50 +151,103 @@ async function sendMessage(forced) {
     history.push({ role: 'user', content: text });
     saveHistory(history);
     renderThread(history);
-    appendLoadingBubble();
 
-    sending = true;
-    document.getElementById('mia-send')?.setAttribute('disabled', 'disabled');
+    // Streaming bubble.
+    const thread = document.getElementById('mia-thread');
+    const bubbleId = 'mia-stream-' + Date.now();
+    thread.insertAdjacentHTML('beforeend', `
+        <div class="mia-msg assistant">
+            <div class="mia-msg-bubble mia-md" id="${bubbleId}"><span class="mia-typing"><i></i><i></i><i></i></span><span class="mia-progress" id="mia-progress">thinking…</span></div>
+        </div>
+    `);
+    thread.scrollTop = thread.scrollHeight;
 
+    setSendState('streaming');
+    activeAbort = new AbortController();
+    let acc = '';
+    let receivedAny = false;
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        const { reply } = await callLLM({
-            system,
-            messages: history,
-            onProgress: msg => updateLoadingProgress(msg),
-        });
+        for await (const delta of llmStream({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
+            if (!receivedAny) {
+                document.getElementById(bubbleId).innerHTML = '';
+                receivedAny = true;
+            }
+            acc += delta;
+            const el = document.getElementById(bubbleId);
+            if (el) el.innerHTML = renderMarkdown(acc);
+            thread.scrollTop = thread.scrollHeight;
+        }
         const updated = loadHistory();
-        updated.push({ role: 'assistant', content: reply });
+        updated.push({ role: 'assistant', content: acc.trim() || '(empty reply)' });
         saveHistory(updated);
-        renderThread(updated);
     } catch (e) {
         const updated = loadHistory();
-        updated.push({ role: 'assistant', content: `Sorry — I hit an error: ${e.message}` });
+        const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
+        const msg = aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}`;
+        if (acc.trim() && aborted) {
+            updated.push({ role: 'assistant', content: acc.trim() + '\n\n_(stopped early by you)_' });
+        } else {
+            updated.push({ role: 'assistant', content: msg });
+        }
         saveHistory(updated);
         renderThread(updated);
     } finally {
-        sending = false;
-        document.getElementById('mia-send')?.removeAttribute('disabled');
+        setSendState('idle');
+        activeAbort = null;
+        renderUsageMeter(document.getElementById('mia-usage-wrap'));
         document.getElementById('mia-input')?.focus();
     }
 }
 
-function appendLoadingBubble() {
-    const thread = document.getElementById('mia-thread');
-    if (!thread) return;
-    thread.insertAdjacentHTML('beforeend', `
-        <div class="mia-msg assistant loading-row" id="mia-loading-row">
-            <div class="mia-msg-bubble mia-loading">
-                <span class="mia-typing"><i></i><i></i><i></i></span>
-            </div>
-            <span class="mia-progress" id="mia-progress">thinking…</span>
-        </div>`);
-    thread.scrollTop = thread.scrollHeight;
-}
-
-function updateLoadingProgress(msg) {
+function updateProgress(msg) {
     const el = document.getElementById('mia-progress');
     if (el) el.textContent = msg;
+}
+
+function setSendState(state) {
+    const btn = document.getElementById('mia-send');
+    if (!btn) return;
+    btn.dataset.state = state;
+    btn.textContent = state === 'streaming' ? '■' : '↑';
+    btn.title = state === 'streaming' ? 'Stop' : 'Send';
+}
+
+function renderSettings() {
+    const panel = document.getElementById('mia-panel');
+    const s = loadSettings();
+    panel.innerHTML = `
+        <div class="mia-head">
+            <div class="mia-head-title">
+                <span class="mia-avatar">⚙️</span>
+                <div><div class="mia-name">Mia Settings</div><div class="mia-role">backend, keys, cleanup</div></div>
+            </div>
+            <div class="mia-head-actions">
+                <button class="mia-icon-btn" id="mia-back" title="Back">←</button>
+                <button class="mia-icon-btn" id="mia-close-btn" title="Close">✕</button>
+            </div>
+        </div>
+        <div class="mia-settings">
+            <div class="mia-setting-row"><span>Active backend</span><span class="mia-setting-val">${s.backend || '(unset)'}</span></div>
+            <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
+            <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
+            <button class="mia-clear-btn" id="mia-clear-models">Clear downloaded WebLLM model</button>
+            <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
+        </div>
+    `;
+    document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
+    document.getElementById('mia-back').addEventListener('click', renderChat);
+    document.getElementById('mia-resetup').addEventListener('click', () => {
+        clearSettings();
+        renderRoot();
+    });
+    document.getElementById('mia-forget-keys').addEventListener('click', () => {
+        saveSettings({ groqKey: '', cfKey: '', cfAccountId: '' });
+        renderSettings();
+    });
+    document.getElementById('mia-clear-models').addEventListener('click', async () => {
+        try { await webllmBackend.clearCache(); alert('WebLLM cache cleared.'); } catch (e) { alert('Clear failed: ' + e.message); }
+    });
 }
 
 function escapeHtml(s) {

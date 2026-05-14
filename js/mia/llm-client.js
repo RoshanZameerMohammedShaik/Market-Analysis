@@ -1,107 +1,60 @@
-// Mia's LLM client — AI Horde (free, keyless, browser-CORS-friendly).
-//
-// AI Horde is a volunteer-GPU pool. Anonymous users use the documented
-// public api key '0000000000' which gives lowest priority. The slow_workers
-// flag below skips the slowest GPUs by default to keep latency bearable.
-//
-// API flow: async submit → poll status until done=true.
+// Unified Mia client — dispatches to the chosen backend.
+// Each backend exposes stream(opts) returning an async iterable of
+// text deltas. AbortSignal supported throughout.
 
-const ANON_KEY = '0000000000';
-const CLIENT_AGENT = 'market-analyzer/1.0:RoshanZameerMohammedShaik';
-const HORDE = 'https://stablehorde.net/api/v2';
-const MAX_HISTORY_TURNS = 6;
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLLS = 100; // ~5 min ceiling
+import { loadSettings } from './settings.js';
+import * as webllm from './backends/webllm.js';
+import * as groq from './backends/api-groq.js';
+import * as cf from './backends/api-cf.js';
 
-export async function callLLM({ system, messages, onProgress }) {
-    const recent = messages.slice(-MAX_HISTORY_TURNS * 2);
-    const conv = recent.map(m => `${m.role === 'user' ? 'User' : 'Mia'}: ${m.content}`).join('\n');
-    const prompt = `### Instruction:\n${system}\n\nConversation:\n${conv}\n\nReply as Mia in 3-6 short sentences. Do not invent numbers.\n\n### Response:\n`;
+export async function* stream({ system, messages, signal, onProgress }) {
+    const s = loadSettings();
+    if (!s.backend) throw new Error('Mia is not configured yet. Pick a backend in the welcome screen.');
 
-    if (onProgress) onProgress('thinking…');
-
-    const submit = await fetch(`${HORDE}/generate/text/async`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'apikey': ANON_KEY,
-            'Client-Agent': CLIENT_AGENT,
-        },
-        body: JSON.stringify({
-            prompt,
-            params: {
-                // 200 is plenty for 3-6 sentences. The previous 400 doubled
-                // generation time and encouraged the model to waffle.
-                max_length: 200,
-                max_context_length: 4096,
-                temperature: 0.3,
-                top_p: 0.95,
-                rep_pen: 1.1,
-            },
-            // Skip the slowest workers — lower queue priority but much
-            // better wall-clock time for short replies.
-            slow_workers: false,
-        }),
-        signal: AbortSignal.timeout(20000),
-    });
-
-    if (!submit.ok) {
-        const body = await submit.text().catch(() => '');
-        if (submit.status === 429) throw new Error('AI Horde is briefly busy. Wait ~30s and try again.');
-        if (submit.status === 401 || submit.status === 403) throw new Error('AI Horde rejected the anonymous key. Try again later.');
-        throw new Error(`AI Horde returned ${submit.status}. ${body.slice(0, 160)}`);
+    if (s.backend === 'webllm') {
+        const tier = s.thinkingMode ? 'thinking' : 'default';
+        if (webllm.getActiveTier() !== tier) {
+            if (onProgress) onProgress('loading model…');
+            await webllm.loadModel(tier, p => onProgress?.(p.text || `${Math.round(p.progress * 100)}%`));
+        }
+        if (onProgress) onProgress('thinking…');
+        for await (const delta of webllm.stream({ system, messages, signal })) yield delta;
+        return;
     }
 
-    const submitJson = await submit.json();
-    const id = submitJson.id;
-    if (!id) throw new Error(`AI Horde returned no request id: ${JSON.stringify(submitJson).slice(0, 160)}`);
-
-    for (let i = 0; i < MAX_POLLS; i++) {
-        await sleep(POLL_INTERVAL_MS);
-        let status;
-        try {
-            const r = await fetch(`${HORDE}/generate/text/status/${id}`, {
-                headers: { 'Client-Agent': CLIENT_AGENT },
-                signal: AbortSignal.timeout(15000),
-            });
-            if (!r.ok) {
-                if (r.status === 404) throw new Error('AI Horde lost the request. Try again.');
-                continue;
-            }
-            status = await r.json();
-        } catch (e) {
-            if (i >= MAX_POLLS - 3) throw new Error(`Poll failed: ${e.message}`);
-            continue;
-        }
-
-        if (status.faulted) throw new Error('The worker faulted mid-generation. Try again.');
-        if (status.done) {
-            const gen = status.generations?.[0];
-            const text = (gen?.text || '').trim();
-            if (!text) throw new Error('AI Horde returned an empty reply. Try again.');
-            return {
-                reply: cleanReply(text),
-                model: gen?.model || 'unknown',
-                worker: gen?.worker_name || 'unknown',
-            };
-        }
-
-        if (onProgress) {
-            if (status.processing > 0) onProgress('generating…');
-            else if (typeof status.queue_position === 'number' && status.queue_position > 0) {
-                onProgress(`queued (#${status.queue_position})…`);
-            } else if (typeof status.wait_time === 'number' && status.wait_time > 0) {
-                onProgress(`waiting for a worker (~${status.wait_time}s)…`);
-            }
-        }
+    if (s.backend === 'groq') {
+        if (!s.groqKey) throw new Error('No Groq API key on file. Open settings and add one.');
+        if (onProgress) onProgress('thinking…');
+        for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal })) yield delta;
+        return;
     }
 
-    throw new Error('AI Horde took too long. The volunteer pool may be overloaded — try again in a minute.');
+    if (s.backend === 'cloudflare') {
+        if (!s.cfKey || !s.cfAccountId) throw new Error('No Cloudflare credentials on file.');
+        if (onProgress) onProgress('thinking…');
+        for await (const delta of cf.stream({ system, messages, key: s.cfKey, accountId: s.cfAccountId, signal })) yield delta;
+        return;
+    }
+
+    throw new Error(`Unknown backend: ${s.backend}`);
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function cleanReply(text) {
-    const cut = text.split(/\n###\s*(Instruction|User|Conversation)/i)[0];
-    return cut.replace(/^Mia:\s*/i, '').trim();
+export async function pingBackend() {
+    const s = loadSettings();
+    if (s.backend === 'groq') return groq.ping(s.groqKey);
+    if (s.backend === 'cloudflare') return cf.ping(s.cfKey, s.cfAccountId);
+    if (s.backend === 'webllm') {
+        const avail = webllm.isAvailableForTier(s.thinkingMode ? 'thinking' : 'default');
+        return avail.ok ? { ok: true, msg: 'WebLLM hardware check passed.' } : { ok: false, msg: avail.reason };
+    }
+    return { ok: false, msg: 'Not configured.' };
 }
+
+export function getUsage() {
+    const s = loadSettings();
+    if (s.backend === 'groq') return groq.getLastUsage();
+    if (s.backend === 'cloudflare') return cf.getLastUsage();
+    return null;
+}
+
+export { webllm };
