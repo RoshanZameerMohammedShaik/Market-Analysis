@@ -1,0 +1,85 @@
+/* P&L slide-out panel + header toggle + hover polish.
+ * Loaded after style.css; overrides the previous static-sidebar layout. */
+
+/* Header buttons — add hover lift + accent glow ring on theme toggle, P&L toggle, About. */
+.theme-toggle, .header-btn { position: relative; transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, color 0.2s, box-shadow 0.25s; }
+.theme-toggle::after, .header-btn::after {
+    content: '';
+    position: absolute; inset: -3px;
+    border-radius: inherit;
+    border: 2px solid transparent;
+    pointer-events: none;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+    transform: scale(0.92);
+}
+.theme-toggle:hover { transform: translateY(-2px) rotate(180deg); box-shadow: 0 6px 18px rgba(94, 177, 255, 0.25); border-color: var(--accent); color: var(--accent); }
+.theme-toggle:hover::after { border-color: var(--accent); transform: scale(1.05); opacity: 0.6; }
+.header-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(94, 177, 255, 0.25); border-color: var(--accent); color: var(--accent); }
+.header-btn:hover::after { border-color: var(--accent); transform: scale(1.05); opacity: 0.6; }
+.header-btn:active, .theme-toggle:active { transform: translateY(0) scale(0.96); }
+
+/* P&L toggle has a tiny tilt on hover for tactile flavour */
+#pl-toggle:hover { transform: translateY(-2px) rotate(-8deg); }
+#pl-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+#pl-toggle.active:hover { transform: translateY(-2px) rotate(-8deg) scale(1.05); }
+
+/* Layout: 2-column grid (glossary + main). P&L was a third column — now floats. */
+.app-layout { grid-template-columns: 260px 1fr !important; }
+@media (max-width: 1280px) {
+    .app-layout { grid-template-columns: 220px 1fr !important; }
+}
+@media (max-width: 1024px) {
+    .app-layout { grid-template-columns: 1fr !important; }
+}
+
+/* P&L sidebar becomes a floating panel that slides from the right. */
+.pl-sidebar {
+    position: fixed !important;
+    top: 65px !important;
+    right: 0;
+    bottom: 0;
+    width: min(360px, 92vw);
+    height: calc(100vh - 65px);
+    background: var(--bg-card);
+    border-left: 1px solid var(--border-strong) !important;
+    border-top: none !important;
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+    z-index: 450;
+    transform: translateX(110%);
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+    overflow-y: auto;
+}
+body.pl-open .pl-sidebar { transform: translateX(0); }
+
+/* Subtle backdrop on mobile so the sheet pattern reads */
+@media (max-width: 1024px) {
+    body.pl-open::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(2px);
+        z-index: 440;
+        animation: pl-backdrop-in 0.3s ease;
+    }
+    .pl-sidebar {
+        top: auto !important;
+        bottom: 0;
+        left: 0; right: 0;
+        width: 100%;
+        max-height: 88vh;
+        height: auto;
+        border-radius: 16px 16px 0 0;
+        transform: translateY(100%);
+    }
+    body.pl-open .pl-sidebar { transform: translateY(0); }
+}
+@keyframes pl-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Pulse the P&L toggle once when first loaded so users notice it */
+@keyframes pl-toggle-attn {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
+    20% { box-shadow: 0 0 0 6px rgba(94, 177, 255, 0.18); }
+    50% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
+}
+#pl-toggle:not(.active) { animation: pl-toggle-attn 4.5s ease-in-out 1.2s 1; }

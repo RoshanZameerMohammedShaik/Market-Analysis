@@ -6,9 +6,10 @@
 //   t  today
 //   m  tomorrow
 //   r  refresh hot picks
+//   p  toggle P&L panel
 //   ?  toggle help dialog
 
-import { state } from './state.js';
+import { togglePLPanel } from './pl-toggle.js';
 
 let helpOpen = false;
 
@@ -42,6 +43,11 @@ export function initKeyboard({ onRefresh }) {
                 e.preventDefault();
                 onRefresh && onRefresh();
                 break;
+            case 'p':
+            case 'P':
+                e.preventDefault();
+                togglePLPanel();
+                break;
         }
     });
 }
@@ -72,6 +78,7 @@ function toggleHelp() {
             <div class="kbd-help-row"><kbd>t</kbd> <span>today</span></div>
             <div class="kbd-help-row"><kbd>m</kbd> <span>tomorrow</span></div>
             <div class="kbd-help-row"><kbd>r</kbd> <span>refresh hot picks</span></div>
+            <div class="kbd-help-row"><kbd>p</kbd> <span>toggle P&amp;L panel</span></div>
             <div class="kbd-help-row"><kbd>?</kbd> <span>toggle this help</span></div>
             <div class="kbd-help-row"><kbd>Esc</kbd> <span>close</span></div>
             <div class="kbd-help-foot">Click anywhere to close</div>
