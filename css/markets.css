@@ -1,0 +1,19 @@
+/* Market selector — small pill row beside the tabs. */
+.market-selector { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.ms-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+.ms-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 700;
+    transition: all 0.15s;
+}
+.ms-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+.ms-btn.active { background: linear-gradient(135deg, #7c3aed, #3b82f6); color: #fff; border-color: transparent; }
+.ms-flag { font-size: 0.85rem; line-height: 1; }
+.ms-name { font-family: var(--num-font); }
