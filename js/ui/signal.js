@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { fmtPrice } from './format.js';
+import { fmtPriceTag, fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
@@ -26,22 +26,22 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <div class="price-targets-grid">
                     <div class="price-target-card high">
                         <div class="price-target-label">Predicted High</div>
-                        <div class="price-target-value high">${fmtPrice(priceTargets.predictedHigh)}</div>
+                        <div class="price-target-value high">${fmtPriceTag(priceTargets.predictedHigh)}</div>
                         <div class="price-target-pct up">▲ +${priceTargets.highPercent}%</div>
                     </div>
                     <div class="price-target-card current">
                         <div class="price-target-label">Current Price</div>
-                        <div class="price-target-value">${fmtPrice(priceTargets.currentPrice)}</div>
-                        <div class="price-target-pct">ATR: $${priceTargets.atr}</div>
+                        <div class="price-target-value">${fmtPriceTag(priceTargets.currentPrice)}</div>
+                        <div class="price-target-pct">ATR: ${fmtPriceTag(priceTargets.atr)}</div>
                     </div>
                     <div class="price-target-card low">
                         <div class="price-target-label">Predicted Low</div>
-                        <div class="price-target-value low">${fmtPrice(priceTargets.predictedLow)}</div>
+                        <div class="price-target-value low">${fmtPriceTag(priceTargets.predictedLow)}</div>
                         <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%</div>
                     </div>
                 </div>
                 <div class="price-targets-meta">
-                    Support: $${priceTargets.support} · Resistance: $${priceTargets.resistance} · Expected Move: ±$${priceTargets.expectedMove}
+                    Support: ${fmtPriceTag(priceTargets.support)} · Resistance: ${fmtPriceTag(priceTargets.resistance)} · Expected Move: ±${fmtPriceTag(priceTargets.expectedMove)}
                 </div>
             </div>`;
     }
@@ -154,12 +154,12 @@ function generateHumanInsight(prediction, sentiment) {
         if (confidence >= 70) insight = `<strong>Strong bullish signal.</strong> Multiple indicators align upward. `;
         else if (confidence >= 55) insight = `<strong>Moderate buy signal.</strong> More indicators point up than down. `;
         else insight = `<strong>Weak buy signal.</strong> Slight bullish edge but low conviction. `;
-        if (priceTargets) insight += `Price could reach <span class="highlight-green">$${priceTargets.predictedHigh}</span> ${tfWord} (+${priceTargets.highPercent}%). Downside risk to $${priceTargets.predictedLow} (${priceTargets.lowPercent}%).`;
+        if (priceTargets) insight += `Price could reach <span class="highlight-green">${fmtPrice(priceTargets.predictedHigh)}</span> ${tfWord} (+${priceTargets.highPercent}%). Downside risk to ${fmtPrice(priceTargets.predictedLow)} (${priceTargets.lowPercent}%).`;
     } else if (signal === 'SELL') {
         if (confidence >= 70) insight = `<strong>Strong bearish signal.</strong> Multiple indicators point to decline. `;
         else if (confidence >= 55) insight = `<strong>Moderate sell signal.</strong> Bearish pressure building. `;
         else insight = `<strong>Weak sell signal.</strong> Slight bearish edge but uncertain. `;
-        if (priceTargets) insight += `Price may drop to <span class="highlight-red">$${priceTargets.predictedLow}</span> ${tfWord} (${priceTargets.lowPercent}%). Upside capped around $${priceTargets.predictedHigh} (+${priceTargets.highPercent}%).`;
+        if (priceTargets) insight += `Price may drop to <span class="highlight-red">${fmtPrice(priceTargets.predictedLow)}</span> ${tfWord} (${priceTargets.lowPercent}%). Upside capped around ${fmtPrice(priceTargets.predictedHigh)} (+${priceTargets.highPercent}%).`;
     } else {
         insight = `<strong>No clear direction.</strong> Indicators are conflicting — the market is undecided. Consider waiting for a clearer setup before entering a position.`;
     }

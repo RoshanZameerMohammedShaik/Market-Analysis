@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { fmtPrice, fmtPriceTag } from './format.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -69,17 +70,14 @@ export function updateChartHeader(data) {
             const change = data.previousClose
                 ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                 : 0;
-            // Defensive: a real day-over-day move >50% on a normal stock is
-            // almost always a data artifact (range mismatch, missing prevClose,
-            // pre-IPO listing, etc.). Suppress the chip rather than mislead.
             const looksReal = Number.isFinite(change) && Math.abs(change) <= 50;
+            const priceMarkup = fmtPriceTag(data.currentPrice);
             if (looksReal) {
                 const changeClass = change >= 0 ? 'up' : 'down';
                 const arrow = change >= 0 ? '▲' : '▼';
-                priceEl.innerHTML = `$${data.currentPrice.toFixed(2)}
-                    <span class="chart-change ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}%</span>`;
+                priceEl.innerHTML = `${priceMarkup} <span class="chart-change ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}%</span>`;
             } else {
-                priceEl.innerHTML = `$${data.currentPrice.toFixed(2)}`;
+                priceEl.innerHTML = priceMarkup;
             }
         }
     }

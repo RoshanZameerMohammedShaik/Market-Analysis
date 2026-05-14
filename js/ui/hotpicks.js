@@ -1,6 +1,6 @@
 import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { state, nextHotPicksId } from './state.js';
-import { fmtPrice } from './format.js';
+import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
 
 export async function loadHotPicks(onPick) {
@@ -11,7 +11,6 @@ export async function loadHotPicks(onPick) {
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
     if (title) title.textContent = `🔥 Hot Picks — Top ${modeLabel} for ${tfLabel}`;
 
-    // Skeleton grid while we scan.
     grid.innerHTML = `
         <div class="hp-skel-grid" style="grid-column: 1/-1;">
             ${Array.from({length: 12}).map(()=>`<div class="hp-skel"></div>`).join('')}
@@ -64,7 +63,7 @@ export async function loadHotPicks(onPick) {
                 <div class="hot-pick-spark">${sparkSvg}</div>
                 <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
                 <div class="hot-pick-confidence ${signalClass}"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
-                <div class="hot-pick-price">${fmtPrice(pick.price)}</div>
+                <div class="hot-pick-price">${fmtPriceTag(pick.price)}</div>
             </div>`;
         }).join('');
 
