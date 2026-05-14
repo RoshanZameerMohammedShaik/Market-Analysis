@@ -4,6 +4,7 @@
 @import url('./about.css');
 @import url('./pl-toggle.css');
 @import url('./currency.css');
+@import url('./spikers.css');
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -305,6 +306,8 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     .accuracy-strip-inner { grid-template-columns: 1fr; gap: 10px; }
     .breakdown-item { grid-template-columns: 100px 1fr 30px; gap: 8px; }
     .breakdown-label { font-size: 0.7rem; }
+    .sp-row { grid-template-columns: 1fr; }
+    .sp-row-numbers { text-align: left; min-width: 0; }
 }
 @media (max-width: 480px) {
     .tabs-row { flex-direction: column; align-items: stretch; }
