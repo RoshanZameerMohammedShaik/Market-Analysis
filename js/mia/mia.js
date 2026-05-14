@@ -1,4 +1,5 @@
-// Mia v2 with tool-use loop and anti-hallucination guard.
+// Mia v2 with tool-use loop, anti-hallucination guard, and defensive
+// null-safety on the streaming bubble.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -73,6 +74,8 @@ function renderChat() {
     document.getElementById('mia-settings-btn').addEventListener('click', renderSettings);
     document.getElementById('mia-thinking-btn').addEventListener('click', toggleThinking);
     document.getElementById('mia-clear').addEventListener('click', () => {
+        // Cancel any in-flight stream first so its bubble lookups stop racing us.
+        try { activeAbort?.abort(); } catch (_) {}
         clearHistory();
         renderThread([]);
     });
@@ -136,12 +139,13 @@ function renderThread(history) {
 
 async function onSendOrStop() {
     const sendBtn = document.getElementById('mia-send');
+    if (!sendBtn) return;
     if (sendBtn.dataset.state === 'streaming') {
         try { activeAbort?.abort(); } catch (_) {}
         return;
     }
     const input = document.getElementById('mia-input');
-    const text = input.value.trim();
+    const text = (input?.value || '').trim();
     if (!text) return;
     input.value = '';
 
@@ -150,14 +154,8 @@ async function onSendOrStop() {
     saveHistory(history);
     renderThread(history);
 
-    const thread = document.getElementById('mia-thread');
     const bubbleId = 'mia-stream-' + Date.now();
-    thread.insertAdjacentHTML('beforeend', `
-        <div class="mia-msg assistant">
-            <div class="mia-msg-bubble mia-md" id="${bubbleId}"><span class="mia-typing"><i></i><i></i><i></i></span><span class="mia-progress" id="mia-progress">thinking…</span></div>
-        </div>
-    `);
-    thread.scrollTop = thread.scrollHeight;
+    appendStreamingBubble(bubbleId);
 
     setSendState('streaming');
     activeAbort = new AbortController();
@@ -175,29 +173,41 @@ async function onSendOrStop() {
             }
             if (ev.type !== 'delta') continue;
             const delta = ev.text;
+            if (!delta) continue;
+            // Lazily reset the bubble on first visible content, with a null guard.
+            const el = document.getElementById(bubbleId);
+            if (!el) {
+                // Bubble was removed (clear, settings open, etc). Recreate it
+                // and continue — don't crash.
+                appendStreamingBubble(bubbleId);
+            }
+            const el2 = document.getElementById(bubbleId);
+            if (!el2) {
+                // Still gone (panel closed?). Just accumulate text silently.
+                acc += delta;
+                continue;
+            }
             if (!receivedAny) {
-                document.getElementById(bubbleId).innerHTML = '';
+                el2.innerHTML = '';
                 receivedAny = true;
             }
             acc += delta;
-            const el = document.getElementById(bubbleId);
-            if (el) el.innerHTML = renderMarkdown(acc);
-            thread.scrollTop = thread.scrollHeight;
+            el2.innerHTML = renderMarkdown(stripAgentNoise(acc));
+            const thread = document.getElementById('mia-thread');
+            if (thread) thread.scrollTop = thread.scrollHeight;
         }
-        // Strip any leftover TOOL: lines from acc (rare, defensive).
-        const cleaned = acc.replace(/^TOOL:.*$/gim, '').trim();
+        const cleaned = stripAgentNoise(acc).trim();
         const ctxText = buildContextBlock(currentSignal);
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
         updated.push({ role: 'assistant', content: flagged || '(empty reply)' });
         saveHistory(updated);
-        // Re-render so the persisted (flagged) content shows correctly.
         renderThread(updated);
     } catch (e) {
         const updated = loadHistory();
         const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
         if (acc.trim() && aborted) {
-            updated.push({ role: 'assistant', content: acc.trim() + '\n\n_(stopped early by you)_' });
+            updated.push({ role: 'assistant', content: stripAgentNoise(acc).trim() + '\n\n_(stopped early by you)_' });
         } else {
             updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
         }
@@ -209,6 +219,23 @@ async function onSendOrStop() {
         renderUsageMeter(document.getElementById('mia-usage-wrap'));
         document.getElementById('mia-input')?.focus();
     }
+}
+
+function stripAgentNoise(s) {
+    // Belt + suspenders: never let TOOL: or RESULT: lines reach saved or rendered output.
+    return String(s || '').replace(/^TOOL:.*$/gim, '').replace(/^RESULT:.*$/gim, '').replace(/\n{3,}/g, '\n\n');
+}
+
+function appendStreamingBubble(bubbleId) {
+    const thread = document.getElementById('mia-thread');
+    if (!thread) return;
+    if (document.getElementById(bubbleId)) return; // already there
+    thread.insertAdjacentHTML('beforeend', `
+        <div class="mia-msg assistant">
+            <div class="mia-msg-bubble mia-md" id="${bubbleId}"><span class="mia-typing"><i></i><i></i><i></i></span><span class="mia-progress" id="mia-progress">thinking…</span></div>
+        </div>
+    `);
+    thread.scrollTop = thread.scrollHeight;
 }
 
 function showToolBadge(bubbleId, name) {
