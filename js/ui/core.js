@@ -5,6 +5,7 @@ import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
 import { loadHotPicks } from './hotpicks.js';
 import { initPLCalculator } from './pl.js';
+import { initPLToggle } from './pl-toggle.js';
 import { renderAccuracyStrip } from './accuracy.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from '../data.js';
 import { computeFullConfidence } from '../confidence.js';
@@ -29,6 +30,7 @@ export function init() {
     initSearch(onSelectFromSearch);
     updatePlaceholder();
     initPLCalculator();
+    initPLToggle();
     initKeyboard({ onRefresh: () => document.getElementById('refresh-hotpicks')?.click() });
     renderGlossary();
     initMia();
