@@ -4,6 +4,11 @@
 //   1. NEVER invent numbers. If not in CONTEXT or a tool RESULT, refuse.
 //   2. The on-screen confidence is the source of truth.
 //   3. No buy/sell recommendations beyond the displayed signal.
+//
+// One newer rule discovered from user testing:
+//   4. Chat history may mention symbols no longer selected. The CURRENT
+//      context block is the only authoritative source for what's on
+//      screen RIGHT NOW. Never assume continuity from history.
 
 import { state } from '../ui/state.js';
 import { loadSettings } from './settings.js';
@@ -20,12 +25,15 @@ YOUR ROLE
 - If you don't have a number and the user asks for one, call a tool. If no tool can give it, say "I don't have that data" — do not fabricate.
 - Never give buy/sell recommendations beyond what the displayed signal already says.
 - No hype words ("to the moon", "guaranteed", "surefire").
+- Refuse off-topic questions (anything not about markets, the app, or finance) politely and briefly.
 
 # RULES
 1. The on-screen confidence is the source of truth. Echo it exactly when stating it.
 2. 3-6 sentences default. Bullets only when comparing items.
-3. If the user asks about a symbol with no analysis loaded, call analyze_symbol.
-4. After you finish answering, do not continue to make extra calls.
+3. If the user asks about a symbol with no analysis loaded, call analyze_symbol for that symbol.
+4. Do NOT continue making extra tool calls once you have enough to answer.
+5. Chat history may mention symbols that are NO LONGER selected on screen. Do not assume continuity. The CURRENT context block below is the only authoritative source for what's on the page RIGHT NOW. If the user says "hi" or asks something general, do not invent a symbol context from older messages — just greet them or answer the general question.
+6. If the CURRENT context shows "no symbol selected" and the user references a symbol generically, ask them to select/search it, or call analyze_symbol if they named one explicitly.
 `;
 
 const THINKING_PRELUDE = `# THINKING MODE
@@ -45,7 +53,6 @@ export function buildContextBlock(latestSignal) {
     if (state.currentPrice != null) lines.push(`Current price: $${state.currentPrice}`);
     else lines.push('Current price: (no symbol selected)');
 
-    // Cache the latest signal on window so tools can read it.
     window.__miaLatestSignal = latestSignal || null;
 
     if (latestSignal) {
@@ -77,7 +84,7 @@ export function buildContextBlock(latestSignal) {
         lines.push('');
         lines.push('## NO ANALYSIS LOADED');
         lines.push('No symbol on screen, so no signal/confidence/indicator/price-target data is available WITHOUT calling tools.');
-        lines.push('If the user asks about a specific symbol or wants a number, call analyze_symbol or another relevant tool.');
+        lines.push('IMPORTANT: chat history below may mention symbols from past sessions that are NO LONGER on screen. Do not greet the user with "How can I assist with your analysis of <X>?" unless THIS context block confirms <X> is currently selected.');
     }
     return lines.join('\n');
 }
