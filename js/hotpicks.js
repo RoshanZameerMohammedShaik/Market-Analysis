@@ -1,48 +1,49 @@
-// Hot Picks Scanner. Stock screeners filtered strictly to EQUITY/ETF
-// so cryptocurrency entries from cross-asset Yahoo screeners can't leak
-// into the stocks tab.
+// Hot Picks Scanner. For US, uses Yahoo's predefined screeners (live
+// most-actives / day-gainers / etc). For non-US markets, uses a curated
+// liquid-symbol pool from js/markets.js since the region screeners are
+// unreliable from browser CORS.
 
 import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { getMarketConditionsScore } from './market.js';
+import { getMarket } from './markets.js';
 
 export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
     const isTomorrow = timeframe === 'tomorrow';
-    if (onProgress) onProgress('Scanning all real-time market sources for movers...');
+    const market = getMarket();
+    if (onProgress) onProgress(`Scanning ${market.label} for movers...`);
 
-    const screeners = isTomorrow
-        ? ['most_actives', 'undervalued_growth_stocks', 'aggressive_small_caps', 'growth_technology_stocks', 'most_actives']
-        : ['day_gainers', 'most_actives', 'day_losers', 'undervalued_growth_stocks', 'aggressive_small_caps'];
+    let symbols = [];
+    let symbolMeta = {};
 
-    const screenerResults = await Promise.allSettled(screeners.map(s => fetchYahooScreener(s)));
-    const trendingResult = await fetchYahooTrending().catch(() => []);
+    if (market.id === 'US') {
+        // Yahoo predefined screeners (US-only on free tier).
+        const screeners = isTomorrow
+            ? ['most_actives', 'undervalued_growth_stocks', 'aggressive_small_caps', 'growth_technology_stocks', 'most_actives']
+            : ['day_gainers', 'most_actives', 'day_losers', 'undervalued_growth_stocks', 'aggressive_small_caps'];
 
-    const symbolSet = new Set();
-    const symbolMeta = {};
-    screenerResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-            result.value.forEach(stock => {
-                if (!symbolSet.has(stock.symbol)) {
-                    symbolSet.add(stock.symbol);
-                    symbolMeta[stock.symbol] = stock;
-                }
-            });
-        }
-    });
-    trendingResult.forEach(s => {
-        if (!symbolSet.has(s.symbol)) {
-            symbolSet.add(s.symbol);
-            symbolMeta[s.symbol] = s;
-        }
-    });
+        const screenerResults = await Promise.allSettled(screeners.map(s => fetchYahooScreener(s)));
+        const trendingResult = await fetchYahooTrending().catch(() => []);
 
-    let symbols = [...symbolSet];
-    if (onProgress) onProgress(`Found ${symbols.length} stocks from ${screeners.length + 1} real-time sources...`);
-    if (symbols.length === 0) return [];
+        const symbolSet = new Set();
+        screenerResults.forEach(result => {
+            if (result.status === 'fulfilled' && result.value) {
+                result.value.forEach(stock => {
+                    if (!symbolSet.has(stock.symbol)) { symbolSet.add(stock.symbol); symbolMeta[stock.symbol] = stock; }
+                });
+            }
+        });
+        trendingResult.forEach(s => {
+            if (!symbolSet.has(s.symbol)) { symbolSet.add(s.symbol); symbolMeta[s.symbol] = s; }
+        });
+        symbols = [...symbolSet];
+    } else {
+        // Non-US markets: curated liquid pool.
+        symbols = market.candidatePool || [];
+    }
 
-    if (onProgress) onProgress(`Fetching market conditions (Fear & Greed, VIX, S&P 500 trend)...`);
+    if (onProgress) onProgress(`Found ${symbols.length} candidates in ${market.label}. Fetching market conditions…`);
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
-
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${symbols.length} stocks...`);
 
     const results = [];
@@ -86,7 +87,6 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                 }
             })
         );
-
         batchResults.forEach(r => {
             if (r.status === 'fulfilled' && r.value) results.push(r.value);
         });
@@ -106,8 +106,6 @@ async function fetchYahooScreener(screener) {
     const quotes = json?.finance?.result?.[0]?.quotes || [];
     return quotes
         .filter(q => {
-            // Strict equity/ETF only — keeps crypto/futures from cross-asset
-            // screeners (most_actives in particular) out of the stocks tab.
             if (!q.regularMarketPrice || !q.symbol) return false;
             if (q.symbol.includes('.') || q.symbol.includes('=') || q.symbol.includes('-USD')) return false;
             const t = q.quoteType;
@@ -129,8 +127,6 @@ async function fetchYahooTrending() {
     const res = await fetchWithProxy(url);
     const json = await res.json();
     const quotes = json?.finance?.result?.[0]?.quotes || [];
-    // Trending API doesn't return quoteType reliably, so we filter by symbol
-    // shape — -USD suffix and = futures get dropped here too.
     return quotes
         .filter(q => q.symbol && !q.symbol.includes('-USD') && !q.symbol.includes('=') && !q.symbol.includes('.'))
         .map(q => ({ symbol: q.symbol, name: q.symbol }));
@@ -148,21 +144,16 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
 
     const coinMap = new Map();
     [marketPage1, marketPage2].forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-            result.value.forEach(coin => coinMap.set(coin.id, coin));
-        }
+        if (result.status === 'fulfilled' && result.value) result.value.forEach(coin => coinMap.set(coin.id, coin));
     });
     if (trendingCoins.status === 'fulfilled' && trendingCoins.value) {
-        trendingCoins.value.forEach(coin => {
-            if (!coinMap.has(coin.id)) coinMap.set(coin.id, coin);
-        });
+        trendingCoins.value.forEach(coin => { if (!coinMap.has(coin.id)) coinMap.set(coin.id, coin); });
     }
 
-    const STABLECOINS = ['usdt', 'usdc', 'dai', 'busd', 'tusd', 'usdp', 'usdd', 'frax', 'lusd', 'gusd', 'usd1', 'usde', 'fdusd', 'pyusd', 'eusd'];
-    const coins = [...coinMap.values()]
-        .filter(coin => !STABLECOINS.includes(coin.symbol.toLowerCase()) && !coin.name.toLowerCase().includes('usd'));
-
+    const STABLECOINS = ['usdt','usdc','dai','busd','tusd','usdp','usdd','frax','lusd','gusd','usd1','usde','fdusd','pyusd','eusd'];
+    const coins = [...coinMap.values()].filter(coin => !STABLECOINS.includes(coin.symbol.toLowerCase()) && !coin.name.toLowerCase().includes('usd'));
     if (coins.length === 0) return [];
+
     if (onProgress) onProgress(`Found ${coins.length} coins. Fetching market conditions...`);
     const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${coins.length} cryptocurrencies...`);
@@ -200,19 +191,11 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             const deviation = Math.abs(blended - 50) / 50;
             const confidence = Math.round(38 + deviation * 50);
             results.push({
-                symbol: coin.symbol.toUpperCase(),
-                name: coin.name,
-                id: coin.id,
-                price: coin.price,
-                signal,
-                confidence,
-                reasons: prediction.reasons,
-                change: coin.change24h || 0,
-                _sparkline: sparklineData,
+                symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
+                signal, confidence, reasons: prediction.reasons,
+                change: coin.change24h || 0, _sparkline: sparklineData,
             });
-        } catch (e) {
-            continue;
-        }
+        } catch (e) { continue; }
     }
     const buy = results.filter(r => r.signal === 'BUY').sort((a, b) => b.confidence - a.confidence);
     const neutral = results.filter(r => r.signal === 'NEUTRAL').sort((a, b) => b.confidence - a.confidence);
@@ -254,13 +237,10 @@ function sparklineToCandles(prices) {
     for (let i = 0; i < prices.length; i += periodSize) {
         const slice = prices.slice(i, i + periodSize);
         if (slice.length === 0) continue;
-        const open = slice[0];
-        const close = slice[slice.length - 1];
-        const high = Math.max(...slice);
-        const low = Math.min(...slice);
         candles.push({
             time: Date.now() / 1000 - (prices.length - i) * 3600,
-            open, high, low, close, volume: 0,
+            open: slice[0], high: Math.max(...slice), low: Math.min(...slice),
+            close: slice[slice.length - 1], volume: 0,
         });
     }
     return candles;
@@ -270,11 +250,7 @@ function deriveMultiTimeframe(data) {
     const candles = data.candles;
     const weeklyCandles = aggregateCandlesPeriod(candles, 5);
     const fourHourCandles = candles.slice(-20);
-    return {
-        daily: data,
-        weekly: { ...data, candles: weeklyCandles },
-        fourHour: { ...data, candles: fourHourCandles },
-    };
+    return { daily: data, weekly: { ...data, candles: weeklyCandles }, fourHour: { ...data, candles: fourHourCandles } };
 }
 
 function aggregateCandlesPeriod(candles, periodSize) {
@@ -284,8 +260,7 @@ function aggregateCandlesPeriod(candles, periodSize) {
         const slice = candles.slice(i, i + periodSize);
         if (slice.length === 0) continue;
         aggregated.push({
-            time: slice[0].time,
-            open: slice[0].open,
+            time: slice[0].time, open: slice[0].open,
             high: Math.max(...slice.map(c => c.high)),
             low: Math.min(...slice.map(c => c.low)),
             close: slice[slice.length - 1].close,
