@@ -1,14 +1,21 @@
 // Number / time formatters. Single source of truth for display formatting.
+//
+// fmt() is for non-currency numbers (shares, percentages, raw counts).
+// fmtPrice() and fmtCompact() delegate to currency.js so any USD value
+// flips automatically when the user toggles INR.
+
+import { format as fmtCurrency, priceTag, getMode, getRate } from '../currency.js';
 
 export const fmt = (n, digits = 2) => {
     if (n == null || Number.isNaN(n)) return '—';
     return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
 
-export const fmtPrice = n => {
-    if (n == null) return '—';
-    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
+// Returns currency-aware formatted price text (no markup).
+export const fmtPrice = (usd) => fmtCurrency(usd);
+
+// Returns the markup that auto-flips when currency changes. Use this in HTML strings.
+export const fmtPriceTag = (usd, opts) => priceTag(usd, opts);
 
 export const fmtCompact = n => {
     if (n == null) return '—';
@@ -25,3 +32,5 @@ export const timeAgo = date => {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
 };
+
+export { getMode as currencyMode, getRate as currencyRate };
