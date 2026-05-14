@@ -1,7 +1,6 @@
-// Mia v2 — welcome flow, chat with stream + abort, send/stop morph,
-// inline clear-chat next to send, usage meter pill.
+// Mia v2 with tool-use loop and anti-hallucination guard.
 
-import { stream as llmStream } from './llm-client.js';
+import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
@@ -9,12 +8,13 @@ import { loadSettings, saveSettings, isConfigured, clearSettings } from './setti
 import { renderWelcome } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmBackend } from './llm-client.js';
+import { flagUnverifiedNumbers } from './guard.js';
 
 let currentSignal = null;
 let panelOpen = false;
 let activeAbort = null;
 
-export function setLatestSignal(sig) { currentSignal = sig; }
+export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
 
 export function initMia() {
     document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
@@ -67,7 +67,7 @@ function renderChat() {
             <textarea id="mia-input" rows="2" placeholder="Ask Mia about a stock, an indicator, or what the signal means..."></textarea>
             <button id="mia-send" class="mia-send-btn" title="Send" data-state="idle">↑</button>
         </div>
-        <div class="mia-disclaimer">Numbers come from the on-screen signal — not financial advice.</div>
+        <div class="mia-disclaimer">Numbers come from the on-screen signal or tools she calls — not financial advice.</div>
     `;
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
     document.getElementById('mia-settings-btn').addEventListener('click', renderSettings);
@@ -83,7 +83,6 @@ function renderChat() {
             onSendOrStop();
         }
     });
-
     refreshThinkingBadge();
     renderUsageMeter(document.getElementById('mia-usage-wrap'));
     renderThread(loadHistory());
@@ -108,13 +107,13 @@ function renderThread(history) {
     if (history.length === 0) {
         thread.innerHTML = `
             <div class="mia-greet">
-                <p>Hi, I’m <strong>Mia</strong>. I read the same signal data you see on the page, so my numbers always match.</p>
+                <p>Hi, I’m <strong>Mia</strong>. I read the same signal data you see on the page, and I can run analyses on demand. My numbers always match.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
+                    <button class="mia-suggest">Analyze NVDA for tomorrow.</button>
                     <button class="mia-suggest">What does the current signal mean?</button>
-                    <button class="mia-suggest">Why is confidence at this level?</button>
-                    <button class="mia-suggest">Explain ADX in plain English.</button>
-                    <button class="mia-suggest">What’s the biggest risk on this trade?</button>
+                    <button class="mia-suggest">Compare AAPL, MSFT, and GOOGL.</button>
+                    <button class="mia-suggest">What's the market regime right now?</button>
                 </div>
             </div>`;
         thread.querySelectorAll('.mia-suggest').forEach(btn => {
@@ -138,7 +137,6 @@ function renderThread(history) {
 async function onSendOrStop() {
     const sendBtn = document.getElementById('mia-send');
     if (sendBtn.dataset.state === 'streaming') {
-        // Abort.
         try { activeAbort?.abort(); } catch (_) {}
         return;
     }
@@ -152,7 +150,6 @@ async function onSendOrStop() {
     saveHistory(history);
     renderThread(history);
 
-    // Streaming bubble.
     const thread = document.getElementById('mia-thread');
     const bubbleId = 'mia-stream-' + Date.now();
     thread.insertAdjacentHTML('beforeend', `
@@ -166,9 +163,18 @@ async function onSendOrStop() {
     activeAbort = new AbortController();
     let acc = '';
     let receivedAny = false;
+    const toolResults = [];
+
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        for await (const delta of llmStream({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
+        for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
+            if (ev.type === 'tool') {
+                toolResults.push(ev);
+                showToolBadge(bubbleId, ev.name);
+                continue;
+            }
+            if (ev.type !== 'delta') continue;
+            const delta = ev.text;
             if (!receivedAny) {
                 document.getElementById(bubbleId).innerHTML = '';
                 receivedAny = true;
@@ -178,17 +184,22 @@ async function onSendOrStop() {
             if (el) el.innerHTML = renderMarkdown(acc);
             thread.scrollTop = thread.scrollHeight;
         }
+        // Strip any leftover TOOL: lines from acc (rare, defensive).
+        const cleaned = acc.replace(/^TOOL:.*$/gim, '').trim();
+        const ctxText = buildContextBlock(currentSignal);
+        const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
-        updated.push({ role: 'assistant', content: acc.trim() || '(empty reply)' });
+        updated.push({ role: 'assistant', content: flagged || '(empty reply)' });
         saveHistory(updated);
+        // Re-render so the persisted (flagged) content shows correctly.
+        renderThread(updated);
     } catch (e) {
         const updated = loadHistory();
         const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
-        const msg = aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}`;
         if (acc.trim() && aborted) {
             updated.push({ role: 'assistant', content: acc.trim() + '\n\n_(stopped early by you)_' });
         } else {
-            updated.push({ role: 'assistant', content: msg });
+            updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
         }
         saveHistory(updated);
         renderThread(updated);
@@ -198,6 +209,12 @@ async function onSendOrStop() {
         renderUsageMeter(document.getElementById('mia-usage-wrap'));
         document.getElementById('mia-input')?.focus();
     }
+}
+
+function showToolBadge(bubbleId, name) {
+    const el = document.getElementById(bubbleId);
+    if (!el) return;
+    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">⚡ used <code>${name}</code></div>`);
 }
 
 function updateProgress(msg) {
@@ -228,7 +245,8 @@ function renderSettings() {
             </div>
         </div>
         <div class="mia-settings">
-            <div class="mia-setting-row"><span>Active backend</span><span class="mia-setting-val">${s.backend || '(unset)'}</span></div>
+            <div class="mia-setting-row"><span>Backend</span><span class="mia-setting-val">${s.backend || '(unset)'}</span></div>
+            <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear downloaded WebLLM model</button>
