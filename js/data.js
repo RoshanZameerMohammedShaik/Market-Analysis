@@ -104,13 +104,27 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
         }
     }
 
+    // Derive a sane previousClose. Order of preference:
+    //   1. meta.previousClose       — yesterday's close (always 1-day prior)
+    //   2. second-to-last candle    — yesterday's close, derived from the data
+    //   3. meta.chartPreviousClose  — LAST resort. This is the close at the
+    //      START of the requested range (3 months ago in our case), so using
+    //      it here gives nonsense day-% values like "+401.8%" on AAOI.
+    let previousClose = meta.previousClose;
+    if (previousClose == null && candles.length >= 2) {
+        previousClose = candles[candles.length - 2].close;
+    }
+    if (previousClose == null) {
+        previousClose = meta.chartPreviousClose;
+    }
+
     return {
         symbol: meta.symbol,
         name: meta.shortName || meta.symbol,
         currency: meta.currency,
         exchange: meta.exchangeName,
         currentPrice: meta.regularMarketPrice,
-        previousClose: meta.previousClose || meta.chartPreviousClose,
+        previousClose,
         candles,
     };
 }
@@ -198,8 +212,6 @@ export async function fetchCryptoMultiTimeframe(coinId) {
 }
 
 // ─── SEARCH ───────────────────────────────────────────────────────────────────────
-// Stock search excludes crypto/futures so the stock tab cannot return
-// non-equity hits. The crypto tab uses CoinGecko separately.
 
 export async function searchStocks(query) {
     if (!query || query.length < 1) return [];
