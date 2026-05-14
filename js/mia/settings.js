@@ -1,19 +1,23 @@
-// User-controlled settings: backend choice and BYOK API key.
+// User-controlled settings: backend choice, free-model picker, BYOK key.
 // Stored in localStorage. Never sent anywhere except directly to the
 // chosen LLM provider.
 
+import { POLLINATIONS_DEFAULT } from './llm-client.js';
+
 const KEY = 'ma-mia-settings';
 
-// Default switched from 'hf' (gated, doesn't work for anonymous users)
-// to 'pollinations' (free, no key, permissive CORS).
-const DEFAULT = { backend: 'pollinations', openaiKey: '' };
+const DEFAULT = {
+    backend: 'pollinations',
+    pollinationsModel: POLLINATIONS_DEFAULT,
+    openaiKey: '',
+};
 
 export function loadSettings() {
     try {
         const raw = localStorage.getItem(KEY);
         if (!raw) return { ...DEFAULT };
         const parsed = JSON.parse(raw);
-        // Migrate legacy 'hf' value to the new working default.
+        // Migrate legacy 'hf' (gated, broken) to working default.
         if (parsed.backend === 'hf') parsed.backend = 'pollinations';
         return { ...DEFAULT, ...parsed };
     } catch (_) { return { ...DEFAULT }; }

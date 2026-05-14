@@ -72,6 +72,10 @@
 .mia-radio { display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; font-size: 0.84rem; line-height: 1.55; color: var(--text-secondary); }
 .mia-radio:has(input:checked) { border-color: var(--accent); background: var(--bg-hover); }
 .mia-radio strong { color: var(--text-primary); }
+.mia-submenu { display: flex; flex-direction: column; gap: 6px; padding: 0 12px 6px 36px; transition: opacity 0.2s ease; }
+.mia-submenu select { padding: 9px 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.84rem; outline: none; }
+.mia-submenu select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94, 177, 255, 0.12); }
+.mia-model-desc { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; padding-left: 2px; }
 .mia-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; color: var(--text-secondary); }
 .mia-field input { padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; outline: none; font-family: var(--num-font); }
 .mia-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(94, 177, 255, 0.12); }
