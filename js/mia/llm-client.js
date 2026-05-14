@@ -1,70 +1,117 @@
-// Mia's LLM client. Two backends:
-//   - HuggingFace Inference API (free, no key, default).
-//     Uses a small instruction-tuned model. Slower, occasionally cold.
-//   - OpenAI Chat Completions (BYOK, paid by user, fast).
-// Anthropic Messages API would be ideal but blocks browser CORS, so
-// it's not offered as an in-browser option.
+// Mia's LLM client.
+//
+// Backend choices:
+//   - 'pollinations' (default): Pollinations.ai text endpoint. Free, no
+//     API key, permissive CORS, OpenAI-compatible chat schema. Picks a
+//     gpt-4o-mini-class model under the hood.
+//   - 'openai' (BYOK): Fast, user pays. Stored locally.
+//
+// Why not Hugging Face Inference: their hosted Mistral / Llama models
+// are GATED (require license acceptance + an HF access token). Anonymous
+// browser calls fail CORS preflight and surface as "Failed to fetch"
+// with no useful error. Forcing every user to register an HF account
+// to use a free chatbot defeats the point.
+//
+// Why not Anthropic: Anthropic's Messages API blocks browser CORS.
 
-const HF_MODEL = 'mistralai/Mistral-7B-Instruct-v0.3';
-const HF_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+const POLLINATIONS_OAI = 'https://text.pollinations.ai/openai';
+const POLLINATIONS_GET = 'https://text.pollinations.ai';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL = 'gpt-4o-mini';
+const POLLI_MODEL = 'openai'; // routes to a gpt-4o-mini-class model on their side
 
 export async function callLLM({ system, messages, settings }) {
-    const backend = settings?.backend || 'hf';
+    const backend = settings?.backend || 'pollinations';
     if (backend === 'openai' && settings?.openaiKey) {
         return callOpenAI(system, messages, settings.openaiKey);
     }
-    return callHuggingFace(system, messages);
+    return callPollinations(system, messages);
 }
 
 async function callOpenAI(system, messages, apiKey) {
-    const res = await fetch(OPENAI_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: OPENAI_MODEL,
-            messages: [
-                { role: 'system', content: system },
-                ...messages,
-            ],
-            temperature: 0.3,
-            max_tokens: 600,
-        }),
-        signal: AbortSignal.timeout(45000),
-    });
+    let res;
+    try {
+        res = await fetch(OPENAI_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: OPENAI_MODEL,
+                messages: [{ role: 'system', content: system }, ...messages],
+                temperature: 0.3,
+                max_tokens: 600,
+            }),
+            signal: AbortSignal.timeout(45000),
+        });
+    } catch (e) {
+        throw new Error(`Couldn't reach OpenAI (${humanFetchError(e)}). Check your network or your API key.`);
+    }
     if (!res.ok) {
         const body = await res.text().catch(() => '');
+        if (res.status === 401) throw new Error('OpenAI rejected the API key (401). Open settings and paste a valid key.');
+        if (res.status === 429) throw new Error('OpenAI rate-limited. Try again in a few seconds, or check billing.');
         throw new Error(`OpenAI error ${res.status}: ${body.slice(0, 200)}`);
     }
     const json = await res.json();
-    return json.choices?.[0]?.message?.content || '(empty response)';
+    return json.choices?.[0]?.message?.content?.trim() || '(empty response)';
 }
 
-async function callHuggingFace(system, messages) {
-    // Build a Mistral-style instruction-tuned prompt with explicit roles.
-    const conv = messages.map(m => `${m.role === 'user' ? '[USER]' : '[ASSISTANT]'} ${m.content}`).join('\n');
-    const prompt = `<s>[INST] ${system}\n\nConversation so far:\n${conv}\n\nRespond as Mia. Keep it focused. [/INST]`;
+async function callPollinations(system, messages) {
+    // First try OpenAI-compatible POST.
+    try {
+        const res = await fetch(POLLINATIONS_OAI, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: POLLI_MODEL,
+                messages: [{ role: 'system', content: system }, ...messages],
+                temperature: 0.3,
+                max_tokens: 600,
+            }),
+            signal: AbortSignal.timeout(45000),
+        });
+        if (res.ok) {
+            const json = await res.json();
+            const text = json?.choices?.[0]?.message?.content?.trim();
+            if (text) return text;
+        }
+    } catch (_) { /* fall through to GET */ }
 
-    const res = await fetch(HF_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            inputs: prompt,
-            parameters: { max_new_tokens: 500, temperature: 0.4, return_full_text: false },
-            options: { wait_for_model: true },
-        }),
-        signal: AbortSignal.timeout(60000),
-    });
-    if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        if (res.status === 503) throw new Error('Mia\'s model is warming up. Try again in 10-20 seconds.');
-        throw new Error(`HuggingFace error ${res.status}: ${body.slice(0, 200)}`);
+    // Fallback: simple GET endpoint with URL-encoded combined prompt.
+    try {
+        const conv = messages.map(m => `${m.role === 'user' ? 'User' : 'Mia'}: ${m.content}`).join('\n');
+        const prompt = `${system}\n\n${conv}\nMia:`;
+        const url = `${POLLINATIONS_GET}/${encodeURIComponent(prompt)}?model=${POLLI_MODEL}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(45000) });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const text = (await res.text()).trim();
+        if (text) return text;
+        throw new Error('empty response');
+    } catch (e) {
+        throw new Error(`Couldn't reach Mia's free backend (${humanFetchError(e)}). For faster + reliable replies, switch to OpenAI in settings (you supply the key).`);
     }
-    const json = await res.json();
-    const text = Array.isArray(json) ? json[0]?.generated_text : json.generated_text;
-    return (text || '(empty response)').trim();
+}
+
+function humanFetchError(e) {
+    const msg = (e && e.message) || String(e);
+    if (/abort|timeout/i.test(msg)) return 'request timed out';
+    if (/Failed to fetch|NetworkError|CORS/i.test(msg)) return 'network or CORS error';
+    return msg;
+}
+
+export async function pingBackend(settings) {
+    // Used by the settings panel "Test connection" button. Returns
+    // { ok: bool, msg: string }.
+    try {
+        const reply = await callLLM({
+            system: 'You are Mia. Reply with exactly the word: pong.',
+            messages: [{ role: 'user', content: 'ping' }],
+            settings,
+        });
+        return { ok: true, msg: `OK — received: "${reply.slice(0, 40)}"` };
+    } catch (e) {
+        return { ok: false, msg: e.message || String(e) };
+    }
 }

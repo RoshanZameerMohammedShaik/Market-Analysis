@@ -1,7 +1,7 @@
 // Mia UI: launcher button, slide-in panel, chat thread, settings.
-// Everything happens in this file's DOM scope; rest of the app is unaffected.
+// Self-contained — nothing here affects the rest of the app.
 
-import { callLLM } from './llm-client.js';
+import { callLLM, pingBackend } from './llm-client.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { loadSettings, saveSettings } from './settings.js';
@@ -34,7 +34,6 @@ function togglePanel() {
 
 function renderPanel() {
     const panel = document.getElementById('mia-panel');
-    const settings = loadSettings();
     const history = loadHistory();
 
     panel.innerHTML = `
@@ -122,11 +121,7 @@ async function sendMessage(forced) {
     try {
         const settings = loadSettings();
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        const reply = await callLLM({
-            system,
-            messages: history,
-            settings,
-        });
+        const reply = await callLLM({ system, messages: history, settings });
         const updated = loadHistory();
         updated.push({ role: 'assistant', content: reply });
         saveHistory(updated);
@@ -169,28 +164,42 @@ function openSettings() {
         </div>
         <div class="mia-settings">
             <label class="mia-radio">
-                <input type="radio" name="mia-backend" value="hf" ${settings.backend === 'hf' ? 'checked' : ''}>
-                <span><strong>HuggingFace</strong> — free, no key. Slower; first call may take 15-20s while the model warms.</span>
+                <input type="radio" name="mia-backend" value="pollinations" ${settings.backend === 'pollinations' ? 'checked' : ''}>
+                <span><strong>Free (Pollinations)</strong> — no key, no signup. Routes to a gpt-4o-mini-class model. Reliable, browser-friendly, decent speed.</span>
             </label>
             <label class="mia-radio">
                 <input type="radio" name="mia-backend" value="openai" ${settings.backend === 'openai' ? 'checked' : ''}>
-                <span><strong>OpenAI</strong> — fast, requires your own key. Charged to your OpenAI account.</span>
+                <span><strong>OpenAI</strong> — fastest, requires your own API key. Charged to your OpenAI account. Key stored only in your browser.</span>
             </label>
             <label class="mia-field">
-                OpenAI API Key (only stored in your browser)
+                OpenAI API Key
                 <input type="password" id="mia-openai-key" placeholder="sk-..." value="${escapeAttr(settings.openaiKey)}">
             </label>
-            <button class="mia-save-btn" id="mia-save-settings">Save</button>
+            <div class="mia-settings-row">
+                <button class="mia-save-btn" id="mia-save-settings">Save</button>
+                <button class="mia-test-btn" id="mia-test-conn">Test connection</button>
+            </div>
+            <div id="mia-test-result" class="mia-test-result"></div>
             <button class="mia-clear-btn" id="mia-clear-history">Clear conversation history</button>
             <p class="mia-help">Mia never sends data anywhere except directly to the chosen LLM provider.</p>
         </div>`;
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
     document.getElementById('mia-back-btn').addEventListener('click', renderPanel);
     document.getElementById('mia-save-settings').addEventListener('click', () => {
-        const backend = panel.querySelector('input[name="mia-backend"]:checked')?.value || 'hf';
+        const backend = panel.querySelector('input[name="mia-backend"]:checked')?.value || 'pollinations';
         const openaiKey = document.getElementById('mia-openai-key').value.trim();
         saveSettings({ backend, openaiKey });
         renderPanel();
+    });
+    document.getElementById('mia-test-conn').addEventListener('click', async () => {
+        const out = document.getElementById('mia-test-result');
+        out.textContent = 'Testing…';
+        out.className = 'mia-test-result testing';
+        const backend = panel.querySelector('input[name="mia-backend"]:checked')?.value || 'pollinations';
+        const openaiKey = document.getElementById('mia-openai-key').value.trim();
+        const { ok, msg } = await pingBackend({ backend, openaiKey });
+        out.textContent = msg;
+        out.className = `mia-test-result ${ok ? 'ok' : 'fail'}`;
     });
     document.getElementById('mia-clear-history').addEventListener('click', () => {
         clearHistory();
