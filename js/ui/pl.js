@@ -1,5 +1,6 @@
 import { fmt } from './format.js';
 import { state } from './state.js';
+import { format as fmtCurrency } from '../currency.js';
 
 export function initPLCalculator() {
     const calcBtn = document.getElementById('pl-calcBtn');
@@ -59,10 +60,15 @@ function calculatePL() {
 
     document.getElementById('pl-resIcon').textContent = isProfit ? '📈' : isLoss ? '📉' : '➖';
     document.getElementById('pl-resLabel').textContent = isProfit ? 'Total Profit' : isLoss ? 'Total Loss' : 'Break Even';
-    document.getElementById('pl-resAmount').textContent = (plDollar >= 0 ? '+$' : '-$') + fmt(Math.abs(plDollar));
+    // Note: P&L inputs are entered in whatever currency the user typed; we treat
+    // them as USD for the toggle to work consistently with the rest of the app.
+    // Sign + amount come back as currency-formatted text (no markup) so we
+    // preserve the +/-$ prefix on USD; for INR we render the symbol, then number.
+    const sign = plDollar >= 0 ? '+' : '−';
+    document.getElementById('pl-resAmount').textContent = sign + fmtCurrency(Math.abs(plDollar)).replace(/^[$₹]/, '$&');
     document.getElementById('pl-resPct').textContent = (plPct >= 0 ? '+' : '') + fmt(plPct) + '%';
     document.getElementById('pl-resShares').textContent = fmt(shares, 4);
-    document.getElementById('pl-resValue').textContent = '$' + fmt(currentValue);
+    document.getElementById('pl-resValue').textContent = fmtCurrency(currentValue);
 
     resEl.classList.add(type);
     requestAnimationFrame(() => resEl.classList.add('show'));
