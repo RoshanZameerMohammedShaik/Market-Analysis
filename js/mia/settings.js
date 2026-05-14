@@ -3,13 +3,19 @@
 // chosen LLM provider.
 
 const KEY = 'ma-mia-settings';
-const DEFAULT = { backend: 'hf', openaiKey: '' };
+
+// Default switched from 'hf' (gated, doesn't work for anonymous users)
+// to 'pollinations' (free, no key, permissive CORS).
+const DEFAULT = { backend: 'pollinations', openaiKey: '' };
 
 export function loadSettings() {
     try {
         const raw = localStorage.getItem(KEY);
         if (!raw) return { ...DEFAULT };
-        return { ...DEFAULT, ...JSON.parse(raw) };
+        const parsed = JSON.parse(raw);
+        // Migrate legacy 'hf' value to the new working default.
+        if (parsed.backend === 'hf') parsed.backend = 'pollinations';
+        return { ...DEFAULT, ...parsed };
     } catch (_) { return { ...DEFAULT }; }
 }
 
