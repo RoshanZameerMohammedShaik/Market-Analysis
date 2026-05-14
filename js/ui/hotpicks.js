@@ -11,10 +11,15 @@ export async function loadHotPicks(onPick) {
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
     if (title) title.textContent = `🔥 Hot Picks — Top ${modeLabel} for ${tfLabel}`;
 
-    grid.innerHTML = `<div class="loading" style="grid-column: 1/-1;">
-        <div class="loader"></div>
-        <span class="loading-text" id="hotpicks-progress">Initializing...</span>
-    </div>`;
+    // Skeleton grid while we scan.
+    grid.innerHTML = `
+        <div class="hp-skel-grid" style="grid-column: 1/-1;">
+            ${Array.from({length: 12}).map(()=>`<div class="hp-skel"></div>`).join('')}
+        </div>
+        <div class="loading" style="grid-column: 1/-1;">
+            <span class="loading-text" id="hotpicks-progress">Initializing…</span>
+            <span class="loading-tip" id="loading-tip"></span>
+        </div>`;
 
     const updateProgress = msg => {
         const el = document.getElementById('hotpicks-progress');
@@ -53,7 +58,7 @@ export async function loadHotPicks(onPick) {
             const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
             const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
             return `
-            <div class="hot-pick-card ${signalClass} fade-in" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
+            <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
                 <div class="hot-pick-symbol">${pick.symbol}</div>
                 <div class="hot-pick-name">${pick.name}</div>
                 <div class="hot-pick-spark">${sparkSvg}</div>

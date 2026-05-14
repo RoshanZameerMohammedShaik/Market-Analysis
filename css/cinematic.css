@@ -1,0 +1,156 @@
+/* Cinematic layer for Market Analyzer.
+ * Loaded after style.css; respects prefers-reduced-motion globally. */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* App boot: subtle gradient mesh in background, only visible on dark/colourful */
+body::after {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+        radial-gradient(circle at 12% 18%, rgba(94,177,255,0.08), transparent 38%),
+        radial-gradient(circle at 88% 82%, rgba(168,85,247,0.07), transparent 40%),
+        radial-gradient(circle at 70% 12%, rgba(63,185,80,0.05), transparent 36%);
+    animation: mesh-drift 22s ease-in-out infinite alternate;
+}
+[data-theme="light"] body::after { display: none; }
+@keyframes mesh-drift {
+    from { transform: translate3d(0,0,0); opacity: 0.85; }
+    to   { transform: translate3d(-20px, 18px, 0); opacity: 1; }
+}
+
+/* Header brand mark draws/glows on first load */
+.app-title { animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes brand-rise {
+    from { opacity: 0; transform: translateY(-6px); letter-spacing: -0.04em; }
+    to   { opacity: 1; transform: translateY(0); letter-spacing: -0.02em; }
+}
+.theme-toggle { animation: brand-rise 760ms 60ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Glossary rail — sections cascade-fade in */
+.glos-section { animation: glos-fade 480ms ease-out both; }
+.glos-section:nth-child(1) { animation-delay: 60ms; }
+.glos-section:nth-child(2) { animation-delay: 140ms; }
+.glos-section:nth-child(3) { animation-delay: 220ms; }
+.glos-section:nth-child(4) { animation-delay: 300ms; }
+.glos-section:nth-child(5) { animation-delay: 380ms; }
+.glos-section:nth-child(6) { animation-delay: 460ms; }
+@keyframes glos-fade {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+.glos-item summary { transition: padding-left 0.18s ease; }
+.glos-item summary:hover { padding-left: 4px; }
+.glos-item summary:hover .glos-term { color: var(--accent); }
+
+/* Did-you-know chip — floats in bottom-left every 30s */
+.dyk-chip {
+    position: fixed; left: 22px; bottom: 22px; z-index: 450;
+    max-width: 320px;
+    padding: 12px 14px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(14px);
+    box-shadow: var(--shadow);
+    color: var(--text-secondary);
+    font-size: 0.78rem; line-height: 1.5;
+    transform: translateX(-380px); opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s;
+}
+.dyk-chip.show { transform: translateX(0); opacity: 1; }
+.dyk-chip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.66rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; }
+.dyk-chip-close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.92rem; }
+.dyk-chip-close:hover { color: var(--text-primary); }
+@media (max-width: 768px) {
+    .dyk-chip { left: 12px; right: 12px; bottom: 78px; max-width: none; }
+}
+
+/* Theme transition — 200ms crossfade on all themed properties */
+body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-header, .accordion-body, .pl-sidebar, .glossary-rail, .mia-panel, .mia-msg-bubble, .chart-section { transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease; }
+
+/* Hot pick cards — 3D entry */
+.hot-pick-card { animation: hp-flip 480ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top center; }
+.hot-pick-card:nth-child(1)  { animation-delay: 20ms; }
+.hot-pick-card:nth-child(2)  { animation-delay: 80ms; }
+.hot-pick-card:nth-child(3)  { animation-delay: 140ms; }
+.hot-pick-card:nth-child(4)  { animation-delay: 200ms; }
+.hot-pick-card:nth-child(5)  { animation-delay: 260ms; }
+.hot-pick-card:nth-child(6)  { animation-delay: 320ms; }
+.hot-pick-card:nth-child(7)  { animation-delay: 380ms; }
+.hot-pick-card:nth-child(8)  { animation-delay: 440ms; }
+.hot-pick-card:nth-child(9)  { animation-delay: 500ms; }
+.hot-pick-card:nth-child(10) { animation-delay: 560ms; }
+.hot-pick-card:nth-child(n+11) { animation-delay: 620ms; }
+@keyframes hp-flip {
+    from { opacity: 0; transform: perspective(700px) rotateX(-25deg) translateY(8px); }
+    to   { opacity: 1; transform: perspective(700px) rotateX(0deg) translateY(0); }
+}
+
+/* Skeleton shimmer for hot picks while scanning */
+.hp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; grid-column: 1/-1; }
+.hp-skel { height: 132px; border-radius: var(--radius-md); border: 1px solid var(--border); background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-hover) 50%, var(--bg-card) 100%); background-size: 200% 100%; animation: hp-shimmer 1.4s linear infinite; }
+@keyframes hp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Chart placeholder pulse */
+.chart-ph-icon { animation: ph-float 4s ease-in-out infinite; }
+@keyframes ph-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+/* Signal verdict slam */
+.signal-arrow { animation: slam 540ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.signal-label { animation: slam-text 540ms 80ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes slam {
+    from { transform: translateY(-30px) scale(1.4); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes slam-text {
+    from { transform: translateX(-20px); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+}
+
+/* Confidence bar overshoot */
+.confidence-fill { transition: width 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Source breakdown bars stagger */
+.breakdown-fill { transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+.source-breakdown .breakdown-item:nth-child(1) .breakdown-fill { transition-delay: 60ms; }
+.source-breakdown .breakdown-item:nth-child(2) .breakdown-fill { transition-delay: 140ms; }
+.source-breakdown .breakdown-item:nth-child(3) .breakdown-fill { transition-delay: 220ms; }
+.source-breakdown .breakdown-item:nth-child(4) .breakdown-fill { transition-delay: 300ms; }
+
+/* Refresh button spin */
+.refresh-btn.spinning { animation: spin360 0.9s linear infinite; }
+@keyframes spin360 { to { transform: rotate(360deg); } }
+
+/* Theme toggle flip */
+.theme-toggle:active { transform: rotate(-180deg) scale(0.95); }
+
+/* Tap-ripple for buttons */
+.tab-btn, .refresh-btn, .pl-btn, .pl-use-current, .mia-card-btn, .mia-save-btn, .mia-test-btn, .mia-clear-btn, .mia-icon-btn, .mia-suggest, .hot-pick-card { position: relative; overflow: hidden; }
+.ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms ease-out; background: rgba(255,255,255,0.35); pointer-events: none; }
+[data-theme="light"] .ripple { background: rgba(0,0,0,0.12); }
+@keyframes ripple { to { transform: scale(4); opacity: 0; } }
+
+/* Mia tool badge inside chat bubble */
+.mia-tool-badge { display: inline-block; margin-top: 8px; padding: 3px 8px; font-size: 0.7rem; color: var(--accent); background: var(--bg-hover); border: 1px solid var(--border); border-radius: 999px; font-style: normal; }
+.mia-tool-badge code { font-family: var(--num-font); font-size: 0.72rem; }
+
+/* Unverified-number marker */
+.mia-unverified { color: var(--yellow); font-size: 0.66em; font-weight: 800; cursor: help; margin-left: 1px; }
+
+/* Send button enlarges briefly on click for tactile feedback */
+.mia-send-btn:active { transform: scale(0.92); }
+
+/* Bottom sheet rubber-band on mobile (P&L sidebar collapses below) */
+@media (max-width: 1024px) {
+    .pl-sidebar { animation: sheet-rise 540ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+@keyframes sheet-rise { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Number flash when tweening prices on hot pick refresh */
+.num-flash { animation: num-flash 400ms ease; }
+@keyframes num-flash { 0% { color: var(--accent); } 100% { color: inherit; } }

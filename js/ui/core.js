@@ -16,12 +16,14 @@ import { initKeyboard } from './keyboard.js';
 import { renderGlossary } from './glossary.js';
 import { startTipRotation } from './tips.js';
 import { initMia, setLatestSignal } from '../mia/mia.js';
+import { startDyk } from './dyk.js';
+import { initRipple } from './ripple.js';
 
 let stopTips = null;
 
 export function init() {
     document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
-
+    initRipple();
     initTheme();
     initTabs();
     initSearch(onSelectFromSearch);
@@ -31,6 +33,7 @@ export function init() {
     renderGlossary();
     initMia();
     showChartPlaceholder();
+    startDyk();
 
     startTipsForLoading();
     loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
@@ -67,10 +70,7 @@ function stopTipsForLoading() {
 function maybeRenderAccuracyStrip() {
     const container = document.getElementById('accuracy-strip');
     if (!container) return;
-    if (!isDev()) {
-        container.innerHTML = '';
-        return;
-    }
+    if (!isDev()) { container.innerHTML = ''; return; }
     renderAccuracyStrip();
 }
 
@@ -161,7 +161,6 @@ async function runAnalysis() {
 
         const result = await computeFullConfidence(multiData, state.mode, symbolId, state.timeframe);
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
-        // Tell Mia about the latest signal so her grounding stays current.
         setLatestSignal(result);
 
         logPrediction({
