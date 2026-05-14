@@ -1,11 +1,9 @@
 // Mia UI: launcher + slide-in panel + chat thread.
-// Backend talks to AI Horde via llm-client.js. Progress callback
-// updates the typing bubble with queue position so the user knows Mia
-// hasn't hung.
 
 import { callLLM } from './llm-client.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
+import { renderMarkdown } from './markdown.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -56,7 +54,7 @@ function renderPanel() {
             <textarea id="mia-input" rows="2" placeholder="Ask Mia about a stock, an indicator, or what the signal means..."></textarea>
             <button id="mia-send" class="mia-send-btn" title="Send">↑</button>
         </div>
-        <div class="mia-disclaimer">Mia is an AI analyst on the AI Horde free volunteer pool — replies take 5-30s. Numbers come from the on-screen signal; not financial advice.</div>
+        <div class="mia-disclaimer">Mia runs on the AI Horde free volunteer pool — replies take 5-30s. Numbers come from the on-screen signal; not financial advice.</div>
     `;
 
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
@@ -101,10 +99,12 @@ function renderThread(history) {
         });
         return;
     }
-    thread.innerHTML = history.map(m => `
-        <div class="mia-msg ${m.role}">
-            <div class="mia-msg-bubble">${escapeHtml(m.content)}</div>
-        </div>`).join('');
+    thread.innerHTML = history.map(m => {
+        if (m.role === 'user') {
+            return `<div class="mia-msg user"><div class="mia-msg-bubble">${escapeHtml(m.content)}</div></div>`;
+        }
+        return `<div class="mia-msg assistant"><div class="mia-msg-bubble mia-md">${renderMarkdown(m.content)}</div></div>`;
+    }).join('');
     thread.scrollTop = thread.scrollHeight;
 }
 
@@ -129,7 +129,7 @@ async function sendMessage(forced) {
         const { reply } = await callLLM({
             system,
             messages: history,
-            onProgress: msg => updateLoadingBubble(msg),
+            onProgress: msg => updateLoadingProgress(msg),
         });
         const updated = loadHistory();
         updated.push({ role: 'assistant', content: reply });
@@ -151,16 +151,16 @@ function appendLoadingBubble() {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
     thread.insertAdjacentHTML('beforeend', `
-        <div class="mia-msg assistant loading-bubble" id="mia-loading-bubble">
-            <div class="mia-msg-bubble">
+        <div class="mia-msg assistant loading-row" id="mia-loading-row">
+            <div class="mia-msg-bubble mia-loading">
                 <span class="mia-typing"><i></i><i></i><i></i></span>
-                <span class="mia-progress" id="mia-progress">Mia is thinking…</span>
             </div>
+            <span class="mia-progress" id="mia-progress">thinking…</span>
         </div>`);
     thread.scrollTop = thread.scrollHeight;
 }
 
-function updateLoadingBubble(msg) {
+function updateLoadingProgress(msg) {
     const el = document.getElementById('mia-progress');
     if (el) el.textContent = msg;
 }
