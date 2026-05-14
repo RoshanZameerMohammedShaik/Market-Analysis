@@ -1,6 +1,7 @@
 @import url('./extras.css');
 @import url('./mia.css');
 @import url('./cinematic.css');
+@import url('./about.css');
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -56,9 +57,11 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 
 .app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .header-content { max-width: 1500px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
 .app-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.theme-toggle { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); }
-.theme-toggle:hover { border-color: var(--accent); transform: rotate(180deg); }
+.theme-toggle, .header-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); color: var(--text-secondary); }
+.theme-toggle:hover, .header-btn:hover { border-color: var(--accent); color: var(--accent); }
+.theme-toggle:hover { transform: rotate(180deg); }
 
 .app-layout { display: grid; grid-template-columns: 260px 1fr 320px; min-height: calc(100vh - 65px); max-width: 1500px; margin: 0 auto; }
 .main-container { padding: 20px 24px; min-width: 0; }
