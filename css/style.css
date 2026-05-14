@@ -5,6 +5,7 @@
 @import url('./pl-toggle.css');
 @import url('./currency.css');
 @import url('./spikers.css');
+@import url('./markets.css');
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
