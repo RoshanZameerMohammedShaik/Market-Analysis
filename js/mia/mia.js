@@ -1,6 +1,6 @@
 // Mia UI: launcher button, slide-in panel, chat thread, settings.
 
-import { callLLM, pingBackend, POLLINATIONS_MODELS } from './llm-client.js';
+import { callLLM, pingBackend, POLLINATIONS_MODELS, POLLINATIONS_DEFAULT } from './llm-client.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { loadSettings, saveSettings } from './settings.js';
@@ -94,10 +94,12 @@ function renderThread(history) {
         });
         return;
     }
-    thread.innerHTML = history.map(m => `
-        <div class="mia-msg ${m.role}">
-            <div class="mia-msg-bubble">${escapeHtml(m.content)}</div>
-        </div>`).join('');
+    thread.innerHTML = history.map(m => {
+        const meta = m.modelNote ? `<div class="mia-msg-meta">${m.modelNote}</div>` : '';
+        return `<div class="mia-msg ${m.role}">
+            <div class="mia-msg-bubble">${escapeHtml(m.content)}${meta}</div>
+        </div>`;
+    }).join('');
     thread.scrollTop = thread.scrollHeight;
 }
 
@@ -120,9 +122,15 @@ async function sendMessage(forced) {
     try {
         const settings = loadSettings();
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        const { reply } = await callLLM({ system, messages: history, settings });
+        const { reply, model } = await callLLM({ system, messages: history, settings });
+        const chosen = settings.pollinationsModel || POLLINATIONS_DEFAULT;
+        const fellBack = settings.backend === 'pollinations' && model && model !== chosen;
         const updated = loadHistory();
-        updated.push({ role: 'assistant', content: reply });
+        updated.push({
+            role: 'assistant',
+            content: reply,
+            modelNote: fellBack ? `answered by ${model} (your pick "${chosen}" was busy)` : '',
+        });
         saveHistory(updated);
         renderThread(updated);
     } catch (e) {
@@ -170,12 +178,12 @@ function openSettings() {
         <div class="mia-settings">
             <label class="mia-radio">
                 <input type="radio" name="mia-backend" value="pollinations" ${settings.backend === 'pollinations' ? 'checked' : ''}>
-                <span><strong>Free — no key, no signup</strong>. Multiple models available below. Browser-friendly, decent speed.</span>
+                <span><strong>Free — no key, no signup</strong>. Multiple models. Auto-falls back if one is busy.</span>
             </label>
 
             <div class="mia-submenu" id="mia-poll-submenu" ${settings.backend !== 'pollinations' ? 'style="opacity:0.5"' : ''}>
                 <label class="mia-field">
-                    Free model
+                    Preferred free model
                     <select id="mia-poll-model">${modelOptions}</select>
                 </label>
                 <p class="mia-model-desc" id="mia-model-desc">${currentDesc}</p>
@@ -183,7 +191,7 @@ function openSettings() {
 
             <label class="mia-radio">
                 <input type="radio" name="mia-backend" value="openai" ${settings.backend === 'openai' ? 'checked' : ''}>
-                <span><strong>OpenAI (BYOK)</strong> — fastest, uses your own API key. Charged to your OpenAI account. Stored only in your browser.</span>
+                <span><strong>OpenAI (BYOK)</strong> — fastest, your own API key. Charged to your OpenAI account. Stored only in your browser.</span>
             </label>
             <label class="mia-field">
                 OpenAI API Key
@@ -222,7 +230,7 @@ function openSettings() {
     });
     document.getElementById('mia-test-conn').addEventListener('click', async () => {
         const out = document.getElementById('mia-test-result');
-        out.textContent = 'Testing… (heavier models can take 10-30s)';
+        out.textContent = 'Testing… (heavy models can take 10-30s; auto-falls back if busy)';
         out.className = 'mia-test-result testing';
         const backend = panel.querySelector('input[name="mia-backend"]:checked')?.value || 'pollinations';
         const pollinationsModel = modelSelect.value;

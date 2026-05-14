@@ -1,25 +1,19 @@
 // Mia's LLM client.
 //
-// Backend options (all free, all browser-friendly):
-//   - 'pollinations' (default): Pollinations.ai. Free, no key, no signup,
-//     permissive CORS. Multiple underlying models exposed via the
-//     `model` parameter — see POLLINATIONS_MODELS below.
-//   - 'openai' (BYOK): User's own OpenAI key. Fast, paid by user.
+// Backends:
+//   - 'pollinations' (default): Free, keyless, multiple models. Auto-falls
+//     back across models on 429 / 5xx because the rate limit is per-model.
+//   - 'openai' (BYOK): User's key. Single try, no fallback.
 //
-// Why not Hugging Face Inference: hosted Llama / Mistral models are
-// gated (license + token required). Anonymous browser calls fail CORS
-// preflight — surfaces as "Failed to fetch." Adding a token field is
-// possible but the user wanted *truly* free, no signup.
-//
-// Why not Anthropic: Anthropic's Messages API blocks browser CORS.
+// Why not Hugging Face: hosted Llama / Mistral are gated; anonymous
+// browser calls fail CORS. Forcing every user to sign up defeats "free."
+// Why not Anthropic: Anthropic's API blocks browser CORS.
 
 const POLLINATIONS_OAI = 'https://text.pollinations.ai/openai';
 const POLLINATIONS_GET = 'https://text.pollinations.ai';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL = 'gpt-4o-mini';
 
-// Available free models on Pollinations. Keyed by the value we send in
-// the `model` field. Order matters — settings UI iterates this map.
 export const POLLINATIONS_MODELS = {
     'openai-large':     { label: 'GPT-4o (heaviest balanced)',     desc: 'GPT-4o class. Strong reasoning, good instruction-following. Default.' },
     'openai':           { label: 'GPT-4o mini (fast)',              desc: 'Smaller GPT-4o. Faster, lighter. Good for quick questions.' },
@@ -31,13 +25,17 @@ export const POLLINATIONS_MODELS = {
 };
 export const POLLINATIONS_DEFAULT = 'openai-large';
 
+// Fallback order when the user's chosen model rate-limits or errors.
+// Hand-picked to favor models that are typically less loaded.
+const FALLBACK_ORDER = ['openai-large', 'llama', 'deepseek', 'mistral', 'openai', 'qwen-coder'];
+
 export async function callLLM({ system, messages, settings }) {
     const backend = settings?.backend || 'pollinations';
     if (backend === 'openai' && settings?.openaiKey) {
         return { reply: await callOpenAI(system, messages, settings.openaiKey), model: OPENAI_MODEL };
     }
-    const model = settings?.pollinationsModel || POLLINATIONS_DEFAULT;
-    return { reply: await callPollinations(system, messages, model), model };
+    const chosen = settings?.pollinationsModel || POLLINATIONS_DEFAULT;
+    return callPollinationsWithFallback(system, messages, chosen);
 }
 
 async function callOpenAI(system, messages, apiKey) {
@@ -70,10 +68,32 @@ async function callOpenAI(system, messages, apiKey) {
     return json.choices?.[0]?.message?.content?.trim() || '(empty response)';
 }
 
-async function callPollinations(system, messages, model) {
-    // Try OpenAI-compatible POST first.
+async function callPollinationsWithFallback(system, messages, chosen) {
+    const order = [chosen, ...FALLBACK_ORDER.filter(m => m !== chosen)];
+    const errors = [];
+
+    for (let i = 0; i < order.length; i++) {
+        const model = order[i];
+        try {
+            const reply = await callPollinationsOnce(system, messages, model, /*allowGetFallback=*/ i === 0);
+            return { reply, model };
+        } catch (e) {
+            errors.push(`${model}: ${e.message}`);
+            // Don't retry on user-cancelled / non-retryable conditions.
+            if (/abort/i.test(e.message)) break;
+            // Brief backoff before trying the next model so we're not
+            // hammering an already-overloaded shared service.
+            if (i < order.length - 1) await sleep(800);
+        }
+    }
+    throw new Error(`All free models busy. Tried ${order.length} (${errors.length} errors). Wait ~30s and retry, or switch to OpenAI BYOK in settings.`);
+}
+
+async function callPollinationsOnce(system, messages, model, allowGetFallback) {
+    // POST to OpenAI-compatible endpoint.
+    let res;
     try {
-        const res = await fetch(POLLINATIONS_OAI, {
+        res = await fetch(POLLINATIONS_OAI, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -84,27 +104,42 @@ async function callPollinations(system, messages, model) {
             }),
             signal: AbortSignal.timeout(60000),
         });
-        if (res.ok) {
+    } catch (e) {
+        throw new Error(humanFetchError(e));
+    }
+    if (res.ok) {
+        try {
             const json = await res.json();
             const text = json?.choices?.[0]?.message?.content?.trim();
             if (text) return text;
+            throw new Error('empty response');
+        } catch (e) {
+            throw new Error(`bad response (${e.message})`);
         }
-    } catch (_) { /* fall through */ }
+    }
+    if (res.status === 429) throw new Error('rate-limited (429)');
+    if (res.status >= 500) throw new Error(`server error (${res.status})`);
 
-    // Fallback: simple GET endpoint with URL-encoded combined prompt.
+    // Only the user's chosen model gets the GET fallback — it can sometimes
+    // succeed when the POST endpoint rejects. For the auto-fallback chain
+    // we keep latency reasonable by skipping it.
+    if (!allowGetFallback) throw new Error(`status ${res.status}`);
+
     try {
         const conv = messages.map(m => `${m.role === 'user' ? 'User' : 'Mia'}: ${m.content}`).join('\n');
         const prompt = `${system}\n\n${conv}\nMia:`;
         const url = `${POLLINATIONS_GET}/${encodeURIComponent(prompt)}?model=${encodeURIComponent(model)}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
-        if (!res.ok) throw new Error(`status ${res.status}`);
-        const text = (await res.text()).trim();
+        const getRes = await fetch(url, { signal: AbortSignal.timeout(60000) });
+        if (!getRes.ok) throw new Error(`status ${getRes.status}`);
+        const text = (await getRes.text()).trim();
         if (text) return text;
         throw new Error('empty response');
     } catch (e) {
-        throw new Error(`Couldn't reach Mia's free backend (${humanFetchError(e)}). Try a different model in settings, or switch to OpenAI BYOK.`);
+        throw new Error(humanFetchError(e));
     }
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function humanFetchError(e) {
     const msg = (e && e.message) || String(e);
@@ -120,7 +155,9 @@ export async function pingBackend(settings) {
             messages: [{ role: 'user', content: 'ping' }],
             settings,
         });
-        return { ok: true, msg: `OK — ${model} responded: "${reply.slice(0, 60)}"` };
+        const chosen = settings?.pollinationsModel || POLLINATIONS_DEFAULT;
+        const note = model !== chosen && settings?.backend === 'pollinations' ? ` (fell back from ${chosen})` : '';
+        return { ok: true, msg: `OK — ${model}${note} responded: "${reply.slice(0, 60)}"` };
     } catch (e) {
         return { ok: false, msg: e.message || String(e) };
     }

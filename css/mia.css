@@ -53,6 +53,7 @@
 .mia-msg-bubble { max-width: 86%; padding: 10px 14px; border-radius: 14px; font-size: 0.88rem; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
 .mia-msg.user .mia-msg-bubble { background: linear-gradient(135deg, #7c3aed, #3b82f6); color: #fff; border-bottom-right-radius: 4px; }
 .mia-msg.assistant .mia-msg-bubble { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.mia-msg-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); font-style: italic; }
 
 .mia-typing { display: inline-flex; gap: 4px; }
 .mia-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: mia-bounce 1.2s ease-in-out infinite; }
