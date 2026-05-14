@@ -1,11 +1,41 @@
-// Settings module retained as a no-op shim so any cached imports don't
-// 404. Mia no longer reads or writes settings of any kind.
-//
-// Also clears any legacy settings the user may have stored from earlier
-// versions — best-effort, fails silently if storage is disabled.
-(function migrateAway() {
-    try { localStorage.removeItem('ma-mia-settings'); } catch (_) { /* */ }
-})();
+// User settings: backend choice, API keys, WebLLM tier.
+// Stored in localStorage, scoped to the site origin.
 
-export function loadSettings() { return {}; }
-export function saveSettings() { /* */ }
+const KEY = 'ma-mia-settings-v2';
+
+const DEFAULT = {
+    backend: '', // '' (unconfigured) | 'webllm' | 'groq' | 'cloudflare'
+    webllmTier: 'default', // 'default' | 'thinking'
+    groqKey: '',
+    cfKey: '',
+    cfAccountId: '',
+    thinkingMode: false,
+};
+
+export function loadSettings() {
+    try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return { ...DEFAULT };
+        return { ...DEFAULT, ...JSON.parse(raw) };
+    } catch (_) {
+        return { ...DEFAULT };
+    }
+}
+
+export function saveSettings(patch) {
+    const next = { ...loadSettings(), ...patch };
+    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch (_) { /* */ }
+    return next;
+}
+
+export function clearSettings() {
+    try { localStorage.removeItem(KEY); } catch (_) {}
+}
+
+export function isConfigured() {
+    const s = loadSettings();
+    if (s.backend === 'webllm') return true;
+    if (s.backend === 'groq') return !!s.groqKey;
+    if (s.backend === 'cloudflare') return !!s.cfKey && !!s.cfAccountId;
+    return false;
+}

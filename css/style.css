@@ -1,8 +1,7 @@
 @import url('./extras.css');
 @import url('./mia.css');
-
-/* Market Analyzer — visual system. Sparkline / dev / glossary / Mia
- * extracted into separate files for clarity. */
+@import url('./cinematic.css');
+@import url('./about.css');
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -58,14 +57,14 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 
 .app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .header-content { max-width: 1500px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
 .app-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.theme-toggle { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); }
-.theme-toggle:hover { border-color: var(--accent); transform: rotate(180deg); }
+.theme-toggle, .header-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); color: var(--text-secondary); }
+.theme-toggle:hover, .header-btn:hover { border-color: var(--accent); color: var(--accent); }
+.theme-toggle:hover { transform: rotate(180deg); }
 
-/* 3-column layout: glossary | main | P&L */
 .app-layout { display: grid; grid-template-columns: 260px 1fr 320px; min-height: calc(100vh - 65px); max-width: 1500px; margin: 0 auto; }
 .main-container { padding: 20px 24px; min-width: 0; }
-
 .controls-section { margin-bottom: 18px; }
 .tabs-row { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
 .tab-group { display: flex; background: var(--bg-secondary); border-radius: var(--radius-md); padding: 4px; border: 1px solid var(--border); }
@@ -121,10 +120,10 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .signal-box.sell { border-color: var(--red); background: var(--red-bg); }
 .signal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
 .signal-header .refresh-btn { margin-left: auto; }
-.signal-arrow { font-size: 2.4rem; line-height: 1; animation: pulse 2.4s ease-in-out infinite; }
+.signal-arrow { font-size: 2.4rem; line-height: 1; }
 .signal-arrow.up { color: var(--green); }
 .signal-arrow.down { color: var(--red); }
-.signal-arrow.neutral { color: var(--yellow); animation: none; }
+.signal-arrow.neutral { color: var(--yellow); }
 .signal-label { font-size: 1.7rem; font-weight: 800; letter-spacing: 0.5px; }
 .signal-label.buy { color: var(--green); }
 .signal-label.sell { color: var(--red); }
@@ -132,7 +131,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .signal-confidence { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); font-family: var(--num-font); font-variant-numeric: tabular-nums; }
 
 .confidence-bar { width: 100%; height: 6px; background: var(--bg-secondary); border-radius: 3px; margin: 10px 0 14px; overflow: hidden; }
-.confidence-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+.confidence-fill { height: 100%; border-radius: 3px; }
 .confidence-fill.high { background: linear-gradient(90deg, var(--green), color-mix(in srgb, var(--green) 70%, white)); }
 .confidence-fill.medium { background: linear-gradient(90deg, var(--yellow), color-mix(in srgb, var(--yellow) 70%, white)); }
 .confidence-fill.low { background: linear-gradient(90deg, var(--red), color-mix(in srgb, var(--red) 70%, white)); }
@@ -143,7 +142,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .breakdown-item { display: grid; grid-template-columns: 130px 1fr 36px; align-items: center; gap: 10px; }
 .breakdown-label { font-size: 0.74rem; color: var(--text-secondary); white-space: nowrap; }
 .breakdown-bar { height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden; }
-.breakdown-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+.breakdown-fill { height: 100%; border-radius: 3px; }
 .breakdown-score { font-size: 0.72rem; font-weight: 700; color: var(--text-primary); text-align: right; font-family: var(--num-font); font-variant-numeric: tabular-nums; }
 
 .insight-summary { font-size: 0.95rem; line-height: 1.65; color: var(--text-primary); padding: 14px 0; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
@@ -202,7 +201,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .accordion-dot.negative { background: var(--red); }
 .accordion-dot.neutral { background: var(--text-muted); }
 .accordion-title { font-size: 0.85rem; color: var(--text-primary); }
-
 .news-item-sentiment { font-size: 0.7rem; margin-top: 3px; }
 .news-item-title { font-size: 0.83rem; color: var(--text-primary); line-height: 1.4; }
 .news-item-meta { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; }
@@ -214,15 +212,12 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 .hotpicks-section { margin-bottom: 24px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
 .section-title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-
 .refresh-btn { padding: 7px 14px; border: 1px solid var(--border-strong); background: var(--bg-secondary); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); }
 .refresh-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--bg-hover); }
 .refresh-btn:active { transform: scale(0.95); }
 .refresh-btn.spinning { pointer-events: none; opacity: 0.7; }
-.refresh-btn.spinning::first-letter { display: inline-block; animation: spin 0.8s linear infinite; }
 .refresh-btn.small { padding: 4px 10px; font-size: 0.72rem; }
 
-/* 3D-feel hot pick cards: perspective tilt on hover */
 .hotpicks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; perspective: 1000px; }
 .hot-pick-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 12px; cursor: pointer; transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s, border-color 0.2s, opacity 0.2s; text-align: center; position: relative; transform-style: preserve-3d; will-change: transform; }
 .hot-pick-card.buy { border-color: rgba(63, 185, 80, 0.3); }
@@ -276,7 +271,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.4s ease; }
 .loading-text { color: var(--text-secondary); font-size: 0.88rem; }
-
 .empty-state { text-align: center; padding: 44px 24px; color: var(--text-secondary); }
 .empty-state-icon { font-size: 2.6rem; margin-bottom: 12px; opacity: 0.5; }
 .error-message { background: var(--red-bg); border: 1px solid var(--red); border-radius: var(--radius-sm); padding: 12px 16px; color: var(--red); font-size: 0.88rem; }

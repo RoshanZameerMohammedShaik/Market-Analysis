@@ -10,7 +10,7 @@ let lastShownSymbol = null;
 
 export function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
-    const { signal, confidence, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime } = prediction;
+    const { signal, confidence, confidenceRange, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime, regime, sector, earnings } = prediction;
 
     const signalClass = signal.toLowerCase();
     const arrow = signal === 'BUY' ? '▲' : signal === 'SELL' ? '▼' : '◆';
@@ -94,16 +94,18 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const calibrationBadge = isDev()
         ? (calibrationApplied
             ? `<span class="cal-badge calibrated" title="Confidence adjusted to match backtested hit rate">✓ calibrated</span>`
-            : `<span class="cal-badge raw" title="No backtest data yet — confidence is heuristic, not empirical. Run backtest.py to calibrate.">! raw</span>`)
+            : `<span class="cal-badge raw" title="No backtest data yet — confidence is heuristic, not empirical">! raw</span>`)
         : '';
-
     const calibrationDelta = (isDev() && calibrationApplied && rawConfidence !== confidence)
-        ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>`
-        : '';
+        ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>` : '';
 
-    // Trend regime chip is shown to everyone — it's useful context, not internals.
     const trendChip = trendRegime && trendRegime !== 'unknown'
-        ? `<span class="trend-chip ${trendRegime}" title="Market regime detected by ADX">${trendRegime}</span>`
+        ? `<span class="trend-chip ${trendRegime}" title="Market regime detected by ADX">${trendRegime}</span>` : '';
+    const macroChip = regime && regime !== 'neutral'
+        ? `<span class="trend-chip ${regime === 'risk-on' ? 'trending' : regime === 'risk-off' ? 'ranging' : 'transitional'}" title="Macro regime">${regime}</span>` : '';
+
+    const rangeHTML = confidenceRange
+        ? `<span class="conf-range" title="Confidence range reflects engine uncertainty">${confidenceRange.lo}–${confidenceRange.hi}%</span>`
         : '';
 
     const methodLabel = prediction.method || 'Technical + News + Multi-Timeframe';
@@ -114,7 +116,9 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
                 <span class="signal-label ${signalClass}">${signal}</span>
                 <span class="signal-confidence" id="signal-conf-num">${confidence}%</span>
+                ${rangeHTML}
                 ${trendChip}
+                ${macroChip}
                 ${calibrationBadge}
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
@@ -135,7 +139,6 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             </div>
         </div>`;
 
-    // Animate confidence number when staying on the same symbol.
     if (lastShownSymbol === state.currentSymbol && lastShownConfidence !== null && lastShownConfidence !== confidence) {
         animateNumber(document.getElementById('signal-conf-num'), lastShownConfidence, confidence);
     }
@@ -147,25 +150,19 @@ function generateHumanInsight(prediction, sentiment) {
     const { signal, confidence, priceTargets } = prediction;
     const tfWord = state.timeframe === 'today' ? 'today' : 'tomorrow';
     let insight = '';
-
     if (signal === 'BUY') {
         if (confidence >= 70) insight = `<strong>Strong bullish signal.</strong> Multiple indicators align upward. `;
         else if (confidence >= 55) insight = `<strong>Moderate buy signal.</strong> More indicators point up than down. `;
         else insight = `<strong>Weak buy signal.</strong> Slight bullish edge but low conviction. `;
-        if (priceTargets) {
-            insight += `Price could reach <span class="highlight-green">$${priceTargets.predictedHigh}</span> ${tfWord} (+${priceTargets.highPercent}%). Downside risk to $${priceTargets.predictedLow} (${priceTargets.lowPercent}%).`;
-        }
+        if (priceTargets) insight += `Price could reach <span class="highlight-green">$${priceTargets.predictedHigh}</span> ${tfWord} (+${priceTargets.highPercent}%). Downside risk to $${priceTargets.predictedLow} (${priceTargets.lowPercent}%).`;
     } else if (signal === 'SELL') {
         if (confidence >= 70) insight = `<strong>Strong bearish signal.</strong> Multiple indicators point to decline. `;
         else if (confidence >= 55) insight = `<strong>Moderate sell signal.</strong> Bearish pressure building. `;
         else insight = `<strong>Weak sell signal.</strong> Slight bearish edge but uncertain. `;
-        if (priceTargets) {
-            insight += `Price may drop to <span class="highlight-red">$${priceTargets.predictedLow}</span> ${tfWord} (${priceTargets.lowPercent}%). Upside capped around $${priceTargets.predictedHigh} (+${priceTargets.highPercent}%).`;
-        }
+        if (priceTargets) insight += `Price may drop to <span class="highlight-red">$${priceTargets.predictedLow}</span> ${tfWord} (${priceTargets.lowPercent}%). Upside capped around $${priceTargets.predictedHigh} (+${priceTargets.highPercent}%).`;
     } else {
         insight = `<strong>No clear direction.</strong> Indicators are conflicting — the market is undecided. Consider waiting for a clearer setup before entering a position.`;
     }
-
     if (sentiment && sentiment.overall !== 'neutral') {
         if (sentiment.overall === 'positive' && signal === 'BUY') insight += ` <span class="highlight-green">News sentiment confirms bullish bias.</span>`;
         else if (sentiment.overall === 'negative' && signal === 'SELL') insight += ` <span class="highlight-red">Negative news reinforces bearish outlook.</span>`;
