@@ -1,5 +1,7 @@
 // Mia UI: launcher + slide-in panel + chat thread.
-// No backend picker, no model picker, no BYOK — just chat.
+// Backend talks to AI Horde via llm-client.js. Progress callback
+// updates the typing bubble with queue position so the user knows Mia
+// hasn't hung.
 
 import { callLLM } from './llm-client.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -54,7 +56,7 @@ function renderPanel() {
             <textarea id="mia-input" rows="2" placeholder="Ask Mia about a stock, an indicator, or what the signal means..."></textarea>
             <button id="mia-send" class="mia-send-btn" title="Send">↑</button>
         </div>
-        <div class="mia-disclaimer">Mia is an AI analyst. Numbers come from the on-screen signal — not financial advice.</div>
+        <div class="mia-disclaimer">Mia is an AI analyst on the AI Horde free volunteer pool — replies take 5-30s. Numbers come from the on-screen signal; not financial advice.</div>
     `;
 
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
@@ -124,7 +126,11 @@ async function sendMessage(forced) {
 
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        const { reply } = await callLLM({ system, messages: history });
+        const { reply } = await callLLM({
+            system,
+            messages: history,
+            onProgress: msg => updateLoadingBubble(msg),
+        });
         const updated = loadHistory();
         updated.push({ role: 'assistant', content: reply });
         saveHistory(updated);
@@ -145,10 +151,18 @@ function appendLoadingBubble() {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
     thread.insertAdjacentHTML('beforeend', `
-        <div class="mia-msg assistant loading-bubble">
-            <div class="mia-msg-bubble"><span class="mia-typing"><i></i><i></i><i></i></span></div>
+        <div class="mia-msg assistant loading-bubble" id="mia-loading-bubble">
+            <div class="mia-msg-bubble">
+                <span class="mia-typing"><i></i><i></i><i></i></span>
+                <span class="mia-progress" id="mia-progress">Mia is thinking…</span>
+            </div>
         </div>`);
     thread.scrollTop = thread.scrollHeight;
+}
+
+function updateLoadingBubble(msg) {
+    const el = document.getElementById('mia-progress');
+    if (el) el.textContent = msg;
 }
 
 function escapeHtml(s) {
