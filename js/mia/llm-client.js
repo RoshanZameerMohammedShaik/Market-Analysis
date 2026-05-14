@@ -1,91 +1,51 @@
-// Mia's LLM client — free, keyless, no user options.
+// Mia's LLM client — free, keyless, uses Pollinations GET endpoint.
 //
-// Every call hits Pollinations.ai and tries models in fallback order:
-// openai-large → llama → deepseek → mistral → openai → qwen-coder.
-// Per-model rate limits are independent, so when one says 429 another
-// usually serves fine. The user never picks a model and never sees one.
+// Why GET, not POST: Pollinations recently added a per-IP queue cap of 1
+// to the POST endpoint. Anonymous browser calls 429 with "Queue full"
+// instantly. The GET endpoint hits a different rate-limit pool and
+// currently works.
 //
-// Why not Hugging Face: hosted Llama / Mistral are gated; anonymous
-// browser calls fail CORS preflight.
-// Why not Anthropic: Anthropic's API blocks browser CORS.
-// Why not BYOK / OpenAI: the user explicitly does not want it.
+// Why no fallback chain: every model on the POST endpoint shares the
+// same per-IP queue, so retrying just keeps the queue blocked longer.
+// Single shot is faster and clearer when it fails.
+//
+// Trade-offs of GET:
+//   - Whole prompt rides in the URL path. Pollinations tolerates long
+//     URLs but we cap conversation history to the last 8 turns.
+//   - No streaming, no max_tokens control. The server picks length.
 
-const POLLINATIONS_OAI = 'https://text.pollinations.ai/openai';
 const POLLINATIONS_GET = 'https://text.pollinations.ai';
-
-// Hand-picked priority order. openai-large first because it's the
-// strongest balanced model on the endpoint; the rest are diverse
-// fallbacks chosen so a single provider outage doesn't take Mia down.
-const MODEL_CHAIN = ['openai-large', 'llama', 'deepseek', 'mistral', 'openai', 'qwen-coder'];
+const MODEL = 'openai-large';
+const MAX_HISTORY_TURNS = 8;
 
 export async function callLLM({ system, messages }) {
-    const errors = [];
-    for (let i = 0; i < MODEL_CHAIN.length; i++) {
-        const model = MODEL_CHAIN[i];
-        try {
-            const reply = await callOnce(system, messages, model, /*allowGetFallback=*/ i === 0);
-            return { reply, model, fellBack: i > 0 };
-        } catch (e) {
-            errors.push(`${model}: ${e.message}`);
-            if (/abort/i.test(e.message)) break; // user cancelled
-            if (i < MODEL_CHAIN.length - 1) await sleep(800); // brief backoff
-        }
-    }
-    throw new Error(`All free models busy right now. Wait ~30s and try again. (Tried: ${MODEL_CHAIN.join(', ')})`);
-}
+    const recent = messages.slice(-MAX_HISTORY_TURNS * 2);
+    const conv = recent.map(m => `${m.role === 'user' ? 'User' : 'Mia'}: ${m.content}`).join('\n');
+    const prompt = `${system}\n\n${conv}\nMia:`;
+    const url = `${POLLINATIONS_GET}/${encodeURIComponent(prompt)}?model=${encodeURIComponent(MODEL)}`;
 
-async function callOnce(system, messages, model, allowGetFallback) {
     let res;
     try {
-        res = await fetch(POLLINATIONS_OAI, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model,
-                messages: [{ role: 'system', content: system }, ...messages],
-                temperature: 0.3,
-                max_tokens: 600,
-            }),
-            signal: AbortSignal.timeout(60000),
-        });
+        res = await fetch(url, { signal: AbortSignal.timeout(60000) });
     } catch (e) {
-        throw new Error(humanFetchError(e));
+        const msg = (e && e.message) || String(e);
+        if (/abort|timeout/i.test(msg)) throw new Error("Mia took too long to reply. Try again in a moment.");
+        throw new Error(`Couldn't reach Mia (${msg}).`);
     }
-    if (res.ok) {
-        try {
-            const json = await res.json();
-            const text = json?.choices?.[0]?.message?.content?.trim();
-            if (text) return text;
-            throw new Error('empty response');
-        } catch (e) {
-            throw new Error(`bad response (${e.message})`);
+
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        if (res.status === 429) {
+            if (/queue full/i.test(body)) {
+                throw new Error("Mia's free service is briefly rate-limiting your network. Wait ~30 seconds and try again.");
+            }
+            throw new Error('Rate-limited by the free service. Wait ~30s and retry.');
         }
+        if (res.status >= 500) throw new Error(`Free service had an error (${res.status}). Try again shortly.`);
+        throw new Error(`Free service returned ${res.status}.`);
     }
-    if (res.status === 429) throw new Error('rate-limited (429)');
-    if (res.status >= 500) throw new Error(`server error (${res.status})`);
 
-    // Only the first model gets the GET fallback to keep total wait reasonable.
-    if (!allowGetFallback) throw new Error(`status ${res.status}`);
-
-    try {
-        const conv = messages.map(m => `${m.role === 'user' ? 'User' : 'Mia'}: ${m.content}`).join('\n');
-        const prompt = `${system}\n\n${conv}\nMia:`;
-        const url = `${POLLINATIONS_GET}/${encodeURIComponent(prompt)}?model=${encodeURIComponent(model)}`;
-        const getRes = await fetch(url, { signal: AbortSignal.timeout(60000) });
-        if (!getRes.ok) throw new Error(`status ${getRes.status}`);
-        const text = (await getRes.text()).trim();
-        if (text) return text;
-        throw new Error('empty response');
-    } catch (e) {
-        throw new Error(humanFetchError(e));
-    }
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function humanFetchError(e) {
-    const msg = (e && e.message) || String(e);
-    if (/abort|timeout/i.test(msg)) return 'request timed out';
-    if (/Failed to fetch|NetworkError|CORS/i.test(msg)) return 'network or CORS error';
-    return msg;
+    const text = (await res.text()).trim();
+    if (!text) throw new Error('Empty response from the free service.');
+    return { reply: text, model: MODEL };
 }
