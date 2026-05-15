@@ -19,7 +19,6 @@ import { startTipRotation } from './tips.js';
 import { initMia, setLatestSignal } from '../mia/mia.js';
 import { startDyk } from './dyk.js';
 import { initRipple } from './ripple.js';
-import { initMarketSelector } from './market-selector.js';
 
 let stopTips = null;
 
@@ -37,10 +36,6 @@ export function init() {
     initMia();
     showChartPlaceholder();
     startDyk();
-    initMarketSelector({ onChange: () => {
-        startTipsForLoading();
-        loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
-    }});
 
     startTipsForLoading();
     loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);

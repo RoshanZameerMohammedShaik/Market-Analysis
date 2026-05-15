@@ -1,23 +1,26 @@
-// Hot Picks Scanner. For US, uses Yahoo's predefined screeners (live
-// most-actives / day-gainers / etc). For non-US markets, uses a curated
-// liquid-symbol pool from js/markets.js since the region screeners are
-// unreliable from browser CORS.
+// Hot Picks Scanner. Casts a global net:
+//   1. Yahoo's predefined US screeners (live: day_gainers / most_actives /
+//      day_losers / undervalued_growth / aggressive_small_caps + trending)
+//   2. The global liquid-symbol pool from js/markets.js (NSE, LSE, HKEX,
+//      TSE, Xetra, ASX) since region screeners are unreliable from
+//      browser-CORS for non-US.
+// Both streams are unioned and ranked by the same engine so a Mumbai
+// or Tokyo name can outrank a US name on the same Hot Picks card.
 
 import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { getMarketConditionsScore } from './market.js';
-import { getMarket } from './markets.js';
+import { UNIVERSE_CONFIG } from './markets.js';
 
 export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onProgress = null) {
     const isTomorrow = timeframe === 'tomorrow';
-    const market = getMarket();
-    if (onProgress) onProgress(`Scanning ${market.label} for movers...`);
+    if (onProgress) onProgress('Scanning global markets for movers…');
 
     let symbols = [];
-    let symbolMeta = {};
+    const symbolMeta = {};
 
-    if (market.id === 'US') {
-        // Yahoo predefined screeners (US-only on free tier).
+    // Stream 1: Yahoo predefined US screeners (always on — fresh US movers).
+    if (UNIVERSE_CONFIG.useUSScreeners) {
         const screeners = isTomorrow
             ? ['most_actives', 'undervalued_growth_stocks', 'aggressive_small_caps', 'growth_technology_stocks', 'most_actives']
             : ['day_gainers', 'most_actives', 'day_losers', 'undervalued_growth_stocks', 'aggressive_small_caps'];
@@ -37,12 +40,15 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
             if (!symbolSet.has(s.symbol)) { symbolSet.add(s.symbol); symbolMeta[s.symbol] = s; }
         });
         symbols = [...symbolSet];
-    } else {
-        // Non-US markets: curated liquid pool.
-        symbols = market.candidatePool || [];
     }
 
-    if (onProgress) onProgress(`Found ${symbols.length} candidates in ${market.label}. Fetching market conditions…`);
+    // Stream 2: global liquid pool (NSE, LSE, HKEX, TSE, Xetra, ASX).
+    for (const sym of UNIVERSE_CONFIG.globalPool) {
+        if (!symbolMeta[sym]) symbolMeta[sym] = { symbol: sym };
+        if (!symbols.includes(sym)) symbols.push(sym);
+    }
+
+    if (onProgress) onProgress(`Found ${symbols.length} candidates globally. Fetching market conditions…`);
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${symbols.length} stocks...`);
 
