@@ -1,15 +1,11 @@
-// First-open welcome screen — user picks WebLLM or API key.
-// Hardware-aware: WebLLM card disables itself on mobile / no-WebGPU.
-// API key card opens an inline guided flow per provider.
+// First-open welcome screen — single path: API key (Groq or Cloudflare).
+// WebLLM has been retired. Both keys can co-exist; runtime auto-fails-over
+// from Groq → CF if the primary rate-limits.
 
 import { saveSettings, loadSettings } from './settings.js';
-import { isWebGPUSupported, isMobile, isAvailableForTier } from './backends/webllm.js';
 import { ping as pingGroq } from './backends/api-groq.js';
 import { ping as pingCf } from './backends/api-cf.js';
 
-// Inline SVG logo for Mia — ECG sweep tracing an M shape.
-// Two-layer render so the trace is always visible and a brighter blip
-// sweeps along it (animated via stroke-dashoffset in css/mia.css).
 const MIA_LOGO_SVG = `
 <svg class="mia-logo mia-ecg-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
@@ -20,7 +16,6 @@ const MIA_LOGO_SVG = `
         </linearGradient>
     </defs>
     <circle cx="16" cy="16" r="15" fill="url(#mia-logo-bg)"/>
-    <!-- Same path drawn twice. Trace stays dim; blip sweeps over it. -->
     <path class="mia-ecg-trace" d="M3 18 L6 18 Q8 18 9 16 T11 18 L14 8 L17 22 L20 8 L23 18 Q25 18 26 16 T28 18 L29 18" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
     <path class="mia-ecg-blip" d="M3 18 L6 18 Q8 18 9 16 T11 18 L14 8 L17 22 L20 8 L23 18 Q25 18 26 16 T28 18 L29 18" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
@@ -28,10 +23,6 @@ const MIA_LOGO_SVG = `
 export { MIA_LOGO_SVG };
 
 export function renderWelcome(panel, onConfigured) {
-    const webllmAvail = isAvailableForTier('default');
-    const mobile = isMobile();
-    const noGpu = !isWebGPUSupported();
-
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
@@ -43,52 +34,24 @@ export function renderWelcome(panel, onConfigured) {
             </div>
         </div>
         <div class="mia-welcome">
-            <div class="mia-section-heading">Pick how you want to chat</div>
-            <div class="mia-card ${webllmAvail.ok ? '' : 'disabled'}" id="mia-card-webllm">
-                <div class="mia-card-emoji">🔒</div>
-                <div class="mia-card-title">Run locally (Private)</div>
-                <div class="mia-card-tags">
-                    <span>Private</span><span>No signup</span><span>~4 GB download</span><span>Desktop only</span>
-                </div>
-                <div class="mia-card-body">
-                    Mia runs entirely in your browser using Qwen 2.5 7B. After a one-time download, replies are free, instant, and never leave your device.
-                </div>
-                ${webllmAvail.ok
-                    ? '<button class="mia-card-btn" data-pick="webllm">Use WebLLM</button>'
-                    : `<div class="mia-card-warn">${webllmAvail.reason}</div>`}
-            </div>
-
-            <div class="mia-card" id="mia-card-apikey">
+            <div class="mia-section-heading">Connect Mia in under a minute</div>
+            <div class="mia-card primary" id="mia-card-apikey">
                 <div class="mia-card-emoji">⚡</div>
-                <div class="mia-card-title">Use API key (Fastest)</div>
+                <div class="mia-card-title">API key — instant + mobile-friendly</div>
                 <div class="mia-card-tags">
-                    <span>Mobile + desktop</span><span>~2-min signup</span><span>Free tier</span><span>Llama 3.3 70B</span>
+                    <span>Groq + Cloudflare</span><span>Auto-fallback</span><span>Free tier</span><span>Llama 3.3 70B</span>
                 </div>
                 <div class="mia-card-body">
-                    Bring your own free Groq or Cloudflare key. Mia talks directly to the provider. Instant replies, mobile-friendly.
+                    Paste a free Groq or Cloudflare key. If you add both, Mia auto-falls-back the moment one rate-limits, so you effectively never run dry. Keys live only in this browser.
                 </div>
-                <button class="mia-card-btn primary" data-pick="apikey">Set up API key</button>
+                <button class="mia-card-btn primary" data-pick="apikey">Set up</button>
             </div>
-
-            ${mobile && noGpu ? '' : `<div class="mia-welcome-tip">Tip: you can switch later in settings.</div>`}
+            <div class="mia-welcome-tip">No accounts, no servers. Both providers have generous free tiers — together they cover hundreds of conversations a day for free.</div>
         </div>
     `;
 
-    panel.querySelector('#mia-close-btn').addEventListener('click', () => {
-        panel.classList.remove('open');
-    });
-
-    panel.querySelectorAll('[data-pick]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const pick = btn.dataset.pick;
-            if (pick === 'webllm') {
-                saveSettings({ backend: 'webllm' });
-                onConfigured();
-            } else if (pick === 'apikey') {
-                renderApiKeySetup(panel, onConfigured);
-            }
-        });
-    });
+    panel.querySelector('#mia-close-btn').addEventListener('click', () => panel.classList.remove('open'));
+    panel.querySelector('[data-pick="apikey"]').addEventListener('click', () => renderApiKeySetup(panel, onConfigured));
 }
 
 function renderApiKeySetup(panel, onConfigured) {
@@ -105,9 +68,9 @@ function renderApiKeySetup(panel, onConfigured) {
             </div>
         </div>
         <div class="mia-setup">
-            <div class="mia-section-heading">Pick a provider • paste your key</div>
+            <div class="mia-section-heading">Pick a provider — or paste both for auto-fallback</div>
             <div class="mia-providers">
-                <button class="mia-prov ${s.backend === 'groq' ? 'active' : ''}" data-prov="groq">
+                <button class="mia-prov ${s.backend === 'groq' || (!s.backend && s.groqKey) ? 'active' : ''}" data-prov="groq">
                     <div class="mia-prov-name">Groq <span class="mia-prov-badge">recommended</span></div>
                     <div class="mia-prov-meta">Llama 3.3 70B • ~500 tok/s • 14,400 req/day</div>
                 </button>
@@ -116,13 +79,11 @@ function renderApiKeySetup(panel, onConfigured) {
                     <div class="mia-prov-meta">Llama 3.3 70B • ~10k neurons/day free</div>
                 </button>
             </div>
-
             <div id="mia-setup-form"></div>
         </div>
     `;
 
-    const close = () => panel.classList.remove('open');
-    panel.querySelector('#mia-close-btn').addEventListener('click', close);
+    panel.querySelector('#mia-close-btn').addEventListener('click', () => panel.classList.remove('open'));
     panel.querySelector('#mia-back').addEventListener('click', () => renderWelcome(panel, onConfigured));
 
     const formEl = panel.querySelector('#mia-setup-form');
@@ -139,7 +100,6 @@ function renderApiKeySetup(panel, onConfigured) {
         });
     });
 
-    // Default to Groq if nothing selected.
     const initial = s.backend === 'cloudflare' ? 'cloudflare' : 'groq';
     panel.querySelector(`[data-prov="${initial}"]`).classList.add('active');
     renderForm(initial);
@@ -156,6 +116,9 @@ function groqFormHtml(s) {
             Groq API Key
             <input type="password" id="mia-groq-key" placeholder="gsk_…" value="${escapeAttr(s.groqKey)}" autocomplete="off" spellcheck="false">
         </label>
+        <div class="mia-fallback-hint">
+            Tip: paste a Cloudflare key too (next tab) and Mia auto-falls-back when Groq rate-limits.
+        </div>
         <div class="mia-setup-row">
             <button class="mia-save-btn" id="mia-connect">Connect</button>
             <button class="mia-test-btn" id="mia-test">Test</button>
@@ -181,6 +144,9 @@ function cfFormHtml(s) {
             Cloudflare Account ID
             <input type="text" id="mia-cf-acct" placeholder="32-char hex" value="${escapeAttr(s.cfAccountId)}" autocomplete="off" spellcheck="false">
         </label>
+        <div class="mia-fallback-hint">
+            Tip: paste a Groq key too (other tab) for instant fallback.
+        </div>
         <div class="mia-setup-row">
             <button class="mia-save-btn" id="mia-connect">Connect</button>
             <button class="mia-test-btn" id="mia-test">Test</button>
