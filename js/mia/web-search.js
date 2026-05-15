@@ -1,58 +1,44 @@
-// Level 3 — keyless web search via DuckDuckGo HTML.
+// Level 3 — keyless web search via Google News RSS.
 //
-// Why DuckDuckGo HTML: no API key, returns a parseable HTML SERP, and is
-// reasonably reliable for breaking-news lookups. Fed through the existing
-// CORS-proxy chain (data.js) so we don't need a backend.
+// Why not DuckDuckGo HTML: every CORS proxy in our chain is blocked from
+// fetching html.duckduckgo.com (they detect proxy UAs and refuse). Tested
+// live, returned 0 parseable results.
 //
-// Risk surface:
-//   - Returned content is untrusted internet text. Mia must cite the source
-//     and treat results as 'reportedly' rather than ground truth.
-//   - Result size is capped (5 results, 200 chars per snippet) so a malicious
-//     SERP can't blow our prompt budget.
+// Why Google News RSS instead:
+//   - Same proxy chain works fine (already used by news.js)
+//   - Returns a clean XML SERP; no fragile HTML scraping
+//   - News-focused — exactly the right tool for "what's happening with X"
+//   - 100 results per query so we can rank/filter cheaply
 //
-// Prompt-side defenses (in prompt.js): when web_search results are present,
-// require an explicit "according to <domain>" attribution in the answer,
-// and never echo a number that came from web_search without that attribution.
+// Trade-off: this isn't general-purpose web search anymore. It's news-only.
+// For Mia's job (filling gaps the engine doesn't track — breaking news,
+// macro events, narrative shifts), news is the highest-value lookup.
+//
+// Risk surface: untrusted internet text. Mia must:
+//   - Cite source domains in the answer
+//   - Use "reportedly" prefix for any claim
+//   - Never echo a number from web_search without attribution
+//
+// Result shape preserved as { query, results: [{title, url, domain, snippet}] }
+// so callers don't need to change.
 
 import { fetchWithProxy } from '../data.js';
 
 const MAX_RESULTS = 5;
 const MAX_SNIPPET_CHARS = 220;
 
-function extractDomain(url) {
-    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return null; }
+function extractDomain(s) {
+    if (!s) return null;
+    // Some Google News items embed the source as plain text. Otherwise parse URL.
+    try { return new URL(s).hostname.replace(/^www\./, ''); }
+    catch (_) { return s.toLowerCase().replace(/^www\./, '').slice(0, 60); }
 }
 
-function cleanText(s) {
-    return String(s || '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&[a-z]+;/gi, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-function parseDdgHtml(html) {
-    const out = [];
-    // DuckDuckGo HTML SERP: each result block has a class containing 'result__'.
-    const blockRe = /<div class="result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*(?:<\/div>|<div class="result)/gi;
-    let m;
-    while ((m = blockRe.exec(html)) && out.length < MAX_RESULTS) {
-        const block = m[1];
-        const titleMatch = block.match(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
-        if (!titleMatch) continue;
-        let url = titleMatch[1];
-        // DDG wraps URLs in /l/?uddg= redirect; unwrap.
-        const uddg = url.match(/uddg=([^&]+)/);
-        if (uddg) {
-            try { url = decodeURIComponent(uddg[1]); } catch (_) {}
-        }
-        const title = cleanText(titleMatch[2]);
-        const snippetMatch = block.match(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
-        const snippet = snippetMatch ? cleanText(snippetMatch[1]).slice(0, MAX_SNIPPET_CHARS) : '';
-        const domain = extractDomain(url) || '';
-        if (title && domain) out.push({ title, url, domain, snippet });
-    }
-    return out;
+function unwrapGoogleNewsLink(href) {
+    if (!href) return href;
+    // Google News /rss/articles/<base64> redirects through articles.google.com.
+    // We pass the link through as-is; it resolves to the publisher when clicked.
+    return href;
 }
 
 /**
@@ -62,12 +48,36 @@ function parseDdgHtml(html) {
 export async function webSearch({ query, maxResults = MAX_RESULTS }) {
     if (!query || typeof query !== 'string') return { error: 'query required' };
     const cap = Math.min(MAX_RESULTS, Math.max(1, Number(maxResults) || MAX_RESULTS));
-    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
     try {
         const res = await fetchWithProxy(url);
-        const html = await res.text();
-        const results = parseDdgHtml(html).slice(0, cap);
-        if (!results.length) return { query, results: [], note: 'no results parsed' };
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/xml');
+        const items = doc.querySelectorAll('item');
+        if (!items.length) return { query, results: [], note: 'no results parsed' };
+        const results = [];
+        items.forEach(item => {
+            if (results.length >= cap) return;
+            const title = (item.querySelector('title')?.textContent || '').trim();
+            const link = unwrapGoogleNewsLink((item.querySelector('link')?.textContent || '').trim());
+            const sourceText = (item.querySelector('source')?.textContent || '').trim();
+            const description = (item.querySelector('description')?.textContent || '')
+                .replace(/<[^>]+>/g, '')
+                .replace(/&[a-z]+;/gi, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, MAX_SNIPPET_CHARS);
+            const domain = sourceText || extractDomain(link) || '';
+            if (title && domain) {
+                results.push({
+                    title: title.slice(0, 160),
+                    url: link,
+                    domain,
+                    snippet: description,
+                });
+            }
+        });
         return { query, results };
     } catch (e) {
         return { query, error: String(e.message || e) };
