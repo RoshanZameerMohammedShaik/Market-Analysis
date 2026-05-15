@@ -6,8 +6,8 @@
 import { fetchWithProxy } from '../data.js';
 import { fetchStockNews, fetchCryptoNews } from '../news.js';
 import { analyzeNewsSentiment } from '../sentiment.js';
-import { fetchOptionsIVData } from '../options-iv.js';
-import { fetchCryptoDerivatives } from '../crypto-derivs.js';
+import { fetchOptionsPositioning } from '../options-iv.js';
+import { fetchCryptoDerivs } from '../crypto-derivs.js';
 
 // ---- News + sentiment -------------------------------------------------------
 
@@ -107,7 +107,6 @@ export async function fetchRedditSentiment({ symbol, subreddit = 'stocks+wallstr
         const json = await res.json();
         const posts = (json?.data?.children || []).map(c => c.data).filter(Boolean);
         if (!posts.length) return { symbol, count: 0, summary: 'no recent posts' };
-        // Lightweight keyword sentiment on title+selftext.
         const summary = simpleRedditSentiment(posts);
         return {
             symbol,
@@ -151,13 +150,10 @@ function simpleRedditSentiment(posts) {
 }
 
 // ---- SEC EDGAR --------------------------------------------------------------
-//
-// Free, no key. Recent filings list from the company's CIK lookup.
 
 export async function fetchSecRecentFilings({ symbol, limit = 5 }) {
     if (!symbol) throw new Error('symbol required');
     try {
-        // Resolve CIK via SEC's ticker mapping.
         const map = await secTickerMap();
         const cik = map[symbol.toUpperCase()];
         if (!cik) return { error: `no SEC CIK for ${symbol}` };
@@ -201,10 +197,10 @@ async function secTickerMap() {
 
 export async function fetchOptionsView({ symbol }) {
     if (!symbol) throw new Error('symbol required');
-    return await fetchOptionsIVData(symbol);
+    return await fetchOptionsPositioning(symbol);
 }
 
 export async function fetchCryptoDerivativesView({ coinId }) {
     if (!coinId) throw new Error('coinId required');
-    return await fetchCryptoDerivatives(coinId);
+    return await fetchCryptoDerivs(coinId);
 }
