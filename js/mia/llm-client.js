@@ -1,17 +1,20 @@
 // Unified Mia client.
 //
-// On Groq: silent tier promotion via router.smartStream — turns start on
-// 8B-instant for cheap fast prose, and silently promote to 70B-versatile
-// the moment a tool intent is detected. thinking-mode users skip the router
-// entirely (explicit 70B always).
+// Phase 5 routing on Groq:
+//   - thinking-mode → 70B for everything (user explicitly opted in)
+//   - default       → intent classifier picks 8B (prose) or 70B (tools)
 //
-// Cross-provider fallback (Groq -> Cloudflare or vice versa) still applies
-// on 5xx / network errors / long-retry 429s. Auth errors don't fall over.
+// We accept TWO system prompts so the prose path can use a tool-free version
+// (saves ~250 prompt tokens AND prevents 8B from fabricating tool calls).
+// agent.js builds both via prompt.js + tools.toolPromptSection().
+//
+// Cross-provider fallback (Groq -> CF or vice versa) still applies on 5xx /
+// network errors / long-retry 429s. Auth errors don't fall over.
 
-import { loadSettings, hasFallbackKey } from './settings.js';
+import { loadSettings } from './settings.js';
 import * as groq from './backends/api-groq.js';
 import * as cf from './backends/api-cf.js';
-import { smartStream as groqSmartStream } from './router.js';
+import { routedStream, getLastDecision } from './router.js';
 
 export const webllm = {
     clearCache: async () => {
@@ -49,19 +52,19 @@ function shouldFailover(err) {
     return /5\d\d|timeout|network|fetch/i.test(m);
 }
 
-export async function* stream({ system, messages, signal, onProgress }) {
+export async function* stream({ system, systemNoTools, messages, signal, onProgress }) {
     const s = loadSettings();
     const { primary, fallback } = route();
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
 
     const groqRun = async function* () {
-        // thinking-mode users always run on 70B — skip the smart router.
         if (s.thinkingMode) {
+            // Thinking mode → explicit 70B for everything.
             for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal, tier: 'thinking' })) yield delta;
             return;
         }
-        // Default: silent 8B → 70B promotion on tool intent.
-        for await (const delta of groqSmartStream({ system, messages, key: s.groqKey, signal, onProgress })) yield delta;
+        // Default: intent-classified routing.
+        for await (const delta of routedStream({ system, systemNoTools, messages, key: s.groqKey, signal, onProgress })) yield delta;
     };
 
     const cfRun = async function* () {
@@ -101,6 +104,10 @@ export function getUsage() {
     return null;
 }
 
+export function getLastRoutingDecision() {
+    return getLastDecision();
+}
+
 export function getRoutingSummary() {
     try {
         const s = loadSettings();
@@ -110,7 +117,7 @@ export function getRoutingSummary() {
             primary: r.primary,
             fallback: r.fallback,
             groqModel: r.primary === 'groq' || r.fallback === 'groq'
-                ? (s.thinkingMode ? groq.getModelForTier('thinking') : `${groq.getModelForTier('default')} → ${groq.getModelForTier('thinking')} (auto)`)
+                ? (s.thinkingMode ? groq.getModelForTier('thinking') : `${groq.getModelForTier('default')} ↔ ${groq.getModelForTier('thinking')} (intent-classified)`)
                 : null,
             tier,
             smartRouting: r.primary === 'groq' && !s.thinkingMode,
