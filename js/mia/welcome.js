@@ -7,6 +7,25 @@ import { isWebGPUSupported, isMobile, isAvailableForTier } from './backends/webl
 import { ping as pingGroq } from './backends/api-groq.js';
 import { ping as pingCf } from './backends/api-cf.js';
 
+// Inline SVG logo for Mia — ascending chart line + pulse dot.
+// Used in the welcome / settings / chat headers via .mia-avatar.
+const MIA_LOGO_SVG = `
+<svg class="mia-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+        <linearGradient id="mia-logo-bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7c3aed"/>
+            <stop offset="50%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#06b6d4"/>
+        </linearGradient>
+    </defs>
+    <circle cx="16" cy="16" r="15" fill="url(#mia-logo-bg)"/>
+    <path d="M6 22 L11 16 L15 19 L21 11 L26 14" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+    <circle cx="26" cy="14" r="2.2" fill="#ffffff"/>
+    <circle cx="26" cy="14" r="2.2" fill="#ffffff" class="mia-logo-spark"/>
+</svg>`;
+
+export { MIA_LOGO_SVG };
+
 export function renderWelcome(panel, onConfigured) {
     const webllmAvail = isAvailableForTier('default');
     const mobile = isMobile();
@@ -15,14 +34,15 @@ export function renderWelcome(panel, onConfigured) {
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
-                <span class="mia-avatar">🧠</span>
-                <div><div class="mia-name">Welcome to Mia</div><div class="mia-role">Pick how you want to chat</div></div>
+                <span class="mia-avatar">${MIA_LOGO_SVG}</span>
+                <div><div class="mia-name">Mia</div><div class="mia-role">Market Intelligence Analyst</div></div>
             </div>
             <div class="mia-head-actions">
                 <button class="mia-icon-btn" id="mia-close-btn" title="Close">✕</button>
             </div>
         </div>
         <div class="mia-welcome">
+            <div class="mia-section-heading">Pick how you want to chat</div>
             <div class="mia-card ${webllmAvail.ok ? '' : 'disabled'}" id="mia-card-webllm">
                 <div class="mia-card-emoji">🔒</div>
                 <div class="mia-card-title">Run locally (Private)</div>
@@ -75,8 +95,8 @@ function renderApiKeySetup(panel, onConfigured) {
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
-                <span class="mia-avatar">⚡</span>
-                <div><div class="mia-name">Connect Mia</div><div class="mia-role">Pick a provider • paste your key</div></div>
+                <span class="mia-avatar">${MIA_LOGO_SVG}</span>
+                <div><div class="mia-name">Mia</div><div class="mia-role">Market Intelligence Analyst</div></div>
             </div>
             <div class="mia-head-actions">
                 <button class="mia-icon-btn" id="mia-back" title="Back">←</button>
@@ -84,6 +104,7 @@ function renderApiKeySetup(panel, onConfigured) {
             </div>
         </div>
         <div class="mia-setup">
+            <div class="mia-section-heading">Pick a provider • paste your key</div>
             <div class="mia-providers">
                 <button class="mia-prov ${s.backend === 'groq' ? 'active' : ''}" data-prov="groq">
                     <div class="mia-prov-name">Groq <span class="mia-prov-badge">recommended</span></div>

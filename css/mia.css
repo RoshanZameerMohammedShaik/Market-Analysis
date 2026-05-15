@@ -1,20 +1,52 @@
 /* Mia v2: launcher, panel, welcome cards, chat, settings, usage meter. */
 
+/* Circular launcher with rotating gradient ring + ambient breath. */
 .mia-launcher {
     position: fixed; bottom: 22px; right: 22px;
     z-index: 500;
-    display: flex; align-items: center; gap: 8px;
-    padding: 12px 18px;
-    border: none; border-radius: 999px;
+    width: 60px; height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    border: none; border-radius: 50%;
     background: linear-gradient(135deg, #7c3aed, #3b82f6, #06b6d4);
-    background-size: 200% 200%;
-    color: #fff; font-weight: 700; font-size: 0.92rem;
+    color: #fff;
     cursor: pointer;
-    box-shadow: 0 12px 36px rgba(124, 58, 237, 0.45);
-    animation: mia-pulse 4s ease-in-out infinite;
+    box-shadow: 0 12px 36px rgba(124, 58, 237, 0.45), 0 0 0 0 rgba(124, 58, 237, 0.5);
+    overflow: visible;
+    animation: mia-launcher-breath 3.6s ease-in-out infinite, mia-launcher-pulse 4s ease-in-out infinite;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.mia-launcher:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 16px 44px rgba(124, 58, 237, 0.55); }
-@keyframes mia-pulse { 0%, 100% { background-position: 0 50%; } 50% { background-position: 100% 50%; } }
+.mia-launcher::before {
+    /* Rotating conic gradient ring sitting just outside the button. */
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(124, 58, 237, 0.6) 60deg, rgba(6, 182, 212, 0.7) 180deg, rgba(59, 130, 246, 0.6) 300deg, transparent 360deg);
+    filter: blur(2px);
+    animation: mia-launcher-spin 6s linear infinite;
+    z-index: -1;
+}
+.mia-launcher:hover { transform: scale(1.08); }
+.mia-launcher:active { transform: scale(0.96); }
+.mia-launcher-logo { width: 30px; height: 30px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+.mia-launcher-spark { animation: mia-launcher-spark 1.6s ease-in-out infinite; transform-origin: 22px 8px; transform-box: fill-box; }
+@keyframes mia-launcher-breath {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.04); }
+}
+@keyframes mia-launcher-pulse {
+    0%, 100% { box-shadow: 0 12px 36px rgba(124, 58, 237, 0.45), 0 0 0 0 rgba(124, 58, 237, 0.5); }
+    50%      { box-shadow: 0 14px 40px rgba(124, 58, 237, 0.55), 0 0 0 10px rgba(124, 58, 237, 0); }
+}
+@keyframes mia-launcher-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+@keyframes mia-launcher-spark {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.4); opacity: 0.7; }
+}
 
 .mia-panel {
     position: fixed; top: 0; right: -480px; bottom: 0;
@@ -30,13 +62,35 @@
 
 .mia-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 .mia-head-title { display: flex; align-items: center; gap: 12px; }
-.mia-avatar { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #3b82f6); font-size: 1.1rem; }
+.mia-avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.mia-avatar .mia-logo { width: 100%; height: 100%; }
+.mia-logo-spark { animation: mia-logo-spark 1.8s ease-in-out infinite; transform-origin: 26px 14px; transform-box: fill-box; }
+@keyframes mia-logo-spark {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.6); opacity: 0.55; }
+}
 .mia-name { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); }
 .mia-role { font-size: 0.7rem; color: var(--text-muted); }
 .mia-head-actions { display: flex; gap: 6px; }
 .mia-icon-btn { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); width: 34px; height: 34px; border-radius: 8px; cursor: pointer; transition: all 0.15s; font-size: 0.9rem; }
 .mia-icon-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--bg-hover); }
 .mia-icon-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Section heading inside welcome / setup body */
+.mia-section-heading {
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 2px 4px -4px;
+}
 
 /* Welcome cards */
 .mia-welcome { padding: 18px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
@@ -160,6 +214,7 @@
 .mia-tool-badge code { background: transparent; padding: 0; font-size: 0.7rem; }
 
 @media (max-width: 480px) {
-    .mia-launcher { bottom: 14px; right: 14px; padding: 10px 14px; font-size: 0.84rem; }
+    .mia-launcher { bottom: 78px; right: 14px; width: 54px; height: 54px; }
+    .mia-launcher-logo { width: 26px; height: 26px; }
     .mia-providers { grid-template-columns: 1fr; }
 }
