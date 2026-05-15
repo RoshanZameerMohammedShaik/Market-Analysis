@@ -7,6 +7,7 @@ What it measures:
   - Calibration: does "70% confidence" actually hit 70% of the time?
   - Calibration stratified by liquidity tier (mega/large/mid/small/penny)
   - Calibration stratified by volatility tier (low/mid/high VIX)
+  - Calibration recency-weighted (exp decay, 30d half-life)
   - Conformal prediction-interval residuals per signal+confidence bucket
   - Pattern hit rates: per (signal | rsi-bucket | macd-state | bb-state | tier)
   - Per-symbol breakdown
@@ -20,6 +21,7 @@ import argparse
 import json
 import math
 import os
+import datetime
 import numpy as np
 import yfinance as yf
 
@@ -30,7 +32,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
 RESULTS_PATH = os.path.join(MODEL_DIR, 'backtest_results.json')
 
-# ─── Indicator implementations (must mirror js/analysis.js exactly) ──────
+# Recency-weighted calibration half-life (days). Most recent observations
+# dominate; ~5 half-lives back the weight is ~3%.
+RECENCY_HALFLIFE_DAYS = 30.0
 
 
 def rsi(closes, period=14):
@@ -141,11 +145,7 @@ def volume_spike(volumes, threshold=1.5):
     return {'spike': ratio > threshold, 'ratio': ratio}
 
 
-# ─── Single-timeframe prediction (mirrors js/analysis.js generatePrediction) ─
-
-
 def generate_prediction(candles):
-    """Now also returns the raw indicator values used so we can pattern-encode them."""
     if len(candles) < 30:
         return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
 
@@ -239,9 +239,6 @@ def classify_vol_tier(vix):
     return 'high'
 
 
-# ─── Pattern encoding (must mirror js/pattern-lookup.js encodePattern) ──
-
-
 def rsi_bucket(rsi_v):
     if rsi_v is None: return 'X'
     if rsi_v < 30: return 'OS'
@@ -307,9 +304,6 @@ def fetch_vix_map(period=PERIOD):
         return {}
 
 
-# ─── Backtest loop ──────────────────────────────────────────────────────
-
-
 def backtest_symbol(symbol, period=PERIOD, since=None, vix_map=None):
     df = yf.download(symbol, period=period, interval='1d', progress=False)
     if len(df) < 60:
@@ -371,6 +365,49 @@ def calibration_buckets(directional):
     return buckets
 
 
+def calibration_buckets_weighted(directional, halflife_days=RECENCY_HALFLIFE_DAYS, today=None):
+    """Recency-weighted calibration. weight = 2^(-age_days / halflife).
+
+    Predicted is unweighted average of confidence (label space). Actual is
+    weighted hit rate. Count is rounded sum of weights so JS calibration.js
+    can use the same n>=30 gate as other strata.
+    """
+    if not directional:
+        return []
+    if today is None:
+        today = datetime.date.today()
+    buckets = []
+    for lo in range(40, 100, 10):
+        hi = lo + 10
+        in_bucket = [p for p in directional if lo <= p['confidence'] < hi]
+        if not in_bucket:
+            continue
+        wsum = 0.0
+        whits = 0.0
+        conf_sum = 0.0
+        for p in in_bucket:
+            try:
+                d = datetime.date.fromisoformat(p['date'])
+                age = (today - d).days
+            except Exception:
+                age = 0
+            w = 0.5 ** (max(0, age) / float(halflife_days))
+            wsum += w
+            is_hit = (p['signal'] == 'BUY' and p['actual_up']) or (p['signal'] == 'SELL' and not p['actual_up'])
+            if is_hit:
+                whits += w
+            conf_sum += p['confidence']
+        if wsum < 1.0:
+            continue
+        buckets.append({
+            'bucket': f'{lo}-{hi}%',
+            'count': int(round(wsum)),
+            'predicted': round(conf_sum / len(in_bucket), 2),
+            'actual': round((whits / wsum) * 100, 2),
+        })
+    return buckets
+
+
 def conformal_buckets(directional, alpha=0.30):
     buckets = {}
     for sig in ('BUY', 'SELL'):
@@ -399,7 +436,6 @@ def conformal_buckets(directional, alpha=0.30):
 
 
 def pattern_hit_rates(directional, min_n=30):
-    """Per-pattern aggregated hit rate. Skip rare patterns to avoid noise."""
     counts = {}
     for p in directional:
         key = p.get('pattern')
@@ -457,6 +493,12 @@ def summarize(predictions):
             by_vol[vol_tier] = calibration_buckets(vt_pred)
     if by_vol:
         out['calibration_by_vol_tier'] = by_vol
+
+    # Recency-weighted calibration (priority 1 in js/calibration.js).
+    if directional:
+        weighted = calibration_buckets_weighted(directional, halflife_days=RECENCY_HALFLIFE_DAYS)
+        if weighted:
+            out['calibration_recency_weighted'] = weighted
 
     if directional:
         out['conformal'] = {
@@ -533,6 +575,12 @@ if __name__ == '__main__':
         diff = b['actual'] - b['predicted']
         flag = '  ' if abs(diff) < 5 else ' ⚠'
         print(f"  {b['bucket']:>10}: predicted {b['predicted']:>5.1f}% → actual {b['actual']:>5.1f}% (n={b['count']}){flag}")
+    if overall.get('calibration_recency_weighted'):
+        print("\nCalibration (recency-weighted, 30d half-life):")
+        for b in overall['calibration_recency_weighted']:
+            diff = b['actual'] - b['predicted']
+            flag = '  ' if abs(diff) < 5 else ' ⚠'
+            print(f"  {b['bucket']:>10}: predicted {b['predicted']:>5.1f}% → actual {b['actual']:>5.1f}% (n={b['count']}){flag}")
     if overall.get('calibration_by_tier'):
         print("\nCalibration by liquidity tier:")
         for tier, buckets in overall['calibration_by_tier'].items():
@@ -545,7 +593,6 @@ if __name__ == '__main__':
             print(f"  {vt}: {len(buckets)} buckets, n={n}")
     if overall.get('pattern_hit_rates'):
         print(f"\nPattern hit rates: {len(overall['pattern_hit_rates'])} patterns with n>=30")
-        # Print 10 worst and 10 best patterns
         items = sorted(overall['pattern_hit_rates'].items(), key=lambda x: x[1]['hit_rate'])
         print("  Worst 5:")
         for k, v in items[:5]:
