@@ -1,7 +1,7 @@
 import { state } from './state.js';
 
-const themes = ['dark', 'light', 'colourful'];
-const themeIcons = { dark: '🌙', light: '☀️', colourful: '🎨' };
+const themes = ['dark', 'light', 'terminal'];
+const themeIcons = { dark: '🌙', light: '☀️', terminal: '🖥️' };
 
 export function initTheme() {
     document.documentElement.setAttribute('data-theme', state.theme);
@@ -19,5 +19,5 @@ export function cycleTheme(onChange) {
 
 function updateThemeButton() {
     const btn = document.getElementById('theme-toggle');
-    if (btn) btn.textContent = themeIcons[state.theme];
+    if (btn) btn.textContent = themeIcons[state.theme] || '🌙';
 }
