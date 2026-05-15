@@ -1,4 +1,4 @@
-// Weighted Confidence Engine. Tier-1 + Tier-2/3 stack:
+// Weighted Confidence Engine. Tier-1 + Tier-2/3 stack + Phase 2 penny tier.
 //   - Multi-horizon expected move attached to result.multiHorizon
 //   - Options IV/skew (stocks, single-symbol) +/-4pt
 //   - Bollinger squeeze +/-3pt
@@ -10,6 +10,7 @@
 //   - Pre-market gap cap (60)
 //   - Recent 50%+ spike cap (55)
 //   - Earnings reaction history cap (tighter than generic when adverse)
+//   - PHASE 2: penny-tier float + short-interest module (only fires when tier='penny')
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -37,6 +38,7 @@ import { getCrossAsset, crossAssetAdjustment } from './cross-asset.js';
 import { detectGap, gapCap } from './premarket-gap.js';
 import { findRecentSpike, recentSpikeCap } from './recent-spike.js';
 import { getEarningsReactionHistory, earningsHistoryCap } from './earnings-history.js';
+import { getPennyTierData, pennyTierAdjustment } from './penny-tier.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -188,7 +190,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     }
 
-    // Tier-2: VWAP deviation
     let vwap = null;
     let vwapResult = null;
     try {
@@ -199,7 +200,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) { /* */ }
 
-    // Tier-2: Sector rotation (stocks only, single-symbol)
     let rotation = null;
     let rotationResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
@@ -212,7 +212,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-2: Volume profile HVN
     let volProfile = null;
     let volProfileResult = null;
     try {
@@ -223,7 +222,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) { /* */ }
 
-    // Tier-2: Cross-asset confirmation
     let crossAsset = null;
     let crossAssetResult = null;
     if (!bulkScan && symbolOrCoinId) {
@@ -236,7 +234,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-3: Pre-market / overnight gap (stocks only)
     let gap = null;
     if (mode === 'stock') {
         try {
@@ -249,7 +246,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-3: recent 50% spike cap
     let recentSpike = null;
     try {
         recentSpike = findRecentSpike(multiData?.daily?.candles || []);
@@ -262,7 +258,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) { /* */ }
 
-    // Tier-3: earnings reaction history (stocks, single-symbol)
     let earningsHistory = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId && earnings?.daysUntil != null) {
         try {
@@ -278,6 +273,26 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     }
 
     const tier = computeTier(multiData);
+
+    // PHASE 2: penny-tier float + short-interest module. Only activates
+    // when tier === 'penny' AND we have a real symbol, AND not in a bulk
+    // scan (the Yahoo quoteSummary endpoint is too heavy for hot-picks).
+    let penny = null;
+    let pennyResult = null;
+    if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
+        try {
+            penny = await getPennyTierData(symbolOrCoinId);
+            if (penny) {
+                pennyResult = pennyTierAdjustment(finalSignal, penny, tier);
+                if (pennyResult.adjust) {
+                    rawConfidence = Math.max(38, Math.min(88, rawConfidence + pennyResult.adjust));
+                }
+                if (pennyResult.cap < rawConfidence) {
+                    rawConfidence = pennyResult.cap;
+                }
+            }
+        } catch (_) { /* */ }
+    }
 
     let patternResult = null;
     if (technicalPred.indicators) {
@@ -334,6 +349,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (earnings?.daysUntil != null && earnings.daysUntil <= 5) widthBase += 3;
     if (calendar) widthBase += 3;
     if (gap?.big) widthBase += 3;
+    if (penny?.squeezeRisk >= 0.5) widthBase += 4; // pennies are wider by nature
     const halfWidth = Math.round(widthBase / 2);
     const lo = Math.max(38, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
@@ -364,6 +380,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (recentSpike?.capReason) allReasons.push(`[Spike] ${recentSpike.capReason}`);
     if (patternResult?.reason) allReasons.push(`[Pattern] ${patternResult.reason}`);
     if (derivsResult?.reasons?.length) derivsResult.reasons.forEach(r => allReasons.push(`[Derivs] ${r}`));
+    if (pennyResult?.reasons?.length) pennyResult.reasons.forEach(r => allReasons.push(`[Penny tier] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
 
     return {
@@ -395,7 +412,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         vwap: vwap || null,
         volProfile: volProfile || null,
         crossAsset: crossAsset || null,
-        reasons: allReasons.slice(0, 20),
+        penny: penny ? { ...penny, ...pennyResult } : null,
+        reasons: allReasons.slice(0, 22),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
@@ -407,7 +425,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern + recency+tier+vol calibrated',
+        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny + recency+tier+vol calibrated',
         trendRegime,
     };
 }
