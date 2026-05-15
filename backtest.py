@@ -8,6 +8,7 @@ What it measures:
   - Calibration stratified by liquidity tier (mega/large/mid/small/penny)
   - Calibration stratified by volatility tier (low/mid/high VIX)
   - Conformal prediction-interval residuals per signal+confidence bucket
+  - Pattern hit rates: per (signal | rsi-bucket | macd-state | bb-state | tier)
   - Per-symbol breakdown
   - Sharpe ratio if you traded every signal
   - Max drawdown
@@ -144,8 +145,9 @@ def volume_spike(volumes, threshold=1.5):
 
 
 def generate_prediction(candles):
+    """Now also returns the raw indicator values used so we can pattern-encode them."""
     if len(candles) < 30:
-        return {'signal': 'NEUTRAL', 'confidence': 0}
+        return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
 
     closes = [c['close'] for c in candles]
     volumes = [c['volume'] for c in candles if c['volume'] > 0]
@@ -201,7 +203,7 @@ def generate_prediction(candles):
     elif momentum < -2: bear += 1
 
     if total == 0:
-        return {'signal': 'NEUTRAL', 'confidence': 0}
+        return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
     net = bull - bear
     norm = net / total
     abs_norm = abs(norm)
@@ -209,7 +211,8 @@ def generate_prediction(candles):
     if norm > 0.12: signal = 'BUY'
     elif norm < -0.12: signal = 'SELL'
     else: signal = 'NEUTRAL'
-    return {'signal': signal, 'confidence': confidence}
+    indicators = {'rsi': rsi_v, 'macd': macd_v, 'bb': bb_v}
+    return {'signal': signal, 'confidence': confidence, 'indicators': indicators}
 
 
 def classify_tier(price, avg_volume):
@@ -223,7 +226,6 @@ def classify_tier(price, avg_volume):
 
 
 def classify_vol_tier(vix):
-    """Mirror of js/calibration.js classifyVolTier. None if VIX missing."""
     if vix is None:
         return None
     try:
@@ -237,13 +239,53 @@ def classify_vol_tier(vix):
     return 'high'
 
 
+# ─── Pattern encoding (must mirror js/pattern-lookup.js encodePattern) ──
+
+
+def rsi_bucket(rsi_v):
+    if rsi_v is None: return 'X'
+    if rsi_v < 30: return 'OS'
+    if rsi_v < 45: return 'L'
+    if rsi_v < 55: return 'M'
+    if rsi_v < 70: return 'H'
+    return 'OB'
+
+
+def macd_state(macd_v):
+    if not macd_v: return 'X'
+    if macd_v.get('crossover'): return 'XU'
+    if macd_v.get('crossunder'): return 'XD'
+    if macd_v.get('histogram', 0) > 0: return 'P'
+    if macd_v.get('histogram', 0) < 0: return 'N'
+    return 'F'
+
+
+def bb_state(bb_v):
+    if not bb_v: return 'X'
+    pb = bb_v.get('percent_b', 0.5)
+    if pb < 0: return 'B'
+    if pb < 0.2: return 'L'
+    if pb > 1: return 'A'
+    if pb > 0.8: return 'H'
+    return 'M'
+
+
+def encode_pattern(signal, indicators, tier):
+    i = indicators or {}
+    return '|'.join([
+        signal or 'X',
+        rsi_bucket(i.get('rsi')),
+        macd_state(i.get('macd')),
+        bb_state(i.get('bb')),
+        tier or 'X',
+    ])
+
+
 def fetch_vix_map(period=PERIOD):
-    """One-shot fetch of ^VIX. Returns dict keyed by 'YYYY-MM-DD' isodate."""
     try:
         df = yf.download('^VIX', period=period, interval='1d', progress=False)
         if df.empty:
             return {}
-        # Robust column access across yfinance versions (sometimes MultiIndex)
         try:
             close = df['Close']
             if hasattr(close, 'to_frame') and close.ndim > 1:
@@ -295,6 +337,7 @@ def backtest_symbol(symbol, period=PERIOD, since=None, vix_map=None):
         date_str = str(df.index[i].date())
         vix_level = (vix_map or {}).get(date_str)
         vol_tier = classify_vol_tier(vix_level)
+        pattern = encode_pattern(pred['signal'], pred.get('indicators'), tier)
         predictions.append({
             'date': date_str,
             'signal': pred['signal'],
@@ -303,6 +346,7 @@ def backtest_symbol(symbol, period=PERIOD, since=None, vix_map=None):
             'return': float(return_pct),
             'tier': tier,
             'vol_tier': vol_tier,
+            'pattern': pattern,
         })
     return predictions
 
@@ -354,6 +398,24 @@ def conformal_buckets(directional, alpha=0.30):
     return buckets
 
 
+def pattern_hit_rates(directional, min_n=30):
+    """Per-pattern aggregated hit rate. Skip rare patterns to avoid noise."""
+    counts = {}
+    for p in directional:
+        key = p.get('pattern')
+        if not key:
+            continue
+        c = counts.setdefault(key, {'n': 0, 'hits': 0})
+        c['n'] += 1
+        is_hit = (p['signal'] == 'BUY' and p['actual_up']) or (p['signal'] == 'SELL' and not p['actual_up'])
+        if is_hit: c['hits'] += 1
+    out = {}
+    for key, c in counts.items():
+        if c['n'] >= min_n:
+            out[key] = {'n': c['n'], 'hit_rate': round(c['hits'] / c['n'], 3)}
+    return out
+
+
 def summarize(predictions):
     total = len(predictions)
     by_signal = {'BUY': [], 'SELL': [], 'NEUTRAL': []}
@@ -402,6 +464,9 @@ def summarize(predictions):
             'buckets': conformal_buckets(directional, alpha=0.30),
             'method': 'split-conformal residual quantile of |daily return %|',
         }
+        ph = pattern_hit_rates(directional)
+        if ph:
+            out['pattern_hit_rates'] = ph
 
     rets = []
     for p in directional:
@@ -478,6 +543,16 @@ if __name__ == '__main__':
         for vt, buckets in overall['calibration_by_vol_tier'].items():
             n = sum(b['count'] for b in buckets)
             print(f"  {vt}: {len(buckets)} buckets, n={n}")
+    if overall.get('pattern_hit_rates'):
+        print(f"\nPattern hit rates: {len(overall['pattern_hit_rates'])} patterns with n>=30")
+        # Print 10 worst and 10 best patterns
+        items = sorted(overall['pattern_hit_rates'].items(), key=lambda x: x[1]['hit_rate'])
+        print("  Worst 5:")
+        for k, v in items[:5]:
+            print(f"    {k}: {v['hit_rate']:.2f} (n={v['n']})")
+        print("  Best 5:")
+        for k, v in items[-5:]:
+            print(f"    {k}: {v['hit_rate']:.2f} (n={v['n']})")
     if overall.get('conformal'):
         print("\nConformal intervals (alpha=0.30, 70% coverage):")
         for key, b in sorted(overall['conformal']['buckets'].items()):

@@ -169,6 +169,7 @@ async function runAnalysis() {
             mode: state.mode, symbol: state.currentSymbol,
             signal: result.signal, confidence: result.confidence,
             price: multiData.daily.currentPrice, timeframe: state.timeframe,
+            breakdown: result.breakdown,
         });
         maybeRenderAccuracyStrip();
 
