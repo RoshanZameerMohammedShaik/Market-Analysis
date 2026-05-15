@@ -7,11 +7,14 @@ function loadTheme() {
         const saved = localStorage.getItem('ma-theme');
         // Migrate old themes to current set.
         if (saved === 'colourful' || saved === 'terminal') {
-            const fallback = saved === 'terminal' ? 'slate' : 'dark';
-            localStorage.setItem('ma-theme', fallback);
-            return fallback;
+            localStorage.setItem('ma-theme', 'aurora');
+            return 'aurora';
         }
-        if (saved === 'dark' || saved === 'light' || saved === 'slate') return saved;
+        if (saved === 'slate') {
+            localStorage.setItem('ma-theme', 'aurora');
+            return 'aurora';
+        }
+        if (saved === 'dark' || saved === 'light' || saved === 'aurora') return saved;
     } catch (_) {}
     return 'dark';
 }
