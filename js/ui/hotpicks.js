@@ -25,11 +25,20 @@ export async function loadHotPicks(onPick) {
         if (el) el.textContent = msg;
     };
 
+    // Render a partial set as it arrives. The skeleton tiles get progressively
+    // replaced; once final picks land, the loading footer is replaced too.
+    const onPartial = (picks) => {
+        if (requestId !== state.hotPicksRequestId) return;
+        if (!picks || picks.length === 0) return;
+        renderCards(grid, picks, /* withFooter */ true);
+        bindCardClicks(grid, onPick);
+    };
+
     try {
         const currentMode = state.mode;
         const picks = currentMode === 'stock'
-            ? await scanStockHotPicks(state.timeframe, 20, updateProgress)
-            : await scanCryptoHotPicks(state.timeframe, 20, updateProgress);
+            ? await scanStockHotPicks(state.timeframe, 20, updateProgress, onPartial)
+            : await scanCryptoHotPicks(state.timeframe, 20, updateProgress, onPartial);
 
         if (requestId !== state.hotPicksRequestId) return;
 
@@ -49,32 +58,51 @@ export async function loadHotPicks(onPick) {
             return;
         }
 
-        grid.innerHTML = picks.map(pick => {
-            const isBuy = pick.signal === 'BUY';
-            const arrow = isBuy ? '▲' : '◆';
-            const signalClass = isBuy ? 'buy' : 'neutral';
-            const signalLabel = isBuy ? 'BUY' : 'HOLD';
-            const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
-            const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
-            return `
-            <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
-                <div class="hot-pick-symbol">${pick.symbol}</div>
-                <div class="hot-pick-name">${pick.name}</div>
-                <div class="hot-pick-spark">${sparkSvg}</div>
-                <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-                <div class="hot-pick-confidence ${signalClass}"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
-                <div class="hot-pick-price">${fmtPriceTag(pick.price)}</div>
-            </div>`;
-        }).join('');
-
-        grid.querySelectorAll('.hot-pick-card').forEach(card => {
-            card.addEventListener('click', () => onPick({
-                mode: state.mode,
-                symbol: card.dataset.symbol,
-                coinId: card.dataset.id !== card.dataset.symbol ? card.dataset.id : null,
-            }));
-        });
+        renderCards(grid, picks, /* withFooter */ false);
+        bindCardClicks(grid, onPick);
     } catch (e) {
         grid.innerHTML = `<div class="error-message" style="grid-column: 1/-1;">Failed to load hot picks: ${e.message}</div>`;
     }
+}
+
+function renderCards(grid, picks, withFooter) {
+    const cardsHtml = picks.map(pick => {
+        const isBuy = pick.signal === 'BUY';
+        const arrow = isBuy ? '▲' : '◆';
+        const signalClass = isBuy ? 'buy' : 'neutral';
+        const signalLabel = isBuy ? 'BUY' : 'HOLD';
+        const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
+        const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
+        return `
+        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
+            <div class="hot-pick-symbol">${pick.symbol}</div>
+            <div class="hot-pick-name">${pick.name}</div>
+            <div class="hot-pick-spark">${sparkSvg}</div>
+            <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
+            <div class="hot-pick-confidence ${signalClass}"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
+            <div class="hot-pick-price">${fmtPriceTag(pick.price)}</div>
+        </div>`;
+    }).join('');
+
+    if (withFooter) {
+        grid.innerHTML = cardsHtml + `
+            <div class="loading" style="grid-column: 1/-1; padding: 20px;">
+                <span class="loading-text" id="hotpicks-progress">Refining…</span>
+                <span class="loading-tip" id="loading-tip"></span>
+            </div>`;
+    } else {
+        grid.innerHTML = cardsHtml;
+    }
+}
+
+function bindCardClicks(grid, onPick) {
+    grid.querySelectorAll('.hot-pick-card').forEach(card => {
+        if (card.dataset.bound) return;
+        card.dataset.bound = '1';
+        card.addEventListener('click', () => onPick({
+            mode: state.mode,
+            symbol: card.dataset.symbol,
+            coinId: card.dataset.id !== card.dataset.symbol ? card.dataset.id : null,
+        }));
+    });
 }
