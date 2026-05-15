@@ -5,12 +5,13 @@
 function loadTheme() {
     try {
         const saved = localStorage.getItem('ma-theme');
-        // Migrate users who had the old 'colourful' theme to dark.
-        if (saved === 'colourful') {
-            localStorage.setItem('ma-theme', 'dark');
-            return 'dark';
+        // Migrate old themes to current set.
+        if (saved === 'colourful' || saved === 'terminal') {
+            const fallback = saved === 'terminal' ? 'slate' : 'dark';
+            localStorage.setItem('ma-theme', fallback);
+            return fallback;
         }
-        if (saved === 'dark' || saved === 'light' || saved === 'terminal') return saved;
+        if (saved === 'dark' || saved === 'light' || saved === 'slate') return saved;
     } catch (_) {}
     return 'dark';
 }
