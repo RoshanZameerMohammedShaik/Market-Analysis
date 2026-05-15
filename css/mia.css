@@ -43,7 +43,6 @@
     to   { transform: rotate(360deg); }
 }
 
-/* Tiny status dot on the launcher: warming = yellow pulse, ready = green. */
 .mia-launcher-ready-dot {
     position: absolute;
     bottom: 4px; right: 4px;
@@ -137,6 +136,7 @@
 .mia-step-num { position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.74rem; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
 .mia-steps a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent); }
 .mia-steps code { background: var(--bg-hover); padding: 1px 6px; border-radius: 4px; font-family: var(--num-font); font-size: 0.78rem; }
+.mia-fallback-hint { font-size: 0.74rem; color: var(--text-muted); padding: 6px 10px; background: var(--bg-secondary); border-left: 2px solid var(--accent); border-radius: 4px; }
 .mia-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.78rem; color: var(--text-secondary); }
 .mia-field input { padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; outline: none; font-family: var(--num-font); }
 .mia-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12); }
@@ -201,6 +201,35 @@
 .mia-md .mia-table th { background: var(--bg-hover); color: var(--text-primary); font-weight: 700; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.4px; }
 .mia-md .mia-table tr:nth-child(even) td { background: rgba(127, 127, 127, 0.04); }
 
+/* Phase 6: split card for 'Engine view' + 'Mia's read' replies */
+.mia-md .mia-split { display: flex; flex-direction: column; gap: 8px; margin: -2px; }
+.mia-md .mia-split-pane {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    background: var(--bg-card);
+}
+.mia-md .mia-split-engine {
+    border-left: 3px solid var(--text-secondary);
+}
+.mia-md .mia-split-mia {
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(to right, rgba(var(--accent-rgb), 0.06), var(--bg-card) 60%);
+}
+.mia-md .mia-split-label {
+    font-size: 0.66rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+}
+.mia-md .mia-split-mia .mia-split-label { color: var(--accent); }
+.mia-md .mia-split-body { font-size: 0.85rem; line-height: 1.55; }
+.mia-md .mia-cite { color: var(--accent); font-weight: 600; font-family: var(--num-font); font-size: 0.82em; }
+.mia-md .mia-hedge { color: var(--yellow); font-style: italic; }
+.mia-unverified { color: var(--yellow); font-size: 0.7em; cursor: help; margin-left: 1px; }
+
 .mia-typing { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
 .mia-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: mia-bounce 1.2s ease-in-out infinite; }
 .mia-typing i:nth-child(2) { animation-delay: 0.15s; }
@@ -208,7 +237,6 @@
 .mia-progress { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
 @keyframes mia-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
 
-/* Progress bar shown only during model load (downloading or cache->GPU). */
 .mia-progress-bar {
     margin-top: 6px;
     width: 100%;
