@@ -1,15 +1,14 @@
 // Agent loop. Wraps the streaming LLM call to detect tool requests,
 // execute them, and feed results back. Up to 6 tool calls per turn.
 //
-// Phase 3.3 hardening:
-//   - Detect both `TOOL: name {...}` AND bare `name {...}` lines, but
-//     only count the bare form as a call when `name` is in the live
-//     registry. 8B models occasionally drop the TOOL: prefix; without
-//     this we'd let them invent numbers from "memory" of what the tool
-//     might return.
-//   - Strict markdown-tolerant prefix handling preserved.
-//   - Registry validation, intra-turn pacing, code-fence-tolerant JSON
-//     parsing all preserved from earlier hardening.
+// Phase 3.4 hardening: regex matches ONLY on complete buffers.
+//
+// Bug we hit: streaming chunks arrive partial. A buffer mid-stream like
+// "TOOL: get_" would falsely match the old regex with name='get_' and
+// no args, triggering an invalid-tool retry loop. Fixed by:
+//   1. Requiring a closing `}` in the regex (no optional args group).
+//   2. Only attempting the match when the buffer ends with `}`, `\n`, or
+//      the stream has finished.
 
 import { stream as llmStream } from './llm-client.js';
 import { runTool, toolPromptSection, listTools } from './tools.js';
@@ -17,17 +16,15 @@ import { runTool, toolPromptSection, listTools } from './tools.js';
 const MAX_TOOL_CALLS = 6;
 const INTRA_TURN_PACE_MS = 350;
 
-// `TOOL: name {...}` form — the documented contract.
-const TOOL_LINE_RE = /^[\s>*\-]*\**\s*TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})?\s*\**[\s>]*$/im;
+// `TOOL: name {complete_json}` — JSON is now REQUIRED for the match.
+const TOOL_LINE_RE = /^[\s>*\-]*\**\s*TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})\s*\**[\s>]*$/im;
 
-// Bare `name {...}` form — fallback for when 8B drops the prefix.
-// Built lazily once we know the registry so we can constrain the name to
-// known tools (otherwise random words like "function" would match).
+// Bare `name {complete_json}` — fallback when 8B drops the prefix.
 function buildBareToolRegex(toolNames) {
     const escaped = [...toolNames]
         .filter(n => /^[a-z][a-z0-9_]{2,}$/.test(n))
         .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .sort((a, b) => b.length - a.length); // longest first to avoid prefix steal
+        .sort((a, b) => b.length - a.length);
     if (!escaped.length) return null;
     return new RegExp(`^[\\s>*\\-]*\\**\\s*(${escaped.join('|')})\\s*(\\{[\\s\\S]*?\\})\\s*\\**[\\s>]*$`, 'im');
 }
@@ -58,6 +55,15 @@ function extractJsonObject(raw) {
     return {};
 }
 
+// Cheap pre-check: only worth running the full regex if the buffer
+// plausibly contains a complete tool call (closing brace seen, or a
+// newline after a `}`, or the buffer ends naturally).
+function bufferLooksComplete(buffer) {
+    if (!buffer) return false;
+    const trimmedEnd = buffer.replace(/\s+$/, '');
+    return trimmedEnd.endsWith('}') || /\}\s*\n/.test(buffer) || buffer.endsWith('\n');
+}
+
 export async function* runTurn({ system, messages, signal, onProgress }) {
     const fullSystem = `${system}\n\n${toolPromptSection()}`;
     const knownToolNames = new Set(listTools().map(t => t.name));
@@ -78,9 +84,13 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
         for await (const delta of llmStream({ system: fullSystem, messages: workingMessages, signal, onProgress })) {
             buffer += delta;
 
-            // Prefer the documented TOOL: form, fall back to bare-name detection.
-            const m = buffer.match(TOOL_LINE_RE) || (bareRe ? buffer.match(bareRe) : null);
-            if (m) { toolMatch = m; interrupted = true; break; }
+            // Only attempt to match tool calls when the buffer plausibly
+            // contains a completed JSON object. Avoids matching partial
+            // streams like 'TOOL: get_' as name='get_'.
+            if (bufferLooksComplete(buffer)) {
+                const m = buffer.match(TOOL_LINE_RE) || (bareRe ? buffer.match(bareRe) : null);
+                if (m) { toolMatch = m; interrupted = true; break; }
+            }
 
             const lastNl = buffer.lastIndexOf('\n');
             if (lastNl > yieldedUpTo) {
@@ -89,6 +99,12 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
                 const cleanedSafe = safe.replace(TOOL_LINE_STRIPPER, '');
                 if (cleanedSafe) yield { type: 'delta', text: cleanedSafe };
             }
+        }
+
+        // Stream ended; final attempt to match a tool call on the whole buffer.
+        if (!interrupted && buffer.length) {
+            const m = buffer.match(TOOL_LINE_RE) || (bareRe ? buffer.match(bareRe) : null);
+            if (m) { toolMatch = m; interrupted = true; }
         }
 
         if (!interrupted) {
