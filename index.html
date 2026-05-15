@@ -36,10 +36,9 @@
                         <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
                     </div>
                 </div>
-                <div class="market-selector" id="market-selector"></div>
                 <div class="search-container">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="search-input" class="search-input" placeholder="Search stocks by name or symbol (e.g., AAPL, Tesla)... press / to focus" autocomplete="off">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T..." autocomplete="off">
                     <div class="search-results" id="search-results"></div>
                 </div>
             </section>
@@ -59,7 +58,7 @@
 
             <section class="hotpicks-section">
                 <div class="section-header">
-                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Top 20 Predictions</h2>
+                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Top 20 Global Predictions</h2>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <button class="spikers-btn" id="spikers-btn" title="Find candidates likely to spike today">🚀 Spikers</button>
                         <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks (r)">↻ Refresh</button>
@@ -68,7 +67,7 @@
                 <div class="hotpicks-grid" id="hotpicks-grid">
                     <div class="loading" style="grid-column: 1/-1;">
                         <div class="loader"></div>
-                        <span class="loading-text">Scanning markets for hot picks...</span>
+                        <span class="loading-text">Scanning global markets for hot picks...</span>
                         <span class="loading-tip" id="loading-tip"></span>
                     </div>
                 </div>
