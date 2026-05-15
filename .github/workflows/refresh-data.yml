@@ -5,9 +5,8 @@ on:
     # Daily backtest at 04:00 UTC — keeps calibration curves current
     # since regime shifts move hit rates faster than model weights.
     - cron: '0 4 * * *'
-    # Weekly LSTM retrain on Sundays at 04:30 UTC. Was monthly; bumped
-    # to weekly to catch regime shifts in model weights too. Daily
-    # would inject noise (5y of candles, +1 day = 0.08% new data).
+    # Weekly model retrain on Sundays at 04:30 UTC. Trains BOTH the LSTM
+    # walk-forward and the XGBoost ensemble companion.
     - cron: '30 4 * * 0'
   workflow_dispatch:
     inputs:
@@ -65,6 +64,10 @@ jobs:
       - name: Retrain LSTM (walk-forward)
         if: steps.decide.outputs.do_retrain == 'true'
         run: python train_walkforward.py
+
+      - name: Retrain XGBoost ensemble
+        if: steps.decide.outputs.do_retrain == 'true'
+        run: python train_xgboost.py
 
       - name: Commit refreshed artifacts
         run: |

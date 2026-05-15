@@ -1,25 +1,28 @@
-// AI Model — LSTM inference in pure JavaScript
-// Loads pre-trained weights from JSON, runs forward pass in browser.
+// AI Model — LSTM inference in pure JavaScript, ensembled with GBT when
+// available.
+//
+// Loads pre-trained LSTM weights from JSON, runs forward pass in browser.
+// In parallel, loads xgb_trees.json (XGBoost portable trees) and ensembles
+// the two model probabilities into a single AI source score.
 //
 // IMPORTANT: feature extraction here MUST match train_model.py exactly,
 // otherwise the LSTM sees a different feature distribution at inference
 // than it learned at training time. Any drift between the two is silent
 // and biases predictions in unpredictable ways.
 
+import { loadGbtModel, predictGbt, isGbtLoaded } from './xgb-model.js';
+
 let modelWeights = null;
 let modelConfig = null;
 let modelLoaded = false;
 let modelLoading = false;
 
-// Required lookback for the longest indicator window (sma21 / vol_ratio).
-// Combined with sequence_length, this is the minimum number of candles
-// needed to compute features without any indicator falling back to its
-// boundary default.
 const LOOKBACK = 21;
 
-// ─── MODEL LOADING ───────────────────────────────────────────────────────────
-
 export async function loadModel() {
+    // Kick off GBT load in parallel; if it fails we just fall back to LSTM-only.
+    loadGbtModel();
+
     if (modelLoaded) return true;
     if (modelLoading) {
         while (modelLoading) await new Promise(r => setTimeout(r, 100));
@@ -45,13 +48,9 @@ export async function loadModel() {
     }
 }
 
-// ─── FEATURE COMPUTATION (must match train_model.py exactly) ─────────────────
-
 export function computeFeatures(candles) {
     const seqLen = modelConfig ? modelConfig.sequence_length : 20;
 
-    // Need seqLen window + LOOKBACK history so the smallest j satisfies
-    // every indicator's minimum lookback (sma21 needs j >= 21).
     if (candles.length < seqLen + LOOKBACK) return null;
 
     const allCandles = candles.slice(-(seqLen + LOOKBACK));
@@ -65,13 +64,9 @@ export function computeFeatures(candles) {
     for (let idx = 0; idx < seqLen; idx++) {
         const j = allCandles.length - seqLen + idx;
 
-        // 1. Price change (1-bar return)
         const priceChange = j > 0 ? (close[j] - close[j - 1]) / (close[j - 1] + 1e-8) : 0;
-
-        // 2. High-low range as fraction of close
         const highLowRange = (high[j] - low[j]) / (close[j] + 1e-8);
 
-        // 3. RSI approximation over 14 bars
         let rsi = 0.5;
         if (j >= 14) {
             let gains = 0, losses = 0;
@@ -83,10 +78,6 @@ export function computeFeatures(candles) {
             rsi = gains / (gains + losses + 1e-8);
         }
 
-        // 4. Volume ratio: current volume vs 21-bar average INCLUDING current bar.
-        //    train_model.py uses volume[j-20:j+1] → 21 bars including j.
-        //    Boundary default 0.2 mirrors training's volume[j]/volume[j] = 1.0
-        //    after the /5.0 normalization.
         let volRatio = 0.2;
         if (j >= 20) {
             let sum = 0;
@@ -95,7 +86,6 @@ export function computeFeatures(candles) {
             volRatio = Math.min(volume[j] / (avgVol + 1e-8), 5.0) / 5.0;
         }
 
-        // 5. MA ratio: close vs 9-bar SMA
         let maRatio9 = 0;
         if (j >= 9) {
             let sum = 0;
@@ -104,7 +94,6 @@ export function computeFeatures(candles) {
             maRatio9 = (close[j] - sma9) / (sma9 + 1e-8);
         }
 
-        // 6. MA ratio: close vs 21-bar SMA
         let maRatio21 = 0;
         if (j >= 21) {
             let sum = 0;
@@ -113,7 +102,6 @@ export function computeFeatures(candles) {
             maRatio21 = (close[j] - sma21) / (sma21 + 1e-8);
         }
 
-        // 7. Bollinger Band position (20-bar window, 2 std dev)
         let bbPosition = 0;
         if (j >= 20) {
             let sum = 0;
@@ -125,7 +113,6 @@ export function computeFeatures(candles) {
             bbPosition = Math.max(-1, Math.min(1, (close[j] - bbMean) / (2 * bbStd)));
         }
 
-        // 8. Momentum: 5-bar rate of change
         let momentum = 0;
         if (j >= 5) {
             momentum = (close[j] - close[j - 5]) / (close[j - 5] + 1e-8);
@@ -145,8 +132,6 @@ export function computeFeatures(candles) {
 
     return features;
 }
-
-// ─── LSTM FORWARD PASS ───────────────────────────────────────────────────────
 
 function sigmoid(x) {
     return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
@@ -232,7 +217,7 @@ function runLSTM(features) {
     return sigmoid(output);
 }
 
-// ─── PUBLIC API ──────────────────────────────────────────────────────────────
+// ─── PUBLIC API ───────────────────────────────────────────────────────────────
 
 export async function getAIPrediction(candles) {
     const loaded = await loadModel();
@@ -245,10 +230,24 @@ export async function getAIPrediction(candles) {
         return { score: 50, available: false, reason: 'Insufficient data for AI model (need 41+ candles)' };
     }
 
-    const probability = runLSTM(features);
-    if (probability === null) {
+    const lstmProb = runLSTM(features);
+    if (lstmProb === null) {
         return { score: 50, available: false, reason: 'AI inference failed' };
     }
+
+    // Use the LAST timestep's feature vector for the GBT (it consumes flat
+    // features, not a sequence). This matches compute_flat_features in
+    // shared_features.py which the trees were trained on.
+    let gbtProb = null;
+    if (isGbtLoaded()) {
+        try {
+            gbtProb = predictGbt(features[features.length - 1]);
+        } catch (_) { /* */ }
+    }
+
+    const probability = (gbtProb != null && Number.isFinite(gbtProb))
+        ? (lstmProb + gbtProb) / 2
+        : lstmProb;
 
     const score = Math.round(probability * 100);
 
@@ -257,11 +256,17 @@ export async function getAIPrediction(candles) {
     else if (probability < 0.4) signal = 'bearish';
     else signal = 'neutral';
 
+    const reason = (gbtProb != null)
+        ? `AI ensemble (LSTM ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
+        : `AI pattern recognition (LSTM only): ${score}% probability of upward move`;
+
     return {
         score,
         available: true,
         probability: Math.round(probability * 1000) / 1000,
+        lstm: { score: Math.round(lstmProb * 100), probability: Math.round(lstmProb * 1000) / 1000 },
+        gbt: gbtProb != null ? { score: Math.round(gbtProb * 100), probability: Math.round(gbtProb * 1000) / 1000 } : null,
         signal,
-        reason: `AI pattern recognition: ${Math.round(probability * 100)}% probability of upward move`,
+        reason,
     };
 }

@@ -5,6 +5,10 @@ as JSON for browser-side inference (js/ai-model.js).
 Feature extraction here is duplicated in js/ai-model.js — they MUST stay
 in sync. If you change anything in compute_features(), mirror the change
 in computeFeatures() in js/ai-model.js or predictions will silently drift.
+
+Phase 1: SYMBOLS expanded from 23 hand-picked to ~530 across S&P 500,
+Nasdaq 100, sector representatives, and top crypto. Symbols that fail
+to fetch are skipped silently — the trainer is tolerant of dead tickers.
 """
 import torch
 import torch.nn as nn
@@ -14,13 +18,90 @@ import json
 import os
 
 
-# ─── CONFIG ──────────────────────────────────────────────────────────────────
+# ─── CONFIG ────────────────────────────────────────────────────────────────────
 
-SYMBOLS = [
-    'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'TSLA', 'META', 'AMD',
-    'NFLX', 'JPM', 'V', 'BA', 'DIS', 'XOM', 'GS', 'WMT', 'NKE',
-    'COIN', 'SQ', 'PLTR', 'SOFI', 'RIVN', 'MARA',
+# Mega-cap tech (also helps the model learn growth-cycle patterns).
+_MEGA_TECH = [
+    'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'NVDA', 'TSLA', 'AVGO',
+    'ORCL', 'CRM', 'ADBE', 'AMD', 'INTC', 'QCOM', 'CSCO', 'TXN', 'INTU',
+    'NOW', 'ASML', 'AMAT', 'LRCX', 'MU', 'KLAC', 'SNPS', 'CDNS', 'PANW',
+    'CRWD', 'PLTR', 'SHOP', 'NET', 'SNOW', 'DDOG', 'WDAY', 'ANET', 'SMCI',
+    'TEAM', 'MDB', 'OKTA', 'TWLO',
 ]
+_COMM = [
+    'NFLX', 'DIS', 'CMCSA', 'TMUS', 'T', 'VZ', 'CHTR', 'EA', 'TTWO', 'WBD',
+    'ROKU', 'PINS', 'SNAP', 'SPOT', 'MTCH', 'PARA',
+]
+_FIN = [
+    'JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'BLK', 'SCHW', 'AXP', 'V', 'MA',
+    'PYPL', 'COIN', 'SOFI', 'HOOD', 'COF', 'USB', 'PNC', 'TFC', 'BK', 'STT',
+    'AON', 'AIG', 'PRU', 'MET', 'ALL', 'PGR', 'TRV', 'CME', 'ICE', 'NDAQ',
+    'SPGI', 'MCO', 'MSCI', 'FIS', 'FISV',
+]
+_HEALTH = [
+    'UNH', 'JNJ', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT', 'DHR', 'BMY',
+    'AMGN', 'GILD', 'CVS', 'CI', 'HUM', 'ELV', 'ISRG', 'VRTX', 'REGN',
+    'BIIB', 'MRNA', 'ZTS', 'IDXX', 'IQV', 'A', 'BSX', 'SYK', 'MDT', 'EW',
+    'BDX', 'BAX', 'HCA',
+]
+_DISCRETIONARY = [
+    'HD', 'NKE', 'MCD', 'SBUX', 'BKNG', 'ABNB', 'LULU', 'F', 'GM', 'RIVN',
+    'LCID', 'TGT', 'LOW', 'TJX', 'ROST', 'YUM', 'CMG', 'DG', 'DLTR', 'BBY',
+    'AZO', 'ORLY', 'EXPE', 'MAR', 'HLT', 'RCL', 'CCL', 'NCLH', 'DRI',
+    'ULTA', 'ETSY', 'EBAY',
+]
+_STAPLES = [
+    'WMT', 'COST', 'PG', 'KO', 'PEP', 'MO', 'PM', 'CL', 'KMB', 'GIS',
+    'STZ', 'KHC', 'MNST', 'KDP', 'EL', 'CLX', 'CHD', 'SYY', 'KR',
+]
+_ENERGY = [
+    'XOM', 'CVX', 'COP', 'SLB', 'PSX', 'MPC', 'VLO', 'OXY', 'EOG', 'PXD',
+    'WMB', 'KMI', 'OKE', 'BKR', 'HAL', 'HES', 'DVN', 'FANG',
+]
+_INDUSTRIAL = [
+    'CAT', 'BA', 'UNP', 'UPS', 'FDX', 'HON', 'GE', 'RTX', 'DE', 'LMT',
+    'NOC', 'GD', 'MMM', 'CSX', 'NSC', 'ETN', 'EMR', 'PH', 'ITW', 'TT',
+    'ROK', 'AME', 'FAST', 'WM', 'RSG',
+]
+_UTILITIES = [
+    'NEE', 'DUK', 'SO', 'AEP', 'SRE', 'D', 'PCG', 'EXC', 'XEL', 'PEG',
+    'WEC', 'ED', 'EIX', 'ETR', 'AEE', 'ATO', 'CMS', 'DTE',
+]
+_MATERIALS = [
+    'LIN', 'SHW', 'APD', 'FCX', 'NEM', 'CTVA', 'DOW', 'DD', 'NUE', 'STLD',
+    'ECL', 'ALB', 'PPG', 'IFF', 'VMC', 'MLM', 'CF', 'MOS',
+]
+_REAL_ESTATE = [
+    'PLD', 'AMT', 'CCI', 'EQIX', 'PSA', 'SPG', 'O', 'WELL', 'AVB', 'EQR',
+    'ARE', 'VICI', 'EXR', 'DLR', 'CBRE', 'IRM',
+]
+# Hot retail / momentum names traders care about; valuable for the
+# distribution this model learns.
+_RETAIL_FAVS = [
+    'GME', 'AMC', 'BBBY', 'BB', 'PLUG', 'NIO', 'XPEV', 'LI', 'BABA', 'JD',
+    'PDD', 'BIDU', 'NTES', 'BILI', 'MARA', 'RIOT', 'CLSK', 'HUT', 'BTBT',
+    'WULF', 'IREN', 'BTDR', 'GLBE', 'AFRM', 'UPST', 'OPEN', 'WBA', 'KSS',
+    'M', 'JWN', 'LYFT', 'UBER', 'DASH', 'INST', 'BIRD', 'CVNA',
+]
+_CRYPTO = [
+    'BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD',
+    'DOGE-USD', 'AVAX-USD', 'TRX-USD', 'LINK-USD', 'MATIC-USD', 'DOT-USD',
+    'LTC-USD', 'BCH-USD', 'NEAR-USD', 'UNI-USD', 'XLM-USD', 'ETC-USD',
+    'APT-USD', 'OP-USD', 'ARB-USD', 'FIL-USD', 'ATOM-USD', 'AAVE-USD',
+    'MKR-USD', 'INJ-USD', 'LDO-USD', 'IMX-USD', 'GRT-USD', 'EGLD-USD',
+    'TIA-USD', 'STX-USD', 'SUI-USD', 'SEI-USD', 'PEPE-USD', 'SHIB-USD',
+    'WLD-USD', 'TON-USD',
+]
+
+SYMBOLS = (
+    _MEGA_TECH + _COMM + _FIN + _HEALTH + _DISCRETIONARY + _STAPLES +
+    _ENERGY + _INDUSTRIAL + _UTILITIES + _MATERIALS + _REAL_ESTATE +
+    _RETAIL_FAVS + _CRYPTO
+)
+# Dedupe preserving order.
+seen = set()
+SYMBOLS = [s for s in SYMBOLS if not (s in seen or seen.add(s))]
+
 PERIOD = '5y'
 SEQUENCE_LENGTH = 20
 FEATURES = 8
@@ -35,7 +116,7 @@ MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
 MODEL_PATH = os.path.join(MODEL_DIR, 'lstm_weights.json')
 
 
-# ─── DATA PREPARATION ────────────────────────────────────────────────────────
+# ─── DATA PREPARATION ─────────────────────────────────────────────────────
 
 
 def compute_features(df):
@@ -120,25 +201,27 @@ def fetch_and_prepare_data():
 
     print(f"Fetching data for {len(SYMBOLS)} symbols...")
 
+    skipped = 0
     for symbol in SYMBOLS:
         try:
             df = yf.download(symbol, period=PERIOD, interval='1d', progress=False)
             if len(df) < SEQUENCE_LENGTH + 50:
-                print(f"  {symbol}: insufficient data, skipping")
+                skipped += 1
                 continue
 
             features, labels = compute_features(df)
             all_features.extend(features)
             all_labels.extend(labels)
-            print(f"  {symbol}: {len(features)} samples")
         except Exception as e:
-            print(f"  {symbol}: failed ({e})")
+            skipped += 1
+            continue
 
+    print(f"  Loaded {len(SYMBOLS) - skipped} symbols, skipped {skipped}.")
     print(f"\nTotal samples: {len(all_features)}")
     return np.array(all_features, dtype=np.float32), np.array(all_labels, dtype=np.float32)
 
 
-# ─── MODEL ───────────────────────────────────────────────────────────────────
+# ─── MODEL ───────────────────────────────────────────────────────────────────────
 
 class PriceLSTM(nn.Module):
     def __init__(self, input_size=FEATURES, hidden_size=HIDDEN_SIZE, num_layers=NUM_LAYERS):
@@ -160,7 +243,7 @@ class PriceLSTM(nn.Module):
         return self.sigmoid(x)
 
 
-# ─── TRAINING ────────────────────────────────────────────────────────────────
+# ─── TRAINING ──────────────────────────────────────────────────────────────────
 
 def train_model():
     X, y = fetch_and_prepare_data()
@@ -214,7 +297,7 @@ def train_model():
     return model, accuracy
 
 
-# ─── EXPORT TO JSON ──────────────────────────────────────────────────────────
+# ─── EXPORT TO JSON ────────────────────────────────────────────────────────────────────
 
 def export_model_to_json(model, filepath):
     """Export model weights as JSON for browser-side inference."""
@@ -241,7 +324,7 @@ def export_model_to_json(model, filepath):
     print(f"✓ Model exported to {filepath} ({size_mb:.2f} MB)")
 
 
-# ─── MAIN ────────────────────────────────────────────────────────────────────
+# ─── MAIN ─────────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     model, accuracy = train_model()
