@@ -6,7 +6,7 @@ import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
 import { loadSettings, saveSettings, isConfigured, clearSettings } from './settings.js';
-import { renderWelcome } from './welcome.js';
+import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmBackend } from './llm-client.js';
 import { flagUnverifiedNumbers } from './guard.js';
@@ -49,7 +49,7 @@ function renderChat() {
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
-                <span class="mia-avatar">🧠</span>
+                <span class="mia-avatar">${MIA_LOGO_SVG}</span>
                 <div>
                     <div class="mia-name">Mia</div>
                     <div class="mia-role">Market Intelligence Analyst</div>
@@ -263,7 +263,7 @@ function renderSettings() {
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
-                <span class="mia-avatar">⚙️</span>
+                <span class="mia-avatar">${MIA_LOGO_SVG}</span>
                 <div><div class="mia-name">Mia Settings</div><div class="mia-role">backend, keys, cleanup</div></div>
             </div>
             <div class="mia-head-actions">
