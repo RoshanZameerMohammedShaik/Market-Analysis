@@ -41,25 +41,22 @@
     --chart-bg: #ffffff;
     --shadow: 0 8px 32px rgba(140, 149, 159, 0.18); --shadow-sm: 0 2px 8px rgba(140, 149, 159, 0.15);
 }
-[data-theme="terminal"] {
-    /* Trader-grade Bloomberg-style terminal: amber/orange on near-black. */
-    --bg-primary: #050605; --bg-secondary: #0a0c0a; --bg-card: #0e110e; --bg-hover: #14181a;
-    --bg-glass: rgba(10, 12, 10, 0.78);
-    --border: rgba(245, 158, 11, 0.14); --border-strong: rgba(245, 158, 11, 0.32);
-    --text-primary: #f5deb3; --text-secondary: #c9a66b; --text-muted: #8a7140;
-    --accent: #f59e0b; --accent-hover: #fbbf24;
+[data-theme="slate"] {
+    /* Slate Pro — institutional dashboard. Deep navy-charcoal background
+       with cyan accent. Sophisticated, distinct from "dark". */
+    --bg-primary: #0b1220; --bg-secondary: #111a2e; --bg-card: #16203a; --bg-hover: #1d2a48;
+    --bg-glass: rgba(17, 26, 46, 0.78);
+    --border: rgba(148, 163, 184, 0.12); --border-strong: rgba(148, 163, 184, 0.26);
+    --text-primary: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
+    --accent: #22d3ee; --accent-hover: #67e8f9;
     --green: #34d399; --green-bg: rgba(52, 211, 153, 0.10);
     --red: #f87171; --red-bg: rgba(248, 113, 113, 0.10);
-    --yellow: #f59e0b; --yellow-bg: rgba(245, 158, 11, 0.12);
-    --chart-bg: #050605;
-    --shadow: 0 8px 32px rgba(245, 158, 11, 0.18); --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --yellow: #facc15; --yellow-bg: rgba(250, 204, 21, 0.10);
+    --chart-bg: #0b1220;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.55); --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-[data-theme="terminal"] body {
-    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-    letter-spacing: 0.01em;
-}
-[data-theme="terminal"] .app-header { background: linear-gradient(90deg, rgba(245, 158, 11, 0.04), rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.04)); border-bottom-color: rgba(245, 158, 11, 0.2); }
-[data-theme="terminal"] .app-title {
+[data-theme="slate"] .app-header { background: linear-gradient(90deg, rgba(34, 211, 238, 0.04), rgba(34, 211, 238, 0.08), rgba(34, 211, 238, 0.04)); border-bottom-color: rgba(34, 211, 238, 0.18); }
+[data-theme="slate"] .app-title {
     background: linear-gradient(135deg, var(--accent), var(--text-primary)) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
@@ -86,9 +83,9 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     z-index: 480;
 }
 .app-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.theme-toggle, .header-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); color: var(--text-secondary); }
+.theme-toggle, .header-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); color: var(--text-secondary); padding: 0; }
 .theme-toggle:hover, .header-btn:hover { border-color: var(--accent); color: var(--accent); }
-.theme-toggle:hover { transform: rotate(180deg); }
+.theme-toggle svg, .header-btn svg { display: block; }
 
 .app-layout { display: grid; grid-template-columns: 260px 1fr 320px; min-height: calc(100vh - 65px); max-width: 1500px; margin: 0 auto; }
 .main-container { padding: 20px 24px; min-width: 0; }
@@ -312,9 +309,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     .glossary-rail { padding: 18px 14px; }
 }
 @media (max-width: 1024px) {
-    /* Switch to flex on mobile/tablet so we can reorder children: main first,
-       glossary last (after Hot Picks). P&L sidebar is a floating panel on
-       its own (pl-toggle.css), so it doesn't enter the flow. */
     .app-layout { display: flex; flex-direction: column; }
     .main-container { order: 1; }
     .glossary-rail { order: 2; position: relative; top: 0; height: auto; max-height: none; border-right: none; border-top: 1px solid var(--border); }
@@ -323,7 +317,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
 @media (max-width: 768px) {
     .app-header { padding: 12px 16px; }
     .app-title { font-size: 1.15rem; }
-    .main-container { padding: 16px 16px 80px 16px; /* clear bottom dock */ }
+    .main-container { padding: 16px 16px 80px 16px; }
     .tabs-row { gap: 10px; }
     .tab-btn { padding: 6px 14px; font-size: 0.82rem; }
     .chart-container { height: 320px; }
@@ -336,7 +330,6 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     .breakdown-label { font-size: 0.7rem; }
     .sp-row { grid-template-columns: 1fr; }
     .sp-row-numbers { text-align: left; min-width: 0; }
-    /* Mobile: header-actions becomes a thumb-friendly bottom dock. */
     .header-actions {
         top: auto;
         bottom: 14px;
