@@ -117,11 +117,21 @@
 .mia-msg.assistant .mia-msg-bubble { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
 .mia-md p { margin: 0; }
 .mia-md p + p { margin-top: 8px; }
-.mia-md ul { margin: 6px 0; padding-left: 20px; }
+.mia-md ul, .mia-md ol { margin: 6px 0; padding-left: 20px; }
 .mia-md li { margin: 2px 0; }
 .mia-md strong { color: var(--text-primary); font-weight: 700; }
 .mia-md em { color: var(--text-primary); font-style: italic; }
 .mia-md code { background: var(--bg-hover); padding: 1px 5px; border-radius: 4px; font-family: var(--num-font); font-size: 0.82rem; }
+.mia-md .mia-h { color: var(--text-primary); font-weight: 800; line-height: 1.3; margin: 10px 0 6px; }
+.mia-md .mia-h1 { font-size: 1.05rem; }
+.mia-md .mia-h2 { font-size: 0.98rem; }
+.mia-md .mia-h3 { font-size: 0.92rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.4px; }
+.mia-md .mia-pre { margin: 8px 0; padding: 10px 12px; background: var(--bg-hover); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow-x: auto; }
+.mia-md .mia-pre code { background: transparent; padding: 0; font-size: 0.78rem; line-height: 1.5; white-space: pre; }
+.mia-md .mia-table { display: block; max-width: 100%; overflow-x: auto; margin: 10px 0; border-collapse: collapse; font-size: 0.8rem; }
+.mia-md .mia-table th, .mia-md .mia-table td { padding: 6px 10px; border: 1px solid var(--border); }
+.mia-md .mia-table th { background: var(--bg-hover); color: var(--text-primary); font-weight: 700; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.4px; }
+.mia-md .mia-table tr:nth-child(even) td { background: rgba(127, 127, 127, 0.04); }
 
 .mia-typing { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
 .mia-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: mia-bounce 1.2s ease-in-out infinite; }
@@ -145,6 +155,9 @@
 .mia-settings { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .mia-setting-row { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.82rem; }
 .mia-setting-val { color: var(--text-muted); font-family: var(--num-font); }
+
+.mia-tool-badge { display: inline-block; margin-top: 6px; font-size: 0.7rem; color: var(--text-muted); padding: 2px 8px; background: var(--bg-hover); border-radius: 999px; }
+.mia-tool-badge code { background: transparent; padding: 0; font-size: 0.7rem; }
 
 @media (max-width: 480px) {
     .mia-launcher { bottom: 14px; right: 14px; padding: 10px 14px; font-size: 0.84rem; }
