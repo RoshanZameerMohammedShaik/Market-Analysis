@@ -22,7 +22,6 @@
     position: absolute;
     inset: -3px;
     border-radius: 50%;
-    /* Use the theme accent + a softer companion so the conic ring tracks themes. */
     background: conic-gradient(from 0deg, transparent 0deg, rgba(var(--accent-rgb), 0.6) 60deg, rgba(var(--accent-rgb), 0.85) 180deg, rgba(var(--accent-rgb), 0.55) 300deg, transparent 360deg);
     filter: blur(2px);
     animation: mia-launcher-spin 6s linear infinite;
@@ -30,7 +29,6 @@
 }
 .mia-launcher:hover { transform: scale(1.08); }
 .mia-launcher:active { transform: scale(0.96); }
-/* Bigger launcher logo so the M-ECG reads clearly. */
 .mia-launcher-logo { width: 40px; height: 30px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
 @keyframes mia-launcher-breath {
     0%, 100% { transform: scale(1); }
@@ -43,6 +41,35 @@
 @keyframes mia-launcher-spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
+}
+
+/* Tiny status dot on the launcher: warming = yellow pulse, ready = green. */
+.mia-launcher-ready-dot {
+    position: absolute;
+    bottom: 4px; right: 4px;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-card);
+    background: transparent;
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+    pointer-events: none;
+}
+.mia-launcher-ready-dot[data-state="warming"] {
+    background: #fbbf24;
+    box-shadow: 0 0 6px rgba(251, 191, 36, 0.85);
+    animation: mia-ready-pulse 1.4s ease-in-out infinite;
+}
+.mia-launcher-ready-dot[data-state="ready"] {
+    background: #22c55e;
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.9);
+}
+.mia-launcher-ready-dot[data-state="unavailable"] {
+    background: #94a3b8;
+    box-shadow: 0 0 4px rgba(148, 163, 184, 0.6);
+}
+@keyframes mia-ready-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.25); opacity: 0.7; }
 }
 
 .mia-panel {
@@ -180,6 +207,25 @@
 .mia-typing i:nth-child(3) { animation-delay: 0.3s; }
 .mia-progress { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
 @keyframes mia-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+/* Progress bar shown only during model load (downloading or cache->GPU). */
+.mia-progress-bar {
+    margin-top: 6px;
+    width: 100%;
+    height: 4px;
+    background: var(--bg-hover);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.mia-progress-bar[hidden] { display: none; }
+.mia-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--brand-grad);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+    box-shadow: 0 0 8px var(--brand-grad-shadow);
+}
 
 .mia-foot { padding: 12px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; gap: 8px; align-items: flex-end; }
 .mia-foot textarea { flex: 1; resize: none; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; font-family: inherit; outline: none; transition: all 0.15s; min-height: 44px; }
