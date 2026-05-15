@@ -1,17 +1,16 @@
 // Empirical calibration of signal confidence.
 //
-// The pipeline produces a heuristic 38-88 confidence number. Without
-// calibration that number means "how strongly the indicators agreed" —
-// it does NOT mean "this prediction will hit X% of the time." That gap
-// matters when real money is on the line.
+// Three strata available, picked in priority order at inference time:
+//   1. Volatility tier (low / mid / high VIX) — finest grain when populated
+//   2. Liquidity tier (mega/large/mid/small/penny)
+//   3. Global curve
 //
-// Now stratified by liquidity tier: penny stocks have different hit rate
-// distributions than mega-caps, so one global curve overcorrects in some
-// places and undercorrects in others. Tier-specific curves with global
-// fallback when a tier has < 30 samples.
+// Each stratum requires >=30 directional samples to be used. Falls through
+// otherwise. This avoids overfitting to noisy small-n buckets.
 
-let calibration = null;          // global fallback curve
-let calibrationByTier = null;    // { mega: [...], large: [...], mid: [...], small: [...], penny: [...] }
+let calibration = null;
+let calibrationByTier = null;
+let calibrationByVolTier = null;
 let calibrationStatus = 'unloaded';
 
 export async function loadCalibration() {
@@ -22,6 +21,7 @@ export async function loadCalibration() {
         const data = await res.json();
         calibration = data?.overall?.calibration || null;
         calibrationByTier = data?.overall?.calibration_by_tier || null;
+        calibrationByVolTier = data?.overall?.calibration_by_vol_tier || null;
         calibrationStatus = calibration ? 'loaded' : 'unavailable';
         return calibration;
     } catch (_) {
@@ -32,10 +32,6 @@ export async function loadCalibration() {
 
 export function getCalibrationStatus() { return calibrationStatus; }
 
-/**
- * Classify a symbol's liquidity tier from price + 21-day avg volume.
- * Returns one of: 'mega' | 'large' | 'mid' | 'small' | 'penny'.
- */
 export function classifyTier(price, avgVolume) {
     const p = Number(price) || 0;
     const v = Number(avgVolume) || 0;
@@ -46,21 +42,16 @@ export function classifyTier(price, avgVolume) {
     return 'mega';
 }
 
-/**
- * Map a raw confidence (38-88) to its empirical hit rate.
- * If `tier` is provided and has ≥30 samples, uses the tier-specific
- * curve. Otherwise falls back to the global curve. Returns the raw
- * value unchanged if no calibration is available.
- */
-export function calibrate(rawConfidence, tier = null) {
-    let curve = calibration;
-    if (tier && calibrationByTier && calibrationByTier[tier]) {
-        const tierCurve = calibrationByTier[tier];
-        const totalN = tierCurve.reduce((s, b) => s + (b.count || 0), 0);
-        if (totalN >= 30) curve = tierCurve;
-    }
-    if (!curve || curve.length === 0) return rawConfidence;
+// Mirror of backtest classify_vol_tier. <16 calm, 16-22 normal, >22 chaos.
+export function classifyVolTier(vix) {
+    const v = Number(vix);
+    if (!Number.isFinite(v) || v <= 0) return null;
+    if (v < 16) return 'low';
+    if (v < 22) return 'mid';
+    return 'high';
+}
 
+function interpolateOnCurve(rawConfidence, curve) {
     for (const bucket of curve) {
         const [loStr, hiStr] = bucket.bucket.replace('%', '').split('-');
         const lo = parseInt(loStr, 10);
@@ -75,5 +66,31 @@ export function calibrate(rawConfidence, tier = null) {
     return Math.round(curve[curve.length - 1].actual);
 }
 
+function totalN(curve) {
+    if (!curve) return 0;
+    return curve.reduce((s, b) => s + (b.count || 0), 0);
+}
+
+/**
+ * Map a raw confidence to its empirical hit rate. Picks the most specific
+ * curve that has >=30 samples; otherwise falls through.
+ */
+export function calibrate(rawConfidence, { tier = null, volTier = null } = {}) {
+    // Priority 1: volatility tier (most predictive of accuracy variance)
+    if (volTier && calibrationByVolTier && calibrationByVolTier[volTier] && totalN(calibrationByVolTier[volTier]) >= 30) {
+        return interpolateOnCurve(rawConfidence, calibrationByVolTier[volTier]);
+    }
+    // Priority 2: liquidity tier
+    if (tier && calibrationByTier && calibrationByTier[tier] && totalN(calibrationByTier[tier]) >= 30) {
+        return interpolateOnCurve(rawConfidence, calibrationByTier[tier]);
+    }
+    // Priority 3: global
+    if (calibration && calibration.length > 0) {
+        return interpolateOnCurve(rawConfidence, calibration);
+    }
+    return rawConfidence;
+}
+
 export function getCalibrationCurve() { return calibration; }
 export function getCalibrationByTier() { return calibrationByTier; }
+export function getCalibrationByVolTier() { return calibrationByVolTier; }

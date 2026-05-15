@@ -2,25 +2,15 @@
 Backtester: replays the signal pipeline on Yahoo historical data and
 reports whether the predictions actually worked.
 
-This is the most important script in the repo. Without it, every accuracy
-claim in the UI is a story. With it, the UI can show empirical hit rate,
-calibration error, Sharpe, and drawdown — numbers a user can audit.
-
 What it measures:
   - Hit rate by signal type (BUY / SELL / NEUTRAL)
   - Calibration: does "70% confidence" actually hit 70% of the time?
   - Calibration stratified by liquidity tier (mega/large/mid/small/penny)
+  - Calibration stratified by volatility tier (low/mid/high VIX)
   - Conformal prediction-interval residuals per signal+confidence bucket
-    (for next-bar return interval display in the UI)
   - Per-symbol breakdown
   - Sharpe ratio if you traded every signal
   - Max drawdown
-
-Usage:
-    pip install -r requirements.txt
-    python backtest.py
-    python backtest.py --symbol AAPL
-    python backtest.py --since 2023-01-01
 
 Writes:
     model/backtest_results.json
@@ -223,11 +213,6 @@ def generate_prediction(candles):
 
 
 def classify_tier(price, avg_volume):
-    """Mirror of js/calibration.js classifyTier.
-
-    Order matters: penny check first, then small (low price OR low volume),
-    then mid, then large, else mega.
-    """
     p = float(price) if price is not None else 0.0
     v = float(avg_volume) if avg_volume is not None else 0.0
     if p < 1: return 'penny'
@@ -237,10 +222,53 @@ def classify_tier(price, avg_volume):
     return 'mega'
 
 
+def classify_vol_tier(vix):
+    """Mirror of js/calibration.js classifyVolTier. None if VIX missing."""
+    if vix is None:
+        return None
+    try:
+        v = float(vix)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(v) or v <= 0:
+        return None
+    if v < 16: return 'low'
+    if v < 22: return 'mid'
+    return 'high'
+
+
+def fetch_vix_map(period=PERIOD):
+    """One-shot fetch of ^VIX. Returns dict keyed by 'YYYY-MM-DD' isodate."""
+    try:
+        df = yf.download('^VIX', period=period, interval='1d', progress=False)
+        if df.empty:
+            return {}
+        # Robust column access across yfinance versions (sometimes MultiIndex)
+        try:
+            close = df['Close']
+            if hasattr(close, 'to_frame') and close.ndim > 1:
+                close = close.iloc[:, 0]
+        except KeyError:
+            close = df.xs('Close', axis=1, level=0).iloc[:, 0]
+        out = {}
+        for ts, val in close.items():
+            try:
+                key = ts.strftime('%Y-%m-%d')
+                fv = float(val)
+                if not math.isnan(fv):
+                    out[key] = fv
+            except Exception:
+                continue
+        return out
+    except Exception as e:
+        print(f"  [warn] VIX fetch failed: {e} — vol_tier will be skipped")
+        return {}
+
+
 # ─── Backtest loop ──────────────────────────────────────────────────────
 
 
-def backtest_symbol(symbol, period=PERIOD, since=None):
+def backtest_symbol(symbol, period=PERIOD, since=None, vix_map=None):
     df = yf.download(symbol, period=period, interval='1d', progress=False)
     if len(df) < 60:
         return None
@@ -261,23 +289,25 @@ def backtest_symbol(symbol, period=PERIOD, since=None):
         pred = generate_prediction(candles)
         actual_up = close[i + 1] > close[i]
         return_pct = (close[i + 1] - close[i]) / close[i] * 100
-        # Tier classification at this bar.
         recent_vol = volume[max(0, i - 20):i + 1]
         avg_vol = sum(recent_vol) / len(recent_vol) if recent_vol else 0
         tier = classify_tier(close[i], avg_vol)
+        date_str = str(df.index[i].date())
+        vix_level = (vix_map or {}).get(date_str)
+        vol_tier = classify_vol_tier(vix_level)
         predictions.append({
-            'date': str(df.index[i].date()),
+            'date': date_str,
             'signal': pred['signal'],
             'confidence': pred['confidence'],
             'actual_up': bool(actual_up),
             'return': float(return_pct),
             'tier': tier,
+            'vol_tier': vol_tier,
         })
     return predictions
 
 
 def calibration_buckets(directional):
-    """Standard 10-pct calibration buckets (40-50, 50-60, ... 90-100)."""
     buckets = []
     for lo in range(40, 100, 10):
         hi = lo + 10
@@ -298,16 +328,9 @@ def calibration_buckets(directional):
 
 
 def conformal_buckets(directional, alpha=0.30):
-    """Build the conformal residual map. For each (signal, confidence-bucket)
-    we record the q_(1-alpha) of |return_pct|. UI uses this to display a
-    symmetric +/-q% next-bar return interval at that signal+confidence.
-
-    Also emits {SIGNAL}-any aggregates as fallback when a fine bucket is sparse.
-    """
     buckets = {}
     for sig in ('BUY', 'SELL'):
         sig_preds = [p for p in directional if p['signal'] == sig]
-        # Per 10-pct bucket
         for lo in range(40, 100, 10):
             hi = lo + 10
             in_bucket = [p for p in sig_preds if lo <= p['confidence'] < hi]
@@ -320,7 +343,6 @@ def conformal_buckets(directional, alpha=0.30):
                 'q70_pct': round(q, 3),
                 'mean_abs_return_pct': round(float(np.mean(residuals)), 3),
             }
-        # Signal-only fallback
         if sig_preds:
             residuals = [abs(p['return']) for p in sig_preds]
             q = float(np.quantile(residuals, 1 - alpha))
@@ -358,7 +380,6 @@ def summarize(predictions):
     directional = [p for p in predictions if p['signal'] in ('BUY', 'SELL')]
     out['calibration'] = calibration_buckets(directional)
 
-    # Per-tier calibration. Skip tiers with < 30 directional samples.
     by_tier = {}
     for tier in ('mega', 'large', 'mid', 'small', 'penny'):
         tier_pred = [p for p in directional if p.get('tier') == tier]
@@ -367,7 +388,14 @@ def summarize(predictions):
     if by_tier:
         out['calibration_by_tier'] = by_tier
 
-    # Conformal intervals.
+    by_vol = {}
+    for vol_tier in ('low', 'mid', 'high'):
+        vt_pred = [p for p in directional if p.get('vol_tier') == vol_tier]
+        if len(vt_pred) >= 30:
+            by_vol[vol_tier] = calibration_buckets(vt_pred)
+    if by_vol:
+        out['calibration_by_vol_tier'] = by_vol
+
     if directional:
         out['conformal'] = {
             'alpha': 0.30,
@@ -375,7 +403,6 @@ def summarize(predictions):
             'method': 'split-conformal residual quantile of |daily return %|',
         }
 
-    # PnL.
     rets = []
     for p in directional:
         if p['signal'] == 'BUY': rets.append(p['return'] / 100)
@@ -408,13 +435,17 @@ if __name__ == '__main__':
 
     os.makedirs(MODEL_DIR, exist_ok=True)
 
+    print("Fetching ^VIX history for vol-tier classification...")
+    vix_map = fetch_vix_map(PERIOD)
+    print(f"  Loaded {len(vix_map)} VIX daily closes.")
+
     symbols = [args.symbol] if args.symbol else SYMBOLS
     print(f"Backtesting {len(symbols)} symbol(s)...")
 
     per_symbol = {}
     all_preds = []
     for sym in symbols:
-        preds = backtest_symbol(sym, since=args.since)
+        preds = backtest_symbol(sym, since=args.since, vix_map=vix_map)
         if not preds:
             print(f"  {sym}: skipped (insufficient data)")
             continue
@@ -442,6 +473,11 @@ if __name__ == '__main__':
         for tier, buckets in overall['calibration_by_tier'].items():
             n = sum(b['count'] for b in buckets)
             print(f"  {tier}: {len(buckets)} buckets, n={n}")
+    if overall.get('calibration_by_vol_tier'):
+        print("\nCalibration by volatility tier:")
+        for vt, buckets in overall['calibration_by_vol_tier'].items():
+            n = sum(b['count'] for b in buckets)
+            print(f"  {vt}: {len(buckets)} buckets, n={n}")
     if overall.get('conformal'):
         print("\nConformal intervals (alpha=0.30, 70% coverage):")
         for key, b in sorted(overall['conformal']['buckets'].items()):
