@@ -169,11 +169,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) { /* */ }
 
-    // Tier-1: Cross-timeframe agreement
+    // Tier-1: Cross-timeframe agreement.
+    // generateMultiTimeframePrediction returns the per-timeframe predictions
+    // under technicalPred.breakdown, not .timeframes.
     let tfAgreement = null;
     let tfResult = null;
-    if (technicalPred.timeframes) {
-        tfAgreement = timeframeAgreement(finalSignal, technicalPred.timeframes);
+    if (technicalPred.breakdown) {
+        tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown);
         if (tfAgreement) {
             tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement);
             if (tfResult.adjust) {
@@ -222,7 +224,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
                 volTier,
                 conformal1d: ci,
             });
-            // Apply squeeze expansion multiplier if relevant.
             if (multiHorizon && squeeze?.inSqueeze && squeeze.expectedExpansionMult > 1) {
                 multiHorizon.horizons = multiHorizon.horizons.map(h => ({
                     ...h,
