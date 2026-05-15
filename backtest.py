@@ -9,6 +9,9 @@ calibration error, Sharpe, and drawdown — numbers a user can audit.
 What it measures:
   - Hit rate by signal type (BUY / SELL / NEUTRAL)
   - Calibration: does "70% confidence" actually hit 70% of the time?
+  - Calibration stratified by liquidity tier (mega/large/mid/small/penny)
+  - Conformal prediction-interval residuals per signal+confidence bucket
+    (for next-bar return interval display in the UI)
   - Per-symbol breakdown
   - Sharpe ratio if you traded every signal
   - Max drawdown
@@ -20,7 +23,7 @@ Usage:
     python backtest.py --since 2023-01-01
 
 Writes:
-    model/backtest_results.json   (consumed by the browser to show empirical accuracy)
+    model/backtest_results.json
 """
 import argparse
 import json
@@ -36,7 +39,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
 RESULTS_PATH = os.path.join(MODEL_DIR, 'backtest_results.json')
 
-# ─── Indicator implementations (must mirror js/analysis.js exactly) ──────────
+# ─── Indicator implementations (must mirror js/analysis.js exactly) ──────
 
 
 def rsi(closes, period=14):
@@ -106,11 +109,11 @@ def bollinger(closes, period=20, std_dev=2):
     if len(closes) < period:
         return None
     sl = closes[-period:]
-    sma = sum(sl) / period
-    var = sum((v - sma) ** 2 for v in sl) / period
+    sma_v = sum(sl) / period
+    var = sum((v - sma_v) ** 2 for v in sl) / period
     std = math.sqrt(var)
-    upper = sma + std_dev * std
-    lower = sma - std_dev * std
+    upper = sma_v + std_dev * std
+    lower = sma_v - std_dev * std
     return {
         'percent_b': (closes[-1] - lower) / (upper - lower) if upper > lower else 0.5,
     }
@@ -219,7 +222,22 @@ def generate_prediction(candles):
     return {'signal': signal, 'confidence': confidence}
 
 
-# ─── Backtest loop ──────────────────────────────────────────────────────────────────
+def classify_tier(price, avg_volume):
+    """Mirror of js/calibration.js classifyTier.
+
+    Order matters: penny check first, then small (low price OR low volume),
+    then mid, then large, else mega.
+    """
+    p = float(price) if price is not None else 0.0
+    v = float(avg_volume) if avg_volume is not None else 0.0
+    if p < 1: return 'penny'
+    if p < 5 or v < 100_000: return 'small'
+    if p < 20 or v < 1_000_000: return 'mid'
+    if p < 100 or v < 10_000_000: return 'large'
+    return 'mega'
+
+
+# ─── Backtest loop ──────────────────────────────────────────────────────
 
 
 def backtest_symbol(symbol, period=PERIOD, since=None):
@@ -235,7 +253,6 @@ def backtest_symbol(symbol, period=PERIOD, since=None):
     n = len(close)
 
     predictions = []
-    # Walk forward, predicting bar i+1 from data ending at bar i.
     for i in range(50, n - 1):
         candles = [
             {'open': c, 'close': c, 'high': h, 'low': l, 'volume': v}
@@ -243,15 +260,76 @@ def backtest_symbol(symbol, period=PERIOD, since=None):
         ]
         pred = generate_prediction(candles)
         actual_up = close[i + 1] > close[i]
-        return_pct = (close[i + 1] - close[i]) / close[i]
+        return_pct = (close[i + 1] - close[i]) / close[i] * 100
+        # Tier classification at this bar.
+        recent_vol = volume[max(0, i - 20):i + 1]
+        avg_vol = sum(recent_vol) / len(recent_vol) if recent_vol else 0
+        tier = classify_tier(close[i], avg_vol)
         predictions.append({
             'date': str(df.index[i].date()),
             'signal': pred['signal'],
             'confidence': pred['confidence'],
             'actual_up': bool(actual_up),
             'return': float(return_pct),
+            'tier': tier,
         })
     return predictions
+
+
+def calibration_buckets(directional):
+    """Standard 10-pct calibration buckets (40-50, 50-60, ... 90-100)."""
+    buckets = []
+    for lo in range(40, 100, 10):
+        hi = lo + 10
+        in_bucket = [p for p in directional if lo <= p['confidence'] < hi]
+        if not in_bucket:
+            continue
+        hits = sum(
+            1 for p in in_bucket
+            if (p['signal'] == 'BUY' and p['actual_up']) or (p['signal'] == 'SELL' and not p['actual_up'])
+        )
+        buckets.append({
+            'bucket': f'{lo}-{hi}%',
+            'count': len(in_bucket),
+            'predicted': round(sum(p['confidence'] for p in in_bucket) / len(in_bucket), 2),
+            'actual': round(hits / len(in_bucket) * 100, 2),
+        })
+    return buckets
+
+
+def conformal_buckets(directional, alpha=0.30):
+    """Build the conformal residual map. For each (signal, confidence-bucket)
+    we record the q_(1-alpha) of |return_pct|. UI uses this to display a
+    symmetric +/-q% next-bar return interval at that signal+confidence.
+
+    Also emits {SIGNAL}-any aggregates as fallback when a fine bucket is sparse.
+    """
+    buckets = {}
+    for sig in ('BUY', 'SELL'):
+        sig_preds = [p for p in directional if p['signal'] == sig]
+        # Per 10-pct bucket
+        for lo in range(40, 100, 10):
+            hi = lo + 10
+            in_bucket = [p for p in sig_preds if lo <= p['confidence'] < hi]
+            if not in_bucket:
+                continue
+            residuals = [abs(p['return']) for p in in_bucket]
+            q = float(np.quantile(residuals, 1 - alpha)) if residuals else 0
+            buckets[f'{sig}-{lo}-{hi}'] = {
+                'n': len(in_bucket),
+                'q70_pct': round(q, 3),
+                'mean_abs_return_pct': round(float(np.mean(residuals)), 3),
+            }
+        # Signal-only fallback
+        if sig_preds:
+            residuals = [abs(p['return']) for p in sig_preds]
+            q = float(np.quantile(residuals, 1 - alpha))
+            buckets[f'{sig}-any'] = {
+                'n': len(sig_preds),
+                'q70_pct': round(q, 3),
+                'mean_abs_return_pct': round(float(np.mean(residuals)), 3),
+            }
+    return buckets
 
 
 def summarize(predictions):
@@ -277,31 +355,31 @@ def summarize(predictions):
             'avg_confidence': round(sum(p['confidence'] for p in ps) / len(ps), 2),
         }
 
-    # Calibration buckets across BUY+SELL only (NEUTRAL has no direction).
     directional = [p for p in predictions if p['signal'] in ('BUY', 'SELL')]
-    buckets = []
-    for lo in range(40, 100, 10):
-        hi = lo + 10
-        in_bucket = [p for p in directional if lo <= p['confidence'] < hi]
-        if not in_bucket:
-            continue
-        hits = sum(
-            1 for p in in_bucket
-            if (p['signal'] == 'BUY' and p['actual_up']) or (p['signal'] == 'SELL' and not p['actual_up'])
-        )
-        buckets.append({
-            'bucket': f'{lo}-{hi}%',
-            'count': len(in_bucket),
-            'predicted': round(sum(p['confidence'] for p in in_bucket) / len(in_bucket), 2),
-            'actual': round(hits / len(in_bucket) * 100, 2),
-        })
-    out['calibration'] = buckets
+    out['calibration'] = calibration_buckets(directional)
 
-    # PnL: trade only when BUY (long) or SELL (short with same magnitude).
+    # Per-tier calibration. Skip tiers with < 30 directional samples.
+    by_tier = {}
+    for tier in ('mega', 'large', 'mid', 'small', 'penny'):
+        tier_pred = [p for p in directional if p.get('tier') == tier]
+        if len(tier_pred) >= 30:
+            by_tier[tier] = calibration_buckets(tier_pred)
+    if by_tier:
+        out['calibration_by_tier'] = by_tier
+
+    # Conformal intervals.
+    if directional:
+        out['conformal'] = {
+            'alpha': 0.30,
+            'buckets': conformal_buckets(directional, alpha=0.30),
+            'method': 'split-conformal residual quantile of |daily return %|',
+        }
+
+    # PnL.
     rets = []
     for p in directional:
-        if p['signal'] == 'BUY': rets.append(p['return'])
-        elif p['signal'] == 'SELL': rets.append(-p['return'])
+        if p['signal'] == 'BUY': rets.append(p['return'] / 100)
+        elif p['signal'] == 'SELL': rets.append(-p['return'] / 100)
     if rets:
         rets_arr = np.array(rets)
         mean = rets_arr.mean()
@@ -359,6 +437,15 @@ if __name__ == '__main__':
         diff = b['actual'] - b['predicted']
         flag = '  ' if abs(diff) < 5 else ' ⚠'
         print(f"  {b['bucket']:>10}: predicted {b['predicted']:>5.1f}% → actual {b['actual']:>5.1f}% (n={b['count']}){flag}")
+    if overall.get('calibration_by_tier'):
+        print("\nCalibration by liquidity tier:")
+        for tier, buckets in overall['calibration_by_tier'].items():
+            n = sum(b['count'] for b in buckets)
+            print(f"  {tier}: {len(buckets)} buckets, n={n}")
+    if overall.get('conformal'):
+        print("\nConformal intervals (alpha=0.30, 70% coverage):")
+        for key, b in sorted(overall['conformal']['buckets'].items()):
+            print(f"  {key}: ±{b['q70_pct']}% (n={b['n']})")
     if overall['pnl'].get('trades'):
         print(f"\nPnL: {overall['pnl']['total_return']}% return, Sharpe {overall['pnl']['sharpe']}, max DD {overall['pnl']['max_drawdown']}%")
 
