@@ -1,15 +1,17 @@
-// Mia's tool registry. Greatly expanded for Phase 3:
+// Mia's tool registry. Phase 3:
 //   - Read tools: full app state, calibration, accuracy, multi-timeframe,
 //     options, derivs, hot picks, market conditions.
 //   - External tools: news+sentiment, FRED macro, Reddit, SEC filings.
 //   - Control tools: select symbol, switch mode/timeframe, theme,
 //     P&L, refresh hot picks, run analysis.
 //
-// All control tools are routed through ui-bridge.js, which is the only
-// module allowed to touch the live UI. Mia cannot mutate any number.
+// All control tools route through ui-bridge.js. Mia cannot mutate any number.
 //
-// Wire protocol stays the same: a TOOL: name {json} line in the LLM
-// stream, agent.js dispatches and feeds the RESULT back.
+// Wire protocol: a TOOL: name {json} line in the LLM stream, agent.js
+// dispatches and feeds the RESULT back.
+//
+// Phase 3.1: prompt section now includes a worked example so small models
+// emit the line in the exact shape our regex parses.
 
 import { state } from '../ui/state.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from '../data.js';
@@ -27,14 +29,13 @@ import {
 } from './external-tools.js';
 
 const TOOLS = {
-    // ---- App state reads -------------------------------------------------
     get_app_state: {
         desc: 'Read-only snapshot of mode, timeframe, theme, current symbol, and a summary of the latest on-screen signal. No args.',
         run: () => readUiSnapshot(),
         kind: 'read',
     },
     get_current_signal: {
-        desc: 'Full signal card currently displayed for the selected symbol (signal, confidence, breakdown, price targets, top reasons). No args.',
+        desc: 'Full signal card currently displayed for the selected symbol. No args.',
         run: () => {
             const sig = window.__miaLatestSignal;
             if (!sig) return { signal: null, note: 'No symbol selected on the page yet.' };
@@ -68,7 +69,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_calibration: {
-        desc: 'Calibration tables (global, by liquidity tier, by vol tier, recency-weighted). Use to explain how the displayed confidence percentage maps to historical hit-rate. No args.',
+        desc: 'Calibration tables (global, by liquidity tier, by vol tier, recency-weighted). No args.',
         run: () => readCalibrationSnapshot(),
         kind: 'read',
     },
@@ -77,10 +78,8 @@ const TOOLS = {
         run: () => readAccuracyStats(),
         kind: 'read',
     },
-
-    // ---- Re-run analysis on demand ----------------------------------------
     analyze_symbol: {
-        desc: 'Run the full analysis pipeline on a symbol and return the signal. Args: { "symbol": "AAPL", "mode": "stock"|"crypto" (optional, defaults to current) }.',
+        desc: 'Run the full analysis pipeline on a symbol and return the signal. Args: { "symbol": "AAPL", "mode": "stock"|"crypto" (optional) }.',
         run: async ({ symbol, mode }) => {
             if (!symbol) return { error: 'symbol required' };
             const m = mode || state.mode;
@@ -138,46 +137,42 @@ const TOOLS = {
         kind: 'read',
     },
     get_market_conditions: {
-        desc: 'Current Fear & Greed, VIX, and S&P 500 trend (or crypto F&G for crypto mode). Args: { "mode": "stock"|"crypto" }.',
+        desc: 'Fear & Greed, VIX, S&P 500 trend (or crypto F&G for crypto mode). Args: { "mode": "stock"|"crypto" }.',
         run: async ({ mode = 'stock' }) => await getMarketConditionsScore(mode),
         kind: 'read',
     },
-
-    // ---- External / internet reads ----------------------------------------
     get_news_and_sentiment: {
         desc: 'Recent headlines + FinBERT/keyword sentiment for a symbol. Args: { "symbol": "AAPL", "mode": "stock"|"crypto", "companyName": "..." (optional) }.',
         run: ({ symbol, mode = 'stock', companyName = '' }) => fetchNewsAndSentiment({ symbol, mode, companyName }),
         kind: 'read',
     },
     get_macro_series: {
-        desc: 'FRED macroeconomic series (no key). Allowed series: DFF (fed funds), DGS10, DGS2, T10Y2Y, UNRATE, CPIAUCSL, PCEPILFE, M2SL, WALCL, DCOILWTICO, GOLDAMGBD228NLBM. Args: { "series": "DGS10", "lookbackMonths": 6 }.',
+        desc: 'FRED macro series (no key). Allowed: DFF, DGS10, DGS2, T10Y2Y, UNRATE, CPIAUCSL, PCEPILFE, M2SL, WALCL, DCOILWTICO, GOLDAMGBD228NLBM. Args: { "series": "DGS10", "lookbackMonths": 6 }.',
         run: ({ series, lookbackMonths = 6 }) => fetchFredSeries({ series, lookbackMonths }),
         kind: 'read',
     },
     get_reddit_sentiment: {
-        desc: 'Recent Reddit posts mentioning a symbol with quick bull/bear lean. Args: { "symbol": "AAPL", "subreddit": "stocks+wallstreetbets+investing", "limit": 20 }.',
+        desc: 'Recent Reddit posts mentioning a symbol with quick bull/bear lean. Args: { "symbol": "AAPL" }.',
         run: ({ symbol, subreddit, limit }) => fetchRedditSentiment({ symbol, subreddit, limit }),
         kind: 'read',
     },
     get_sec_filings: {
-        desc: 'Recent SEC EDGAR filings for a stock (10-K, 10-Q, 8-K, etc.). Args: { "symbol": "AAPL", "limit": 5 }.',
+        desc: 'Recent SEC EDGAR filings for a stock. Args: { "symbol": "AAPL", "limit": 5 }.',
         run: ({ symbol, limit }) => fetchSecRecentFilings({ symbol, limit }),
         kind: 'read',
     },
     get_options_view: {
-        desc: 'Options chain summary for a stock: ATM IV, IV rank, put/call ratio, skew. Args: { "symbol": "AAPL" }.',
+        desc: 'Options chain summary: ATM IV, IV rank, put/call ratio, skew. Args: { "symbol": "AAPL" }.',
         run: ({ symbol }) => fetchOptionsView({ symbol }),
         kind: 'read',
     },
     get_crypto_derivatives: {
-        desc: 'Funding rate + open interest snapshot for a crypto. Args: { "coinId": "bitcoin" }.',
+        desc: 'Funding rate + open interest for a crypto. Args: { "coinId": "bitcoin" }.',
         run: ({ coinId }) => fetchCryptoDerivativesView({ coinId }),
         kind: 'read',
     },
-
-    // ---- Control tools (navigation only — cannot mutate numbers) ---------
     select_symbol: {
-        desc: 'Load a symbol into the app (same effect as the user typing it and clicking the first match). Args: { "symbol": "AAPL", "mode": "stock"|"crypto" }.',
+        desc: 'Load a symbol into the app. Args: { "symbol": "AAPL", "mode": "stock"|"crypto" }.',
         run: ({ symbol, mode = 'stock' }) => controlSelectSymbol({ symbol, mode }),
         kind: 'control',
     },
@@ -192,7 +187,7 @@ const TOOLS = {
         kind: 'control',
     },
     cycle_theme: {
-        desc: 'Cycle the visual theme (dark → light → aurora → dark). No args.',
+        desc: 'Cycle the visual theme (dark → light → aurora). No args.',
         run: () => controlCycleTheme(),
         kind: 'control',
     },
@@ -230,11 +225,22 @@ export async function runTool(name, args = {}) {
 
 export function toolPromptSection() {
     const lines = ['# TOOLS — call these to get real data and act on the app, never guess'];
-    lines.push('To call a tool, output a line like this (no other text on that line):');
+    lines.push('');
+    lines.push('## STRICT FORMAT (must match exactly):');
+    lines.push('Output a tool call as ONE LINE, with NO markdown wrapping, no bullets, no bold,');
+    lines.push('no quotes around the line. Just:');
     lines.push('');
     lines.push('TOOL: tool_name {"arg": "value"}');
     lines.push('');
-    lines.push('Wait for a RESULT: line, then continue. You can call tools multiple times.');
+    lines.push('Example:');
+    lines.push('TOOL: get_market_conditions {"mode": "stock"}');
+    lines.push('');
+    lines.push('After you write that line, STOP. Wait for a RESULT: line, then continue.');
+    lines.push('Use the EXACT tool name from the list. Common mistakes to avoid:');
+    lines.push('- Do NOT write **TOOL: ...** with bold markers.');
+    lines.push('- Do NOT prefix with -, * or > bullets.');
+    lines.push('- Do NOT abbreviate the tool name ("get" is not a tool).');
+    lines.push('- Do NOT wrap the JSON in code fences.');
     lines.push('');
     lines.push('## Read tools (data — always free to call):');
     for (const t of listTools().filter(x => x.kind === 'read')) lines.push(`- ${t.name}: ${t.desc}`);
