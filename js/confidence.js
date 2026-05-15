@@ -1,15 +1,14 @@
-// Weighted Confidence Engine — blends 4 sources, applies disagreement
-// penalty, sector-relative adjustment, earnings/calendar caps, regime
-// bias, peer confirmation, crypto derivs, then calibrates against
-// backtested empirical hit rate.
-//
-// computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts)
-//   opts.bulkScan: skip heavier per-symbol fetches (peers/derivs)
+// Weighted Confidence Engine. Tier-1 magnitude/positioning additions:
+//   - Multi-horizon expected move (1d/3d/5d/20d) attached to result.multiHorizon
+//   - Options IV/skew positioning (stocks, single-symbol only) ~~ +/-4pt
+//   - Bollinger squeeze detection ~~ +/-3pt
+//   - Cross-timeframe agreement ~~ +/-5pt
+//   - Recency-weighted calibration takes priority over tier curves
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
-import { generateMultiTimeframePrediction } from './analysis.js';
+import { generateMultiTimeframePrediction, calculateATR } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
 import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
@@ -21,6 +20,10 @@ import { fetchCryptoDerivs, derivsAdjustment } from './crypto-derivs.js';
 import { getPeerAgreement, peerAdjustment } from './peer-confirmation.js';
 import { attributionShifts } from './source-attribution.js';
 import { loadPatterns, encodePattern, patternAdjustment } from './pattern-lookup.js';
+import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
+import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
+import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
+import { predictMultiHorizon } from './multi-horizon.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -139,10 +142,48 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
+    // Tier-1: Options IV/skew (stocks, single-symbol only)
+    let options = null;
+    let optionsResult = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
+        try {
+            options = await fetchOptionsPositioning(symbolOrCoinId);
+            if (options) {
+                optionsResult = optionsAdjustment(finalSignal, options);
+                rawConfidence = Math.max(38, Math.min(88, rawConfidence + (optionsResult.adjust || 0)));
+            }
+        } catch (_) { /* */ }
+    }
+
+    // Tier-1: Bollinger squeeze (any mode, lightweight — just uses existing closes)
+    let squeeze = null;
+    let squeezeResult = null;
+    try {
+        const closes = (multiData?.daily?.candles || []).map(c => c.close);
+        squeeze = detectSqueeze(closes);
+        if (squeeze) {
+            squeezeResult = squeezeAdjustment(finalSignal, squeeze);
+            if (squeezeResult.adjust) {
+                rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust));
+            }
+        }
+    } catch (_) { /* */ }
+
+    // Tier-1: Cross-timeframe agreement
+    let tfAgreement = null;
+    let tfResult = null;
+    if (technicalPred.timeframes) {
+        tfAgreement = timeframeAgreement(finalSignal, technicalPred.timeframes);
+        if (tfAgreement) {
+            tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement);
+            if (tfResult.adjust) {
+                rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust));
+            }
+        }
+    }
+
     const tier = computeTier(multiData);
 
-    // Pattern lookup. Encode the current setup; if backtest has flagged
-    // it as historically weak/strong, apply cap or boost.
     let patternResult = null;
     if (technicalPred.indicators) {
         const patternKey = encodePattern({
@@ -164,6 +205,34 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const calibrationApplied = getCalibrationStatus() === 'loaded';
 
     const ci = getInterval(finalSignal, calibratedConfidence);
+
+    // Tier-1: Multi-horizon expected move prediction.
+    let multiHorizon = null;
+    try {
+        const closes = (multiData?.daily?.candles || []).map(c => c.close);
+        const candles = multiData?.daily?.candles || [];
+        const atrV = calculateATR ? calculateATR(candles) : null;
+        const currentPrice = multiData?.daily?.currentPrice || closes[closes.length - 1];
+        if (atrV && currentPrice) {
+            multiHorizon = predictMultiHorizon({
+                signal: finalSignal,
+                confidence: calibratedConfidence,
+                atr: atrV,
+                currentPrice,
+                volTier,
+                conformal1d: ci,
+            });
+            // Apply squeeze expansion multiplier if relevant.
+            if (multiHorizon && squeeze?.inSqueeze && squeeze.expectedExpansionMult > 1) {
+                multiHorizon.horizons = multiHorizon.horizons.map(h => ({
+                    ...h,
+                    expectedPct: +(h.expectedPct * squeeze.expectedExpansionMult).toFixed(2),
+                    targetPrice: +(currentPrice * (1 + (h.expectedPct * squeeze.expectedExpansionMult) / 100)).toFixed(2),
+                }));
+                multiHorizon.squeezeAmplified = true;
+            }
+        }
+    } catch (_) { /* */ }
 
     let widthBase = 4;
     widthBase += Math.min(8, dispersion / 6);
@@ -187,6 +256,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`);
     }
     if (peerResult?.reason) allReasons.push(`[Peers] ${peerResult.reason}`);
+    if (tfResult?.reason) allReasons.push(`[Timeframes] ${tfResult.reason}`);
+    if (squeezeResult?.reason) allReasons.push(`[Squeeze] ${squeezeResult.reason}`);
+    if (optionsResult?.reasons?.length) {
+        optionsResult.reasons.forEach(r => allReasons.push(`[Options] ${r}`));
+    }
     if (earnings?.capReason) allReasons.push(`[Earnings] ${earnings.capReason}`);
     if (calendar?.reason) allReasons.push(`[Calendar] ${calendar.reason}`);
     if (patternResult?.reason) allReasons.push(`[Pattern] ${patternResult.reason}`);
@@ -213,7 +287,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         derivs: derivs ? { ...derivs, ...derivsResult } : null,
         peers: peerResult || null,
         pattern: patternResult || null,
-        reasons: allReasons.slice(0, 14),
+        options: options ? { ...options, ...optionsResult } : null,
+        squeeze: squeeze || null,
+        tfAgreement: tfAgreement || null,
+        multiHorizon: multiHorizon || null,
+        reasons: allReasons.slice(0, 16),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
@@ -225,7 +303,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: ai.available ? '4-source + macro/sector/earnings/calendar/peers/derivs/pattern + tier+vol-calibrated' : '3-source + macro/sector/earnings/calendar/peers/derivs/pattern + tier+vol-calibrated',
+        method: ai.available ? '4-source + macro/sector/earnings/calendar/peers/derivs/options/squeeze/tf/pattern + recency+tier+vol calibrated' : '3-source + macro/sector/earnings/calendar/peers/derivs/options/squeeze/tf/pattern + recency+tier+vol calibrated',
         trendRegime,
     };
 }
@@ -260,9 +338,6 @@ function computePriceChange1d(multiData) {
     return ((last.close - prev.close) / prev.close) * 100;
 }
 
-// Combined regime + attribution weighting. Each component's shift is
-// individually bounded; the total per-source shift is capped at +/-0.10
-// of the base weight.
 function applyWeightShifts(base, macroRegime, trendRegime, attribution) {
     const out = { ...base };
     let techShift = 0, sentShift = 0, mktShift = 0, aiShift = 0;
