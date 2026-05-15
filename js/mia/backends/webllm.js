@@ -10,7 +10,12 @@
 
 let engine = null;
 let activeModelId = null;
-let loading = false;
+// Stored promise for the in-flight loadModel call. When a second caller
+// arrives mid-load (e.g. prewarm started it, user clicks Mia), they await
+// the same promise instead of throwing. Prior boolean-flag version threw
+// "Already loading" which silently broke Mia replies.
+let loadingPromise = null;
+let loadingTier = null;
 
 const MODELS = {
     'default': { id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC', sizeGB: 4.3, ramGB: 8 },
@@ -27,8 +32,6 @@ export function isMobile() {
 }
 
 export async function estimateRAM() {
-    // navigator.deviceMemory is a coarse hint, capped at 8 GB by spec.
-    // Use it as a lower bound only.
     const hint = navigator.deviceMemory;
     return hint ? `${hint}+ GB` : 'unknown';
 }
@@ -47,33 +50,50 @@ export async function loadModel(tier, onProgress) {
     const desired = MODELS[tier]?.id;
     if (!desired) throw new Error(`Unknown tier: ${tier}`);
     if (engine && activeModelId === desired) return;
-    if (loading) throw new Error('Already loading. Please wait.');
-    loading = true;
-    try {
-        // Lazy-import the library so users who never enable WebLLM never
-        // pay the bundle cost.
-        const { CreateMLCEngine } = await import('https://esm.run/@mlc-ai/web-llm');
-        if (engine) {
-            try { await engine.unload(); } catch (_) {}
-            engine = null;
-        }
-        engine = await CreateMLCEngine(desired, {
-            initProgressCallback: (p) => {
-                if (onProgress) onProgress({
-                    progress: p.progress,
-                    text: p.text,
-                });
-            },
-        });
-        activeModelId = desired;
-    } finally {
-        loading = false;
+    // If something is already loading the SAME tier, await its promise.
+    // We register the new onProgress callback so the second caller still
+    // sees progress updates even though the load itself isn't restarted.
+    if (loadingPromise && loadingTier === desired) {
+        if (onProgress) registerProgress(onProgress);
+        return loadingPromise;
     }
-    // Ask the browser to keep our IndexedDB cache around aggressively.
-    try {
-        if (navigator.storage?.persist) await navigator.storage.persist();
-    } catch (_) { /* */ }
+    // If a different tier is loading, wait for it to finish then load ours.
+    if (loadingPromise && loadingTier !== desired) {
+        try { await loadingPromise; } catch (_) {}
+    }
+    loadingTier = desired;
+    loadingPromise = (async () => {
+        try {
+            const { CreateMLCEngine } = await import('https://esm.run/@mlc-ai/web-llm');
+            if (engine) {
+                try { await engine.unload(); } catch (_) {}
+                engine = null;
+            }
+            engine = await CreateMLCEngine(desired, {
+                initProgressCallback: (p) => {
+                    fanoutProgress({ progress: p.progress, text: p.text });
+                },
+            });
+            activeModelId = desired;
+        } finally {
+            // Keep loadingPromise resolved so anyone awaiting it gets done;
+            // null it out so subsequent loads can fire fresh.
+            loadingPromise = null;
+            loadingTier = null;
+            progressListeners.length = 0;
+        }
+    })();
+    if (onProgress) registerProgress(onProgress);
+    // Persist the IndexedDB cache aggressively after the load completes.
+    loadingPromise.then(() => {
+        try { navigator.storage?.persist?.(); } catch (_) {}
+    }).catch(() => {});
+    return loadingPromise;
 }
+
+const progressListeners = [];
+function registerProgress(fn) { progressListeners.push(fn); }
+function fanoutProgress(p) { for (const fn of progressListeners) { try { fn(p); } catch (_) {} } }
 
 export async function* stream({ system, messages, signal }) {
     if (!engine) throw new Error('WebLLM model not loaded yet.');
@@ -102,7 +122,6 @@ export function getActiveTier() {
 export function getModelInfo(tier) { return MODELS[tier]; }
 
 export async function clearCache() {
-    // Clear IndexedDB databases used by web-llm.
     try {
         if (engine) { try { await engine.unload(); } catch (_) {} engine = null; activeModelId = null; }
         const dbs = await (indexedDB.databases?.() || Promise.resolve([]));
