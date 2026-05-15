@@ -69,6 +69,6 @@ export function updatePlaceholder() {
     const input = document.getElementById('search-input');
     if (!input) return;
     input.placeholder = state.mode === 'stock'
-        ? 'Search stocks by name or symbol (e.g., AAPL, Tesla)...'
+        ? 'Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T...'
         : 'Search crypto by name (e.g., Bitcoin, Solana)...';
 }
