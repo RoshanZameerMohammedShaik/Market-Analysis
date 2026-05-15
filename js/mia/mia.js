@@ -1,16 +1,16 @@
-// Mia v2 with tool-use loop, anti-hallucination guard, and defensive
-// null-safety on the streaming bubble.
+// Mia v3 — API-only (Groq primary, Cloudflare fallback). WebLLM removed.
+// Tool-use loop, anti-hallucination guard, defensive null-safety on the
+// streaming bubble.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
-import { loadSettings, saveSettings, isConfigured, clearSettings } from './settings.js';
+import { loadSettings, saveSettings, isConfigured, clearSettings, hasFallbackKey } from './settings.js';
 import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
-import { webllm as webllmBackend } from './llm-client.js';
+import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
 import { flagUnverifiedNumbers } from './guard.js';
-import { startPrewarm, getReadyState, onReadyChange } from './prewarm.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -27,8 +27,6 @@ export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSi
 
 export function initMia() {
     document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
-    startPrewarm();
-    // Reflect prewarm state on the launcher status dot.
     initLauncherReadyDot();
 }
 
@@ -38,24 +36,12 @@ function initLauncherReadyDot() {
     if (!launcher.querySelector('.mia-launcher-ready-dot')) {
         const dot = document.createElement('span');
         dot.className = 'mia-launcher-ready-dot';
-        dot.dataset.state = 'idle';
+        dot.dataset.state = isConfigured() ? 'ready' : 'idle';
         launcher.appendChild(dot);
     }
-    paintReadyDot(getReadyState());
-    onReadyChange(s => paintReadyDot(s));
-}
-
-function paintReadyDot(s) {
-    const dot = document.querySelector('.mia-launcher-ready-dot');
-    if (!dot) return;
-    dot.dataset.state = s?.state || 'idle';
-    const launcher = document.getElementById('mia-launcher');
-    if (launcher) {
-        if (s?.state === 'warming') launcher.title = `Mia is warming up — ${s.percent}%`;
-        else if (s?.state === 'ready') launcher.title = 'Ask Mia — your Market Intelligence Analyst (ready)';
-        else if (s?.state === 'unavailable') launcher.title = 'Ask Mia — local model unavailable, switch to API key in settings';
-        else launcher.title = 'Ask Mia — your Market Intelligence Analyst';
-    }
+    launcher.title = isConfigured()
+        ? 'Ask Mia — your Market Intelligence Analyst (ready)'
+        : 'Ask Mia — set up an API key to begin';
 }
 
 function togglePanel() {
@@ -225,8 +211,8 @@ function setActionIcon(svg) {
 function renderActionState() {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
-    const state = btn.dataset.state || 'send';
-    if (state === 'streaming') {
+    const stateName = btn.dataset.state || 'send';
+    if (stateName === 'streaming') {
         setActionIcon(ICON_STOP);
         btn.title = 'Stop (long-press to clear chat)';
         btn.setAttribute('aria-label', 'Stop generating');
@@ -266,13 +252,13 @@ function renderThread(history) {
     if (history.length === 0) {
         thread.innerHTML = `
             <div class="mia-greet">
-                <p>Hi, I’m <strong>Mia</strong>. I read the same signal data you see on the page, and I can run analyses on demand. My numbers always match.</p>
+                <p>Hi, I’m <strong>Mia</strong>. I read the same signal data you see on the page, can call the engine and external sources, and I can drive the app on your behalf — my numbers always match what's on screen.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
-                    <button class="mia-suggest">Analyze NVDA for tomorrow.</button>
-                    <button class="mia-suggest">What does the current signal mean?</button>
+                    <button class="mia-suggest">Show me NVDA and explain the signal.</button>
                     <button class="mia-suggest">Compare AAPL, MSFT, and GOOGL.</button>
-                    <button class="mia-suggest">What's the market regime right now?</button>
+                    <button class="mia-suggest">Any breaking news on the symbol I'm looking at?</button>
+                    <button class="mia-suggest">What’s the 10y yield doing this month?</button>
                 </div>
             </div>`;
         thread.querySelectorAll('.mia-suggest').forEach(btn => {
@@ -318,25 +304,17 @@ async function doSend() {
         for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
             if (ev.type === 'tool') {
                 toolResults.push(ev);
-                showToolBadge(bubbleId, ev.name);
+                showToolBadge(bubbleId, ev.name, ev.kind);
                 continue;
             }
             if (ev.type !== 'delta') continue;
             const delta = ev.text;
             if (!delta) continue;
             const el = document.getElementById(bubbleId);
-            if (!el) {
-                appendStreamingBubble(bubbleId);
-            }
+            if (!el) appendStreamingBubble(bubbleId);
             const el2 = document.getElementById(bubbleId);
-            if (!el2) {
-                acc += delta;
-                continue;
-            }
-            if (!receivedAny) {
-                el2.innerHTML = '';
-                receivedAny = true;
-            }
+            if (!el2) { acc += delta; continue; }
+            if (!receivedAny) { el2.innerHTML = ''; receivedAny = true; }
             acc += delta;
             el2.innerHTML = renderMarkdown(stripAgentNoise(acc));
             const thread = document.getElementById('mia-thread');
@@ -387,15 +365,14 @@ function appendStreamingBubble(bubbleId) {
     thread.scrollTop = thread.scrollHeight;
 }
 
-function showToolBadge(bubbleId, name) {
+function showToolBadge(bubbleId, name, kind = 'read') {
     const el = document.getElementById(bubbleId);
     if (!el) return;
-    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">⚡ used <code>${name}</code></div>`);
+    const icon = kind === 'control' ? '🎹' : '⚡';
+    const verb = kind === 'control' ? 'controlled' : 'used';
+    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${verb} <code>${name}</code></div>`);
 }
 
-// Accepts either a raw string (legacy callers) or an object
-// {phase, percent, friendly} from llm-client.js. When phase indicates a
-// model load we render a progress bar; otherwise we just update the text.
 function updateProgress(msg) {
     const text = document.getElementById('mia-progress');
     const bar = document.getElementById('mia-progress-bar');
@@ -426,6 +403,8 @@ function setSendState(stateName) {
 function renderSettings() {
     const panel = document.getElementById('mia-panel');
     const s = loadSettings();
+    const routing = getRoutingSummary();
+    const fbHint = routing.fallback ? `auto-fallback to ${routing.fallback}` : 'no fallback configured';
     panel.innerHTML = `
         <div class="mia-head">
             <div class="mia-head-title">
@@ -438,11 +417,14 @@ function renderSettings() {
             </div>
         </div>
         <div class="mia-settings">
-            <div class="mia-setting-row"><span>Backend</span><span class="mia-setting-val">${s.backend || '(unset)'}</span></div>
+            <div class="mia-setting-row"><span>Primary backend</span><span class="mia-setting-val">${s.backend || '(unset)'}</span></div>
+            <div class="mia-setting-row"><span>Routing</span><span class="mia-setting-val">${fbHint}</span></div>
             <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
+            <div class="mia-setting-row"><span>Auto-fallback</span><span class="mia-setting-val">${s.fallbackEnabled ? 'on' : 'off'}</span></div>
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
+            <button class="mia-save-btn" id="mia-toggle-fallback">${s.fallbackEnabled ? 'Disable' : 'Enable'} auto-fallback</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
-            <button class="mia-clear-btn" id="mia-clear-models">Clear downloaded WebLLM model</button>
+            <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
         </div>
     `;
@@ -452,12 +434,16 @@ function renderSettings() {
         clearSettings();
         renderRoot();
     });
+    document.getElementById('mia-toggle-fallback').addEventListener('click', () => {
+        saveSettings({ fallbackEnabled: !s.fallbackEnabled });
+        renderSettings();
+    });
     document.getElementById('mia-forget-keys').addEventListener('click', () => {
         saveSettings({ groqKey: '', cfKey: '', cfAccountId: '' });
         renderSettings();
     });
     document.getElementById('mia-clear-models').addEventListener('click', async () => {
-        try { await webllmBackend.clearCache(); alert('WebLLM cache cleared.'); } catch (e) { alert('Clear failed: ' + e.message); }
+        try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); }
     });
 }
 
