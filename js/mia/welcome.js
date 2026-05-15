@@ -7,10 +7,11 @@ import { isWebGPUSupported, isMobile, isAvailableForTier } from './backends/webl
 import { ping as pingGroq } from './backends/api-groq.js';
 import { ping as pingCf } from './backends/api-cf.js';
 
-// Inline SVG logo for Mia — ascending chart line + pulse dot.
-// Used in the welcome / settings / chat headers via .mia-avatar.
+// Inline SVG logo for Mia — ECG sweep tracing an M shape.
+// Two-layer render so the trace is always visible and a brighter blip
+// sweeps along it (animated via stroke-dashoffset in css/mia.css).
 const MIA_LOGO_SVG = `
-<svg class="mia-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg class="mia-logo mia-ecg-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
         <linearGradient id="mia-logo-bg" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stop-color="#7c3aed"/>
@@ -19,9 +20,9 @@ const MIA_LOGO_SVG = `
         </linearGradient>
     </defs>
     <circle cx="16" cy="16" r="15" fill="url(#mia-logo-bg)"/>
-    <path d="M6 22 L11 16 L15 19 L21 11 L26 14" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
-    <circle cx="26" cy="14" r="2.2" fill="#ffffff"/>
-    <circle cx="26" cy="14" r="2.2" fill="#ffffff" class="mia-logo-spark"/>
+    <!-- Same path drawn twice. Trace stays dim; blip sweeps over it. -->
+    <path class="mia-ecg-trace" d="M3 18 L6 18 Q8 18 9 16 T11 18 L14 8 L17 22 L20 8 L23 18 Q25 18 26 16 T28 18 L29 18" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+    <path class="mia-ecg-blip" d="M3 18 L6 18 Q8 18 9 16 T11 18 L14 8 L17 22 L20 8 L23 18 Q25 18 26 16 T28 18 L29 18" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>`;
 
 export { MIA_LOGO_SVG };
