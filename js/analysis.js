@@ -1,16 +1,15 @@
 // Technical Analysis & Prediction Engine
 // Indicators: RSI, MACD, Bollinger Bands, MA Crossovers, Volume, ATR, ADX, MFI
-//
-// ADX measures trend STRENGTH separately from direction. A bullish
-// MA crossover with ADX < 20 is happening in a chop — likely false.
-// MFI is RSI weighted by money flow (price * volume). Captures whether
-// price moves had institutional participation behind them.
+// + Divergence detection (bullish/bearish across RSI/MACD/OBV)
+// + Failed-breakout / failed-breakdown reversal pattern
+// + Volume-confirmed weighting (real-trader truth: setups on thin volume
+//   are statistically much weaker; setups on confirming volume much stronger)
 
-// ─── INDICATOR CALCULATIONS ────────────────────────────────────────────────────
+import { detectDivergences } from './divergence.js';
+import { detectFailedBreak } from './failed-break.js';
 
 export function calculateRSI(closes, period = 14) {
     if (closes.length < period + 1) return null;
-
     let gains = 0, losses = 0;
     for (let i = 1; i <= period; i++) {
         const diff = closes[i] - closes[i - 1];
@@ -88,7 +87,6 @@ export function calculateEMA(values, period) {
     }
     return ema;
 }
-
 function calculateEMAFromValues(values, period) {
     if (values.length < period) return null;
     const multiplier = 2 / (period + 1);
@@ -123,29 +121,24 @@ export function detectVolumeSpike(volumes, threshold = 1.5) {
     return { spike: ratio > threshold, ratio };
 }
 
-// ─── ADX: trend strength filter ────────────────────────────────────────────────
 export function calculateADX(candles, period = 14) {
     if (candles.length < period * 2 + 1) return null;
     const len = candles.length;
     const tr = new Array(len).fill(0);
     const plusDM = new Array(len).fill(0);
     const minusDM = new Array(len).fill(0);
-
     for (let i = 1; i < len; i++) {
         const high = candles[i].high;
         const low = candles[i].low;
         const prevHigh = candles[i - 1].high;
         const prevLow = candles[i - 1].low;
         const prevClose = candles[i - 1].close;
-
         tr[i] = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
         const upMove = high - prevHigh;
         const downMove = prevLow - low;
         plusDM[i] = (upMove > downMove && upMove > 0) ? upMove : 0;
         minusDM[i] = (downMove > upMove && downMove > 0) ? downMove : 0;
     }
-
-    // Wilder's smoothing
     let smTR = 0, smPlusDM = 0, smMinusDM = 0;
     for (let i = 1; i <= period; i++) {
         smTR += tr[i];
@@ -171,7 +164,6 @@ export function calculateADX(candles, period = 14) {
     return adx;
 }
 
-// ─── MFI: volume-weighted momentum ───────────────────────────────────────────────
 export function calculateMFI(candles, period = 14) {
     if (candles.length < period + 1) return null;
     const len = candles.length;
@@ -196,15 +188,12 @@ export function calculateMACrossover(closes, shortPeriod = 9, longPeriod = 21) {
     const prevLong = calculateSMA(closes.slice(0, -1), longPeriod);
     if (!prevShort || !prevLong) return null;
     return {
-        shortMA,
-        longMA,
+        shortMA, longMA,
         bullishCross: prevShort <= prevLong && shortMA > longMA,
         bearishCross: prevShort >= prevLong && shortMA < longMA,
         bullish: shortMA > longMA,
     };
 }
-
-// ─── PREDICTION ENGINE ───────────────────────────────────────────────────────
 
 export function generatePrediction(candles, timeframe = 'today') {
     if (!candles || candles.length < 30) {
@@ -223,11 +212,18 @@ export function generatePrediction(candles, timeframe = 'today') {
     const adx = calculateADX(candles);
     const mfi = volumes.length >= 15 ? calculateMFI(candles) : null;
 
-    // Trend regime: > 25 = strong trend, < 20 = chop. Used to weight
-    // direction signals (trend) vs mean-reversion signals (chop).
+    // NEW: divergences and failed-break detection.
+    const divs = detectDivergences(candles);
+    const failedBreak = detectFailedBreak(candles);
+
     const trendRegime = adx === null ? 'unknown' : adx > 25 ? 'trending' : adx < 20 ? 'ranging' : 'transitional';
     const trendWeightBonus = trendRegime === 'trending' ? 1.3 : 1.0;
     const meanReversionBonus = trendRegime === 'ranging' ? 1.3 : 1.0;
+
+    // Volume-confirmation factor: applied to MACD/MA-cross/RSI-extreme weights.
+    // Real-trader truth: a directional setup without volume backing is much weaker.
+    const volRatio = volumeData?.ratio || 1;
+    const volumeConfirmedFactor = volRatio > 1.4 ? 1.30 : volRatio < 0.7 ? 0.75 : 1.0;
 
     let bullScore = 0;
     let bearScore = 0;
@@ -235,30 +231,20 @@ export function generatePrediction(candles, timeframe = 'today') {
     const reasons = [];
 
     if (rsi !== null) {
-        const w = 2 * meanReversionBonus;
+        const w = 2 * meanReversionBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (rsi < 30) {
-            bullScore += w;
-            reasons.push(`RSI oversold at ${rsi.toFixed(1)} — reversal likely`);
-        } else if (rsi < 40) {
-            bullScore += w * 0.5;
-            reasons.push(`RSI approaching oversold (${rsi.toFixed(1)})`);
-        } else if (rsi > 70) {
-            bearScore += w;
-            reasons.push(`RSI overbought at ${rsi.toFixed(1)} — pullback likely`);
-        } else if (rsi > 60) {
-            bearScore += w * 0.5;
-            reasons.push(`RSI elevated (${rsi.toFixed(1)})`);
-        } else {
-            reasons.push(`RSI neutral at ${rsi.toFixed(1)}`);
-        }
+        if (rsi < 30) { bullScore += w; reasons.push(`RSI oversold at ${rsi.toFixed(1)} — reversal likely`); }
+        else if (rsi < 40) { bullScore += w * 0.5; reasons.push(`RSI approaching oversold (${rsi.toFixed(1)})`); }
+        else if (rsi > 70) { bearScore += w; reasons.push(`RSI overbought at ${rsi.toFixed(1)} — pullback likely`); }
+        else if (rsi > 60) { bearScore += w * 0.5; reasons.push(`RSI elevated (${rsi.toFixed(1)})`); }
+        else { reasons.push(`RSI neutral at ${rsi.toFixed(1)}`); }
     }
 
     if (macd) {
-        const w = 2.5 * trendWeightBonus;
+        const w = 2.5 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (macd.crossover) { bullScore += w; reasons.push('MACD bullish crossover — strong buy signal'); }
-        else if (macd.crossunder) { bearScore += w; reasons.push('MACD bearish crossunder — strong sell signal'); }
+        if (macd.crossover) { bullScore += w; reasons.push(`MACD bullish crossover — strong buy signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : volumeConfirmedFactor < 1 ? ' (thin volume — caution)' : ''}`); }
+        else if (macd.crossunder) { bearScore += w; reasons.push(`MACD bearish crossunder — strong sell signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
         else if (macd.histogram > 0 && macd.macd > 0) { bullScore += w * 0.6; reasons.push('MACD positive momentum'); }
         else if (macd.histogram < 0 && macd.macd < 0) { bearScore += w * 0.6; reasons.push('MACD negative momentum'); }
         else if (macd.histogram > 0) { bullScore += w * 0.2; reasons.push('MACD histogram turning positive'); }
@@ -275,10 +261,10 @@ export function generatePrediction(candles, timeframe = 'today') {
     }
 
     if (maCross) {
-        const w = 2 * trendWeightBonus;
+        const w = 2 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (maCross.bullishCross) { bullScore += w; reasons.push('Golden cross — 9 MA crossed above 21 MA'); }
-        else if (maCross.bearishCross) { bearScore += w; reasons.push('Death cross — 9 MA crossed below 21 MA'); }
+        if (maCross.bullishCross) { bullScore += w; reasons.push(`Golden cross — 9 MA crossed above 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
+        else if (maCross.bearishCross) { bearScore += w; reasons.push(`Death cross — 9 MA crossed below 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
         else if (maCross.bullish) { bullScore += w * 0.5; reasons.push('Short MA above long MA — bullish trend'); }
         else { bearScore += w * 0.5; reasons.push('Short MA below long MA — bearish trend'); }
     }
@@ -292,17 +278,11 @@ export function generatePrediction(candles, timeframe = 'today') {
         }
     }
 
-    // ADX itself contributes a weight only when the trend is strong
-    // enough to be informative.
     if (adx !== null && adx > 25) {
         totalWeight += 1.5;
-        // Direction is taken from the dominant maCross / macd vote so far
-        // — ADX just ratifies whichever side was already winning.
         if (bullScore > bearScore) { bullScore += 1.5; reasons.push(`ADX ${adx.toFixed(1)} — strong trend in motion`); }
         else if (bearScore > bullScore) { bearScore += 1.5; reasons.push(`ADX ${adx.toFixed(1)} — strong trend in motion`); }
     } else if (adx !== null && adx < 20) {
-        // Active heads-up: low ADX = ranging market = direction signals
-        // are less reliable. We don't penalize, just inform.
         reasons.push(`ADX ${adx.toFixed(1)} — ranging market, breakouts often fail`);
     }
 
@@ -312,6 +292,29 @@ export function generatePrediction(candles, timeframe = 'today') {
         else if (mfi < 30) { bullScore += 0.75; reasons.push(`MFI ${mfi.toFixed(1)} — approaching oversold money flow`); }
         else if (mfi > 80) { bearScore += 1.5; reasons.push(`MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`); }
         else if (mfi > 70) { bearScore += 0.75; reasons.push(`MFI ${mfi.toFixed(1)} — elevated money flow`); }
+    }
+
+    // NEW: divergence vector.
+    if (divs.bullish) {
+        const w = 2 * divs.bullish.strength;
+        totalWeight += w;
+        bullScore += w;
+        reasons.push(divs.bullish.reason);
+    }
+    if (divs.bearish) {
+        const w = 2 * divs.bearish.strength;
+        totalWeight += w;
+        bearScore += w;
+        reasons.push(divs.bearish.reason);
+    }
+
+    // NEW: failed-break vector.
+    if (failedBreak) {
+        const w = 2.2 * failedBreak.strength;
+        totalWeight += w;
+        if (failedBreak.direction === 'bullish') bullScore += w;
+        else bearScore += w;
+        reasons.push(failedBreak.reason);
     }
 
     totalWeight += 1;
@@ -337,13 +340,11 @@ export function generatePrediction(candles, timeframe = 'today') {
     return {
         signal,
         confidence: finalConfidence,
-        reasons: reasons.filter(r => !r.includes('neutral')).slice(0, 6),
-        indicators: { rsi, macd, bb, maCross, volumeData, atr, adx, mfi, momentum, trendRegime },
+        reasons: reasons.filter(r => !r.includes('neutral')).slice(0, 7),
+        indicators: { rsi, macd, bb, maCross, volumeData, atr, adx, mfi, momentum, trendRegime, divergences: divs, failedBreak, volumeConfirmedFactor },
         scores: { bull: bullScore, bear: bearScore, net: netScore, normalized: normalizedScore },
     };
 }
-
-// ─── MULTI-TIMEFRAME CONFLUENCE ───────────────────────────────────────────────
 
 export function generateMultiTimeframePrediction(multiData, timeframe = 'today') {
     const dailyPred = generatePrediction(multiData.daily.candles, timeframe);
@@ -394,14 +395,12 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
     return {
         signal: finalSignal,
         confidence: baseConfidence,
-        reasons: allReasons.slice(0, 6),
+        reasons: allReasons.slice(0, 7),
         breakdown: { daily: dailyPred, weekly: weeklyPred, fourHour: fourHourPred },
         meta: { confluenceBonus, conflictPenalty, allAgree, trendRegime: dailyPred.indicators?.trendRegime },
         priceTargets,
     };
 }
-
-// ─── PRICE TARGETS ────────────────────────────────────────────────────────────────
 
 export function calculatePriceTargets(candles, signal, confidence, timeframe = 'today') {
     if (!candles || candles.length < 20) return null;
