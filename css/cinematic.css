@@ -18,18 +18,30 @@ body::after {
     animation: mesh-drift 22s ease-in-out infinite alternate;
 }
 [data-theme="light"] body::after { display: none; }
+[data-theme="terminal"] body::after { background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.06), transparent 50%); }
 @keyframes mesh-drift {
     from { transform: translate3d(0,0,0); opacity: 0.85; }
     to   { transform: translate3d(-20px, 18px, 0); opacity: 1; }
 }
 
-/* Header brand mark draws/glows on first load */
-.app-title { animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+/* Header brand mark draws/glows on first load + ambient gradient drift */
+.app-title { animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both, brand-shimmer 8s ease-in-out infinite; background-size: 200% 100% !important; }
 @keyframes brand-rise {
     from { opacity: 0; transform: translateY(-6px); letter-spacing: -0.04em; }
     to   { opacity: 1; transform: translateY(0); letter-spacing: -0.02em; }
 }
-.theme-toggle { animation: brand-rise 760ms 60ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes brand-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+.theme-toggle { animation: brand-rise 760ms 60ms cubic-bezier(0.22, 1, 0.36, 1) both, header-btn-breath 4.5s ease-in-out infinite 1.2s; }
+.header-btn { animation: header-btn-breath 4.5s ease-in-out infinite; }
+.header-btn:nth-child(2) { animation-delay: 0.5s; }
+.header-btn:nth-child(3) { animation-delay: 1s; }
+@keyframes header-btn-breath {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
+    50%      { box-shadow: 0 0 0 4px rgba(94, 177, 255, 0.12); }
+}
 
 /* Glossary rail — sections cascade-fade in */
 .glos-section { animation: glos-fade 480ms ease-out both; }
@@ -47,27 +59,31 @@ body::after {
 .glos-item summary:hover { padding-left: 4px; }
 .glos-item summary:hover .glos-term { color: var(--accent); }
 
-/* Did-you-know chip — floats in bottom-left every 30s */
+/* Did-you-know chip — floats in bottom-left every 45s */
 .dyk-chip {
     position: fixed; left: 22px; bottom: 22px; z-index: 450;
-    max-width: 320px;
-    padding: 12px 14px;
+    max-width: 300px;
+    padding: 11px 13px;
     background: var(--bg-glass);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     backdrop-filter: blur(14px);
     box-shadow: var(--shadow);
     color: var(--text-secondary);
-    font-size: 0.78rem; line-height: 1.5;
+    font-size: 0.76rem; line-height: 1.45;
     transform: translateX(-380px); opacity: 0;
     transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s;
+    cursor: pointer;
 }
 .dyk-chip.show { transform: translateX(0); opacity: 1; }
-.dyk-chip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.66rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; }
-.dyk-chip-close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.92rem; }
+.dyk-chip-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.64rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; }
+.dyk-chip-close { margin-left: auto; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.92rem; padding: 0 4px; }
 .dyk-chip-close:hover { color: var(--text-primary); }
 @media (max-width: 768px) {
-    .dyk-chip { left: 12px; right: 12px; bottom: 78px; max-width: none; }
+    .dyk-chip { left: 12px; right: 12px; bottom: 78px; max-width: none; padding: 9px 11px; font-size: 0.72rem; }
+}
+@media (max-width: 480px) {
+    .dyk-chip { display: none !important; }
 }
 
 /* Theme transition — 200ms crossfade on all themed properties */
@@ -155,3 +171,71 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 /* Number flash when tweening prices on hot pick refresh */
 .num-flash { animation: num-flash 400ms ease; }
 @keyframes num-flash { 0% { color: var(--accent); } 100% { color: inherit; } }
+
+/* ===== LIVE AMBIENT ANIMATIONS ===== */
+
+/* Hot Picks fire emoji — flicker with hue + scale wobble.
+   We wrap the leading 🔥 in a span via CSS-only ::first-letter trick.
+   The .section-title is targeted; effect applies to its first inline
+   character which is the emoji. */
+.hotpicks-section .section-title { display: inline-flex; align-items: center; gap: 8px; }
+.hotpicks-section .section-title::first-letter {
+    display: inline-block;
+    font-size: 1.35em;
+    animation: fire-flicker 1.6s ease-in-out infinite;
+    transform-origin: center bottom;
+    filter: drop-shadow(0 0 6px rgba(248, 81, 73, 0.4));
+}
+@keyframes fire-flicker {
+    0%, 100% { transform: scale(1) rotate(-2deg); filter: drop-shadow(0 0 6px rgba(248, 81, 73, 0.4)); }
+    25%      { transform: scale(1.08) rotate(1deg); filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.6)); }
+    50%      { transform: scale(0.96) rotate(-1deg); filter: drop-shadow(0 0 4px rgba(248, 81, 73, 0.3)); }
+    75%      { transform: scale(1.04) rotate(2deg); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5)); }
+}
+
+/* Spikers rocket button — ambient bob + thruster pulse */
+.spikers-btn { position: relative; }
+.spikers-btn::first-letter {
+    display: inline-block;
+    animation: rocket-bob 2.8s ease-in-out infinite;
+}
+@keyframes rocket-bob {
+    0%, 100% { transform: translateY(0) rotate(-8deg); }
+    50%      { transform: translateY(-3px) rotate(-12deg); }
+}
+.spikers-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 18% 50%, rgba(245, 158, 11, 0.18), transparent 50%);
+    opacity: 0;
+    pointer-events: none;
+    animation: rocket-thrust 2.8s ease-in-out infinite;
+}
+@keyframes rocket-thrust {
+    0%, 100% { opacity: 0.3; }
+    50%      { opacity: 0.7; }
+}
+
+/* Mobile bottom dock for header actions — thumb-reachable. */
+@media (max-width: 768px) {
+    .header-actions {
+        position: fixed;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 480;
+        background: var(--bg-glass);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
+    /* Mia launcher must clear the dock so they don't overlap. */
+    .mia-launcher { bottom: 78px; }
+    /* DYK chip too. */
+    .dyk-chip { bottom: 88px; }
+}

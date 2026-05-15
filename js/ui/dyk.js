@@ -1,13 +1,20 @@
-// 'Did you know?' floating chip. Surfaces a random tip every 30s,
-// dismissable, won't repeat within a session.
+// 'Did you know?' floating chip. Surfaces a random tip every ~45s,
+// dismissable, won't repeat within a session. Suppressed on very small
+// viewports where it covers content.
 
 import { nextTip } from './tips.js';
 
-const INTERVAL_MS = 30_000;
-const MIN_DELAY_MS = 12_000;
+const INTERVAL_MS = 45_000;
+const MIN_DELAY_MS = 18_000;
+const MOBILE_AUTO_HIDE_MS = 6_000;
+const DESKTOP_AUTO_HIDE_MS = 12_000;
 
 let timer = null;
 let shown = false;
+
+function isVerySmall() {
+    return window.innerWidth <= 480;
+}
 
 export function startDyk() {
     if (timer) return;
@@ -19,6 +26,8 @@ function scheduleNext() {
 }
 
 function showNext() {
+    // Suppress entirely on very small screens — it covers content.
+    if (isVerySmall()) { scheduleNext(); return; }
     if (shown) { hide(); }
     const tip = nextTip();
     const root = document.body;
@@ -35,9 +44,10 @@ function showNext() {
     root.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
     shown = true;
-    document.getElementById('dyk-close').addEventListener('click', hide);
-    // Auto-dismiss after 12s
-    setTimeout(hide, 12_000);
+    // Tap-anywhere on the chip dismisses it (mobile thumb-friendly).
+    el.addEventListener('click', hide);
+    const hideMs = window.innerWidth <= 768 ? MOBILE_AUTO_HIDE_MS : DESKTOP_AUTO_HIDE_MS;
+    setTimeout(hide, hideMs);
     scheduleNext();
 }
 
