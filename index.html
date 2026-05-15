@@ -12,14 +12,18 @@
     <header class="app-header">
         <div class="header-content">
             <h1 class="app-title">Market Analyzer</h1>
-            <div class="header-actions">
-                <button class="header-btn" id="about-btn" title="About Market Analyzer" aria-label="About">i</button>
-                <button class="header-btn" id="pl-toggle" title="Show P&L Calculator (P)" aria-label="Toggle P&L Calculator" aria-expanded="false">$</button>
-                <button class="header-btn" id="currency-toggle" title="Show prices in INR" aria-label="Toggle currency"><span class="cur-from">$</span><span class="cur-arrow">→</span><span class="cur-to">₹</span></button>
-                <button class="theme-toggle" id="theme-toggle" title="Switch theme">🌙</button>
-            </div>
         </div>
     </header>
+
+    <!-- Hoisted out of .app-header so position:fixed works on mobile.
+         backdrop-filter on .app-header creates a containing block that
+         breaks fixed positioning of descendants. -->
+    <div class="header-actions">
+        <button class="header-btn" id="about-btn" title="About Market Analyzer" aria-label="About">i</button>
+        <button class="header-btn" id="pl-toggle" title="Show P&L Calculator (P)" aria-label="Toggle P&L Calculator" aria-expanded="false">$</button>
+        <button class="header-btn" id="currency-toggle" title="Show prices in INR" aria-label="Toggle currency"><span class="cur-from">$</span><span class="cur-arrow">→</span><span class="cur-to">₹</span></button>
+        <button class="theme-toggle" id="theme-toggle" title="Switch theme">🌙</button>
+    </div>
 
     <div class="app-layout">
         <aside class="glossary-rail" id="glossary-rail"></aside>
