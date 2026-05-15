@@ -64,9 +64,22 @@
 body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; transition: background var(--transition), color var(--transition); }
 .num { font-family: var(--num-font); font-variant-numeric: tabular-nums; }
 
-.app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-.header-content { max-width: 1500px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-.header-actions { display: flex; gap: 8px; align-items: center; }
+.app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 220px 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.header-content { max-width: 1500px; margin: 0 auto; display: flex; align-items: center; justify-content: flex-start; }
+
+/* .header-actions is hoisted out of .app-header in HTML so position:fixed
+   works (backdrop-filter on the header creates a containing block that
+   would otherwise break fixed positioning). Desktop: top-right of the
+   viewport. Mobile (<=768px): bottom-center pill dock. */
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    position: fixed;
+    top: 14px;
+    right: 24px;
+    z-index: 480;
+}
 .app-title { font-size: 1.4rem; font-weight: 800; letter-spacing: -0.02em; background: linear-gradient(135deg, var(--accent), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .theme-toggle, .header-btn { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--bg-card); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.05rem; transition: all var(--transition); color: var(--text-secondary); }
 .theme-toggle:hover, .header-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -318,6 +331,21 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     .breakdown-label { font-size: 0.7rem; }
     .sp-row { grid-template-columns: 1fr; }
     .sp-row-numbers { text-align: left; min-width: 0; }
+    /* Mobile: header-actions becomes a thumb-friendly bottom dock. */
+    .header-actions {
+        top: auto;
+        bottom: 14px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        background: var(--bg-glass);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
 }
 @media (max-width: 480px) {
     .tabs-row { flex-direction: column; align-items: stretch; }
