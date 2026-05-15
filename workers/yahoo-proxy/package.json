@@ -1,0 +1,13 @@
+{
+    "name": "market-analysis-yahoo-proxy",
+    "version": "1.0.0",
+    "description": "Cloudflare Worker that bypasses Yahoo's session-crumb wall for /v10/quoteSummary key-statistics",
+    "private": true,
+    "scripts": {
+        "deploy": "wrangler deploy",
+        "dev": "wrangler dev"
+    },
+    "devDependencies": {
+        "wrangler": "^3.0.0"
+    }
+}

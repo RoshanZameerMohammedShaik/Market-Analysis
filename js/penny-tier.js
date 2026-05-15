@@ -3,29 +3,33 @@
 // Penny stocks (price < $5, low float, often microcaps) trade on a
 // completely different mechanic than large-caps: dominated by short-
 // squeeze dynamics, low-float spike-and-dump patterns, and concentrated
-// retail order flow. The standard 4-source confidence stack
-// (AI + Tech + Sentiment + Market) under-weights two factors that
-// dominate at this tier:
-//   1. Float / shares-outstanding (lower float = bigger pct moves on smaller volume)
-//   2. Short interest (high SI = squeeze potential, also extra volatility)
+// retail order flow. The standard 4-source confidence stack underweights
+// two factors that dominate at this tier:
+//   1. Float / shares-outstanding (lower float = bigger pct moves)
+//   2. Short interest (high SI = squeeze potential + extra volatility)
 //
-// We pull both from free, keyless public sources and emit a confidence
-// adjustment + cap that activates ONLY when liquidity tier == 'penny'.
+// FREE DATA PATH (Phase 6 update):
+//   Yahoo's /v10/finance/quoteSummary now requires a session crumb that
+//   CORS proxies can't carry. We get around this by hosting a tiny
+//   Cloudflare Worker (workers/yahoo-proxy/) that fetches the crumb
+//   server-side and exposes a clean /key-stats?symbol= endpoint.
 //
-// FREE DATA SOURCES (all keyless):
-//   - SEC EDGAR /submissions/CIK<10digit>.json     → most recent shares-outstanding via 10-K/10-Q facts
-//   - Yahoo /v10/finance/quoteSummary?...modules=defaultKeyStatistics
-//                                                  → sharesShort, shortRatio, floatShares
-//   - Yahoo /v8/finance/chart                       → already in app; we use it via existing data.js path
-//
-// We're not building exposure-grade data here. The goal: gate confidence
-// down on penny names where the engine doesn't see the float/short-interest
-// risk at all today.
+//   Configure WORKER_URL below after `wrangler deploy`. Until then, the
+//   module returns null and the engine drops the penny adjustment
+//   silently — no regression, just unrealized upside.
 
 import { fetchWithProxy } from './data.js';
 
-const CACHE = new Map(); // symbol -> { ts, data }
-const TTL_MS = 30 * 60 * 1000; // 30 min — these change daily at most
+// Set this to your deployed worker URL after `wrangler deploy` from
+// workers/yahoo-proxy/. Until set, the module gracefully degrades to
+// no-data and the engine ignores it (penny tier still gets all other
+// modules + tier-stratified calibration).
+const WORKER_URL = '';
+// Example after deploy:
+// const WORKER_URL = 'https://market-analysis-yahoo-proxy.your-account.workers.dev';
+
+const CACHE = new Map();
+const TTL_MS = 30 * 60 * 1000;
 
 function cacheGet(sym) {
     const v = CACHE.get(sym.toUpperCase());
@@ -35,49 +39,60 @@ function cacheGet(sym) {
 }
 function cacheSet(sym, data) { CACHE.set(sym.toUpperCase(), { ts: Date.now(), data }); }
 
-async function fetchYahooKeyStats(symbol) {
-    // /v10/finance/quoteSummary returns a rich JSON; we only want defaultKeyStatistics.
+async function fetchViaWorker(symbol) {
+    if (!WORKER_URL) return null;
+    try {
+        const res = await fetch(`${WORKER_URL}/key-stats?symbol=${encodeURIComponent(symbol)}`, {
+            signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) return null;
+        const json = await res.json();
+        if (!json || json.error) return null;
+        return json;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function fetchDirectYahoo(symbol) {
+    // Best-effort fallback. Currently returns 401 'Invalid Crumb' on most
+    // calls, but keeping the path so if Yahoo relaxes the wall we still
+    // benefit without a redeploy.
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`;
     try {
         const res = await fetchWithProxy(url);
         const json = await res.json();
-        const stats = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics || null;
+        const stats = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
         if (!stats) return null;
         return {
-            sharesShort:     numFromYahoo(stats.sharesShort),
-            sharesShortPriorMonth: numFromYahoo(stats.sharesShortPriorMonth),
-            shortRatio:      numFromYahoo(stats.shortRatio),
-            shortPercentOfFloat: numFromYahoo(stats.shortPercentOfFloat),
-            floatShares:     numFromYahoo(stats.floatShares),
-            sharesOutstanding: numFromYahoo(stats.sharesOutstanding),
-            heldPercentInsiders: numFromYahoo(stats.heldPercentInsiders),
-            heldPercentInstitutions: numFromYahoo(stats.heldPercentInstitutions),
+            sharesShort:           num(stats.sharesShort),
+            sharesShortPriorMonth: num(stats.sharesShortPriorMonth),
+            shortRatio:            num(stats.shortRatio),
+            shortPercentOfFloat:   num(stats.shortPercentOfFloat),
+            floatShares:           num(stats.floatShares),
+            sharesOutstanding:     num(stats.sharesOutstanding),
+            heldPercentInsiders:   num(stats.heldPercentInsiders),
+            heldPercentInstitutions: num(stats.heldPercentInstitutions),
         };
     } catch (_) { return null; }
 }
 
-function numFromYahoo(field) {
+function num(field) {
     if (field == null) return null;
     if (typeof field === 'number') return field;
     if (typeof field === 'object' && 'raw' in field) return field.raw;
     return null;
 }
 
-/**
- * Returns the penny-tier read for a symbol, or null if data unavailable.
- * Shape: {
- *   floatShares, sharesShort, shortPercentOfFloat,
- *   floatBucket: 'micro' | 'small' | 'mid' | 'normal',
- *   shortBucket: 'extreme' | 'high' | 'normal' | 'low',
- *   squeezeRisk: 0..1,
- * }
- */
 export async function getPennyTierData(symbol) {
     if (!symbol) return null;
     const cached = cacheGet(symbol);
     if (cached) return cached;
 
-    const stats = await fetchYahooKeyStats(symbol);
+    // Try the worker first (fast, authoritative); fall back to direct
+    // Yahoo if the worker isn't configured yet or the call failed.
+    let stats = await fetchViaWorker(symbol);
+    if (!stats) stats = await fetchDirectYahoo(symbol);
     if (!stats) return null;
 
     const floatShares = stats.floatShares;
@@ -85,7 +100,7 @@ export async function getPennyTierData(symbol) {
 
     let floatBucket = null;
     if (Number.isFinite(floatShares)) {
-        if (floatShares < 5_000_000) floatBucket = 'micro';     // <5M float — squeeze territory
+        if (floatShares < 5_000_000) floatBucket = 'micro';
         else if (floatShares < 20_000_000) floatBucket = 'small';
         else if (floatShares < 100_000_000) floatBucket = 'mid';
         else floatBucket = 'normal';
@@ -93,14 +108,12 @@ export async function getPennyTierData(symbol) {
 
     let shortBucket = null;
     if (Number.isFinite(shortPct)) {
-        // shortPercentOfFloat from Yahoo is a fraction (0.20 == 20%)
         if (shortPct >= 0.30) shortBucket = 'extreme';
         else if (shortPct >= 0.15) shortBucket = 'high';
         else if (shortPct >= 0.05) shortBucket = 'normal';
         else shortBucket = 'low';
     }
 
-    // Squeeze-risk score: micro float + extreme short = highest. Bounded 0..1.
     let squeezeRisk = 0;
     if (floatBucket === 'micro') squeezeRisk += 0.45;
     else if (floatBucket === 'small') squeezeRisk += 0.25;
@@ -116,22 +129,12 @@ export async function getPennyTierData(symbol) {
         heldPercentInsiders: stats.heldPercentInsiders,
         heldPercentInstitutions: stats.heldPercentInstitutions,
         floatBucket, shortBucket, squeezeRisk: +squeezeRisk.toFixed(2),
+        source: stats.source || (WORKER_URL ? 'worker' : 'direct'),
     };
     cacheSet(symbol, data);
     return data;
 }
 
-/**
- * Penny-tier confidence adjustment + cap. Activates only when called.
- * Total effect bounded so it doesn't dominate the engine.
- *
- * Logic:
- *  - Micro float + BUY: -8 (low-float spikes are unreliable, often dump)
- *  - Micro float + SELL: -4 (shorts get squeezed off these names)
- *  - Extreme short + BUY: +5 (squeeze tailwind)
- *  - Extreme short + SELL: -8 (squeeze risk against short signal)
- *  - Hard cap at 60 if squeezeRisk >= 0.7 — we just don't have edge here
- */
 export function pennyTierAdjustment(signal, penny, currentTier) {
     if (currentTier !== 'penny') return { adjust: 0, cap: 100, reasons: [] };
     if (!penny) return { adjust: 0, cap: 100, reasons: [] };
@@ -178,7 +181,6 @@ export function pennyTierAdjustment(signal, penny, currentTier) {
         reasons.push(`High squeeze risk (${(penny.squeezeRisk * 100).toFixed(0)}/100) — confidence capped at 60`);
     }
 
-    // Bound aggregate adjustment.
     if (adjust > 8) adjust = 8;
     if (adjust < -10) adjust = -10;
 
