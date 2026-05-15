@@ -4,11 +4,18 @@
 //   - default tier:  llama-3.1-8b-instant   (14,400 RPD / 500K TPD)
 //   - thinking mode: llama-3.3-70b-versatile (1,000 RPD / 100K TPD)
 //
-// Stop sequences: 8B-class models often continue past their tool call
-// and fabricate a RESULT: block from training memory. We set the API's
-// `stop` parameter so generation halts at boundary tokens. The agent
-// loop then runs the actual tool and feeds the real result back as the
-// next user turn.
+// Stop sequences: prevent the model from fabricating tool RESULT blocks
+// from training memory. We HALT the moment it tries to write `\nRESULT:`
+// or `RESULT (from`, so the agent loop can fire the real tool and feed
+// the actual data back.
+//
+// We previously also stopped on `\nTOOL:` to prevent multi-tool chains in
+// one response, but live testing showed this was too aggressive — the model
+// often writes natural preamble like "I'll use web_search to look that up."
+// followed by a newline-then-TOOL, and we'd stop before the actual call.
+// The agent loop already intercepts the FIRST TOOL: line, so we can let
+// the model emit one freely; subsequent ones are stripped by the
+// TOOL_LINE_STRIPPER regex on the way through.
 //
 // New Groq accounts ship with their org-level model allowlist EMPTY.
 // We detect that 403 specifically and surface an actionable message.
@@ -21,10 +28,9 @@ const URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_DEFAULT = 'llama-3.1-8b-instant';
 const MODEL_THINKING = 'llama-3.3-70b-versatile';
 
-// Halt the moment the model tries to fabricate a tool result, or
-// invents a second tool call without waiting. The agent loop will
-// pick up from there with the real RESULT.
-const STOP_SEQUENCES = ['\nRESULT:', 'RESULT (from', '\nTOOL:'];
+// Halt only when the model tries to fabricate a tool result. We keep two
+// patterns to catch both line-leading and inline forms.
+const STOP_SEQUENCES = ['\nRESULT:', 'RESULT (from'];
 
 let lastUsage = null;
 
