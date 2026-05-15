@@ -1,6 +1,11 @@
 // Weighted Confidence Engine — blends 4 sources, applies disagreement
 // penalty, sector-relative adjustment, earnings cap, calendar cap, regime
-// bias, then calibrates against backtested empirical hit rate.
+// bias, peer confirmation, crypto derivs, then calibrates against backtested
+// empirical hit rate.
+//
+// computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts)
+//   opts.bulkScan: true skips the heavier per-symbol fetches (peer confirmation)
+//                  used by Hot Picks / Spikers scanners to avoid latency.
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -13,8 +18,11 @@ import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
 import { getEarningsProximity, earningsCap } from './earnings.js';
 import { calendarCap } from './calendar-events.js';
+import { fetchCryptoDerivs, derivsAdjustment } from './crypto-derivs.js';
+import { getPeerAgreement, peerAdjustment } from './peer-confirmation.js';
 
-export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe) {
+export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
+    const { bulkScan = false } = opts;
     loadConformal();
 
     const [aiResult, newsItems, marketResult] = await Promise.allSettled([
@@ -93,8 +101,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Calendar event cap (FOMC, CPI, OPEX, quad-witching). Stocks only —
-    // crypto trades 24/7 and isn't bound by US macro release schedule.
     let calendar = null;
     if (mode === 'stock') {
         const cc = calendarCap(new Date());
@@ -102,6 +108,36 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             rawConfidence = cc.cap;
             calendar = cc;
         }
+    }
+
+    // Crypto derivatives positioning (Binance public). Only on user-initiated
+    // analyses, not bulk scans — bulk scans add too much latency.
+    let derivs = null;
+    let derivsResult = null;
+    if (mode === 'crypto' && !bulkScan && symbolOrCoinId) {
+        try {
+            derivs = await fetchCryptoDerivs(symbolOrCoinId);
+            if (derivs) {
+                const priceChange1d = computePriceChange1d(multiData);
+                derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d);
+                rawConfidence = Math.max(38, Math.min(88, rawConfidence + (derivsResult.adjust || 0)));
+            }
+        } catch (_) { /* */ }
+    }
+
+    // Peer confirmation for stocks (single-symbol only, not bulk).
+    let peerResult = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
+        try {
+            const peer = await getPeerAgreement(symbolOrCoinId, finalSignal);
+            if (peer) {
+                peerResult = peerAdjustment(finalSignal, peer);
+                if (peerResult.adjust) {
+                    rawConfidence = Math.max(38, Math.min(88, rawConfidence + peerResult.adjust));
+                }
+                peerResult.peer = peer;
+            }
+        } catch (_) { /* */ }
     }
 
     const tier = computeTier(multiData);
@@ -131,8 +167,12 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat';
         allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`);
     }
+    if (peerResult?.reason) allReasons.push(`[Peers] ${peerResult.reason}`);
     if (earnings?.capReason) allReasons.push(`[Earnings] ${earnings.capReason}`);
     if (calendar?.reason) allReasons.push(`[Calendar] ${calendar.reason}`);
+    if (derivsResult?.reasons?.length) {
+        derivsResult.reasons.forEach(r => allReasons.push(`[Derivs] ${r}`));
+    }
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
 
     return {
@@ -150,7 +190,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         sector: sectorMeta,
         earnings,
         calendar,
-        reasons: allReasons.slice(0, 10),
+        derivs: derivs ? { ...derivs, ...derivsResult } : null,
+        peers: peerResult || null,
+        reasons: allReasons.slice(0, 12),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
@@ -162,7 +204,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: ai.available ? '4-source + macro/sector/earnings/calendar + tier+vol-calibrated' : '3-source + macro/sector/earnings/calendar + tier+vol-calibrated',
+        method: ai.available ? '4-source + macro/sector/earnings/calendar/peers/derivs + tier+vol-calibrated' : '3-source + macro/sector/earnings/calendar/peers/derivs + tier+vol-calibrated',
         trendRegime,
     };
 }
@@ -186,6 +228,15 @@ function computeTier(multiData) {
     } catch (_) {
         return null;
     }
+}
+
+function computePriceChange1d(multiData) {
+    const candles = multiData?.daily?.candles || [];
+    if (candles.length < 2) return 0;
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    if (!last || !prev || !prev.close) return 0;
+    return ((last.close - prev.close) / prev.close) * 100;
 }
 
 function applyRegimeWeighting(base, macroRegime, trendRegime) {
