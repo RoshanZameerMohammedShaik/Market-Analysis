@@ -1,9 +1,15 @@
-// Weighted Confidence Engine. Tier-1 magnitude/positioning additions:
-//   - Multi-horizon expected move (1d/3d/5d/20d) attached to result.multiHorizon
-//   - Options IV/skew positioning (stocks, single-symbol only) ~~ +/-4pt
-//   - Bollinger squeeze detection ~~ +/-3pt
-//   - Cross-timeframe agreement ~~ +/-5pt
-//   - Recency-weighted calibration takes priority over tier curves
+// Weighted Confidence Engine. Tier-1 + Tier-2/3 stack:
+//   - Multi-horizon expected move attached to result.multiHorizon
+//   - Options IV/skew (stocks, single-symbol) +/-4pt
+//   - Bollinger squeeze +/-3pt
+//   - Cross-timeframe agreement +/-5pt
+//   - VWAP deviation classifier +/-3pt
+//   - Sector rotation +/-3pt
+//   - Volume profile HVN +/-3pt
+//   - Cross-asset (DXY for stocks, BTC.D for alts) +/-3pt
+//   - Pre-market gap cap (60)
+//   - Recent 50%+ spike cap (55)
+//   - Earnings reaction history cap (tighter than generic when adverse)
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -24,6 +30,13 @@ import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
 import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
 import { predictMultiHorizon } from './multi-horizon.js';
+import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
+import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
+import { computeVolumeProfile, volumeProfileAdjustment } from './volume-profile.js';
+import { getCrossAsset, crossAssetAdjustment } from './cross-asset.js';
+import { detectGap, gapCap } from './premarket-gap.js';
+import { findRecentSpike, recentSpikeCap } from './recent-spike.js';
+import { getEarningsReactionHistory, earningsHistoryCap } from './earnings-history.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -142,7 +155,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-1: Options IV/skew (stocks, single-symbol only)
     let options = null;
     let optionsResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
@@ -155,7 +167,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-1: Bollinger squeeze (any mode, lightweight — just uses existing closes)
     let squeeze = null;
     let squeezeResult = null;
     try {
@@ -163,25 +174,107 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         squeeze = detectSqueeze(closes);
         if (squeeze) {
             squeezeResult = squeezeAdjustment(finalSignal, squeeze);
-            if (squeezeResult.adjust) {
-                rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust));
-            }
+            if (squeezeResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust));
         }
     } catch (_) { /* */ }
 
-    // Tier-1: Cross-timeframe agreement.
-    // generateMultiTimeframePrediction returns the per-timeframe predictions
-    // under technicalPred.breakdown, not .timeframes.
     let tfAgreement = null;
     let tfResult = null;
     if (technicalPred.breakdown) {
         tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown);
         if (tfAgreement) {
             tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement);
-            if (tfResult.adjust) {
-                rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust));
+            if (tfResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust));
+        }
+    }
+
+    // Tier-2: VWAP deviation
+    let vwap = null;
+    let vwapResult = null;
+    try {
+        vwap = computeVwapClassifier(multiData?.daily?.candles || []);
+        if (vwap) {
+            vwapResult = vwapAdjustment(finalSignal, vwap);
+            if (vwapResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + vwapResult.adjust));
+        }
+    } catch (_) { /* */ }
+
+    // Tier-2: Sector rotation (stocks only, single-symbol)
+    let rotation = null;
+    let rotationResult = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
+        try {
+            rotation = await getSectorRotation(symbolOrCoinId);
+            if (rotation) {
+                rotationResult = rotationAdjustment(finalSignal, rotation);
+                if (rotationResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + rotationResult.adjust));
+            }
+        } catch (_) { /* */ }
+    }
+
+    // Tier-2: Volume profile HVN
+    let volProfile = null;
+    let volProfileResult = null;
+    try {
+        volProfile = computeVolumeProfile(multiData?.daily?.candles || []);
+        if (volProfile) {
+            volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend);
+            if (volProfileResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + volProfileResult.adjust));
+        }
+    } catch (_) { /* */ }
+
+    // Tier-2: Cross-asset confirmation
+    let crossAsset = null;
+    let crossAssetResult = null;
+    if (!bulkScan && symbolOrCoinId) {
+        try {
+            crossAsset = await getCrossAsset(mode, symbolOrCoinId);
+            if (crossAsset) {
+                crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset);
+                if (crossAssetResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + crossAssetResult.adjust));
+            }
+        } catch (_) { /* */ }
+    }
+
+    // Tier-3: Pre-market / overnight gap (stocks only)
+    let gap = null;
+    if (mode === 'stock') {
+        try {
+            gap = detectGap(multiData);
+            const gc = gapCap(gap);
+            if (gc.cap < rawConfidence) {
+                rawConfidence = gc.cap;
+                gap = { ...gap, capReason: gc.reason };
+            }
+        } catch (_) { /* */ }
+    }
+
+    // Tier-3: recent 50% spike cap
+    let recentSpike = null;
+    try {
+        recentSpike = findRecentSpike(multiData?.daily?.candles || []);
+        if (recentSpike) {
+            const rsc = recentSpikeCap(recentSpike);
+            if (rsc.cap < rawConfidence) {
+                rawConfidence = rsc.cap;
+                recentSpike = { ...recentSpike, capReason: rsc.reason };
             }
         }
+    } catch (_) { /* */ }
+
+    // Tier-3: earnings reaction history (stocks, single-symbol)
+    let earningsHistory = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId && earnings?.daysUntil != null) {
+        try {
+            earningsHistory = await getEarningsReactionHistory(symbolOrCoinId, multiData?.daily?.candles || []);
+            if (earningsHistory) {
+                const ehc = earningsHistoryCap(earningsHistory, earnings.daysUntil, finalSignal);
+                if (ehc.cap < rawConfidence) {
+                    rawConfidence = ehc.cap;
+                    earningsHistory = { ...earningsHistory, capReason: ehc.reason };
+                }
+            }
+        } catch (_) { /* */ }
     }
 
     const tier = computeTier(multiData);
@@ -208,7 +301,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const ci = getInterval(finalSignal, calibratedConfidence);
 
-    // Tier-1: Multi-horizon expected move prediction.
     let multiHorizon = null;
     try {
         const closes = (multiData?.daily?.candles || []).map(c => c.close);
@@ -241,6 +333,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (regime?.regime === 'risk-off') widthBase += 1;
     if (earnings?.daysUntil != null && earnings.daysUntil <= 5) widthBase += 3;
     if (calendar) widthBase += 3;
+    if (gap?.big) widthBase += 3;
     const halfWidth = Math.round(widthBase / 2);
     const lo = Math.max(38, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
@@ -256,18 +349,21 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat';
         allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`);
     }
+    if (rotationResult?.reason) allReasons.push(`[Rotation] ${rotationResult.reason}`);
     if (peerResult?.reason) allReasons.push(`[Peers] ${peerResult.reason}`);
     if (tfResult?.reason) allReasons.push(`[Timeframes] ${tfResult.reason}`);
     if (squeezeResult?.reason) allReasons.push(`[Squeeze] ${squeezeResult.reason}`);
-    if (optionsResult?.reasons?.length) {
-        optionsResult.reasons.forEach(r => allReasons.push(`[Options] ${r}`));
-    }
+    if (vwapResult?.reason) allReasons.push(`[VWAP] ${vwapResult.reason}`);
+    if (volProfileResult?.reason) allReasons.push(`[Volume Profile] ${volProfileResult.reason}`);
+    if (crossAssetResult?.reason) allReasons.push(`[Cross-asset] ${crossAssetResult.reason}`);
+    if (optionsResult?.reasons?.length) optionsResult.reasons.forEach(r => allReasons.push(`[Options] ${r}`));
     if (earnings?.capReason) allReasons.push(`[Earnings] ${earnings.capReason}`);
+    if (earningsHistory?.capReason) allReasons.push(`[Earnings History] ${earningsHistory.capReason}`);
     if (calendar?.reason) allReasons.push(`[Calendar] ${calendar.reason}`);
+    if (gap?.capReason) allReasons.push(`[Gap] ${gap.capReason}`);
+    if (recentSpike?.capReason) allReasons.push(`[Spike] ${recentSpike.capReason}`);
     if (patternResult?.reason) allReasons.push(`[Pattern] ${patternResult.reason}`);
-    if (derivsResult?.reasons?.length) {
-        derivsResult.reasons.forEach(r => allReasons.push(`[Derivs] ${r}`));
-    }
+    if (derivsResult?.reasons?.length) derivsResult.reasons.forEach(r => allReasons.push(`[Derivs] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
 
     return {
@@ -283,8 +379,12 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         dispersion: Math.round(dispersion),
         regime: regime?.regime,
         sector: sectorMeta,
+        rotation: rotation || null,
         earnings,
+        earningsHistory: earningsHistory || null,
         calendar,
+        gap: gap || null,
+        recentSpike: recentSpike || null,
         derivs: derivs ? { ...derivs, ...derivsResult } : null,
         peers: peerResult || null,
         pattern: patternResult || null,
@@ -292,7 +392,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         squeeze: squeeze || null,
         tfAgreement: tfAgreement || null,
         multiHorizon: multiHorizon || null,
-        reasons: allReasons.slice(0, 16),
+        vwap: vwap || null,
+        volProfile: volProfile || null,
+        crossAsset: crossAsset || null,
+        reasons: allReasons.slice(0, 20),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
@@ -304,7 +407,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: ai.available ? '4-source + macro/sector/earnings/calendar/peers/derivs/options/squeeze/tf/pattern + recency+tier+vol calibrated' : '3-source + macro/sector/earnings/calendar/peers/derivs/options/squeeze/tf/pattern + recency+tier+vol calibrated',
+        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern + recency+tier+vol calibrated',
         trendRegime,
     };
 }
