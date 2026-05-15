@@ -5,26 +5,23 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
-/* App boot: subtle gradient mesh in background, only visible on dark/colourful */
 body::after {
     content: '';
     position: fixed; inset: 0;
     pointer-events: none;
     z-index: -1;
     background:
-        radial-gradient(circle at 12% 18%, rgba(94,177,255,0.08), transparent 38%),
-        radial-gradient(circle at 88% 82%, rgba(168,85,247,0.07), transparent 40%),
-        radial-gradient(circle at 70% 12%, rgba(63,185,80,0.05), transparent 36%);
+        radial-gradient(circle at 12% 18%, rgba(var(--accent-rgb), 0.06), transparent 38%),
+        radial-gradient(circle at 88% 82%, rgba(168,85,247,0.05), transparent 40%),
+        radial-gradient(circle at 70% 12%, rgba(63,185,80,0.04), transparent 36%);
     animation: mesh-drift 22s ease-in-out infinite alternate;
 }
 [data-theme="light"] body::after { display: none; }
-[data-theme="terminal"] body::after { background: radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.06), transparent 50%); }
 @keyframes mesh-drift {
     from { transform: translate3d(0,0,0); opacity: 0.85; }
     to   { transform: translate3d(-20px, 18px, 0); opacity: 1; }
 }
 
-/* Header brand mark draws/glows on first load + ambient gradient drift */
 .app-title { animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both, brand-shimmer 8s ease-in-out infinite; background-size: 200% 100% !important; }
 @keyframes brand-rise {
     from { opacity: 0; transform: translateY(-6px); letter-spacing: -0.04em; }
@@ -39,11 +36,10 @@ body::after {
 .header-btn:nth-child(2) { animation-delay: 0.5s; }
 .header-btn:nth-child(3) { animation-delay: 1s; }
 @keyframes header-btn-breath {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
-    50%      { box-shadow: 0 0 0 4px rgba(94, 177, 255, 0.12); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+    50%      { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12); }
 }
 
-/* Glossary rail — sections cascade-fade in */
 .glos-section { animation: glos-fade 480ms ease-out both; }
 .glos-section:nth-child(1) { animation-delay: 60ms; }
 .glos-section:nth-child(2) { animation-delay: 140ms; }
@@ -59,7 +55,6 @@ body::after {
 .glos-item summary:hover { padding-left: 4px; }
 .glos-item summary:hover .glos-term { color: var(--accent); }
 
-/* Did-you-know chip — floats in bottom-left every 45s */
 .dyk-chip {
     position: fixed; left: 22px; bottom: 22px; z-index: 450;
     max-width: 300px;
@@ -86,10 +81,8 @@ body::after {
     .dyk-chip { display: none !important; }
 }
 
-/* Theme transition — 200ms crossfade on all themed properties */
 body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-header, .accordion-body, .pl-sidebar, .glossary-rail, .mia-panel, .mia-msg-bubble, .chart-section { transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease; }
 
-/* Hot pick cards — 3D entry */
 .hot-pick-card { animation: hp-flip 480ms cubic-bezier(0.22, 1, 0.36, 1) both; transform-origin: top center; }
 .hot-pick-card:nth-child(1)  { animation-delay: 20ms; }
 .hot-pick-card:nth-child(2)  { animation-delay: 80ms; }
@@ -107,16 +100,13 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     to   { opacity: 1; transform: perspective(700px) rotateX(0deg) translateY(0); }
 }
 
-/* Skeleton shimmer for hot picks while scanning */
 .hp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; grid-column: 1/-1; }
 .hp-skel { height: 132px; border-radius: var(--radius-md); border: 1px solid var(--border); background: linear-gradient(90deg, var(--bg-card) 0%, var(--bg-hover) 50%, var(--bg-card) 100%); background-size: 200% 100%; animation: hp-shimmer 1.4s linear infinite; }
 @keyframes hp-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-/* Chart placeholder pulse */
 .chart-ph-icon { animation: ph-float 4s ease-in-out infinite; }
 @keyframes ph-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-/* Signal verdict slam */
 .signal-arrow { animation: slam 540ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .signal-label { animation: slam-text 540ms 80ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 @keyframes slam {
@@ -128,56 +118,39 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     to   { transform: translateX(0); opacity: 1; }
 }
 
-/* Confidence bar overshoot */
 .confidence-fill { transition: width 0.9s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
-/* Source breakdown bars stagger */
 .breakdown-fill { transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
 .source-breakdown .breakdown-item:nth-child(1) .breakdown-fill { transition-delay: 60ms; }
 .source-breakdown .breakdown-item:nth-child(2) .breakdown-fill { transition-delay: 140ms; }
 .source-breakdown .breakdown-item:nth-child(3) .breakdown-fill { transition-delay: 220ms; }
 .source-breakdown .breakdown-item:nth-child(4) .breakdown-fill { transition-delay: 300ms; }
 
-/* Refresh button spin */
 .refresh-btn.spinning { animation: spin360 0.9s linear infinite; }
 @keyframes spin360 { to { transform: rotate(360deg); } }
 
-/* Theme toggle flip */
 .theme-toggle:active { transform: rotate(-180deg) scale(0.95); }
 
-/* Tap-ripple for buttons */
 .tab-btn, .refresh-btn, .pl-btn, .pl-use-current, .mia-card-btn, .mia-save-btn, .mia-test-btn, .mia-clear-btn, .mia-icon-btn, .mia-suggest, .hot-pick-card { position: relative; overflow: hidden; }
 .ripple { position: absolute; border-radius: 50%; transform: scale(0); animation: ripple 600ms ease-out; background: rgba(255,255,255,0.35); pointer-events: none; }
 [data-theme="light"] .ripple { background: rgba(0,0,0,0.12); }
 @keyframes ripple { to { transform: scale(4); opacity: 0; } }
 
-/* Mia tool badge inside chat bubble */
 .mia-tool-badge { display: inline-block; margin-top: 8px; padding: 3px 8px; font-size: 0.7rem; color: var(--accent); background: var(--bg-hover); border: 1px solid var(--border); border-radius: 999px; font-style: normal; }
 .mia-tool-badge code { font-family: var(--num-font); font-size: 0.72rem; }
 
-/* Unverified-number marker */
 .mia-unverified { color: var(--yellow); font-size: 0.66em; font-weight: 800; cursor: help; margin-left: 1px; }
 
-/* Send button enlarges briefly on click for tactile feedback */
 .mia-send-btn:active { transform: scale(0.92); }
 
-/* Bottom sheet rubber-band on mobile (P&L sidebar collapses below).
-   Scoped to body.pl-open so the sidebar isn't fixed visible on page load. */
 @media (max-width: 1024px) {
     body.pl-open .pl-sidebar { animation: sheet-rise 540ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 }
 @keyframes sheet-rise { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Number flash when tweening prices on hot pick refresh */
 .num-flash { animation: num-flash 400ms ease; }
 @keyframes num-flash { 0% { color: var(--accent); } 100% { color: inherit; } }
 
-/* ===== LIVE AMBIENT ANIMATIONS ===== */
-
-/* Hot Picks fire emoji — flicker with hue + scale wobble.
-   We wrap the leading 🔥 in a span via CSS-only ::first-letter trick.
-   The .section-title is targeted; effect applies to its first inline
-   character which is the emoji. */
 .hotpicks-section .section-title { display: inline-flex; align-items: center; gap: 8px; }
 .hotpicks-section .section-title::first-letter {
     display: inline-block;
@@ -193,7 +166,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     75%      { transform: scale(1.04) rotate(2deg); filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5)); }
 }
 
-/* Spikers rocket button — ambient bob + thruster pulse */
 .spikers-btn { position: relative; }
 .spikers-btn::first-letter {
     display: inline-block;
@@ -218,35 +190,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     50%      { opacity: 0.7; }
 }
 
-/* Mobile bottom dock for header actions — thumb-reachable. */
-@media (max-width: 768px) {
-    .header-actions {
-        position: fixed;
-        bottom: 14px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 480;
-        background: var(--bg-glass);
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        padding: 8px 12px;
-        border-radius: 999px;
-        border: 1px solid var(--border-strong);
-        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
-    }
-    /* Mia launcher must clear the dock so they don't overlap. */
-    .mia-launcher { bottom: 78px; }
-    /* DYK chip too. */
-    .dyk-chip { bottom: 88px; }
-}
-
-/* ===== ECG ANIMATIONS ===== */
-
-/* Header ECG flanking the Market Analyzer title.
-   Wraps the title in a flex container; 2 SVGs sit on either side.
-   Pink stroke (#ec4899) so it contrasts with the blue/green title gradient.
-   Two-layer effect: dim trace always visible, bright blip sweeps via
-   stroke-dasharray + stroke-dashoffset animation. */
 .app-title-wrap {
     display: flex; align-items: center; gap: 12px;
 }
@@ -259,14 +202,11 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 .header-ecg-blip {
     stroke: #ec4899;
-    /* Approximate path length so the dash math feels right; the visible
-       window is ~14 units (one heartbeat region). */
     stroke-dasharray: 14 200;
     filter: drop-shadow(0 0 4px rgba(236, 72, 153, 0.6));
     animation: ecg-sweep 2.4s linear infinite;
 }
 .header-ecg-right .header-ecg-blip {
-    /* Mirrored offset so the right side pulses out of phase with the left. */
     animation-delay: -1.2s;
 }
 .header-ecg-right {
@@ -278,7 +218,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 
 @media (max-width: 768px) {
-    /* On mobile the title is small; shrink the ECGs to keep them readable. */
     .header-ecg { width: 48px; height: 18px; }
     .app-title-wrap { gap: 8px; }
 }
@@ -286,7 +225,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     .header-ecg { width: 36px; }
 }
 
-/* Mia logo ECG sweep — same pattern, scoped to the M-shaped path. */
 .mia-ecg-svg .mia-ecg-blip {
     stroke-dasharray: 14 80;
     animation: ecg-sweep-mia 2s linear infinite;
@@ -297,7 +235,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     to   { stroke-dashoffset: 0; }
 }
 
-/* Launcher logo ECG — white stroke (no background), sized for 32x24 viewBox. */
 .mia-launcher .mia-launcher-logo .mia-ecg-trace,
 .mia-launcher .mia-launcher-logo .mia-ecg-blip {
     stroke: #ffffff;

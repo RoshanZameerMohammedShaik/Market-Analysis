@@ -15,7 +15,10 @@ export async function* stream({ system, messages, signal, onProgress }) {
         const tier = s.thinkingMode ? 'thinking' : 'default';
         if (webllm.getActiveTier() !== tier) {
             if (onProgress) onProgress('loading model…');
-            await webllm.loadModel(tier, p => onProgress?.(p.text || `${Math.round(p.progress * 100)}%`));
+            // loadModel now awaits the in-flight prewarm promise if one is
+            // running, so a fresh "already loading" error no longer kills
+            // Mia replies on first send.
+            await webllm.loadModel(tier, p => onProgress?.(p.text || `${Math.round((p.progress || 0) * 100)}%`));
         }
         if (onProgress) onProgress('thinking…');
         for await (const delta of webllm.stream({ system, messages, signal })) yield delta;
