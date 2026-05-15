@@ -1,13 +1,17 @@
-// Unified Mia client. Groq is primary, Cloudflare is automatic fallback
-// when the user has both keys. We fall back on:
-//   - any non-rate-limit network/server failure (5xx, fetch error)
-//   - 429 with retry-after > 5s (anything shorter, we just propagate the
-//     error and let the user wait, since round-tripping CF would be slower)
-// We also pass thinking-mode through to Groq so it can pick the model.
+// Unified Mia client.
+//
+// On Groq: silent tier promotion via router.smartStream — turns start on
+// 8B-instant for cheap fast prose, and silently promote to 70B-versatile
+// the moment a tool intent is detected. thinking-mode users skip the router
+// entirely (explicit 70B always).
+//
+// Cross-provider fallback (Groq -> Cloudflare or vice versa) still applies
+// on 5xx / network errors / long-retry 429s. Auth errors don't fall over.
 
 import { loadSettings, hasFallbackKey } from './settings.js';
 import * as groq from './backends/api-groq.js';
 import * as cf from './backends/api-cf.js';
+import { smartStream as groqSmartStream } from './router.js';
 
 export const webllm = {
     clearCache: async () => {
@@ -36,10 +40,7 @@ function route() {
 }
 
 function shouldFailover(err) {
-    // 401 / 403 are auth/perm issues — fallback won't help.
     if (err?.status === 401 || err?.status === 403) return false;
-    // 429 is rate-limit. Fall over only if Groq says retry-after is long
-    // enough that the round-trip to CF will be cheaper than waiting.
     if (err?.status === 429) {
         const wait = Number(err?.retryAfterSec || 0);
         return !Number.isFinite(wait) || wait > 5;
@@ -50,24 +51,37 @@ function shouldFailover(err) {
 
 export async function* stream({ system, messages, signal, onProgress }) {
     const s = loadSettings();
-    const tier = s.thinkingMode ? 'thinking' : 'default';
     const { primary, fallback } = route();
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
 
+    const groqRun = async function* () {
+        // thinking-mode users always run on 70B — skip the smart router.
+        if (s.thinkingMode) {
+            for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal, tier: 'thinking' })) yield delta;
+            return;
+        }
+        // Default: silent 8B → 70B promotion on tool intent.
+        for await (const delta of groqSmartStream({ system, messages, key: s.groqKey, signal, onProgress })) yield delta;
+    };
+
+    const cfRun = async function* () {
+        for await (const delta of cf.stream({ system, messages, key: s.cfKey, accountId: s.cfAccountId, signal })) yield delta;
+    };
+
     try {
         if (primary === 'groq') {
-            for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal, tier })) yield delta;
+            yield* groqRun();
         } else {
-            for await (const delta of cf.stream({ system, messages, key: s.cfKey, accountId: s.cfAccountId, signal })) yield delta;
+            yield* cfRun();
         }
         return;
     } catch (err) {
         if (!fallback || !shouldFailover(err) || signal?.aborted) throw err;
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: `falling back to ${fallback}…` });
         if (fallback === 'groq') {
-            for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal, tier })) yield delta;
+            yield* groqRun();
         } else {
-            for await (const delta of cf.stream({ system, messages, key: s.cfKey, accountId: s.cfAccountId, signal })) yield delta;
+            yield* cfRun();
         }
     }
 }
@@ -95,11 +109,14 @@ export function getRoutingSummary() {
         return {
             primary: r.primary,
             fallback: r.fallback,
-            groqModel: r.primary === 'groq' || r.fallback === 'groq' ? groq.getModelForTier(tier) : null,
+            groqModel: r.primary === 'groq' || r.fallback === 'groq'
+                ? (s.thinkingMode ? groq.getModelForTier('thinking') : `${groq.getModelForTier('default')} → ${groq.getModelForTier('thinking')} (auto)`)
+                : null,
             tier,
+            smartRouting: r.primary === 'groq' && !s.thinkingMode,
         };
     } catch (_) {
-        return { primary: null, fallback: null, groqModel: null, tier: 'default' };
+        return { primary: null, fallback: null, groqModel: null, tier: 'default', smartRouting: false };
     }
 }
 
