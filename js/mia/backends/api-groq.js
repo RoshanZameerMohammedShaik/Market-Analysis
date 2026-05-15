@@ -1,13 +1,41 @@
 // Groq backend — OpenAI-compatible chat completions, streaming, fast.
 // Free tier: 30 RPM, 14400 RPD, 6000 TPM, 500k TPD on Llama 3.3 70B.
 // Reads x-ratelimit-remaining-* headers so we can show a usage meter.
+//
+// New Groq accounts ship with their org-level model allowlist EMPTY.
+// We detect that specific 403 and surface a precise, actionable message
+// pointing to the exact settings page.
 
 const URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.3-70b-versatile';
 
-let lastUsage = null; // { reqRem, reqLim, tokRem, tokLim, ... }
+let lastUsage = null;
 
 export function getLastUsage() { return lastUsage; }
+
+function parseGroqError(status, body) {
+    let parsed = null;
+    try { parsed = JSON.parse(body); } catch (_) {}
+    const code = parsed?.error?.code || '';
+    const msg = parsed?.error?.message || body || '';
+    if (status === 401) {
+        return 'Groq rejected the API key (401). Open settings and re-paste a valid gsk_… value.';
+    }
+    if (status === 403 && /model_permission_blocked_org|blocked at the organization/i.test(msg)) {
+        return [
+            `Groq blocked ${MODEL} at your org level.`,
+            'Open https://console.groq.com/settings/limits → Allowed Models, enable',
+            `${MODEL}, then try again. New Groq accounts ship with this disabled.`,
+        ].join(' ');
+    }
+    if (status === 403) {
+        return `Groq returned 403: ${msg.slice(0, 200)}`;
+    }
+    if (status === 429) {
+        return 'Groq rate-limited. Wait and try again, or check the usage meter.';
+    }
+    return `Groq error ${status}: ${(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}`;
+}
 
 export async function* stream({ system, messages, key, signal }) {
     const res = await fetch(URL, {
@@ -30,9 +58,7 @@ export async function* stream({ system, messages, key, signal }) {
 
     if (!res.ok) {
         const body = await res.text().catch(() => '');
-        if (res.status === 401) throw new Error('Groq rejected the API key. Open settings and re-paste a valid one.');
-        if (res.status === 429) throw new Error('Groq rate-limited. Wait and try again, or check the usage meter.');
-        throw new Error(`Groq error ${res.status}: ${body.slice(0, 200)}`);
+        throw new Error(parseGroqError(res.status, body));
     }
 
     const reader = res.body.getReader();
@@ -72,7 +98,16 @@ export async function ping(key) {
     });
     captureRateHeaders(res.headers);
     if (!res.ok) {
-        if (res.status === 401) return { ok: false, msg: 'Key was rejected (401). Double-check the gsk_... value.' };
+        const body = await res.text().catch(() => '');
+        let parsed = null;
+        try { parsed = JSON.parse(body); } catch (_) {}
+        const code = parsed?.error?.code || '';
+        const msg = parsed?.error?.message || '';
+        if (res.status === 401) return { ok: false, msg: 'Key was rejected (401). Double-check the gsk_… value.' };
+        if (res.status === 403 && /model_permission_blocked_org|blocked at the organization/i.test(msg)) {
+            return { ok: false, msg: `Key works, but ${MODEL} is blocked at your org. Go to console.groq.com/settings/limits → Allowed Models and enable it (Step 4 above).` };
+        }
+        if (res.status === 403) return { ok: false, msg: `Forbidden (403): ${msg.slice(0, 160)}` };
         return { ok: false, msg: `Test failed (${res.status}).` };
     }
     return { ok: true, msg: 'Connected. Llama 3.3 70B ready.' };

@@ -111,6 +111,7 @@ function groqFormHtml(s) {
             <li><span class="mia-step-num">1</span> Open <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> and sign in (email signup, no card).</li>
             <li><span class="mia-step-num">2</span> Click <strong>Create API Key</strong>, name it anything.</li>
             <li><span class="mia-step-num">3</span> Copy the <code>gsk_…</code> value and paste below.</li>
+            <li><span class="mia-step-num">4</span> Open <a href="https://console.groq.com/settings/limits" target="_blank" rel="noopener">console.groq.com/settings/limits</a> → <strong>Allowed Models</strong> → enable <code>llama-3.3-70b-versatile</code>. <em>Required — new Groq accounts ship with model access blocked, and Mia will return a 403 until you flip this on.</em></li>
         </ol>
         <label class="mia-field">
             Groq API Key
@@ -160,7 +161,7 @@ function wireForm(prov, formEl, panel, onConfigured) {
     const result = formEl.querySelector('#mia-test-result');
     const setResult = (cls, msg) => {
         result.className = `mia-test-result ${cls}`;
-        result.textContent = msg;
+        result.innerHTML = msg;
     };
 
     formEl.querySelector('#mia-test').addEventListener('click', async () => {
