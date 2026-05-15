@@ -52,3 +52,18 @@ export const UNIVERSE_CONFIG = {
     useUSScreeners: true,
     globalPool: GLOBAL_POOL,
 };
+
+// Backward-compat shim for js/news.js, which uses market.locale to pass
+// to Google News RSS. We're now global, so default to US-English locale
+// (Google News works fine for any symbol with this locale; results are
+// filtered downstream by symbol/name match anyway).
+export function getMarket() {
+    return {
+        id: 'GLOBAL',
+        label: 'Global',
+        flag: '🌐',
+        locale: { gl: 'US', hl: 'en-US' },
+        exchangeSuffix: '',
+        currency: 'USD',
+    };
+}
