@@ -1,14 +1,9 @@
 // Agent loop. Wraps the streaming LLM call to detect tool requests,
 // execute them, and feed results back. Up to 6 tool calls per turn.
 //
-// Phase 3.4 hardening: regex matches ONLY on complete buffers.
-//
-// Bug we hit: streaming chunks arrive partial. A buffer mid-stream like
-// "TOOL: get_" would falsely match the old regex with name='get_' and
-// no args, triggering an invalid-tool retry loop. Fixed by:
-//   1. Requiring a closing `}` in the regex (no optional args group).
-//   2. Only attempting the match when the buffer ends with `}`, `\n`, or
-//      the stream has finished.
+// Phase 5: builds TWO system prompts — one with the tool prompt section,
+// one without — and passes both to the LLM client. The router uses the
+// no-tools version for the prose path so 8B can't fabricate tool calls.
 
 import { stream as llmStream } from './llm-client.js';
 import { runTool, toolPromptSection, listTools } from './tools.js';
@@ -16,10 +11,8 @@ import { runTool, toolPromptSection, listTools } from './tools.js';
 const MAX_TOOL_CALLS = 6;
 const INTRA_TURN_PACE_MS = 350;
 
-// `TOOL: name {complete_json}` — JSON is now REQUIRED for the match.
 const TOOL_LINE_RE = /^[\s>*\-]*\**\s*TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})\s*\**[\s>]*$/im;
 
-// Bare `name {complete_json}` — fallback when 8B drops the prefix.
 function buildBareToolRegex(toolNames) {
     const escaped = [...toolNames]
         .filter(n => /^[a-z][a-z0-9_]{2,}$/.test(n))
@@ -55,9 +48,6 @@ function extractJsonObject(raw) {
     return {};
 }
 
-// Cheap pre-check: only worth running the full regex if the buffer
-// plausibly contains a complete tool call (closing brace seen, or a
-// newline after a `}`, or the buffer ends naturally).
 function bufferLooksComplete(buffer) {
     if (!buffer) return false;
     const trimmedEnd = buffer.replace(/\s+$/, '');
@@ -81,12 +71,18 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
         let toolMatch = null;
         let interrupted = false;
 
-        for await (const delta of llmStream({ system: fullSystem, messages: workingMessages, signal, onProgress })) {
+        for await (const delta of llmStream({
+            system: fullSystem,
+            // Prose path uses the bare system without tool section so 8B can't
+            // hallucinate tool calls. Only matters on the first iteration when
+            // intent=prose; subsequent iterations always go on the tool path.
+            systemNoTools: isFirstCall ? system : fullSystem,
+            messages: workingMessages,
+            signal,
+            onProgress,
+        })) {
             buffer += delta;
 
-            // Only attempt to match tool calls when the buffer plausibly
-            // contains a completed JSON object. Avoids matching partial
-            // streams like 'TOOL: get_' as name='get_'.
             if (bufferLooksComplete(buffer)) {
                 const m = buffer.match(TOOL_LINE_RE) || (bareRe ? buffer.match(bareRe) : null);
                 if (m) { toolMatch = m; interrupted = true; break; }
@@ -101,7 +97,6 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
             }
         }
 
-        // Stream ended; final attempt to match a tool call on the whole buffer.
         if (!interrupted && buffer.length) {
             const m = buffer.match(TOOL_LINE_RE) || (bareRe ? buffer.match(bareRe) : null);
             if (m) { toolMatch = m; interrupted = true; }

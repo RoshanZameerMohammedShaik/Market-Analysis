@@ -1,164 +1,73 @@
-// Silent tier promotion router.
+// Phase 5 router: intent-classified deterministic routing.
 //
-// Strategy: start every Groq turn on llama-3.1-8b-instant (cheap, fast, big TPD
-// budget). Buffer the first part of the stream WITHOUT yielding to the consumer.
-// As soon as we can tell whether the model is about to call a tool, decide:
+// Old approach (Phase 3): start every turn on 8B, buffer output, sniff for
+// `TOOL:` mid-stream, abort & promote to 70B if detected. Wobbly because
+// 8B's mid-stream format adherence is unreliable.
 //
-//   - If tool intent detected (`TOOL:` or a known tool-name + `{`):
-//       silently abort the 8B stream, re-run the SAME messages on 70B, then
-//       yield from the 70B stream. The user sees nothing of the 8B attempt.
+// New approach: classify intent first (cheap ~70-token 8B call), then run
+// the whole turn deterministically:
+//   - intent='prose' → 8B with NO tool prompt section. Writes the answer
+//     directly. No format risk, no tool fabrication risk.
+//   - intent='tool'  → 70B with the full tool prompt and the agent loop.
+//     70B's tool-call adherence is ~98%.
 //
-//   - If plain prose detected (more than DECISION_PROSE_CHARS without any tool
-//     marker):
-//       commit to 8B, flush the buffered prose to the consumer, and continue
-//       streaming 8B to the end.
+// thinking-mode users skip the classifier entirely — they explicitly want
+// 70B for everything.
 //
-//   - If neither signal arrives before DECISION_TIMEOUT_MS:
-//       safe-default to 70B (rare; means 8B is being slow about anything).
-//
-// User experience: a slight thinking delay (~150-300ms typical), then either:
-//   - clean prose answer (8B path)
-//   - clean tool call routed via 70B (smarter tool adherence)
-//
-// Token cost: when we promote, we waste whatever 8B emitted before the
-// decision (typically <50 chars / ~15 tokens). Net win because plain Q&A
-// stays on 8B and tool-heavy turns get the smart model.
-//
-// thinking-mode users skip the router entirely — they explicitly want 70B.
+// We export `routedStream` and a helper `getLastDecision()` so the UI can
+// show 'auto: 8B (prose)' or 'auto: 70B (tools)' in the usage meter.
 
 import * as groq from './backends/api-groq.js';
-import { listTools } from './tools.js';
+import { classifyIntent } from './intent-classifier.js';
+import { loadSettings } from './settings.js';
 
-const DECISION_PROSE_CHARS = 60;     // confident enough it's not a tool call
-const DECISION_TIMEOUT_MS = 1200;    // safety: never buffer longer than this
-const HARD_TOKEN_FLUSH = 200;        // hard ceiling on chars we ever buffer
+let lastDecision = null; // { intent, model, ts }
 
-// Build a tool-intent detector keyed on the live registry. We require
-// either an explicit `TOOL:` marker, or a known tool name immediately
-// followed by `{` on the same line. This prevents false positives on
-// English prose mentioning a tool name.
-let _intentRe = null;
-function buildIntentRe() {
-    if (_intentRe) return _intentRe;
-    const names = listTools()
-        .map(t => t.name)
-        .filter(n => /^[a-z][a-z0-9_]{2,}$/.test(n))
-        .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-        .sort((a, b) => b.length - a.length);
-    const namesRe = names.join('|');
-    // Match either:  ...TOOL: <known>...   or   <known>{   (start-of-line-ish)
-    _intentRe = new RegExp(`(?:TOOL:\\s*(?:${namesRe}))|(?:^|\\n)\\s*(?:${namesRe})\\s*\\{`, 'i');
-    return _intentRe;
-}
-
-function isAuthError(err) {
-    return err?.status === 401 || err?.status === 403;
-}
-function isRateLimit(err) {
-    return err?.status === 429;
-}
+export function getLastDecision() { return lastDecision; }
 
 /**
- * Stream Mia output with silent tier promotion.
+ * Stream Mia output with intent-classified routing.
  *
  * @param {object} opts
- * @param {string} opts.system
+ * @param {string} opts.system        — system prompt (with or without tools)
+ * @param {string} opts.systemNoTools — system prompt for prose path (no tool section)
  * @param {{role: string, content: string}[]} opts.messages
- * @param {string} opts.key                  Groq API key
+ * @param {string} opts.key
  * @param {AbortSignal} opts.signal
  * @param {(msg: any) => void} [opts.onProgress]
+ * @returns Async iterable of strings (text deltas).
  */
-export async function* smartStream({ system, messages, key, signal, onProgress }) {
-    const intentRe = buildIntentRe();
+export async function* routedStream({ system, systemNoTools, messages, key, signal, onProgress }) {
+    // Classify on the user's last message; if no user turn, default to tool.
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    const intent = await classifyIntent({
+        userMessage: lastUser?.content || '',
+        key,
+        signal,
+    });
 
-    // Stage 1: start an 8B stream with its own abort controller. We will
-    // forcibly cancel it if we decide to promote.
-    const lowAbort = new AbortController();
-    const onParentAbort = () => lowAbort.abort();
-    if (signal) {
-        if (signal.aborted) lowAbort.abort();
-        else signal.addEventListener('abort', onParentAbort, { once: true });
-    }
-
-    let buffer = '';
-    let committed = false;     // committed to 8B; pass-through mode
-    let promoting = false;     // committed to 70B; switch streams
-    const decideStart = Date.now();
-
-    try {
-        const lowStream = groq.stream({
-            system, messages, key,
-            signal: lowAbort.signal,
-            tier: 'default',
-        });
-
-        for await (const delta of lowStream) {
-            if (committed) {
-                yield delta;
-                continue;
-            }
-            buffer += delta;
-
-            // Decision check 1: tool intent?
-            if (intentRe.test(buffer)) {
-                promoting = true;
-                lowAbort.abort();
-                break;
-            }
-            // Decision check 2: enough plain prose to be confident?
-            const elapsed = Date.now() - decideStart;
-            if (
-                buffer.length >= DECISION_PROSE_CHARS
-                || elapsed >= DECISION_TIMEOUT_MS
-                || buffer.length >= HARD_TOKEN_FLUSH
-            ) {
-                if (intentRe.test(buffer)) {
-                    promoting = true;
-                    lowAbort.abort();
-                    break;
-                }
-                // Commit to 8B. Flush whatever we buffered as a single delta,
-                // then continue passing through.
-                committed = true;
-                yield buffer;
-                buffer = '';
-            }
-        }
-
-        if (committed) {
-            // Stream already drained on 8B; we're done.
-            return;
-        }
-
-        if (!promoting) {
-            // 8B finished within the buffer window. Whatever we have IS the
-            // whole answer (or empty). Flush.
-            if (buffer) yield buffer;
-            return;
-        }
-    } catch (err) {
-        // 8B failed before we made a decision. If it's auth-level, surface;
-        // otherwise promote to 70B, since it's the more reliable model anyway.
-        if (signal) signal.removeEventListener('abort', onParentAbort);
-        if (isAuthError(err)) throw err;
-        // For rate-limit or network errors, promote silently.
-        promoting = true;
-        buffer = '';
+    if (intent === 'prose') {
+        lastDecision = { intent: 'prose', model: 'llama-3.1-8b-instant', ts: Date.now() };
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
-    } finally {
-        if (signal) signal.removeEventListener('abort', onParentAbort);
+        // Use the no-tools system prompt so 8B doesn't try to emit TOOL: lines.
+        for await (const delta of groq.stream({
+            system: systemNoTools || system,
+            messages,
+            key,
+            signal,
+            tier: 'default',
+        })) yield delta;
+        return;
     }
 
-    // Stage 2: promote to 70B with the SAME messages. The user has seen
-    // nothing yet, so they perceive this as the whole turn.
-    if (signal?.aborted) return;
+    // Tool path: full tool-prompt system, 70B model.
+    lastDecision = { intent: 'tool', model: 'llama-3.3-70b-versatile', ts: Date.now() };
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
-
     for await (const delta of groq.stream({
-        system, messages, key,
+        system,
+        messages,
+        key,
         signal,
         tier: 'thinking',
-    })) {
-        yield delta;
-    }
+    })) yield delta;
 }
