@@ -1,0 +1,12 @@
+# Cloudflare Workers config for the Yahoo Finance crumb proxy.
+# Deploy with: wrangler deploy (after `wrangler login`).
+#
+# After deploy, copy the printed *.workers.dev URL into
+# js/penny-tier.js → WORKER_URL.
+
+name = "market-analysis-yahoo-proxy"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# No bindings, no env vars, no secrets needed.
+# Free plan: 100K requests/day, 10ms CPU per request.
