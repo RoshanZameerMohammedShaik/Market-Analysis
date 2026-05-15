@@ -1,26 +1,20 @@
 // Weighted Confidence Engine — blends 4 sources, applies disagreement
-// penalty, sector-relative adjustment, earnings cap, regime bias, then
-// calibrates against backtested empirical hit rate.
-//
-// Now includes:
-//   - Regime-conditional source weighting (trending vs ranging vs risk-off)
-//   - Per-liquidity-tier calibration via classifyTier()
-//   - Conformal prediction interval attached to result.confidence_interval
+// penalty, sector-relative adjustment, earnings cap, calendar cap, regime
+// bias, then calibrates against backtested empirical hit rate.
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
 import { generateMultiTimeframePrediction } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
-import { calibrate, classifyTier, getCalibrationStatus } from './calibration.js';
+import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
 import { getEarningsProximity, earningsCap } from './earnings.js';
+import { calendarCap } from './calendar-events.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe) {
-    // Kick off conformal load in parallel with everything else; first call resolves silently
-    // and later calls reuse the cache.
     loadConformal();
 
     const [aiResult, newsItems, marketResult] = await Promise.allSettled([
@@ -37,15 +31,14 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const sentiment = await analyzeNewsSentiment(news);
     const market = marketResult.status === 'fulfilled' ? marketResult.value : { score: 50, reasons: [] };
 
-    // Detect macro regime up-front so we can use it to bias the source weights.
     let regime = null;
     if (mode === 'stock') {
         try { regime = await getMacroRegime(); } catch (_) { /* */ }
     }
     const trendRegime = technicalPred.meta?.trendRegime || 'unknown';
+    const currentVix = regime?.components?.vix?.level;
+    const volTier = classifyVolTier(currentVix);
 
-    // Base weights, then shifted by macro + trend regime. Shifts are bounded
-    // to +/-0.10 so we never zero a source out and keep behaviour predictable.
     let weights = ai.available
         ? { ai: 0.15, technical: 0.35, sentiment: 0.25, market: 0.25 }
         : { ai: 0,    technical: 0.40, sentiment: 0.30, market: 0.30 };
@@ -61,7 +54,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const deviation = Math.abs(weightedScore - 50) / 50;
     let rawConfidence = Math.round(38 + deviation * 50);
 
-    // Disagreement penalty.
     const sourceScores = [technicalScore, sentiment.score, market.score];
     if (ai.available) sourceScores.push(ai.score);
     const minScore = Math.min(...sourceScores);
@@ -73,7 +65,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     else if (dispersion > 25) disagreementPenalty = 3;
     rawConfidence = Math.max(38, rawConfidence - disagreementPenalty);
 
-    // Macro regime bias (penalty only — weight shifts already happened above).
     let regimePen = 0;
     if (regime) {
         const bias = regimeBias(regime.regime);
@@ -81,7 +72,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         rawConfidence = Math.max(38, rawConfidence - regimePen);
     }
 
-    // Sector-relative adjustment.
     let sectorAdj = 0;
     let sectorMeta = null;
     if (mode === 'stock' && symbolOrCoinId) {
@@ -93,7 +83,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Earnings proximity cap.
     let earnings = null;
     if (mode === 'stock' && symbolOrCoinId) {
         try {
@@ -104,21 +93,29 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { /* */ }
     }
 
-    // Tier-specific calibration. Compute liquidity tier from current price
-    // and average volume of the daily candles.
+    // Calendar event cap (FOMC, CPI, OPEX, quad-witching). Stocks only —
+    // crypto trades 24/7 and isn't bound by US macro release schedule.
+    let calendar = null;
+    if (mode === 'stock') {
+        const cc = calendarCap(new Date());
+        if (cc.cap < rawConfidence) {
+            rawConfidence = cc.cap;
+            calendar = cc;
+        }
+    }
+
     const tier = computeTier(multiData);
-    const calibratedConfidence = calibrate(rawConfidence, tier);
+    const calibratedConfidence = calibrate(rawConfidence, { tier, volTier });
     const calibrationApplied = getCalibrationStatus() === 'loaded';
 
-    // Conformal prediction interval for next-bar return at this signal+confidence.
     const ci = getInterval(finalSignal, calibratedConfidence);
 
-    // Heuristic confidence range (point + interval).
     let widthBase = 4;
     widthBase += Math.min(8, dispersion / 6);
     if (regime?.regime === 'transition') widthBase += 2;
     if (regime?.regime === 'risk-off') widthBase += 1;
     if (earnings?.daysUntil != null && earnings.daysUntil <= 5) widthBase += 3;
+    if (calendar) widthBase += 3;
     const halfWidth = Math.round(widthBase / 2);
     const lo = Math.max(38, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
@@ -135,6 +132,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`);
     }
     if (earnings?.capReason) allReasons.push(`[Earnings] ${earnings.capReason}`);
+    if (calendar?.reason) allReasons.push(`[Calendar] ${calendar.reason}`);
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
 
     return {
@@ -145,11 +143,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         rawConfidence,
         calibrationApplied,
         liquidityTier: tier,
+        volTier,
         disagreementPenalty,
         dispersion: Math.round(dispersion),
         regime: regime?.regime,
         sector: sectorMeta,
         earnings,
+        calendar,
         reasons: allReasons.slice(0, 10),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
@@ -162,7 +162,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: ai.available ? '4-source (AI + Technical + Sentiment + Market) + macro/sector/earnings + tier-calibrated' : '3-source + macro/sector/earnings + tier-calibrated',
+        method: ai.available ? '4-source + macro/sector/earnings/calendar + tier+vol-calibrated' : '3-source + macro/sector/earnings/calendar + tier+vol-calibrated',
         trendRegime,
     };
 }
@@ -173,7 +173,6 @@ function convertSignalToScore(signal, confidence) {
     return 50;
 }
 
-// Compute average volume over the last 21 daily candles for tier classification.
 function computeTier(multiData) {
     try {
         const candles = multiData?.daily?.candles || [];
@@ -189,15 +188,6 @@ function computeTier(multiData) {
     }
 }
 
-// Regime-conditional source weighting. Bounded shifts so we never zero out
-// a source. Shifts compose: macro and trend can both nudge in the same turn.
-//
-// Why these shifts:
-//   - Trending markets: technicals (MA-cross, ADX) work; sentiment whipsaws.
-//   - Ranging markets: mean-reversion via sentiment + market context wins;
-//     trend technicals fire false breakouts.
-//   - Risk-off macro: sentiment becomes panic-driven, less informative; lean
-//     on technicals and market context.
 function applyRegimeWeighting(base, macroRegime, trendRegime) {
     const out = { ...base };
     let techShift = 0, sentShift = 0, mktShift = 0;
@@ -208,16 +198,14 @@ function applyRegimeWeighting(base, macroRegime, trendRegime) {
     if (macroRegime === 'risk-off') { sentShift -= 0.05; techShift += 0.025; mktShift += 0.025; }
     else if (macroRegime === 'risk-on') { sentShift += 0.025; mktShift += 0.025; techShift -= 0.05; }
 
-    // Cap any single component shift at +/-0.10 of base.
     techShift = Math.max(-0.10, Math.min(0.10, techShift));
-    sentShift = Math.max(-0.10, Math.min(-0.10 < sentShift ? sentShift : -0.10, 0.10));
+    sentShift = Math.max(-0.10, Math.min(0.10, sentShift));
     mktShift  = Math.max(-0.10, Math.min(0.10, mktShift));
 
     out.technical = Math.max(0.10, base.technical + techShift);
     out.sentiment = Math.max(0.10, base.sentiment + sentShift);
     out.market    = Math.max(0.10, base.market    + mktShift);
 
-    // Renormalize so weights still sum to 1.
     const sum = out.ai + out.technical + out.sentiment + out.market;
     if (sum > 0) {
         out.ai /= sum; out.technical /= sum; out.sentiment /= sum; out.market /= sum;
