@@ -1,11 +1,6 @@
-// Mia's tool registry. Phase 3.2: tool-section prompt compressed.
-// One-line descriptions, format example only at the top, schema args
-// embedded inline.
-//
-// Phase 3.3 prompt addition: explicit reminder that the model must NEVER
-// write RESULT: blocks itself — only the tool runner emits those. Combined
-// with API-level stop sequences in api-groq.js, this prevents the 8B model
-// from fabricating tool output from training memory.
+// Mia's tool registry. Phase 4: adds research_symbol (parallel multi-source
+// bundle) and web_search (keyless DuckDuckGo). All control tools route
+// through ui-bridge.js. Mia cannot mutate any number.
 
 import { state } from '../ui/state.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from '../data.js';
@@ -21,6 +16,8 @@ import {
     fetchNewsAndSentiment, fetchFredSeries, fetchRedditSentiment,
     fetchSecRecentFilings, fetchOptionsView, fetchCryptoDerivativesView,
 } from './external-tools.js';
+import { researchSymbol } from './research-bundle.js';
+import { webSearch } from './web-search.js';
 
 const TOOLS = {
     get_app_state: {
@@ -126,6 +123,18 @@ const TOOLS = {
         run: ({ coinId }) => fetchCryptoDerivativesView({ coinId }),
         kind: 'read',
     },
+    research_symbol: {
+        desc: 'parallel multi-source bundle for one symbol (news+reddit+macro+positioning) — use BEFORE writing your independent read',
+        args: '{"symbol":"AAPL","mode":"stock|crypto","macroSeries":"DGS10"}',
+        run: ({ symbol, mode, macroSeries, companyName }) => researchSymbol({ symbol, mode, macroSeries, companyName }),
+        kind: 'read',
+    },
+    web_search: {
+        desc: 'keyless DuckDuckGo search; returns up to 5 {title,url,domain,snippet}. ALWAYS cite source domains in your answer',
+        args: '{"query":"TSLA premarket news today","maxResults":5}',
+        run: ({ query, maxResults }) => webSearch({ query, maxResults }),
+        kind: 'read',
+    },
     select_symbol: {
         desc: 'load a symbol into the app', args: '{"symbol":"AAPL","mode":"stock|crypto"}',
         run: ({ symbol, mode = 'stock' }) => controlSelectSymbol({ symbol, mode }),
@@ -160,7 +169,6 @@ export function toolPromptSection() {
     lines.push('TOOL: tool_name {"arg": "value"}');
     lines.push('Then STOP. The system will run the tool and reply with a RESULT: line.');
     lines.push('You MUST NEVER write a RESULT: line yourself. Only the system emits those.');
-    lines.push('If you write RESULT yourself, the answer is invalid.');
     lines.push('Use exact tool name; do not abbreviate. Wait for each RESULT before the next call.');
     lines.push('');
     lines.push('READ tools:');
