@@ -2,10 +2,13 @@ name: Refresh model data
 
 on:
   schedule:
-    # Daily backtest at 04:00 UTC
+    # Daily backtest at 04:00 UTC — keeps calibration curves current
+    # since regime shifts move hit rates faster than model weights.
     - cron: '0 4 * * *'
-    # Monthly LSTM retrain at 04:30 UTC on the 1st
-    - cron: '30 4 1 * *'
+    # Weekly LSTM retrain on Sundays at 04:30 UTC. Was monthly; bumped
+    # to weekly to catch regime shifts in model weights too. Daily
+    # would inject noise (5y of candles, +1 day = 0.08% new data).
+    - cron: '30 4 * * 0'
   workflow_dispatch:
     inputs:
       task:
@@ -39,16 +42,12 @@ jobs:
       - name: Decide which tasks to run
         id: decide
         run: |
-          # Default booleans
           do_backtest=false
           do_retrain=false
-          # Schedule (cron) detection
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            # cron field tells us which schedule fired
             if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; fi
-            if [ "${{ github.event.schedule }}" = "30 4 1 * *" ]; then do_retrain=true; fi
+            if [ "${{ github.event.schedule }}" = "30 4 * * 0" ]; then do_retrain=true; fi
           fi
-          # Manual dispatch
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.task }}" in
               backtest) do_backtest=true;;
