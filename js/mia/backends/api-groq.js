@@ -1,43 +1,59 @@
 // Groq backend — OpenAI-compatible chat completions, streaming, fast.
-// Free tier: 30 RPM, 14400 RPD, 6000 TPM, 500k TPD on Llama 3.3 70B.
-// Reads x-ratelimit-remaining-* headers so we can show a usage meter.
+//
+// Model routing:
+//   - default tier:  llama-3.1-8b-instant   (14,400 RPD / 500K TPD)
+//   - thinking mode: llama-3.3-70b-versatile (1,000 RPD / 100K TPD)
+//
+// Why default to 8B: free-tier 70B is throughput-starved at 100K tokens/day.
+// A typical tool-use turn burns ~20K tokens, so 100K TPD ≈ ~5 turns/day on 70B.
+// 8B gives ~25 tool-use turns or ~140 plain Q&A turns/day. Mia mostly
+// summarizes tool output and writes 4-sentence answers — a job 8B handles
+// well. Users who want deeper reasoning flip the thinking-mode toggle and
+// route to 70B.
 //
 // New Groq accounts ship with their org-level model allowlist EMPTY.
-// We detect that specific 403 and surface a precise, actionable message
-// pointing to the exact settings page.
+// We detect that 403 specifically and surface an actionable message.
+//
+// 429 handling: we read the Groq-documented retry-after header and surface
+// it on the thrown error so the dispatcher in llm-client.js can decide
+// whether to wait or fall over to Cloudflare.
 
 const URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const MODEL_DEFAULT = 'llama-3.1-8b-instant';
+const MODEL_THINKING = 'llama-3.3-70b-versatile';
 
 let lastUsage = null;
 
 export function getLastUsage() { return lastUsage; }
 
-function parseGroqError(status, body) {
+function modelFor(tier) {
+    return tier === 'thinking' ? MODEL_THINKING : MODEL_DEFAULT;
+}
+
+function parseGroqError(status, body, retryAfterSec) {
     let parsed = null;
     try { parsed = JSON.parse(body); } catch (_) {}
-    const code = parsed?.error?.code || '';
     const msg = parsed?.error?.message || body || '';
     if (status === 401) {
         return 'Groq rejected the API key (401). Open settings and re-paste a valid gsk_… value.';
     }
     if (status === 403 && /model_permission_blocked_org|blocked at the organization/i.test(msg)) {
-        return [
-            `Groq blocked ${MODEL} at your org level.`,
-            'Open https://console.groq.com/settings/limits → Allowed Models, enable',
-            `${MODEL}, then try again. New Groq accounts ship with this disabled.`,
-        ].join(' ');
+        const m = msg.match(/`([^`]+)`/);
+        const blocked = m ? m[1] : 'this model';
+        return `Groq blocked ${blocked} at your org level. Open https://console.groq.com/settings/limits → Allowed Models, enable ${blocked}, then try again. New Groq accounts ship with model access disabled by default.`;
     }
     if (status === 403) {
         return `Groq returned 403: ${msg.slice(0, 200)}`;
     }
     if (status === 429) {
-        return 'Groq rate-limited. Wait and try again, or check the usage meter.';
+        const wait = retryAfterSec ? ` Retry in ${Math.ceil(retryAfterSec)}s.` : '';
+        return `Groq rate-limited.${wait}`;
     }
     return `Groq error ${status}: ${(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}`;
 }
 
-export async function* stream({ system, messages, key, signal }) {
+export async function* stream({ system, messages, key, signal, tier = 'default' }) {
+    const model = modelFor(tier);
     const res = await fetch(URL, {
         method: 'POST',
         headers: {
@@ -45,7 +61,7 @@ export async function* stream({ system, messages, key, signal }) {
             'Authorization': `Bearer ${key}`,
         },
         body: JSON.stringify({
-            model: MODEL,
+            model,
             messages: [{ role: 'system', content: system }, ...messages],
             temperature: 0.3,
             max_tokens: 800,
@@ -54,11 +70,15 @@ export async function* stream({ system, messages, key, signal }) {
         signal,
     });
 
-    captureRateHeaders(res.headers);
+    captureRateHeaders(res.headers, model);
 
     if (!res.ok) {
         const body = await res.text().catch(() => '');
-        throw new Error(parseGroqError(res.status, body));
+        const retryAfter = parseFloat(res.headers.get('retry-after')) || null;
+        const err = new Error(parseGroqError(res.status, body, retryAfter));
+        err.status = res.status;
+        err.retryAfterSec = retryAfter;
+        throw err;
     }
 
     const reader = res.body.getReader();
@@ -84,36 +104,38 @@ export async function* stream({ system, messages, key, signal }) {
     }
 }
 
-export async function ping(key) {
+export async function ping(key, tier = 'default') {
+    const model = modelFor(tier);
     const res = await fetch(URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
-            model: MODEL,
+            model,
             messages: [{ role: 'user', content: 'reply pong' }],
             max_tokens: 5,
             temperature: 0,
         }),
         signal: AbortSignal.timeout(15000),
     });
-    captureRateHeaders(res.headers);
+    captureRateHeaders(res.headers, model);
     if (!res.ok) {
         const body = await res.text().catch(() => '');
         let parsed = null;
         try { parsed = JSON.parse(body); } catch (_) {}
-        const code = parsed?.error?.code || '';
         const msg = parsed?.error?.message || '';
         if (res.status === 401) return { ok: false, msg: 'Key was rejected (401). Double-check the gsk_… value.' };
         if (res.status === 403 && /model_permission_blocked_org|blocked at the organization/i.test(msg)) {
-            return { ok: false, msg: `Key works, but ${MODEL} is blocked at your org. Go to console.groq.com/settings/limits → Allowed Models and enable it (Step 4 above).` };
+            return { ok: false, msg: `Key works, but ${model} is blocked at your org. Open console.groq.com/settings/limits → Allowed Models and enable ${model} (Step 4 above).` };
         }
         if (res.status === 403) return { ok: false, msg: `Forbidden (403): ${msg.slice(0, 160)}` };
         return { ok: false, msg: `Test failed (${res.status}).` };
     }
-    return { ok: true, msg: 'Connected. Llama 3.3 70B ready.' };
+    return { ok: true, msg: `Connected. ${model === MODEL_THINKING ? 'Llama 3.3 70B' : 'Llama 3.1 8B'} ready.` };
 }
 
-function captureRateHeaders(h) {
+export function getModelForTier(tier) { return modelFor(tier); }
+
+function captureRateHeaders(h, model) {
     const get = k => h.get(k);
     const reqLim = parseFloat(get('x-ratelimit-limit-requests')) || null;
     const reqRem = parseFloat(get('x-ratelimit-remaining-requests')) || null;
@@ -124,6 +146,7 @@ function captureRateHeaders(h) {
             reqLim, reqRem, tokLim, tokRem,
             ts: Date.now(),
             provider: 'groq',
+            model,
         };
     }
 }
