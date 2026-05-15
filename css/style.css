@@ -289,8 +289,12 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
     .glossary-rail { padding: 18px 14px; }
 }
 @media (max-width: 1024px) {
-    .app-layout { grid-template-columns: 1fr; }
-    .glossary-rail { position: relative; top: 0; height: auto; border-right: none; border-bottom: 1px solid var(--border); max-height: 320px; }
+    /* Switch to flex on mobile/tablet so we can reorder children: main first,
+       glossary last (after Hot Picks). P&L sidebar is a floating panel on
+       its own (pl-toggle.css), so it doesn't enter the flow. */
+    .app-layout { display: flex; flex-direction: column; }
+    .main-container { order: 1; }
+    .glossary-rail { order: 2; position: relative; top: 0; height: auto; max-height: none; border-right: none; border-top: 1px solid var(--border); }
     .pl-sidebar { position: relative; top: 0; height: auto; border-left: none; border-top: 1px solid var(--border); }
 }
 @media (max-width: 768px) {
