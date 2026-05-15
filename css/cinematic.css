@@ -239,3 +239,71 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     /* DYK chip too. */
     .dyk-chip { bottom: 88px; }
 }
+
+/* ===== ECG ANIMATIONS ===== */
+
+/* Header ECG flanking the Market Analyzer title.
+   Wraps the title in a flex container; 2 SVGs sit on either side.
+   Pink stroke (#ec4899) so it contrasts with the blue/green title gradient.
+   Two-layer effect: dim trace always visible, bright blip sweeps via
+   stroke-dasharray + stroke-dashoffset animation. */
+.app-title-wrap {
+    display: flex; align-items: center; gap: 12px;
+}
+.header-ecg {
+    width: 80px; height: 24px;
+    flex-shrink: 0;
+}
+.header-ecg-trace {
+    stroke: rgba(236, 72, 153, 0.32);
+}
+.header-ecg-blip {
+    stroke: #ec4899;
+    /* Approximate path length so the dash math feels right; the visible
+       window is ~14 units (one heartbeat region). */
+    stroke-dasharray: 14 200;
+    filter: drop-shadow(0 0 4px rgba(236, 72, 153, 0.6));
+    animation: ecg-sweep 2.4s linear infinite;
+}
+.header-ecg-right .header-ecg-blip {
+    /* Mirrored offset so the right side pulses out of phase with the left. */
+    animation-delay: -1.2s;
+}
+.header-ecg-right {
+    transform: scaleX(-1);
+}
+@keyframes ecg-sweep {
+    from { stroke-dashoffset: 214; }
+    to   { stroke-dashoffset: 0; }
+}
+
+@media (max-width: 768px) {
+    /* On mobile the title is small; shrink the ECGs to keep them readable. */
+    .header-ecg { width: 48px; height: 18px; }
+    .app-title-wrap { gap: 8px; }
+}
+@media (max-width: 480px) {
+    .header-ecg { width: 36px; }
+}
+
+/* Mia logo ECG sweep — same pattern, scoped to the M-shaped path. */
+.mia-ecg-svg .mia-ecg-blip {
+    stroke-dasharray: 14 80;
+    animation: ecg-sweep-mia 2s linear infinite;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
+}
+@keyframes ecg-sweep-mia {
+    from { stroke-dashoffset: 94; }
+    to   { stroke-dashoffset: 0; }
+}
+
+/* Launcher logo ECG — white stroke (no background), sized for 32x24 viewBox. */
+.mia-launcher .mia-launcher-logo .mia-ecg-trace,
+.mia-launcher .mia-launcher-logo .mia-ecg-blip {
+    stroke: #ffffff;
+}
+.mia-launcher .mia-launcher-logo .mia-ecg-blip {
+    stroke-dasharray: 12 80;
+    animation: ecg-sweep-mia 2s linear infinite;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+}

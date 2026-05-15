@@ -11,7 +11,17 @@
 <body>
     <header class="app-header">
         <div class="header-content">
-            <h1 class="app-title">Market Analyzer</h1>
+            <div class="app-title-wrap">
+                <svg class="header-ecg header-ecg-left" viewBox="0 0 80 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path class="header-ecg-trace" d="M0 12 L18 12 Q22 12 24 10 T28 12 L34 12 L36 4 L38 22 L40 8 L42 12 L52 12 Q56 12 58 9 T62 12 L80 12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="header-ecg-blip" d="M0 12 L18 12 Q22 12 24 10 T28 12 L34 12 L36 4 L38 22 L40 8 L42 12 L52 12 Q56 12 58 9 T62 12 L80 12" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <h1 class="app-title">Market Analyzer</h1>
+                <svg class="header-ecg header-ecg-right" viewBox="0 0 80 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path class="header-ecg-trace" d="M0 12 L18 12 Q22 12 24 10 T28 12 L34 12 L36 4 L38 22 L40 8 L42 12 L52 12 Q56 12 58 9 T62 12 L80 12" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="header-ecg-blip" d="M0 12 L18 12 Q22 12 24 10 T28 12 L34 12 L36 4 L38 22 L40 8 L42 12 L52 12 Q56 12 58 9 T62 12 L80 12" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
         </div>
     </header>
 
@@ -110,15 +120,11 @@
     </div>
 
     <button id="mia-launcher" class="mia-launcher" title="Ask Mia—your Market Intelligence Analyst" aria-label="Open Mia chat">
-        <svg class="mia-launcher-logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-                <linearGradient id="mia-launcher-grad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stop-color="#ffffff"/>
-                    <stop offset="100%" stop-color="#e0e7ff"/>
-                </linearGradient>
-            </defs>
-            <path d="M5 22 L11 14 L15 18 L22 8" stroke="url(#mia-launcher-grad)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="22" cy="8" r="2.6" fill="#ffffff" class="mia-launcher-spark"/>
+        <svg class="mia-launcher-logo mia-ecg-svg" viewBox="0 0 32 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <!-- Two-layer ECG: dim full trace + bright sweeping blip.
+                 Path traces an M shape with P-wave bump before and T-wave bump after. -->
+            <path class="mia-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
+            <path class="mia-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     </button>
     <div id="mia-panel" class="mia-panel" aria-hidden="true"></div>
