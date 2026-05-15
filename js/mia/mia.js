@@ -10,16 +10,15 @@ import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmBackend } from './llm-client.js';
 import { flagUnverifiedNumbers } from './guard.js';
-import { startPrewarm } from './prewarm.js';
+import { startPrewarm, getReadyState, onReadyChange } from './prewarm.js';
 
 let currentSignal = null;
 let panelOpen = false;
 let activeAbort = null;
 
 const CLEAR_HOLD_MS = 3000;
-const CLEAR_HOLD_DELAY_MS = 500; // delay before showing progress ring
+const CLEAR_HOLD_DELAY_MS = 500;
 
-// Inline SVG icons for the unified send/stop/clear button.
 const ICON_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.4 1.06L4.5 11l8 1-8 1L2 19.34a1 1 0 0 0 1.4 1.06z"/></svg>';
 const ICON_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
@@ -28,8 +27,35 @@ export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSi
 
 export function initMia() {
     document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
-    // Background-load WebLLM weights so first open is instant.
     startPrewarm();
+    // Reflect prewarm state on the launcher status dot.
+    initLauncherReadyDot();
+}
+
+function initLauncherReadyDot() {
+    const launcher = document.getElementById('mia-launcher');
+    if (!launcher) return;
+    if (!launcher.querySelector('.mia-launcher-ready-dot')) {
+        const dot = document.createElement('span');
+        dot.className = 'mia-launcher-ready-dot';
+        dot.dataset.state = 'idle';
+        launcher.appendChild(dot);
+    }
+    paintReadyDot(getReadyState());
+    onReadyChange(s => paintReadyDot(s));
+}
+
+function paintReadyDot(s) {
+    const dot = document.querySelector('.mia-launcher-ready-dot');
+    if (!dot) return;
+    dot.dataset.state = s?.state || 'idle';
+    const launcher = document.getElementById('mia-launcher');
+    if (launcher) {
+        if (s?.state === 'warming') launcher.title = `Mia is warming up — ${s.percent}%`;
+        else if (s?.state === 'ready') launcher.title = 'Ask Mia — your Market Intelligence Analyst (ready)';
+        else if (s?.state === 'unavailable') launcher.title = 'Ask Mia — local model unavailable, switch to API key in settings';
+        else launcher.title = 'Ask Mia — your Market Intelligence Analyst';
+    }
 }
 
 function togglePanel() {
@@ -95,7 +121,6 @@ function renderChat() {
             e.preventDefault();
             onPrimaryAction();
         }
-        // Ctrl/Cmd+Shift+K clears chat (keyboard alternative to long-press).
         if (e.key === 'K' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
             performClear();
@@ -106,19 +131,17 @@ function renderChat() {
     renderThread(loadHistory());
 }
 
-// ===== Unified action button =====
-
 let holdTimer = null;
 let holdStartTs = 0;
 let holdRingTimer = null;
-let holdState = 'idle'; // 'idle' | 'pressing' | 'firing'
+let holdState = 'idle';
 
 function wireActionButton() {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
 
     const start = (e) => {
-        if (e.button !== undefined && e.button !== 0) return; // left click only
+        if (e.button !== undefined && e.button !== 0) return;
         e.preventDefault();
         beginHold();
     };
@@ -138,18 +161,15 @@ function beginHold() {
     holdState = 'pressing';
     const btn = document.getElementById('mia-action');
     if (!btn) return;
-    // After CLEAR_HOLD_DELAY_MS (500ms), reveal the progress ring + start filling.
     holdRingTimer = setTimeout(() => {
         if (holdState !== 'pressing') return;
         btn.classList.add('mia-action-arming');
         setActionIcon(ICON_TRASH);
     }, CLEAR_HOLD_DELAY_MS);
-    // Full hold = clear.
     holdTimer = setTimeout(() => {
         if (holdState !== 'pressing') return;
         holdState = 'firing';
         performClear();
-        // Reset visuals after the clear.
         const b = document.getElementById('mia-action');
         if (b) {
             b.classList.remove('mia-action-arming');
@@ -163,7 +183,6 @@ function beginHold() {
 
 function endHold() {
     if (holdState !== 'pressing') {
-        // Already fired or already idle
         clearHoldTimers();
         return;
     }
@@ -173,10 +192,8 @@ function endHold() {
     if (btn) btn.classList.remove('mia-action-arming');
     holdState = 'idle';
     if (heldMs < CLEAR_HOLD_DELAY_MS) {
-        // It was a tap, not a hold — perform the primary action.
         onPrimaryAction();
     } else {
-        // Held briefly but released before clear threshold — cancel quietly.
         renderActionState();
     }
 }
@@ -307,16 +324,12 @@ async function doSend() {
             if (ev.type !== 'delta') continue;
             const delta = ev.text;
             if (!delta) continue;
-            // Lazily reset the bubble on first visible content, with a null guard.
             const el = document.getElementById(bubbleId);
             if (!el) {
-                // Bubble was removed (clear, settings open, etc). Recreate it
-                // and continue — don't crash.
                 appendStreamingBubble(bubbleId);
             }
             const el2 = document.getElementById(bubbleId);
             if (!el2) {
-                // Still gone (panel closed?). Just accumulate text silently.
                 acc += delta;
                 continue;
             }
@@ -355,17 +368,20 @@ async function doSend() {
 }
 
 function stripAgentNoise(s) {
-    // Belt + suspenders: never let TOOL: or RESULT: lines reach saved or rendered output.
     return String(s || '').replace(/^TOOL:.*$/gim, '').replace(/^RESULT:.*$/gim, '').replace(/\n{3,}/g, '\n\n');
 }
 
 function appendStreamingBubble(bubbleId) {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
-    if (document.getElementById(bubbleId)) return; // already there
+    if (document.getElementById(bubbleId)) return;
     thread.insertAdjacentHTML('beforeend', `
         <div class="mia-msg assistant">
-            <div class="mia-msg-bubble mia-md" id="${bubbleId}"><span class="mia-typing"><i></i><i></i><i></i></span><span class="mia-progress" id="mia-progress">thinking…</span></div>
+            <div class="mia-msg-bubble mia-md" id="${bubbleId}">
+                <span class="mia-typing"><i></i><i></i><i></i></span>
+                <span class="mia-progress" id="mia-progress">thinking…</span>
+                <div class="mia-progress-bar" id="mia-progress-bar" hidden><div class="mia-progress-bar-fill" id="mia-progress-bar-fill"></div></div>
+            </div>
         </div>
     `);
     thread.scrollTop = thread.scrollHeight;
@@ -377,9 +393,27 @@ function showToolBadge(bubbleId, name) {
     el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">⚡ used <code>${name}</code></div>`);
 }
 
+// Accepts either a raw string (legacy callers) or an object
+// {phase, percent, friendly} from llm-client.js. When phase indicates a
+// model load we render a progress bar; otherwise we just update the text.
 function updateProgress(msg) {
-    const el = document.getElementById('mia-progress');
-    if (el) el.textContent = msg;
+    const text = document.getElementById('mia-progress');
+    const bar = document.getElementById('mia-progress-bar');
+    const fill = document.getElementById('mia-progress-bar-fill');
+    if (typeof msg === 'object' && msg) {
+        const friendly = msg.friendly || msg.text || 'Working…';
+        const pct = Math.max(0, Math.min(100, Math.round(msg.percent || 0)));
+        if (text) text.textContent = friendly;
+        if (msg.phase === 'loading' || msg.phase === 'downloading') {
+            if (bar) bar.hidden = false;
+            if (fill) fill.style.width = pct + '%';
+        } else {
+            if (bar) bar.hidden = true;
+        }
+        return;
+    }
+    if (text) text.textContent = String(msg || '');
+    if (bar) bar.hidden = true;
 }
 
 function setSendState(stateName) {
