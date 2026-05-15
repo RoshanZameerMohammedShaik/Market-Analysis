@@ -47,26 +47,27 @@
     --brand-grad-2: linear-gradient(135deg, #0969da, #0550ae);
     --brand-grad-shadow: rgba(9, 105, 218, 0.35);
 }
-[data-theme="slate"] {
-    /* Deep ocean blueprint. Distinct from dark via saturated blue/cyan,
-       lighter elevated surfaces, and brighter cyan accent. */
-    --bg-primary: #0a1929; --bg-secondary: #102a43; --bg-card: #143957; --bg-hover: #1c4d72;
-    --bg-glass: rgba(16, 42, 67, 0.78);
-    --border: rgba(56, 189, 248, 0.16); --border-strong: rgba(56, 189, 248, 0.34);
-    --text-primary: #e0f2fe; --text-secondary: #7dd3fc; --text-muted: #4f8aa8;
-    --accent: #38bdf8; --accent-hover: #7dd3fc; --accent-rgb: 56, 189, 248;
+[data-theme="aurora"] {
+    /* Aurora — deep indigo midnight with violet/magenta/teal jewel tones.
+       Designed to feel like the northern lights: rich, mysterious, distinct
+       from both dark and any blue-leaning theme. */
+    --bg-primary: #0a0420; --bg-secondary: #140a30; --bg-card: #1c1145; --bg-hover: #271858;
+    --bg-glass: rgba(20, 10, 48, 0.78);
+    --border: rgba(192, 132, 252, 0.16); --border-strong: rgba(192, 132, 252, 0.36);
+    --text-primary: #f3e8ff; --text-secondary: #d8b4fe; --text-muted: #8b6fb1;
+    --accent: #c084fc; --accent-hover: #d8b4fe; --accent-rgb: 192, 132, 252;
     --green: #4ade80; --green-bg: rgba(74, 222, 128, 0.14);
     --red: #fb7185; --red-bg: rgba(251, 113, 133, 0.14);
-    --yellow: #fbbf24; --yellow-bg: rgba(251, 191, 36, 0.14);
-    --chart-bg: #0a1929;
-    --shadow: 0 8px 32px rgba(2, 17, 39, 0.7); --shadow-sm: 0 2px 8px rgba(2, 17, 39, 0.45);
-    --brand-grad: linear-gradient(135deg, #0ea5e9, #38bdf8, #67e8f9);
-    --brand-grad-2: linear-gradient(135deg, #0ea5e9, #38bdf8);
-    --brand-grad-shadow: rgba(56, 189, 248, 0.45);
+    --yellow: #fcd34d; --yellow-bg: rgba(252, 211, 77, 0.14);
+    --chart-bg: #0a0420;
+    --shadow: 0 8px 32px rgba(10, 4, 32, 0.7); --shadow-sm: 0 2px 8px rgba(10, 4, 32, 0.45);
+    --brand-grad: linear-gradient(135deg, #c084fc, #e879f9, #2dd4bf);
+    --brand-grad-2: linear-gradient(135deg, #c084fc, #e879f9);
+    --brand-grad-shadow: rgba(232, 121, 249, 0.45);
 }
-[data-theme="slate"] .app-header { background: linear-gradient(90deg, rgba(56, 189, 248, 0.05), rgba(56, 189, 248, 0.10), rgba(56, 189, 248, 0.05)); border-bottom-color: rgba(56, 189, 248, 0.22); }
-[data-theme="slate"] .app-title {
-    background: linear-gradient(135deg, #67e8f9, #38bdf8, #e0f2fe) !important;
+[data-theme="aurora"] .app-header { background: linear-gradient(90deg, rgba(192, 132, 252, 0.06), rgba(232, 121, 249, 0.10), rgba(45, 212, 191, 0.06)); border-bottom-color: rgba(192, 132, 252, 0.24); }
+[data-theme="aurora"] .app-title {
+    background: linear-gradient(135deg, #e879f9, #c084fc, #2dd4bf) !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
@@ -75,8 +76,10 @@
 body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.5; -webkit-font-smoothing: antialiased; transition: background var(--transition), color var(--transition); }
 .num { font-family: var(--num-font); font-variant-numeric: tabular-nums; }
 
-.app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 220px 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
-/* Centered title with ECG flanks */
+/* Symmetric header padding so .header-content centers true to the viewport.
+   .header-actions is body-level position:fixed (top-right desktop, bottom-
+   center mobile) and doesn't need the header to reserve room. */
+.app-header { background: var(--bg-glass); border-bottom: 1px solid var(--border); padding: 14px 24px; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .header-content { max-width: 1500px; margin: 0 auto; display: flex; align-items: center; justify-content: center; }
 
 .header-actions {
