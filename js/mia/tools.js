@@ -1,6 +1,11 @@
 // Mia's tool registry. Phase 3.2: tool-section prompt compressed.
 // One-line descriptions, format example only at the top, schema args
 // embedded inline.
+//
+// Phase 3.3 prompt addition: explicit reminder that the model must NEVER
+// write RESULT: blocks itself — only the tool runner emits those. Combined
+// with API-level stop sequences in api-groq.js, this prevents the 8B model
+// from fabricating tool output from training memory.
 
 import { state } from '../ui/state.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from '../data.js';
@@ -17,8 +22,6 @@ import {
     fetchSecRecentFilings, fetchOptionsView, fetchCryptoDerivativesView,
 } from './external-tools.js';
 
-// Compact tool table. `desc` should be ONE short line. `args` is shown to
-// the model so it knows the JSON shape without reading prose.
 const TOOLS = {
     get_app_state: {
         desc: 'app snapshot (mode, symbol, theme, latest signal summary)', args: '{}',
@@ -155,7 +158,9 @@ export function toolPromptSection() {
     const lines = ['# TOOLS'];
     lines.push('Format: one line, no markdown wrapping, no bullets, no bold:');
     lines.push('TOOL: tool_name {"arg": "value"}');
-    lines.push('Then STOP and wait for RESULT:.');
+    lines.push('Then STOP. The system will run the tool and reply with a RESULT: line.');
+    lines.push('You MUST NEVER write a RESULT: line yourself. Only the system emits those.');
+    lines.push('If you write RESULT yourself, the answer is invalid.');
     lines.push('Use exact tool name; do not abbreviate. Wait for each RESULT before the next call.');
     lines.push('');
     lines.push('READ tools:');

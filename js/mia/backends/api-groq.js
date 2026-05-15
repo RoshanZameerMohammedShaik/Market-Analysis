@@ -4,12 +4,11 @@
 //   - default tier:  llama-3.1-8b-instant   (14,400 RPD / 500K TPD)
 //   - thinking mode: llama-3.3-70b-versatile (1,000 RPD / 100K TPD)
 //
-// Why default to 8B: free-tier 70B is throughput-starved at 100K tokens/day.
-// A typical tool-use turn burns ~20K tokens, so 100K TPD ≈ ~5 turns/day on 70B.
-// 8B gives ~25 tool-use turns or ~140 plain Q&A turns/day. Mia mostly
-// summarizes tool output and writes 4-sentence answers — a job 8B handles
-// well. Users who want deeper reasoning flip the thinking-mode toggle and
-// route to 70B.
+// Stop sequences: 8B-class models often continue past their tool call
+// and fabricate a RESULT: block from training memory. We set the API's
+// `stop` parameter so generation halts at boundary tokens. The agent
+// loop then runs the actual tool and feeds the real result back as the
+// next user turn.
 //
 // New Groq accounts ship with their org-level model allowlist EMPTY.
 // We detect that 403 specifically and surface an actionable message.
@@ -21,6 +20,11 @@
 const URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL_DEFAULT = 'llama-3.1-8b-instant';
 const MODEL_THINKING = 'llama-3.3-70b-versatile';
+
+// Halt the moment the model tries to fabricate a tool result, or
+// invents a second tool call without waiting. The agent loop will
+// pick up from there with the real RESULT.
+const STOP_SEQUENCES = ['\nRESULT:', 'RESULT (from', '\nTOOL:'];
 
 let lastUsage = null;
 
@@ -66,6 +70,7 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
             temperature: 0.3,
             max_tokens: 800,
             stream: true,
+            stop: STOP_SEQUENCES,
         }),
         signal,
     });
