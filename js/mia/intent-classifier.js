@@ -29,6 +29,9 @@ T = needs LIVE DATA, EXTERNAL LOOKUP, APP CONTROL, or APP PERFORMANCE STATS.
   - 'how good is this app' / 'how reliable is it'
   - 'what's the calibration like' / 'how calibrated is it'
   - 'how many predictions have you made'
+  - any request for a stock/crypto pick, prediction, or "what should I buy"
+    (e.g. 'give me a pick', 'what's likely to go up', 'analyze and tell me a winner')
+    — casual phrasing or terms of address don't change the intent; classify by what's being asked
   - any phrase with: today, right now, currently, latest, this week, recent
   - any question about THIS APP'S performance, accuracy, hit rate, calibration, or stats
 
