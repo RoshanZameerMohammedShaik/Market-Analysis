@@ -2,10 +2,7 @@ name: Refresh model data
 
 on:
   schedule:
-    # Daily backtest at 04:00 UTC
     - cron: '0 4 * * *'
-    # Weekly model retrain on Sundays at 04:30 UTC. Trains LSTM walk-forward,
-    # XGBoost ensemble, AND the new penny-tier LSTM.
     - cron: '30 4 * * 0'
   workflow_dispatch:
     inputs:
@@ -18,6 +15,7 @@ on:
           - backtest
           - retrain
           - retrain_penny
+          - penny_modules_backtest
           - both
 
 jobs:
@@ -44,8 +42,9 @@ jobs:
           do_backtest=false
           do_retrain=false
           do_retrain_penny=false
+          do_penny_modules=false
           if [ "${{ github.event_name }}" = "schedule" ]; then
-            if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; fi
+            if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; do_penny_modules=true; fi
             if [ "${{ github.event.schedule }}" = "30 4 * * 0" ]; then do_retrain=true; do_retrain_penny=true; fi
           fi
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -53,16 +52,22 @@ jobs:
               backtest) do_backtest=true;;
               retrain) do_retrain=true;;
               retrain_penny) do_retrain_penny=true;;
+              penny_modules_backtest) do_penny_modules=true;;
               both) do_backtest=true; do_retrain=true;;
             esac
           fi
           echo "do_backtest=$do_backtest" >> $GITHUB_OUTPUT
           echo "do_retrain=$do_retrain" >> $GITHUB_OUTPUT
           echo "do_retrain_penny=$do_retrain_penny" >> $GITHUB_OUTPUT
+          echo "do_penny_modules=$do_penny_modules" >> $GITHUB_OUTPUT
 
       - name: Run backtest
         if: steps.decide.outputs.do_backtest == 'true'
         run: python backtest.py
+
+      - name: Run penny-modules historical backtest
+        if: steps.decide.outputs.do_penny_modules == 'true'
+        run: python backtest_penny_modules.py
 
       - name: Retrain LSTM (walk-forward)
         if: steps.decide.outputs.do_retrain == 'true'
@@ -87,6 +92,7 @@ jobs:
           fi
           msg="chore(data): auto-refresh"
           if [ "${{ steps.decide.outputs.do_backtest }}" = "true" ]; then msg="$msg backtest"; fi
+          if [ "${{ steps.decide.outputs.do_penny_modules }}" = "true" ]; then msg="$msg pennyback"; fi
           if [ "${{ steps.decide.outputs.do_retrain }}" = "true" ]; then msg="$msg retrain"; fi
           if [ "${{ steps.decide.outputs.do_retrain_penny }}" = "true" ]; then msg="$msg penny"; fi
           msg="$msg [skip ci]"

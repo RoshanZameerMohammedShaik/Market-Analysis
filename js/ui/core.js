@@ -3,7 +3,7 @@ import { initTheme, cycleTheme } from './theme.js';
 import { initSearch, updatePlaceholder } from './search.js';
 import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
-import { loadHotPicks } from './hotpicks.js';
+import { loadHotPicks, initPennyFilterButtons } from './hotpicks.js';
 import { initPLCalculator } from './pl.js';
 import { initPLToggle } from './pl-toggle.js';
 import { renderAccuracyStrip } from './accuracy.js';
@@ -34,6 +34,7 @@ export function init() {
     initKeyboard({ onRefresh: () => document.getElementById('refresh-hotpicks')?.click() });
     renderGlossary();
     initMia();
+    initPennyFilterButtons();
     showChartPlaceholder();
     startDyk();
 

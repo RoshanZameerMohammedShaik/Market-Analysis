@@ -1,0 +1,118 @@
+/* Phase 8 add-ons: penny dashboard, penny filter sub-tabs, Mia ECG thinking. */
+
+/* Penny filter sub-tabs (under Hot Picks) */
+.penny-filters {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 6px 4px 12px;
+}
+.penny-filter-btn {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.penny-filter-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+.penny-filter-btn.active {
+    background: var(--brand-grad-2);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 4px 14px var(--brand-grad-shadow);
+}
+
+/* Penny risk dashboard inside the signal card */
+.penny-dashboard {
+    margin: 14px 0 10px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.06), var(--bg-secondary) 60%);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+}
+.penny-dashboard-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+}
+.penny-dashboard-icon { font-size: 1rem; }
+.penny-dashboard-title {
+    font-weight: 800; font-size: 0.92rem;
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+.penny-dashboard-hint {
+    font-size: 0.7rem; color: var(--text-muted);
+    margin-left: auto;
+}
+.penny-dashboard-body {
+    display: flex; flex-direction: column; gap: 6px;
+}
+.penny-row {
+    display: grid;
+    grid-template-columns: 130px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0;
+    font-size: 0.84rem;
+    border-top: 1px dashed var(--border);
+}
+.penny-row:first-child { border-top: none; }
+.penny-label {
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.6px;
+    font-weight: 700;
+}
+.penny-value {
+    color: var(--text-primary);
+    font-family: var(--num-font);
+    font-weight: 600;
+}
+.penny-tag {
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.4px;
+}
+.penny-tag.risk-ok    { background: var(--bg-hover); color: var(--text-secondary); }
+.penny-tag.risk-good  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.penny-tag.risk-warn  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+.penny-tag.risk-high  { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+
+@media (max-width: 480px) {
+    .penny-row { grid-template-columns: 100px 1fr auto; gap: 8px; font-size: 0.78rem; }
+    .penny-label { font-size: 0.62rem; }
+    .penny-filter-btn { font-size: 0.72rem; padding: 5px 10px; }
+}
+
+/* Mia ECG thinking animation — replaces the bouncing-dots typing indicator */
+.mia-ecg-thinking {
+    display: inline-block;
+    width: 80px; height: 18px;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+.mia-ecg-thinking-trace {
+    stroke: var(--text-muted);
+    opacity: 0.35;
+}
+.mia-ecg-thinking-blip {
+    stroke: var(--accent);
+    stroke-dasharray: 240;
+    stroke-dashoffset: 240;
+    filter: drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.6));
+    animation: mia-ecg-thinking-sweep 1.6s ease-in-out infinite;
+}
+@keyframes mia-ecg-thinking-sweep {
+    0%   { stroke-dashoffset: 240; }
+    50%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -240; }
+}
