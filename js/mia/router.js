@@ -1,44 +1,40 @@
-// Phase 5 router: intent-classified deterministic routing.
+// Phase 8.4: explicit anti-fabrication preamble on the prose path.
 //
-// Old approach (Phase 3): start every turn on 8B, buffer output, sniff for
-// `TOOL:` mid-stream, abort & promote to 70B if detected. Wobbly because
-// 8B's mid-stream format adherence is unreliable.
-//
-// New approach: classify intent first (cheap ~70-token 8B call), then run
-// the whole turn deterministically:
-//   - intent='prose' → 8B with NO tool prompt section. Writes the answer
-//     directly. No format risk, no tool fabrication risk.
-//   - intent='tool'  → 70B with the full tool prompt and the agent loop.
-//     70B's tool-call adherence is ~98%.
-//
-// thinking-mode users skip the classifier entirely — they explicitly want
-// 70B for everything.
-//
-// We export `routedStream` and a helper `getLastDecision()` so the UI can
-// show 'auto: 8B (prose)' or 'auto: 70B (tools)' in the usage meter.
+// When intent='prose' we strip the tool prompt so 8B can't emit TOOL:
+// lines. Side effect: 8B sometimes pretends to call tools anyway and
+// fabricates plausible numbers (e.g. claimed "72% hit rate" with no data
+// behind it). We append a hard rule that explicitly tells the model:
+// no tools this turn, no faking it, say "I don't have that data" if asked
+// for live anything.
 
 import * as groq from './backends/api-groq.js';
 import { classifyIntent } from './intent-classifier.js';
 import { loadSettings } from './settings.js';
 
-let lastDecision = null; // { intent, model, ts }
+let lastDecision = null;
 
 export function getLastDecision() { return lastDecision; }
 
+const PROSE_PATH_GUARD = `
+
+# CRITICAL — NO TOOLS THIS TURN
+You have NO tool access this turn. You CANNOT call any tool, fetch live data, retrieve stats, or look up any number.
+
+If the user asks for ANY of the following, you MUST say "I don't have that data right now — let me actually check" or similar honest reply, and STOP. Do NOT fabricate plausible numbers.
+
+Forbidden behaviors this turn:
+- Saying "I'll call get_X" or "let me run X tool" — you cannot, and will not.
+- Stating any percentage, count, hit-rate, accuracy figure, price, or stat as if you fetched it.
+- Inventing numbers like "72% accuracy" or "1,234 predictions" — these are pure fabrication and will be flagged as untrustworthy.
+- Pretending you accessed signal data, calibration, or any tool result.
+
+Allowed: explanations, definitions, education, conversational replies. If the user asks something that needs live data, REFUSE TO GUESS and say you'd need to actually check.
+`;
+
 /**
  * Stream Mia output with intent-classified routing.
- *
- * @param {object} opts
- * @param {string} opts.system        — system prompt (with or without tools)
- * @param {string} opts.systemNoTools — system prompt for prose path (no tool section)
- * @param {{role: string, content: string}[]} opts.messages
- * @param {string} opts.key
- * @param {AbortSignal} opts.signal
- * @param {(msg: any) => void} [opts.onProgress]
- * @returns Async iterable of strings (text deltas).
  */
 export async function* routedStream({ system, systemNoTools, messages, key, signal, onProgress }) {
-    // Classify on the user's last message; if no user turn, default to tool.
     const lastUser = [...messages].reverse().find(m => m.role === 'user');
     const intent = await classifyIntent({
         userMessage: lastUser?.content || '',
@@ -49,9 +45,9 @@ export async function* routedStream({ system, systemNoTools, messages, key, sign
     if (intent === 'prose') {
         lastDecision = { intent: 'prose', model: 'llama-3.1-8b-instant', ts: Date.now() };
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
-        // Use the no-tools system prompt so 8B doesn't try to emit TOOL: lines.
+        const proseSystem = (systemNoTools || system) + PROSE_PATH_GUARD;
         for await (const delta of groq.stream({
-            system: systemNoTools || system,
+            system: proseSystem,
             messages,
             key,
             signal,
