@@ -76,9 +76,10 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     if (prediction.breakdown) {
         const bd = prediction.breakdown;
         const aiLabel = bd.ai?.modelTier === 'penny' ? 'AI (Penny model)' : 'AI Model';
+        const fmtWeight = (w) => Number.isFinite(w) ? (Math.round(w * 10) / 10).toString() : '0';
         const row = (label, score, weight, color) => `
             <div class="breakdown-item">
-                <span class="breakdown-label">${label} (${weight}%)</span>
+                <span class="breakdown-label">${label} (${fmtWeight(weight)}%)</span>
                 <div class="breakdown-bar"><div class="breakdown-fill" style="width: ${score}%; background: ${color};"></div></div>
                 <span class="breakdown-score">${score}</span>
             </div>`;
