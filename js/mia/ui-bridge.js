@@ -22,6 +22,7 @@ import { setPennyFilter } from '../ui/hotpicks.js';
 import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { clearHistory as clearMiaHistory } from './memory.js';
+import { announce, pulseElementById } from './agent-pulse.js';
 
 /**
  * Programmatic equivalent of the user typing a symbol and clicking the
@@ -56,6 +57,7 @@ function triggerSearchPick(symbol) {
     return new Promise((resolve) => {
         const input = document.getElementById('search-input');
         if (!input) return resolve({ ok: false, reason: 'no-search-input' });
+        announce({ text: `Loading ${symbol}…`, target: input });
         input.value = symbol;
         input.dispatchEvent(new Event('input', { bubbles: true }));
         // Click the first matching dropdown item shortly after.
@@ -63,6 +65,7 @@ function triggerSearchPick(symbol) {
             const item = document.querySelector(`.search-result-item[data-symbol="${symbol}"]`)
                 || document.querySelector('.search-result-item');
             if (item) item.click();
+            setTimeout(() => pulseElementById('signal-section'), 800);
             resolve({ ok: true, picked: symbol });
         }, 600);
     });
@@ -71,6 +74,7 @@ function triggerSearchPick(symbol) {
 export function controlSwitchMode(mode) {
     const btn = document.querySelector(`[data-tab="${mode}"]`);
     if (!btn) throw new Error(`unknown mode tab: ${mode}`);
+    announce({ text: `Switching to ${mode}…`, target: btn });
     btn.click();
     return { ok: true, mode };
 }
@@ -78,6 +82,7 @@ export function controlSwitchMode(mode) {
 export function controlSwitchTimeframe(timeframe) {
     const btn = document.querySelector(`[data-timeframe="${timeframe}"]`);
     if (!btn) throw new Error(`unknown timeframe: ${timeframe}`);
+    announce({ text: `Switching to ${timeframe}…`, target: btn });
     btn.click();
     return { ok: true, timeframe };
 }
@@ -85,6 +90,7 @@ export function controlSwitchTimeframe(timeframe) {
 export function controlCycleTheme() {
     const btn = document.getElementById('theme-toggle');
     if (!btn) throw new Error('theme toggle missing');
+    announce({ text: 'Switching theme…', target: btn });
     btn.click();
     return { ok: true, theme: state.theme };
 }
@@ -92,6 +98,7 @@ export function controlCycleTheme() {
 export function controlTogglePL() {
     const btn = document.getElementById('pl-toggle');
     if (!btn) throw new Error('pl toggle missing');
+    announce({ text: 'Toggling P&L panel…', target: btn });
     btn.click();
     return { ok: true, open: document.body.classList.contains('pl-open') };
 }
@@ -99,6 +106,7 @@ export function controlTogglePL() {
 export function controlRefreshHotPicks() {
     const btn = document.getElementById('refresh-hotpicks');
     if (!btn) throw new Error('hot-picks refresh missing');
+    announce({ text: 'Refreshing Hot Picks…', target: btn });
     btn.click();
     return { ok: true };
 }
@@ -112,12 +120,17 @@ export function controlSetPennyFilter({ tier }) {
         const f = btn.dataset.pennyFilter || null;
         btn.classList.toggle('active', (f === null && norm === null) || f === norm);
     });
+    const labelMap = { p10: 'under $10', p5: 'under $5', p1: 'under $1' };
+    const label = labelMap[norm] || 'all prices';
+    const target = document.querySelector(`[data-penny-filter="${norm || ''}"]`) || pulseElementById('hotpicks-grid');
+    announce({ text: `Filtering Hot Picks (${label})…`, target });
     return { ok: true, pennyTier: norm || 'all' };
 }
 
 export function controlOpenSpikers() {
     const btn = document.getElementById('spikers-btn');
     if (!btn) throw new Error('spikers button missing');
+    announce({ text: 'Opening Spikers…', target: btn });
     btn.click();
     return { ok: true };
 }
@@ -125,6 +138,7 @@ export function controlOpenSpikers() {
 export function controlOpenAbout() {
     const btn = document.getElementById('about-btn');
     if (!btn) throw new Error('about button missing');
+    announce({ text: 'Opening About…', target: btn });
     btn.click();
     return { ok: true };
 }
@@ -132,6 +146,7 @@ export function controlOpenAbout() {
 export function controlToggleCurrency() {
     const btn = document.getElementById('currency-toggle');
     if (!btn) throw new Error('currency toggle missing');
+    announce({ text: 'Switching currency…', target: btn });
     btn.click();
     return { ok: true };
 }
@@ -166,10 +181,12 @@ export function controlPLCalculate({ investment, buyPrice, currentPrice }) {
     const curEl = document.getElementById('pl-currentPrice');
     const calcBtn = document.getElementById('pl-calcBtn');
     if (!invEl || !buyEl || !curEl || !calcBtn) throw new Error('P&L calculator inputs not found');
+    announce({ text: 'Running P&L calculator…', target: calcBtn });
     invEl.value = inv.toFixed(2);
     buyEl.value = buy.toFixed(2);
     curEl.value = cur.toFixed(2);
     calcBtn.click();
+    setTimeout(() => pulseElementById('pl-result'), 200);
 
     const shares = inv / buy;
     const value = shares * cur;
@@ -202,6 +219,7 @@ export function controlScrollTo({ section }) {
     if (!id) throw new Error(`unknown section: ${section} (use: chart, signal, accuracy, hotpicks, search)`);
     const el = document.getElementById(id);
     if (!el) throw new Error(`element #${id} not on page`);
+    announce({ text: `Jumping to ${section}…`, target: el });
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (id === 'search-input') try { el.focus(); } catch (_) {}
     return { ok: true, section };
@@ -209,7 +227,7 @@ export function controlScrollTo({ section }) {
 
 export function controlRunAnalysis() {
     const btn = document.getElementById('refresh-analysis');
-    if (btn) { btn.click(); return { ok: true, via: 'refresh' }; }
+    if (btn) { announce({ text: 'Rerunning analysis…', target: btn }); btn.click(); return { ok: true, via: 'refresh' }; }
     // Fallback: re-trigger search pick if a symbol is loaded.
     if (state.currentSymbol) {
         return triggerSearchPick(state.currentSymbol).then(r => ({ ...r, via: 'search-rerun' }));
@@ -312,10 +330,11 @@ const THEMES = ['dark', 'light', 'aurora'];
 export function controlSetTheme({ theme }) {
     const t = String(theme || '').toLowerCase().trim();
     if (!THEMES.includes(t)) throw new Error(`unknown theme: ${theme}. Use one of: ${THEMES.join(', ')}`);
+    const btn = document.getElementById('theme-toggle');
+    if (!btn) throw new Error('theme toggle missing');
+    announce({ text: `Switching to ${t} theme…`, target: btn });
     let cycles = 0;
     while (state.theme !== t && cycles < THEMES.length) {
-        const btn = document.getElementById('theme-toggle');
-        if (!btn) throw new Error('theme toggle missing');
         btn.click();
         cycles++;
     }
@@ -325,7 +344,7 @@ export function controlSetTheme({ theme }) {
 export function controlFocusSearch({ query = '' } = {}) {
     const input = document.getElementById('search-input');
     if (!input) throw new Error('search input missing');
-    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    announce({ text: query ? `Searching ${query}…` : 'Jumping to search…', target: input });
     if (query) {
         input.value = String(query);
         input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -335,6 +354,7 @@ export function controlFocusSearch({ query = '' } = {}) {
 }
 
 export function controlClearMiaChat() {
+    announce({ text: 'Clearing chat…' });
     clearMiaHistory();
     const thread = document.getElementById('mia-thread');
     if (thread) thread.innerHTML = '';
@@ -344,6 +364,7 @@ export function controlClearMiaChat() {
 export async function controlCopyToClipboard({ text }) {
     const s = String(text ?? '');
     if (!s) throw new Error('text required');
+    announce({ text: 'Copied to clipboard ✓' });
     try {
         await navigator.clipboard.writeText(s);
         return { ok: true, length: s.length };
