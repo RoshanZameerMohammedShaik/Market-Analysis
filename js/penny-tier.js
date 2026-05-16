@@ -12,7 +12,8 @@
 //   Yahoo's /v10/finance/quoteSummary now requires a session crumb that
 //   CORS proxies can't carry. We host a Cloudflare Worker (workers/yahoo-proxy/)
 //   that fetches the crumb server-side and exposes a clean /key-stats endpoint.
-//   Worker is LIVE; URL wired below.
+//   Worker is LIVE; URL wired below. Per-symbol cache is in this module
+//   (TTL 30 min) so we don't hammer the worker.
 
 import { fetchWithProxy } from './data.js';
 
@@ -34,8 +35,13 @@ function cacheSet(sym, data) { CACHE.set(sym.toUpperCase(), { ts: Date.now(), da
 async function fetchViaWorker(symbol) {
     if (!WORKER_URL) return null;
     try {
-        const res = await fetch(`${WORKER_URL}/key-stats?symbol=${encodeURIComponent(symbol)}`, {
+        // Cache-bust query so we never serve a stale CDN-cached error to the
+        // user. Worker has its own in-memory 60-min cache so the upstream
+        // hit-rate stays high.
+        const url = `${WORKER_URL}/key-stats?symbol=${encodeURIComponent(symbol)}&t=${Date.now()}`;
+        const res = await fetch(url, {
             signal: AbortSignal.timeout(8000),
+            cache: 'no-store',
         });
         if (!res.ok) return null;
         const json = await res.json();
