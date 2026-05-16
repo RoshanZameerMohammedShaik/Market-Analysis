@@ -1,16 +1,7 @@
-// Phase 5 — cheap upfront intent classification.
-//
-// Phase 6 tightening: explicit examples for time-anchored phrases
-// ("today", "right now", "currently", "latest") so questions like
-// "is the market bullish today?" route to TOOL instead of PROSE.
-//
-// Why: 8B's tool-call format adherence is wobbly when it has to decide
-// mid-stream. Stream-buffer regex + stop sequences treat symptoms.
-// We classify upfront with a forced-choice question; 8B is reliable
-// at that even when it can't reliably emit structured tool format.
-//
-// Token cost per turn: ~80 prompt + 1 completion = ~81 tokens. Negligible.
-// Failure mode: any ambiguity → default to TOOL/70B (reliability beats cost).
+// Phase 8.4 critical fix: classifier was routing 'how accurate is this app'
+// as PROSE → 8B with no tools fabricated '72%' and '1,234 predictions'.
+// Any question about LIVE STATS or APP'S OWN PERFORMANCE must go through
+// tools, not prose-mode.
 
 import { state } from '../ui/state.js';
 
@@ -19,7 +10,7 @@ const URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const CLASSIFIER_SYSTEM = `Classify the user's request as exactly one letter:
 
-T = needs LIVE DATA, EXTERNAL LOOKUP, or APP CONTROL.
+T = needs LIVE DATA, EXTERNAL LOOKUP, APP CONTROL, or APP PERFORMANCE STATS.
   Examples:
   - 'what's the F&G index'
   - 'show me NVDA'
@@ -33,7 +24,13 @@ T = needs LIVE DATA, EXTERNAL LOOKUP, or APP CONTROL.
   - 'how is BTC doing right now'
   - 'latest sentiment on AAPL'
   - 'what is the VIX currently'
+  - 'how accurate is this app' / 'how accurate is the engine'
+  - 'what's the hit rate' / 'what's your accuracy'
+  - 'how good is this app' / 'how reliable is it'
+  - 'what's the calibration like' / 'how calibrated is it'
+  - 'how many predictions have you made'
   - any phrase with: today, right now, currently, latest, this week, recent
+  - any question about THIS APP'S performance, accuracy, hit rate, calibration, or stats
 
 P = pure EXPLANATION, EDUCATION, or DEFINITION using prior knowledge only.
   Examples:
@@ -44,6 +41,7 @@ P = pure EXPLANATION, EDUCATION, or DEFINITION using prior knowledge only.
   - 'why do you use FinBERT'
   - 'difference between calls and puts'
   - 'what is conformal prediction'
+  - 'what does confidence mean in general'
 
 If in doubt, prefer T. Reply with ONLY the single letter T or P. No punctuation, no other text.`;
 
