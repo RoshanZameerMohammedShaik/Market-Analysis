@@ -3,7 +3,58 @@ import { state, nextHotPicksId } from './state.js';
 import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
 
+// Phase 8: Hot Picks penny sub-tabs.
+// `pennyMode` is one of: null (no filter), 'p10' (<$10), 'p5' (<$5), 'p1' (<$1).
+let pennyFilter = null;
+let allPicks = [];
+let currentOnPick = null;
+
+const PRICE_THRESHOLDS = {
+    p10: 10,
+    p5: 5,
+    p1: 1,
+};
+
+export function setPennyFilter(mode) {
+    pennyFilter = mode === null ? null : (PRICE_THRESHOLDS[mode] ? mode : null);
+    const grid = document.getElementById('hotpicks-grid');
+    if (!grid) return;
+    const filtered = applyPennyFilter(allPicks);
+    if (filtered.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
+            <div class="empty-state-icon">📈</div>
+            <p>No hot picks under ${labelFor(pennyFilter)} right now. Try a different filter.</p>
+        </div>`;
+    } else {
+        renderCards(grid, filtered, false);
+        bindCardClicks(grid, currentOnPick);
+    }
+    paintFilterButtons();
+}
+
+function labelFor(mode) {
+    if (mode === 'p10') return '$10';
+    if (mode === 'p5') return '$5';
+    if (mode === 'p1') return '$1';
+    return 'no limit';
+}
+
+function applyPennyFilter(picks) {
+    if (!pennyFilter) return picks;
+    const max = PRICE_THRESHOLDS[pennyFilter];
+    if (!max) return picks;
+    return picks.filter(p => Number.isFinite(p.price) && p.price < max);
+}
+
+function paintFilterButtons() {
+    document.querySelectorAll('[data-penny-filter]').forEach(btn => {
+        const f = btn.dataset.pennyFilter;
+        btn.classList.toggle('active', (f === '' && !pennyFilter) || f === pennyFilter);
+    });
+}
+
 export async function loadHotPicks(onPick) {
+    currentOnPick = onPick;
     const requestId = nextHotPicksId();
     const grid = document.getElementById('hotpicks-grid');
     const title = document.getElementById('hotpicks-title');
@@ -25,12 +76,12 @@ export async function loadHotPicks(onPick) {
         if (el) el.textContent = msg;
     };
 
-    // Render a partial set as it arrives. The skeleton tiles get progressively
-    // replaced; once final picks land, the loading footer is replaced too.
     const onPartial = (picks) => {
         if (requestId !== state.hotPicksRequestId) return;
         if (!picks || picks.length === 0) return;
-        renderCards(grid, picks, /* withFooter */ true);
+        allPicks = picks;
+        const filtered = applyPennyFilter(picks);
+        renderCards(grid, filtered, true);
         bindCardClicks(grid, onPick);
     };
 
@@ -50,15 +101,18 @@ export async function loadHotPicks(onPick) {
             });
         }
 
-        if (picks.length === 0) {
+        allPicks = picks;
+        const filtered = applyPennyFilter(picks);
+
+        if (filtered.length === 0) {
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No strong BUY signals found right now. Market may be uncertain.</p>
+                <p>No strong BUY signals found ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now. Market may be uncertain.</p>
             </div>`;
             return;
         }
 
-        renderCards(grid, picks, /* withFooter */ false);
+        renderCards(grid, filtered, false);
         bindCardClicks(grid, onPick);
     } catch (e) {
         grid.innerHTML = `<div class="error-message" style="grid-column: 1/-1;">Failed to load hot picks: ${e.message}</div>`;
@@ -105,4 +159,16 @@ function bindCardClicks(grid, onPick) {
             coinId: card.dataset.id !== card.dataset.symbol ? card.dataset.id : null,
         }));
     });
+}
+
+export function initPennyFilterButtons() {
+    document.querySelectorAll('[data-penny-filter]').forEach(btn => {
+        if (btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', () => {
+            const f = btn.dataset.pennyFilter || null;
+            setPennyFilter(f === '' ? null : f);
+        });
+    });
+    paintFilterButtons();
 }

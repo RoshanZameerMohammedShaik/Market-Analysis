@@ -4,6 +4,7 @@ import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
 import { animateNumber } from './animate.js';
+import { renderPennyDashboard } from './penny-dashboard.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -48,6 +49,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
 
     const insightSummary = generateHumanInsight(prediction, sentiment);
     const newsHTML = renderNews(newsData, sentiment);
+    const pennyDashboardHTML = renderPennyDashboard(prediction);
 
     const technicalHTML = `
         <div class="technical-section">
@@ -73,6 +75,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     let breakdownHTML = '';
     if (prediction.breakdown) {
         const bd = prediction.breakdown;
+        const aiLabel = bd.ai?.modelTier === 'penny' ? 'AI (Penny model)' : 'AI Model';
         const row = (label, score, weight, color) => `
             <div class="breakdown-item">
                 <span class="breakdown-label">${label} (${weight}%)</span>
@@ -83,7 +86,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="source-breakdown">
                 <div class="breakdown-title">Confidence Sources</div>
                 <div class="breakdown-bars">
-                    ${bd.ai.available ? row('AI Model', bd.ai.score, bd.ai.weight, 'var(--accent)') : ''}
+                    ${bd.ai.available ? row(aiLabel, bd.ai.score, bd.ai.weight, 'var(--accent)') : ''}
                     ${row('Technicals', bd.technical.score, bd.technical.weight, 'var(--green)')}
                     ${row('Sentiment', bd.sentiment.score, bd.sentiment.weight, 'var(--yellow)')}
                     ${row('Market', bd.market.score, bd.market.weight, '#a371f7')}
@@ -127,6 +130,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
             ${breakdownHTML}
+            ${pennyDashboardHTML}
             <div class="insight-summary">${insightSummary}</div>
             ${priceTargetHTML}
             ${newsHTML}
