@@ -25,9 +25,6 @@
         </div>
     </header>
 
-    <!-- Hoisted out of .app-header so position:fixed works on mobile.
-         backdrop-filter on .app-header creates a containing block that
-         breaks fixed positioning of descendants. -->
     <div class="header-actions">
         <button class="header-btn" id="about-btn" title="About Market Analyzer" aria-label="About">i</button>
         <button class="header-btn" id="pl-toggle" title="Show P&L Calculator (P)" aria-label="Toggle P&L Calculator" aria-expanded="false">$</button>
@@ -77,6 +74,12 @@
                         <button class="spikers-btn" id="spikers-btn" title="Find candidates likely to spike today">🚀 Spikers</button>
                         <button class="refresh-btn" id="refresh-hotpicks" title="Refresh hot picks (r)">↻ Refresh</button>
                     </div>
+                </div>
+                <div class="penny-filters" role="tablist" aria-label="Penny stock filter">
+                    <button class="penny-filter-btn active" data-penny-filter="" role="tab" aria-selected="true">All prices</button>
+                    <button class="penny-filter-btn" data-penny-filter="p10" role="tab" aria-selected="false">Pennies &lt; $10</button>
+                    <button class="penny-filter-btn" data-penny-filter="p5" role="tab" aria-selected="false">Pennies &lt; $5</button>
+                    <button class="penny-filter-btn" data-penny-filter="p1" role="tab" aria-selected="false">Sub-$1</button>
                 </div>
                 <div class="hotpicks-grid" id="hotpicks-grid">
                     <div class="loading" style="grid-column: 1/-1;">

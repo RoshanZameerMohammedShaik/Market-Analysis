@@ -1,7 +1,6 @@
-// Weighted Confidence Engine. Phase 7 adds penny-tier accuracy modules:
-//   - FINRA daily short volume ratio (penny tier only, ±4 pts)
-//   - OpenInsider cluster-buy detection (penny tier only, ±6 pts)
-//   - Social velocity pump detection (universal, ±3 pts)
+// Weighted Confidence Engine. Phase 8 wires tier='penny' through to ai-model
+// so penny stocks use the dedicated penny-LSTM (with main-LSTM fallback when
+// penny weights aren't yet trained).
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -39,8 +38,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     loadConformal();
     loadPatterns();
 
+    // Compute tier first so we can pass it to the AI model.
+    const tier = computeTier(multiData);
+
     const [aiResult, newsItems, marketResult] = await Promise.allSettled([
-        getAIPrediction(multiData.daily.candles),
+        getAIPrediction(multiData.daily.candles, { tier }),
         mode === 'stock' ? fetchStockNews(symbolOrCoinId).catch(() => []) : fetchCryptoNews(symbolOrCoinId).catch(() => []),
         getMarketConditionsScore(mode),
     ]);
@@ -148,10 +150,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         try { earningsHistory = await getEarningsReactionHistory(symbolOrCoinId, multiData?.daily?.candles || []); if (earningsHistory) { const ehc = earningsHistoryCap(earningsHistory, earnings.daysUntil, finalSignal); if (ehc.cap < rawConfidence) { rawConfidence = ehc.cap; earningsHistory = { ...earningsHistory, capReason: ehc.reason }; } } } catch (_) {}
     }
 
-    const tier = computeTier(multiData);
     const priceChange1d = computePriceChange1d(multiData);
 
-    // PHASE 2/6: penny-tier float + short interest module (Yahoo via Worker)
     let penny = null, pennyResult = null;
     if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
         try {
@@ -164,7 +164,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) {}
     }
 
-    // PHASE 7: FINRA daily short volume (penny tier only)
     let finraShort = null, finraResult = null;
     if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
         try {
@@ -176,7 +175,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) {}
     }
 
-    // PHASE 7: OpenInsider cluster-buy detection (penny tier only)
     let insider = null, insiderResult = null;
     if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
         try {
@@ -188,7 +186,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) {}
     }
 
-    // PHASE 7: social velocity pump detection (UNIVERSAL — all stocks)
     let socialVel = null, socialResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
         try {
@@ -305,7 +302,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         reasons: allReasons.slice(0, 24),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
-            ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
+            ai: { score: ai.score, available: ai.available, weight: weights.ai * 100, modelTier: ai.modelTier || 'main' },
             technical: { score: technicalScore, weight: weights.technical * 100 },
             sentiment: { score: sentiment.score, weight: weights.sentiment * 100 },
             market: { score: market.score, weight: weights.market * 100 },
@@ -314,7 +311,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + recency+tier+vol calibrated',
+        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + tier-aware LSTM + recency+tier+vol calibrated',
         trendRegime,
     };
 }

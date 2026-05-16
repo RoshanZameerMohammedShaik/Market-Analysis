@@ -1,12 +1,19 @@
-// Mia v3 — API-only (Groq primary, Cloudflare fallback). WebLLM removed.
-// Tool-use loop, anti-hallucination guard, defensive null-safety on the
-// streaming bubble.
+// Mia v3.1 — ECG streaming + paced render + tool-name suppression + tighter guardrails.
+//
+// Phase 8 changes:
+//  - Replace bouncing-dots typing indicator with an animated ECG sweep
+//    (uses .mia-ecg-thinking class). Visible while waiting for first token.
+//  - Stream paced render: even though Groq dumps tokens fast, we render
+//    at ~40 chars/sec (slows on punctuation) for a conversational feel.
+//  - Suppress tool-name leaks: badge now shows action label (Searching the
+//    web, Checking the market, Looking that up...) NOT the raw tool name.
+//  - Mia's ECG progress text shows the action verb only.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory, clearHistory } from './memory.js';
 import { renderMarkdown } from './markdown.js';
-import { loadSettings, saveSettings, isConfigured, clearSettings, hasFallbackKey } from './settings.js';
+import { loadSettings, saveSettings, isConfigured, clearSettings } from './settings.js';
 import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
@@ -19,9 +26,52 @@ let activeAbort = null;
 const CLEAR_HOLD_MS = 3000;
 const CLEAR_HOLD_DELAY_MS = 500;
 
+// Paced rendering: target characters per second. ~40 cps feels conversational,
+// matches the cadence of a fast typist. Punctuation gets a small extra pause.
+const RENDER_CPS = 40;
+const BASE_DELAY_MS = 1000 / RENDER_CPS;
+
+// Tool-name → friendly action verb (never expose raw tool names).
+const ACTION_VERBS = {
+    get_app_state:        'Reading the page',
+    get_current_signal:   'Reading the current signal',
+    get_calibration:      'Checking calibration',
+    get_accuracy_stats:   'Reading accuracy stats',
+    analyze_symbol:       'Running analysis',
+    compare_symbols:      'Comparing tickers',
+    get_hot_picks:        'Checking hot picks',
+    get_market_conditions:'Checking the market',
+    get_news_and_sentiment:'Checking the news',
+    get_macro_series:     'Checking macro data',
+    get_reddit_sentiment: 'Checking Reddit',
+    get_sec_filings:      'Checking SEC filings',
+    get_options_view:     'Checking options flow',
+    get_crypto_derivatives:'Checking derivatives',
+    research_symbol:      'Doing deep research',
+    web_search:           'Searching the web',
+    select_symbol:        'Loading the symbol',
+    switch_mode:          'Switching tab',
+    switch_timeframe:     'Switching timeframe',
+    cycle_theme:          'Switching theme',
+    toggle_pl_calculator: 'Toggling P&L panel',
+    refresh_hot_picks:    'Refreshing hot picks',
+    rerun_analysis:       'Re-running analysis',
+};
+
+function actionVerbFor(toolName) {
+    return ACTION_VERBS[toolName] || 'Working';
+}
+
 const ICON_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.4 1.06L4.5 11l8 1-8 1L2 19.34a1 1 0 0 0 1.4 1.06z"/></svg>';
 const ICON_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+
+// ECG "thinking" animation — sweeps a heartbeat line while Mia waits for tokens.
+const ECG_THINKING_SVG = `
+<svg class="mia-ecg-thinking" viewBox="0 0 80 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path class="mia-ecg-thinking-trace" d="M0 9 L20 9 L24 9 L26 4 L28 14 L30 9 L36 9 L38 2 L40 16 L42 9 L48 9 L50 5 L52 13 L54 9 L80 9" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="mia-ecg-thinking-blip" d="M0 9 L20 9 L24 9 L26 4 L28 14 L30 9 L36 9 L38 2 L40 16 L42 9 L48 9 L50 5 L52 13 L54 9 L80 9" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
 
 export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
 
@@ -39,31 +89,20 @@ function initLauncherReadyDot() {
         dot.dataset.state = isConfigured() ? 'ready' : 'idle';
         launcher.appendChild(dot);
     }
-    launcher.title = isConfigured()
-        ? 'Ask Mia — your Market Intelligence Analyst (ready)'
-        : 'Ask Mia — set up an API key to begin';
+    launcher.title = isConfigured() ? 'Ask Mia — your Market Intelligence Analyst (ready)' : 'Ask Mia — set up an API key to begin';
 }
 
 function togglePanel() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('mia-panel');
     if (!panel) return;
-    if (panelOpen) {
-        panel.setAttribute('aria-hidden', 'false');
-        panel.classList.add('open');
-        renderRoot();
-    } else {
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-    }
+    if (panelOpen) { panel.setAttribute('aria-hidden', 'false'); panel.classList.add('open'); renderRoot(); }
+    else { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
 }
 
 function renderRoot() {
     const panel = document.getElementById('mia-panel');
-    if (!isConfigured()) {
-        renderWelcome(panel, () => renderChat());
-        return;
-    }
+    if (!isConfigured()) { renderWelcome(panel, () => renderChat()); return; }
     renderChat();
 }
 
@@ -73,10 +112,7 @@ function renderChat() {
         <div class="mia-head">
             <div class="mia-head-title">
                 <span class="mia-avatar">${MIA_LOGO_SVG}</span>
-                <div>
-                    <div class="mia-name">Mia</div>
-                    <div class="mia-role">Market Intelligence Analyst</div>
-                </div>
+                <div><div class="mia-name">Mia</div><div class="mia-role">Market Intelligence Analyst</div></div>
             </div>
             <div class="mia-head-actions">
                 <button class="mia-icon-btn" id="mia-thinking-btn" title="Toggle thinking mode">🧠⁺</button>
@@ -103,14 +139,8 @@ function renderChat() {
     document.getElementById('mia-thinking-btn').addEventListener('click', toggleThinking);
     wireActionButton();
     document.getElementById('mia-input').addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            onPrimaryAction();
-        }
-        if (e.key === 'K' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            performClear();
-        }
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onPrimaryAction(); }
+        if (e.key === 'K' && e.shiftKey && (e.ctrlKey || e.metaKey)) { e.preventDefault(); performClear(); }
     });
     refreshThinkingBadge();
     renderUsageMeter(document.getElementById('mia-usage-wrap'));
@@ -125,15 +155,9 @@ let holdState = 'idle';
 function wireActionButton() {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
-
-    const start = (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        e.preventDefault();
-        beginHold();
-    };
+    const start = (e) => { if (e.button !== undefined && e.button !== 0) return; e.preventDefault(); beginHold(); };
     const end = () => endHold();
     const cancel = () => cancelHold();
-
     btn.addEventListener('mousedown', start);
     btn.addEventListener('touchstart', start, { passive: false });
     btn.addEventListener('mouseup', end);
@@ -168,22 +192,15 @@ function beginHold() {
 }
 
 function endHold() {
-    if (holdState !== 'pressing') {
-        clearHoldTimers();
-        return;
-    }
+    if (holdState !== 'pressing') { clearHoldTimers(); return; }
     const heldMs = Date.now() - holdStartTs;
     clearHoldTimers();
     const btn = document.getElementById('mia-action');
     if (btn) btn.classList.remove('mia-action-arming');
     holdState = 'idle';
-    if (heldMs < CLEAR_HOLD_DELAY_MS) {
-        onPrimaryAction();
-    } else {
-        renderActionState();
-    }
+    if (heldMs < CLEAR_HOLD_DELAY_MS) onPrimaryAction();
+    else renderActionState();
 }
-
 function cancelHold() {
     clearHoldTimers();
     const btn = document.getElementById('mia-action');
@@ -191,53 +208,30 @@ function cancelHold() {
     holdState = 'idle';
     renderActionState();
 }
-
 function clearHoldTimers() {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     if (holdRingTimer) { clearTimeout(holdRingTimer); holdRingTimer = null; }
 }
-
 function performClear() {
     try { activeAbort?.abort(); } catch (_) {}
     clearHistory();
     renderThread([]);
 }
-
-function setActionIcon(svg) {
-    const el = document.getElementById('mia-action-icon');
-    if (el) el.innerHTML = svg;
-}
-
+function setActionIcon(svg) { const el = document.getElementById('mia-action-icon'); if (el) el.innerHTML = svg; }
 function renderActionState() {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
     const stateName = btn.dataset.state || 'send';
-    if (stateName === 'streaming') {
-        setActionIcon(ICON_STOP);
-        btn.title = 'Stop (long-press to clear chat)';
-        btn.setAttribute('aria-label', 'Stop generating');
-    } else {
-        setActionIcon(ICON_SEND);
-        btn.title = 'Send (long-press to clear chat)';
-        btn.setAttribute('aria-label', 'Send message');
-    }
+    if (stateName === 'streaming') { setActionIcon(ICON_STOP); btn.title = 'Stop (long-press to clear chat)'; btn.setAttribute('aria-label', 'Stop generating'); }
+    else { setActionIcon(ICON_SEND); btn.title = 'Send (long-press to clear chat)'; btn.setAttribute('aria-label', 'Send message'); }
 }
-
 function onPrimaryAction() {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
-    if (btn.dataset.state === 'streaming') {
-        try { activeAbort?.abort(); } catch (_) {}
-        return;
-    }
+    if (btn.dataset.state === 'streaming') { try { activeAbort?.abort(); } catch (_) {} return; }
     void doSend();
 }
-
-function toggleThinking() {
-    const s = loadSettings();
-    saveSettings({ thinkingMode: !s.thinkingMode });
-    refreshThinkingBadge();
-}
+function toggleThinking() { const s = loadSettings(); saveSettings({ thinkingMode: !s.thinkingMode }); refreshThinkingBadge(); }
 function refreshThinkingBadge() {
     const s = loadSettings();
     const btn = document.getElementById('mia-thinking-btn');
@@ -271,12 +265,64 @@ function renderThread(history) {
         return;
     }
     thread.innerHTML = history.map(m => {
-        if (m.role === 'user') {
-            return `<div class="mia-msg user"><div class="mia-msg-bubble">${escapeHtml(m.content)}</div></div>`;
-        }
+        if (m.role === 'user') return `<div class="mia-msg user"><div class="mia-msg-bubble">${escapeHtml(m.content)}</div></div>`;
         return `<div class="mia-msg assistant"><div class="mia-msg-bubble mia-md">${renderMarkdown(m.content)}</div></div>`;
     }).join('');
     thread.scrollTop = thread.scrollHeight;
+}
+
+// Paced render queue. We accept fast deltas from the LLM but reveal them
+// to the user at RENDER_CPS chars/second so the experience feels conversational
+// rather than dumped-all-at-once.
+class PacedRenderer {
+    constructor(bubbleId) {
+        this.bubbleId = bubbleId;
+        this.queue = '';
+        this.shown = '';
+        this.running = false;
+        this.aborted = false;
+        this.firstTokenSeen = false;
+    }
+    push(chunk) {
+        this.queue += chunk;
+        if (!this.running) this.tick();
+    }
+    abort() { this.aborted = true; }
+    flushRemaining() {
+        // Called at end of stream; reveal anything still queued instantly.
+        if (this.queue.length > 0) {
+            this.shown += this.queue;
+            this.queue = '';
+            this.paint();
+        }
+    }
+    paint() {
+        const el = document.getElementById(this.bubbleId);
+        if (!el) return;
+        if (!this.firstTokenSeen) {
+            el.innerHTML = '';
+            this.firstTokenSeen = true;
+        }
+        el.innerHTML = renderMarkdown(stripAgentNoise(this.shown));
+        const thread = document.getElementById('mia-thread');
+        if (thread) thread.scrollTop = thread.scrollHeight;
+    }
+    async tick() {
+        this.running = true;
+        while (this.queue.length > 0 && !this.aborted) {
+            const ch = this.queue[0];
+            this.queue = this.queue.slice(1);
+            this.shown += ch;
+            this.paint();
+            // Punctuation pauses give a more natural rhythm.
+            let delay = BASE_DELAY_MS;
+            if (ch === '.' || ch === '!' || ch === '?') delay = BASE_DELAY_MS * 6;
+            else if (ch === ',' || ch === ';' || ch === ':') delay = BASE_DELAY_MS * 3;
+            else if (ch === '\n') delay = BASE_DELAY_MS * 4;
+            await new Promise(r => setTimeout(r, delay));
+        }
+        this.running = false;
+    }
 }
 
 async function doSend() {
@@ -295,8 +341,8 @@ async function doSend() {
 
     setSendState('streaming');
     activeAbort = new AbortController();
+    const renderer = new PacedRenderer(bubbleId);
     let acc = '';
-    let receivedAny = false;
     const toolResults = [];
 
     try {
@@ -310,16 +356,13 @@ async function doSend() {
             if (ev.type !== 'delta') continue;
             const delta = ev.text;
             if (!delta) continue;
-            const el = document.getElementById(bubbleId);
-            if (!el) appendStreamingBubble(bubbleId);
-            const el2 = document.getElementById(bubbleId);
-            if (!el2) { acc += delta; continue; }
-            if (!receivedAny) { el2.innerHTML = ''; receivedAny = true; }
             acc += delta;
-            el2.innerHTML = renderMarkdown(stripAgentNoise(acc));
-            const thread = document.getElementById('mia-thread');
-            if (thread) thread.scrollTop = thread.scrollHeight;
+            renderer.push(delta);
         }
+        // Drain any remaining queued chars before saving history.
+        renderer.flushRemaining();
+        await new Promise(r => setTimeout(r, 50));
+
         const cleaned = stripAgentNoise(acc).trim();
         const ctxText = buildContextBlock(currentSignal);
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
@@ -328,13 +371,11 @@ async function doSend() {
         saveHistory(updated);
         renderThread(updated);
     } catch (e) {
+        renderer.abort();
         const updated = loadHistory();
         const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
-        if (acc.trim() && aborted) {
-            updated.push({ role: 'assistant', content: stripAgentNoise(acc).trim() + '\n\n_(stopped early by you)_' });
-        } else {
-            updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
-        }
+        if (acc.trim() && aborted) updated.push({ role: 'assistant', content: stripAgentNoise(acc).trim() + '\n\n_(stopped early by you)_' });
+        else updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
         saveHistory(updated);
         renderThread(updated);
     } finally {
@@ -356,7 +397,7 @@ function appendStreamingBubble(bubbleId) {
     thread.insertAdjacentHTML('beforeend', `
         <div class="mia-msg assistant">
             <div class="mia-msg-bubble mia-md" id="${bubbleId}">
-                <span class="mia-typing"><i></i><i></i><i></i></span>
+                ${ECG_THINKING_SVG}
                 <span class="mia-progress" id="mia-progress">thinking…</span>
                 <div class="mia-progress-bar" id="mia-progress-bar" hidden><div class="mia-progress-bar-fill" id="mia-progress-bar-fill"></div></div>
             </div>
@@ -365,12 +406,16 @@ function appendStreamingBubble(bubbleId) {
     thread.scrollTop = thread.scrollHeight;
 }
 
+// Tool badges now show ONLY the friendly action verb. No raw tool names.
 function showToolBadge(bubbleId, name, kind = 'read') {
     const el = document.getElementById(bubbleId);
     if (!el) return;
+    const verb = actionVerbFor(name);
     const icon = kind === 'control' ? '🎹' : '⚡';
-    const verb = kind === 'control' ? 'controlled' : 'used';
-    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${verb} <code>${name}</code></div>`);
+    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${verb}…</div>`);
+    // Also reflect in the live progress text.
+    const pg = document.getElementById('mia-progress');
+    if (pg) pg.textContent = `${verb}…`;
 }
 
 function updateProgress(msg) {
@@ -384,13 +429,15 @@ function updateProgress(msg) {
         if (msg.phase === 'loading' || msg.phase === 'downloading') {
             if (bar) bar.hidden = false;
             if (fill) fill.style.width = pct + '%';
-        } else {
-            if (bar) bar.hidden = true;
-        }
+        } else { if (bar) bar.hidden = true; }
         return;
     }
-    if (text) text.textContent = String(msg || '');
-    if (bar) bar.hidden = true;
+    if (typeof msg === 'string') {
+        // String form sometimes carries 'calling tool_name…' — sanitize.
+        const cleaned = msg.replace(/\bcalling\s+([a-z_]+)/i, (_m, tn) => actionVerbFor(tn));
+        if (text) text.textContent = cleaned;
+        if (bar) bar.hidden = true;
+    }
 }
 
 function setSendState(stateName) {
@@ -426,27 +473,13 @@ function renderSettings() {
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
-        </div>
-    `;
+        </div>`;
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
     document.getElementById('mia-back').addEventListener('click', renderChat);
-    document.getElementById('mia-resetup').addEventListener('click', () => {
-        clearSettings();
-        renderRoot();
-    });
-    document.getElementById('mia-toggle-fallback').addEventListener('click', () => {
-        saveSettings({ fallbackEnabled: !s.fallbackEnabled });
-        renderSettings();
-    });
-    document.getElementById('mia-forget-keys').addEventListener('click', () => {
-        saveSettings({ groqKey: '', cfKey: '', cfAccountId: '' });
-        renderSettings();
-    });
-    document.getElementById('mia-clear-models').addEventListener('click', async () => {
-        try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); }
-    });
+    document.getElementById('mia-resetup').addEventListener('click', () => { clearSettings(); renderRoot(); });
+    document.getElementById('mia-toggle-fallback').addEventListener('click', () => { saveSettings({ fallbackEnabled: !s.fallbackEnabled }); renderSettings(); });
+    document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ groqKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });
+    document.getElementById('mia-clear-models').addEventListener('click', async () => { try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); } });
 }
 
-function escapeHtml(s) {
-    return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-}
+function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }

@@ -1,55 +1,63 @@
-// AI Model — LSTM inference in pure JavaScript, ensembled with GBT when
-// available.
+// AI Model — LSTM inference in pure JavaScript, ensembled with GBT when available.
 //
-// Loads pre-trained LSTM weights from JSON, runs forward pass in browser.
-// In parallel, loads xgb_trees.json (XGBoost portable trees) and ensembles
-// the two model probabilities into a single AI source score.
+// Phase 8 addition: tier-aware model selection. When the engine detects
+// tier='penny', we use a SEPARATE penny-trained LSTM (lstm_weights_penny.json)
+// because penny stocks have wholly different dynamics than mid/large-caps.
+// If the penny weights file isn't yet available (first ~2 weeks before the
+// Sunday cron has populated it), we transparently fall back to the main LSTM —
+// no regression for penny analyses, just unrealized upside until the file lands.
 //
-// IMPORTANT: feature extraction here MUST match train_model.py exactly,
-// otherwise the LSTM sees a different feature distribution at inference
-// than it learned at training time. Any drift between the two is silent
-// and biases predictions in unpredictable ways.
+// IMPORTANT: feature extraction here MUST match train_model.py and
+// train_penny_lstm.py exactly. Any drift biases predictions silently.
 
 import { loadGbtModel, predictGbt, isGbtLoaded } from './xgb-model.js';
 
-let modelWeights = null;
-let modelConfig = null;
-let modelLoaded = false;
-let modelLoading = false;
+const MAIN_KEY = 'main';
+const PENNY_KEY = 'penny';
+
+// Cache parsed model JSON per tier so we don't refetch on every prediction.
+const modelCache = {};      // { main: {weights, config}, penny: {...} | 'unavailable' }
+const loadingPromises = {}; // { main: Promise<bool>, penny: Promise<bool> }
 
 const LOOKBACK = 21;
 
-export async function loadModel() {
-    // Kick off GBT load in parallel; if it fails we just fall back to LSTM-only.
-    loadGbtModel();
+async function loadModelForTier(tier) {
+    const key = tier === PENNY_KEY ? PENNY_KEY : MAIN_KEY;
+    if (modelCache[key] === 'unavailable') return false;
+    if (modelCache[key]) return true;
+    if (loadingPromises[key]) return loadingPromises[key];
 
-    if (modelLoaded) return true;
-    if (modelLoading) {
-        while (modelLoading) await new Promise(r => setTimeout(r, 100));
-        return modelLoaded;
-    }
-
-    modelLoading = true;
-    try {
-        const res = await fetch('./model/lstm_weights.json');
-        if (!res.ok) {
-            modelLoading = false;
+    const file = key === PENNY_KEY ? './model/lstm_weights_penny.json' : './model/lstm_weights.json';
+    loadingPromises[key] = (async () => {
+        try {
+            const res = await fetch(file);
+            if (!res.ok) {
+                modelCache[key] = 'unavailable';
+                return false;
+            }
+            const data = await res.json();
+            modelCache[key] = { config: data.config, weights: data.weights };
+            return true;
+        } catch (_) {
+            modelCache[key] = 'unavailable';
             return false;
         }
-        const data = await res.json();
-        modelConfig = data.config;
-        modelWeights = data.weights;
-        modelLoaded = true;
-        modelLoading = false;
-        return true;
-    } catch (e) {
-        modelLoading = false;
-        return false;
-    }
+    })();
+    const ok = await loadingPromises[key];
+    loadingPromises[key] = null;
+    return ok;
 }
 
-export function computeFeatures(candles) {
-    const seqLen = modelConfig ? modelConfig.sequence_length : 20;
+export async function loadModel() {
+    // Kick off GBT load in parallel.
+    loadGbtModel();
+    // Pre-warm main; penny is loaded on demand via getAIPrediction.
+    return await loadModelForTier(MAIN_KEY);
+}
+
+export function computeFeatures(candles, configOverride) {
+    const cfg = configOverride || (modelCache[MAIN_KEY]?.config) || { sequence_length: 20 };
+    const seqLen = cfg.sequence_length;
 
     if (candles.length < seqLen + LOOKBACK) return null;
 
@@ -133,122 +141,105 @@ export function computeFeatures(candles) {
     return features;
 }
 
-function sigmoid(x) {
-    return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x))));
-}
-
-function tanh(x) {
-    const ex = Math.exp(2 * Math.max(-500, Math.min(500, x)));
-    return (ex - 1) / (ex + 1);
-}
-
-function relu(x) {
-    return Math.max(0, x);
-}
-
-function matmul(matrix, vector) {
-    return matrix.map(row => row.reduce((sum, val, i) => sum + val * vector[i], 0));
-}
-
-function addVectors(a, b) {
-    return a.map((val, i) => val + b[i]);
-}
+function sigmoid(x) { return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x)))); }
+function tanh(x) { const ex = Math.exp(2 * Math.max(-500, Math.min(500, x))); return (ex - 1) / (ex + 1); }
+function relu(x) { return Math.max(0, x); }
+function matmul(matrix, vector) { return matrix.map(row => row.reduce((sum, val, i) => sum + val * vector[i], 0)); }
+function addVectors(a, b) { return a.map((val, i) => val + b[i]); }
 
 function lstmCell(input, hPrev, cPrev, weights, biases) {
     const hiddenSize = hPrev.length;
     const combinedInput = [...input, ...hPrev];
-
     const gates = addVectors(matmul(weights, combinedInput), biases);
-
     const i = gates.slice(0, hiddenSize).map(sigmoid);
     const f = gates.slice(hiddenSize, 2 * hiddenSize).map(sigmoid);
     const g = gates.slice(2 * hiddenSize, 3 * hiddenSize).map(tanh);
     const o = gates.slice(3 * hiddenSize, 4 * hiddenSize).map(sigmoid);
-
     const cNew = cPrev.map((c, idx) => f[idx] * c + i[idx] * g[idx]);
     const hNew = cNew.map((c, idx) => o[idx] * tanh(c));
-
     return { h: hNew, c: cNew };
 }
 
-function runLSTM(features) {
-    if (!modelWeights || !modelConfig) return null;
-
-    const { hidden_size, num_layers } = modelConfig;
+function runLSTMWith(features, modelData) {
+    if (!modelData || !modelData.weights || !modelData.config) return null;
+    const weights = modelData.weights;
+    const { hidden_size, num_layers } = modelData.config;
 
     let h = Array.from({ length: num_layers }, () => new Array(hidden_size).fill(0));
     let c = Array.from({ length: num_layers }, () => new Array(hidden_size).fill(0));
 
     for (const timestep of features) {
         let layerInput = timestep;
-
         for (let layer = 0; layer < num_layers; layer++) {
-            const ihW = modelWeights[`lstm.weight_ih_l${layer}`];
-            const hhW = modelWeights[`lstm.weight_hh_l${layer}`];
-            const ihB = modelWeights[`lstm.bias_ih_l${layer}`];
-            const hhB = modelWeights[`lstm.bias_hh_l${layer}`];
-
+            const ihW = weights[`lstm.weight_ih_l${layer}`];
+            const hhW = weights[`lstm.weight_hh_l${layer}`];
+            const ihB = weights[`lstm.bias_ih_l${layer}`];
+            const hhB = weights[`lstm.bias_hh_l${layer}`];
             if (!ihW || !hhW) return null;
-
             const combinedW = ihW.map((row, i) => [...row, ...hhW[i]]);
             const combinedB = ihB.map((b, i) => b + hhB[i]);
-
             const result = lstmCell(layerInput, h[layer], c[layer], combinedW, combinedB);
             h[layer] = result.h;
             c[layer] = result.c;
-
             layerInput = result.h;
         }
     }
 
     const lastHidden = h[num_layers - 1];
-
-    const fc1W = modelWeights['fc1.weight'];
-    const fc1B = modelWeights['fc1.bias'];
+    const fc1W = weights['fc1.weight'];
+    const fc1B = weights['fc1.bias'];
     if (!fc1W || !fc1B) return null;
-
     let fc1Out = addVectors(matmul(fc1W, lastHidden), fc1B).map(relu);
-
-    const fc2W = modelWeights['fc2.weight'];
-    const fc2B = modelWeights['fc2.bias'];
+    const fc2W = weights['fc2.weight'];
+    const fc2B = weights['fc2.bias'];
     if (!fc2W || !fc2B) return null;
-
     const output = fc2W[0].reduce((sum, w, i) => sum + w * fc1Out[i], 0) + fc2B[0];
     return sigmoid(output);
 }
 
-// ─── PUBLIC API ───────────────────────────────────────────────────────────────
+/**
+ * Phase 8: tier-aware model selection.
+ * If tier='penny' AND penny weights are available → use penny model (isolated).
+ * Otherwise → use main model (default + fallback).
+ */
+export async function getAIPrediction(candles, opts = {}) {
+    const { tier = null } = opts;
+    const wantPenny = tier === 'penny';
 
-export async function getAIPrediction(candles) {
-    const loaded = await loadModel();
-    if (!loaded) {
+    let modelKey = MAIN_KEY;
+    let modelOk = await loadModelForTier(MAIN_KEY);
+    if (wantPenny) {
+        const pennyOk = await loadModelForTier(PENNY_KEY);
+        if (pennyOk) {
+            modelKey = PENNY_KEY;
+        }
+        // else fall back to main — no regression on penny analyses if file missing.
+    }
+    if (!modelOk && modelKey !== PENNY_KEY) {
         return { score: 50, available: false, reason: 'AI model not loaded' };
     }
 
-    const features = computeFeatures(candles);
+    const modelData = modelCache[modelKey];
+    if (!modelData || modelData === 'unavailable') {
+        return { score: 50, available: false, reason: 'AI model unavailable' };
+    }
+
+    const features = computeFeatures(candles, modelData.config);
     if (!features) {
         return { score: 50, available: false, reason: 'Insufficient data for AI model (need 41+ candles)' };
     }
 
-    const lstmProb = runLSTM(features);
+    const lstmProb = runLSTMWith(features, modelData);
     if (lstmProb === null) {
         return { score: 50, available: false, reason: 'AI inference failed' };
     }
 
-    // Use the LAST timestep's feature vector for the GBT (it consumes flat
-    // features, not a sequence). This matches compute_flat_features in
-    // shared_features.py which the trees were trained on.
     let gbtProb = null;
     if (isGbtLoaded()) {
-        try {
-            gbtProb = predictGbt(features[features.length - 1]);
-        } catch (_) { /* */ }
+        try { gbtProb = predictGbt(features[features.length - 1]); } catch (_) {}
     }
 
-    const probability = (gbtProb != null && Number.isFinite(gbtProb))
-        ? (lstmProb + gbtProb) / 2
-        : lstmProb;
-
+    const probability = (gbtProb != null && Number.isFinite(gbtProb)) ? (lstmProb + gbtProb) / 2 : lstmProb;
     const score = Math.round(probability * 100);
 
     let signal;
@@ -256,17 +247,17 @@ export async function getAIPrediction(candles) {
     else if (probability < 0.4) signal = 'bearish';
     else signal = 'neutral';
 
+    const modelLabel = modelKey === PENNY_KEY ? 'Penny-LSTM' : 'LSTM';
     const reason = (gbtProb != null)
-        ? `AI ensemble (LSTM ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
-        : `AI pattern recognition (LSTM only): ${score}% probability of upward move`;
+        ? `AI ensemble (${modelLabel} ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
+        : `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move`;
 
     return {
-        score,
-        available: true,
+        score, available: true,
         probability: Math.round(probability * 1000) / 1000,
+        modelTier: modelKey,
         lstm: { score: Math.round(lstmProb * 100), probability: Math.round(lstmProb * 1000) / 1000 },
         gbt: gbtProb != null ? { score: Math.round(gbtProb * 100), probability: Math.round(gbtProb * 1000) / 1000 } : null,
-        signal,
-        reason,
+        signal, reason,
     };
 }
