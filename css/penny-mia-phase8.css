@@ -1,4 +1,4 @@
-/* Phase 8 add-ons: penny dashboard, penny filter sub-tabs, Mia ECG thinking. */
+/* Phase 8 add-ons: penny dashboard, penny filter sub-tabs, Mia trading-bar thinking. */
 
 /* Penny filter sub-tabs (under Hot Picks) */
 .penny-filters {
@@ -93,26 +93,45 @@
     .penny-filter-btn { font-size: 0.72rem; padding: 5px 10px; }
 }
 
-/* Mia ECG thinking animation — replaces the bouncing-dots typing indicator */
-.mia-ecg-thinking {
-    display: inline-block;
-    width: 80px; height: 18px;
+/*
+ * Mia "thinking" animation — trading-bar pulse.
+ *
+ * Replaces the previous medical-ECG sweep. Six vertical bars (candle-style)
+ * pulse up and down out-of-phase. Bars in the middle pulse harder so the
+ * shape resembles a price chart breath/expansion. Accent-colored, soft glow.
+ */
+.mia-thinking-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 18px;
     margin-right: 8px;
     vertical-align: middle;
+    padding: 0 2px;
 }
-.mia-ecg-thinking-trace {
-    stroke: var(--text-muted);
-    opacity: 0.35;
+.mia-thinking-bars i {
+    display: block;
+    width: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(var(--accent-rgb), 0.5);
+    transform-origin: bottom center;
+    animation: mia-bar-pulse 1.1s ease-in-out infinite;
 }
-.mia-ecg-thinking-blip {
-    stroke: var(--accent);
-    stroke-dasharray: 240;
-    stroke-dashoffset: 240;
-    filter: drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.6));
-    animation: mia-ecg-thinking-sweep 1.6s ease-in-out infinite;
-}
-@keyframes mia-ecg-thinking-sweep {
-    0%   { stroke-dashoffset: 240; }
-    50%  { stroke-dashoffset: 0; }
-    100% { stroke-dashoffset: -240; }
+.mia-thinking-bars i:nth-child(1) { height: 6px;  animation-delay: 0.0s; }
+.mia-thinking-bars i:nth-child(2) { height: 10px; animation-delay: 0.12s; }
+.mia-thinking-bars i:nth-child(3) { height: 14px; animation-delay: 0.24s; }
+.mia-thinking-bars i:nth-child(4) { height: 16px; animation-delay: 0.36s; }
+.mia-thinking-bars i:nth-child(5) { height: 12px; animation-delay: 0.48s; }
+.mia-thinking-bars i:nth-child(6) { height: 8px;  animation-delay: 0.60s; }
+
+@keyframes mia-bar-pulse {
+    0%, 100% {
+        transform: scaleY(0.45);
+        opacity: 0.55;
+    }
+    50% {
+        transform: scaleY(1.0);
+        opacity: 1;
+    }
 }
