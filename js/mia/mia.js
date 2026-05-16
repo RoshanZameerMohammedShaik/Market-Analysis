@@ -1,15 +1,9 @@
-// Mia v3.2 — streaming-fix + warmer guardrails.
+// Mia v3.3 — natural reading-speed streaming.
 //
-// Phase 8.1 fixes:
-//  - PacedRenderer no longer flushes-all-at-end. Instead, the doSend()
-//    finalize step waits for the renderer's queue to drain naturally
-//    so the user actually sees the paced reveal.
-//  - flushRemaining() is now ONLY called on user abort (stop button).
-//  - First-paint replaces the ECG indicator on the FIRST char so streaming
-//    is visible from byte 1 (was previously waiting for the renderer's first
-//    tick which already happened, but the optimization is harmless).
-//
-// Everything else (ECG thinking, action verbs, no tool-name leaks) preserved.
+// Phase 8.2 fix:
+//  - RENDER_CPS bumped from 30 → 70 (closer to natural reading speed).
+//  - Punctuation pauses scaled down: . ! ? = 3x (was 6x), , ; : = 2x (was 3x),
+//    \n = 2x (was 4x). Still a slight rhythm; no longer typewriter-slow.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -28,8 +22,9 @@ let activeAbort = null;
 const CLEAR_HOLD_MS = 3000;
 const CLEAR_HOLD_DELAY_MS = 500;
 
-// Paced rendering: ~30 cps for a more visible/conversational reveal.
-const RENDER_CPS = 30;
+// ~70 cps matches natural reading speed for adults. Higher feels dump-y,
+// lower feels typewriter-slow.
+const RENDER_CPS = 70;
 const BASE_DELAY_MS = 1000 / RENDER_CPS;
 
 const ACTION_VERBS = {
@@ -257,9 +252,6 @@ function renderThread(history) {
     thread.scrollTop = thread.scrollHeight;
 }
 
-// Paced render queue. We accept fast deltas from the LLM but reveal them
-// to the user at RENDER_CPS chars/second so the experience feels conversational
-// rather than dumped-all-at-once.
 class PacedRenderer {
     constructor(bubbleId) {
         this.bubbleId = bubbleId;
@@ -268,7 +260,6 @@ class PacedRenderer {
         this.running = false;
         this.aborted = false;
         this.firstTokenSeen = false;
-        // Resolves when the queue has fully drained AND the last paint has happened.
         this._drainResolvers = [];
     }
     push(chunk) {
@@ -276,16 +267,11 @@ class PacedRenderer {
         if (!this.running) this.tick();
     }
     abort() { this.aborted = true; this._notifyDrain(); }
-    /**
-     * Returns a promise that resolves when the queue is empty and rendering is done.
-     * Call this AFTER pushing all chunks, then await it before finalizing.
-     */
     waitForDrain() {
         if (!this.running && this.queue.length === 0) return Promise.resolve();
         return new Promise(resolve => this._drainResolvers.push(resolve));
     }
     flushRemaining() {
-        // Force-drain all queued chars at once. Use only on user abort.
         if (this.queue.length > 0) {
             this.shown += this.queue;
             this.queue = '';
@@ -302,7 +288,6 @@ class PacedRenderer {
         const el = document.getElementById(this.bubbleId);
         if (!el) return;
         if (!this.firstTokenSeen) {
-            // Replace the ECG "thinking" indicator with the streamed text container.
             el.innerHTML = '';
             this.firstTokenSeen = true;
         }
@@ -317,14 +302,14 @@ class PacedRenderer {
             this.queue = this.queue.slice(1);
             this.shown += ch;
             this.paint();
+            // Slight rhythm pause on punctuation; nothing typewriter-slow.
             let delay = BASE_DELAY_MS;
-            if (ch === '.' || ch === '!' || ch === '?') delay = BASE_DELAY_MS * 6;
-            else if (ch === ',' || ch === ';' || ch === ':') delay = BASE_DELAY_MS * 3;
-            else if (ch === '\n') delay = BASE_DELAY_MS * 4;
+            if (ch === '.' || ch === '!' || ch === '?') delay = BASE_DELAY_MS * 3;
+            else if (ch === ',' || ch === ';' || ch === ':') delay = BASE_DELAY_MS * 2;
+            else if (ch === '\n') delay = BASE_DELAY_MS * 2;
             await new Promise(r => setTimeout(r, delay));
         }
         this.running = false;
-        // Notify waiters now that we're idle.
         this._notifyDrain();
     }
 }
@@ -363,9 +348,6 @@ async function doSend() {
             acc += delta;
             renderer.push(delta);
         }
-        // Wait for the renderer to drain naturally so the user actually sees the
-        // paced reveal even if Groq finished delivering bytes 10x faster than the
-        // user can read.
         await renderer.waitForDrain();
 
         const cleaned = stripAgentNoise(acc).trim();
