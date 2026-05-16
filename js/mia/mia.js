@@ -146,7 +146,6 @@ function renderChat() {
                 <span class="mia-action-icon" id="mia-action-icon">${ICON_SEND}</span>
             </button>
         </div>
-        <div class="mia-disclaimer">Numbers come from the on-screen signal or tools she calls — not financial advice. Long-press send to clear chat.</div>
     `;
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
     document.getElementById('mia-settings-btn').addEventListener('click', renderSettings);
@@ -257,13 +256,13 @@ function renderThread(history) {
     if (history.length === 0) {
         thread.innerHTML = `
             <div class="mia-greet">
-                <p>Hi, I’m <strong>Mia</strong>. I read the same signal data you see on the page, can call the engine and external sources, and I can drive the app on your behalf — my numbers always match what's on screen.</p>
+                <p>Hi, I’m <strong>Mia</strong>. Ask me anything — I can call the engine, pull external sources, and drive the app for you.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
                     <button class="mia-suggest">Show me NVDA and explain the signal.</button>
+                    <button class="mia-suggest">Filter Hot Picks to under $5.</button>
+                    <button class="mia-suggest">Open Spikers and find me a candidate.</button>
                     <button class="mia-suggest">Compare AAPL, MSFT, and GOOGL.</button>
-                    <button class="mia-suggest">Any breaking news on the symbol I'm looking at?</button>
-                    <button class="mia-suggest">What’s the 10y yield doing this month?</button>
                 </div>
             </div>`;
         thread.querySelectorAll('.mia-suggest').forEach(btn => {

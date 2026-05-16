@@ -24,10 +24,7 @@ export function renderUsageMeter(container) {
     const fallbackTag = routing.fallback ? ` → ${routing.fallback} (auto-fallback)` : '';
 
     if (!usage) {
-        container.innerHTML = `<div class="mia-usage idle">
-            <span class="mia-usage-dot"></span>
-            <span>${provLabel}${fallbackTag} — send a message to see usage</span>
-        </div>`;
+        container.innerHTML = '';
         return;
     }
 

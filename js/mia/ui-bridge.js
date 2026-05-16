@@ -18,6 +18,7 @@ import { state } from '../ui/state.js';
 import { searchStocks, searchCrypto } from '../data.js';
 import { getCalibrationStatus, getCalibrationCurve, getCalibrationByTier, getCalibrationByVolTier, getCalibrationRecency } from '../calibration.js';
 import { getStats } from '../outcome-tracker.js';
+import { setPennyFilter } from '../ui/hotpicks.js';
 
 /**
  * Programmatic equivalent of the user typing a symbol and clicking the
@@ -97,6 +98,57 @@ export function controlRefreshHotPicks() {
     if (!btn) throw new Error('hot-picks refresh missing');
     btn.click();
     return { ok: true };
+}
+
+export function controlSetPennyFilter({ tier }) {
+    const map = { all: null, none: null, '': null, p10: 'p10', p5: 'p5', p1: 'p1', '<10': 'p10', '<5': 'p5', '<1': 'p1', '10': 'p10', '5': 'p5', '1': 'p1' };
+    const norm = map[String(tier ?? '').toLowerCase().trim()];
+    if (norm === undefined) throw new Error(`unknown penny tier: ${tier} (use one of: all, p10, p5, p1)`);
+    setPennyFilter(norm);
+    document.querySelectorAll('[data-penny-filter]').forEach(btn => {
+        const f = btn.dataset.pennyFilter || null;
+        btn.classList.toggle('active', (f === null && norm === null) || f === norm);
+    });
+    return { ok: true, pennyTier: norm || 'all' };
+}
+
+export function controlOpenSpikers() {
+    const btn = document.getElementById('spikers-btn');
+    if (!btn) throw new Error('spikers button missing');
+    btn.click();
+    return { ok: true };
+}
+
+export function controlOpenAbout() {
+    const btn = document.getElementById('about-btn');
+    if (!btn) throw new Error('about button missing');
+    btn.click();
+    return { ok: true };
+}
+
+export function controlToggleCurrency() {
+    const btn = document.getElementById('currency-toggle');
+    if (!btn) throw new Error('currency toggle missing');
+    btn.click();
+    return { ok: true };
+}
+
+export function controlScrollTo({ section }) {
+    const map = {
+        chart: 'tradingview-widget',
+        signal: 'signal-section',
+        accuracy: 'accuracy-strip',
+        hotpicks: 'hotpicks-grid',
+        'hot-picks': 'hotpicks-grid',
+        search: 'search-input',
+    };
+    const id = map[String(section || '').toLowerCase().trim()];
+    if (!id) throw new Error(`unknown section: ${section} (use: chart, signal, accuracy, hotpicks, search)`);
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`element #${id} not on page`);
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (id === 'search-input') try { el.focus(); } catch (_) {}
+    return { ok: true, section };
 }
 
 export function controlRunAnalysis() {

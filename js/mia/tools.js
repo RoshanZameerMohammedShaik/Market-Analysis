@@ -10,6 +10,8 @@ import { getMarketConditionsScore } from '../market.js';
 import {
     controlSelectSymbol, controlSwitchMode, controlSwitchTimeframe,
     controlCycleTheme, controlTogglePL, controlRefreshHotPicks, controlRunAnalysis,
+    controlSetPennyFilter, controlOpenSpikers, controlOpenAbout,
+    controlToggleCurrency, controlScrollTo,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
 } from './ui-bridge.js';
 import {
@@ -146,6 +148,19 @@ const TOOLS = {
     toggle_pl_calculator: { desc: 'show/hide P&L sidebar', args: '{}', run: () => controlTogglePL(), kind: 'control' },
     refresh_hot_picks: { desc: 'rescan hot picks', args: '{}', run: () => controlRefreshHotPicks(), kind: 'control' },
     rerun_analysis: { desc: 'rerun analysis on current symbol', args: '{}', run: () => controlRunAnalysis(), kind: 'control' },
+    set_penny_filter: {
+        desc: 'filter Hot Picks by penny tier: all, p10 (<$10), p5 (<$5), p1 (<$1)',
+        args: '{"tier":"p10"}',
+        run: ({ tier }) => controlSetPennyFilter({ tier }), kind: 'control',
+    },
+    open_spikers: { desc: 'open the Spikers panel (intraday spike candidates)', args: '{}', run: () => controlOpenSpikers(), kind: 'control' },
+    open_about: { desc: 'open the About / how-it-works panel', args: '{}', run: () => controlOpenAbout(), kind: 'control' },
+    toggle_currency: { desc: 'toggle USD ↔ INR display', args: '{}', run: () => controlToggleCurrency(), kind: 'control' },
+    scroll_to: {
+        desc: 'scroll the page to a section: chart, signal, accuracy, hotpicks, search',
+        args: '{"section":"hotpicks"}',
+        run: ({ section }) => controlScrollTo({ section }), kind: 'control',
+    },
 };
 
 export function listTools() {
