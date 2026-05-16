@@ -11,7 +11,7 @@ import {
     controlSelectSymbol, controlSwitchMode, controlSwitchTimeframe,
     controlCycleTheme, controlTogglePL, controlRefreshHotPicks, controlRunAnalysis,
     controlSetPennyFilter, controlOpenSpikers, controlOpenAbout,
-    controlToggleCurrency, controlScrollTo,
+    controlToggleCurrency, controlScrollTo, controlPLCalculate,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
 } from './ui-bridge.js';
 import {
@@ -160,6 +160,12 @@ const TOOLS = {
         desc: 'scroll the page to a section: chart, signal, accuracy, hotpicks, search',
         args: '{"section":"hotpicks"}',
         run: ({ section }) => controlScrollTo({ section }), kind: 'control',
+    },
+    pl_calculate: {
+        desc: 'open P&L calculator and run a calculation. currentPrice is optional — omit to use the loaded symbol\'s live price. returns shares, currentValue, plDollar, plPct.',
+        args: '{"investment":1000,"buyPrice":150,"currentPrice":175}',
+        run: ({ investment, buyPrice, currentPrice }) => controlPLCalculate({ investment, buyPrice, currentPrice }),
+        kind: 'control',
     },
 };
 

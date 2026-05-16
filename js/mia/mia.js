@@ -48,6 +48,12 @@ const ACTION_VERBS = {
     toggle_pl_calculator: 'toggling P&L panel',
     refresh_hot_picks: 'refreshing hot picks',
     rerun_analysis: 'rerunning analysis',
+    set_penny_filter: 'filtering hot picks',
+    open_spikers: 'opening Spikers',
+    open_about: 'opening About',
+    toggle_currency: 'switching currency',
+    scroll_to: 'jumping to that section',
+    pl_calculate: 'running the P&L calculator',
 };
 function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it up'; }
 
@@ -259,9 +265,9 @@ function renderThread(history) {
                 <p>Hi, I’m <strong>Mia</strong>. Ask me anything — I can call the engine, pull external sources, and drive the app for you.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
-                    <button class="mia-suggest">Show me NVDA and explain the signal.</button>
+                    <button class="mia-suggest">Deep-dive NVDA: signal, news, and your read.</button>
                     <button class="mia-suggest">Filter Hot Picks to under $5.</button>
-                    <button class="mia-suggest">Open Spikers and find me a candidate.</button>
+                    <button class="mia-suggest">If I put $1,000 in TSLA at $200, P&L at $250?</button>
                     <button class="mia-suggest">Compare AAPL, MSFT, and GOOGL.</button>
                 </div>
             </div>`;

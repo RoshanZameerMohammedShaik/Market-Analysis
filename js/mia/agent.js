@@ -8,7 +8,7 @@
 import { stream as llmStream } from './llm-client.js';
 import { runTool, toolPromptSection, listTools } from './tools.js';
 
-const MAX_TOOL_CALLS = 6;
+const MAX_TOOL_CALLS = 8;
 const INTRA_TURN_PACE_MS = 350;
 
 const TOOL_LINE_RE = /^[\s>*\-]*\**\s*TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})\s*\**[\s>]*$/im;

@@ -133,6 +133,59 @@ export function controlToggleCurrency() {
     return { ok: true };
 }
 
+function ensurePLOpen() {
+    if (!document.body.classList.contains('pl-open')) {
+        const btn = document.getElementById('pl-toggle');
+        if (btn) btn.click();
+    }
+}
+
+export function controlPLCalculate({ investment, buyPrice, currentPrice }) {
+    const inv = Number(investment);
+    const buy = Number(buyPrice);
+    if (!Number.isFinite(inv) || inv <= 0) throw new Error('investment must be a positive number');
+    if (!Number.isFinite(buy) || buy <= 0) throw new Error('buyPrice must be a positive number');
+
+    let cur = Number(currentPrice);
+    let usedCurrent = false;
+    if (!Number.isFinite(cur) || cur <= 0) {
+        if (Number.isFinite(state.currentPrice) && state.currentPrice > 0) {
+            cur = Number(state.currentPrice);
+            usedCurrent = true;
+        } else {
+            throw new Error('currentPrice required (or load a symbol first to use the live price)');
+        }
+    }
+
+    ensurePLOpen();
+    const invEl = document.getElementById('pl-investment');
+    const buyEl = document.getElementById('pl-buyPrice');
+    const curEl = document.getElementById('pl-currentPrice');
+    const calcBtn = document.getElementById('pl-calcBtn');
+    if (!invEl || !buyEl || !curEl || !calcBtn) throw new Error('P&L calculator inputs not found');
+    invEl.value = inv.toFixed(2);
+    buyEl.value = buy.toFixed(2);
+    curEl.value = cur.toFixed(2);
+    calcBtn.click();
+
+    const shares = inv / buy;
+    const value = shares * cur;
+    const pl = value - inv;
+    const pct = ((cur - buy) / buy) * 100;
+    return {
+        ok: true,
+        investment: inv,
+        buyPrice: buy,
+        currentPrice: cur,
+        usedLivePrice: usedCurrent,
+        symbol: usedCurrent ? state.currentSymbol : null,
+        shares: +shares.toFixed(4),
+        currentValue: +value.toFixed(2),
+        plDollar: +pl.toFixed(2),
+        plPct: +pct.toFixed(2),
+    };
+}
+
 export function controlScrollTo({ section }) {
     const map = {
         chart: 'tradingview-widget',
