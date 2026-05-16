@@ -54,6 +54,13 @@ const ACTION_VERBS = {
     toggle_currency: 'switching currency',
     scroll_to: 'jumping to that section',
     pl_calculate: 'running the P&L calculator',
+    find_spikers: 'scanning for spike candidates',
+    get_prediction_log: 'reading prediction history',
+    get_source_accuracy: 'checking source accuracy',
+    set_theme: 'switching theme',
+    focus_search: 'jumping to search',
+    clear_chat: 'clearing the chat',
+    copy_to_clipboard: 'copying that for you',
 };
 function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it up'; }
 

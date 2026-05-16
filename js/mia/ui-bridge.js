@@ -17,8 +17,11 @@
 import { state } from '../ui/state.js';
 import { searchStocks, searchCrypto } from '../data.js';
 import { getCalibrationStatus, getCalibrationCurve, getCalibrationByTier, getCalibrationByVolTier, getCalibrationRecency } from '../calibration.js';
-import { getStats } from '../outcome-tracker.js';
+import { getStats, getSourceAccuracy } from '../outcome-tracker.js';
 import { setPennyFilter } from '../ui/hotpicks.js';
+import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
+import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
+import { clearHistory as clearMiaHistory } from './memory.js';
 
 /**
  * Programmatic equivalent of the user typing a symbol and clicking the
@@ -256,4 +259,104 @@ export function readCalibrationSnapshot() {
 
 export function readAccuracyStats() {
     return getStats();
+}
+
+export async function findSpikersDirect({ bucket = '3pct', limit = 10 } = {}) {
+    const b = bucketById(bucket);
+    if (!b) throw new Error(`unknown bucket: ${bucket}. Use one of: ${BUCKETS.map(x => x.id).join(', ')}`);
+    const scan = state.mode === 'crypto' ? scanCryptoHotPicks : scanStockHotPicks;
+    const picks = await scan(state.timeframe, 50, () => {});
+    const candidates = picks.map(p => ({ symbol: p.symbol, id: p.id, name: p.name, price: p.price, candles: null }));
+    const results = await findSpikers(candidates, b, () => {}, { mode: state.mode });
+    const lim = Math.max(1, Math.min(20, Number(limit) || 10));
+    return {
+        bucket: b.id,
+        bucketLabel: b.label,
+        mode: state.mode,
+        count: results.length,
+        candidates: results.slice(0, lim).map(r => ({
+            symbol: r.symbol, name: r.name, currentPrice: r.price,
+            targetPrice: r.targetPrice, projectedPct: r.projectedPct,
+            confidence: r.confidence, calibrated: r.calibrated, reason: r.reason,
+        })),
+    };
+}
+
+export function readPredictionLog({ limit = 10 } = {}) {
+    let log = [];
+    try {
+        const raw = localStorage.getItem('ma-prediction-log');
+        log = raw ? JSON.parse(raw) : [];
+    } catch (_) { log = []; }
+    const lim = Math.max(1, Math.min(50, Number(limit) || 10));
+    const recent = log.slice(-lim).map(p => ({
+        symbol: p.symbol, mode: p.mode, signal: p.signal, confidence: p.confidence,
+        priceAtPrediction: p.price, timeframe: p.timeframe,
+        timestamp: p.timestamp, resolved: !!p.resolved,
+        priceAtResolve: p.priceAtResolve ?? null, correct: p.correct ?? null,
+    }));
+    return { totalLogged: log.length, returned: recent.length, recent };
+}
+
+export function readSourceAccuracy() {
+    const data = getSourceAccuracy();
+    if (!data) return { available: false, note: 'Not enough resolved samples yet (need 15+ in the last 30).' };
+    return {
+        available: true,
+        bySource: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, { n: v.n, hitRatePct: Math.round(v.hitRate * 100) }])),
+    };
+}
+
+const THEMES = ['dark', 'light', 'aurora'];
+
+export function controlSetTheme({ theme }) {
+    const t = String(theme || '').toLowerCase().trim();
+    if (!THEMES.includes(t)) throw new Error(`unknown theme: ${theme}. Use one of: ${THEMES.join(', ')}`);
+    let cycles = 0;
+    while (state.theme !== t && cycles < THEMES.length) {
+        const btn = document.getElementById('theme-toggle');
+        if (!btn) throw new Error('theme toggle missing');
+        btn.click();
+        cycles++;
+    }
+    return { ok: true, theme: state.theme };
+}
+
+export function controlFocusSearch({ query = '' } = {}) {
+    const input = document.getElementById('search-input');
+    if (!input) throw new Error('search input missing');
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (query) {
+        input.value = String(query);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    try { input.focus(); } catch (_) {}
+    return { ok: true, query: input.value };
+}
+
+export function controlClearMiaChat() {
+    clearMiaHistory();
+    const thread = document.getElementById('mia-thread');
+    if (thread) thread.innerHTML = '';
+    return { ok: true };
+}
+
+export async function controlCopyToClipboard({ text }) {
+    const s = String(text ?? '');
+    if (!s) throw new Error('text required');
+    try {
+        await navigator.clipboard.writeText(s);
+        return { ok: true, length: s.length };
+    } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = s;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const fallbackOk = document.execCommand('copy');
+        ta.remove();
+        if (!fallbackOk) throw new Error('clipboard write blocked');
+        return { ok: true, length: s.length, fallback: true };
+    }
 }

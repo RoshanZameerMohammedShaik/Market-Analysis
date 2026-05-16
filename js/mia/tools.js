@@ -12,7 +12,9 @@ import {
     controlCycleTheme, controlTogglePL, controlRefreshHotPicks, controlRunAnalysis,
     controlSetPennyFilter, controlOpenSpikers, controlOpenAbout,
     controlToggleCurrency, controlScrollTo, controlPLCalculate,
+    controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
+    findSpikersDirect, readPredictionLog, readSourceAccuracy,
 } from './ui-bridge.js';
 import {
     fetchNewsAndSentiment, fetchFredSeries, fetchRedditSentiment,
@@ -165,6 +167,48 @@ const TOOLS = {
         desc: 'open P&L calculator and run a calculation. currentPrice is optional — omit to use the loaded symbol\'s live price. returns shares, currentValue, plDollar, plPct.',
         args: '{"investment":1000,"buyPrice":150,"currentPrice":175}',
         run: ({ investment, buyPrice, currentPrice }) => controlPLCalculate({ investment, buyPrice, currentPrice }),
+        kind: 'control',
+    },
+    find_spikers: {
+        desc: 'scan the live pool for spike candidates today. buckets: gte10 (≥10%), 10to20, 20to30, 30to40, 40to50, gt50.',
+        args: '{"bucket":"gte10","limit":10}',
+        run: ({ bucket, limit }) => findSpikersDirect({ bucket, limit }),
+        kind: 'read',
+    },
+    get_prediction_log: {
+        desc: 'recent local prediction history with resolution status (correct/incorrect/pending)',
+        args: '{"limit":10}',
+        run: ({ limit }) => readPredictionLog({ limit }),
+        kind: 'read',
+    },
+    get_source_accuracy: {
+        desc: 'rolling per-source hit rate (ai/technical/sentiment/market) over last 30 resolved predictions',
+        args: '{}',
+        run: () => readSourceAccuracy(),
+        kind: 'read',
+    },
+    set_theme: {
+        desc: 'set theme directly: dark, light, aurora',
+        args: '{"theme":"dark"}',
+        run: ({ theme }) => controlSetTheme({ theme }),
+        kind: 'control',
+    },
+    focus_search: {
+        desc: 'scroll to the search box and prefill an optional query (does NOT auto-pick — use select_symbol when the user names a specific symbol)',
+        args: '{"query":"AAPL"}',
+        run: ({ query }) => controlFocusSearch({ query }),
+        kind: 'control',
+    },
+    clear_chat: {
+        desc: 'clear the Mia chat history. Use only when the user explicitly asks.',
+        args: '{}',
+        run: () => controlClearMiaChat(),
+        kind: 'control',
+    },
+    copy_to_clipboard: {
+        desc: 'copy a short snippet to the user\'s clipboard (e.g. signal summary, ticker list)',
+        args: '{"text":"NVDA · 72% BUY · $1,180"}',
+        run: ({ text }) => controlCopyToClipboard({ text }),
         kind: 'control',
     },
 };
