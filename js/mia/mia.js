@@ -1,13 +1,15 @@
-// Mia v3.1 — ECG streaming + paced render + tool-name suppression + tighter guardrails.
+// Mia v3.2 — streaming-fix + warmer guardrails.
 //
-// Phase 8 changes:
-//  - Replace bouncing-dots typing indicator with an animated ECG sweep
-//    (uses .mia-ecg-thinking class). Visible while waiting for first token.
-//  - Stream paced render: even though Groq dumps tokens fast, we render
-//    at ~40 chars/sec (slows on punctuation) for a conversational feel.
-//  - Suppress tool-name leaks: badge now shows action label (Searching the
-//    web, Checking the market, Looking that up...) NOT the raw tool name.
-//  - Mia's ECG progress text shows the action verb only.
+// Phase 8.1 fixes:
+//  - PacedRenderer no longer flushes-all-at-end. Instead, the doSend()
+//    finalize step waits for the renderer's queue to drain naturally
+//    so the user actually sees the paced reveal.
+//  - flushRemaining() is now ONLY called on user abort (stop button).
+//  - First-paint replaces the ECG indicator on the FIRST char so streaming
+//    is visible from byte 1 (was previously waiting for the renderer's first
+//    tick which already happened, but the optimization is harmless).
+//
+// Everything else (ECG thinking, action verbs, no tool-name leaks) preserved.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -26,47 +28,41 @@ let activeAbort = null;
 const CLEAR_HOLD_MS = 3000;
 const CLEAR_HOLD_DELAY_MS = 500;
 
-// Paced rendering: target characters per second. ~40 cps feels conversational,
-// matches the cadence of a fast typist. Punctuation gets a small extra pause.
-const RENDER_CPS = 40;
+// Paced rendering: ~30 cps for a more visible/conversational reveal.
+const RENDER_CPS = 30;
 const BASE_DELAY_MS = 1000 / RENDER_CPS;
 
-// Tool-name → friendly action verb (never expose raw tool names).
 const ACTION_VERBS = {
-    get_app_state:        'Reading the page',
-    get_current_signal:   'Reading the current signal',
-    get_calibration:      'Checking calibration',
-    get_accuracy_stats:   'Reading accuracy stats',
-    analyze_symbol:       'Running analysis',
-    compare_symbols:      'Comparing tickers',
-    get_hot_picks:        'Checking hot picks',
-    get_market_conditions:'Checking the market',
-    get_news_and_sentiment:'Checking the news',
-    get_macro_series:     'Checking macro data',
+    get_app_state: 'Reading the page',
+    get_current_signal: 'Reading the current signal',
+    get_calibration: 'Checking calibration',
+    get_accuracy_stats: 'Reading accuracy stats',
+    analyze_symbol: 'Running analysis',
+    compare_symbols: 'Comparing tickers',
+    get_hot_picks: 'Checking hot picks',
+    get_market_conditions: 'Checking the market',
+    get_news_and_sentiment: 'Checking the news',
+    get_macro_series: 'Checking macro data',
     get_reddit_sentiment: 'Checking Reddit',
-    get_sec_filings:      'Checking SEC filings',
-    get_options_view:     'Checking options flow',
-    get_crypto_derivatives:'Checking derivatives',
-    research_symbol:      'Doing deep research',
-    web_search:           'Searching the web',
-    select_symbol:        'Loading the symbol',
-    switch_mode:          'Switching tab',
-    switch_timeframe:     'Switching timeframe',
-    cycle_theme:          'Switching theme',
+    get_sec_filings: 'Checking SEC filings',
+    get_options_view: 'Checking options flow',
+    get_crypto_derivatives: 'Checking derivatives',
+    research_symbol: 'Doing deep research',
+    web_search: 'Searching the web',
+    select_symbol: 'Loading the symbol',
+    switch_mode: 'Switching tab',
+    switch_timeframe: 'Switching timeframe',
+    cycle_theme: 'Switching theme',
     toggle_pl_calculator: 'Toggling P&L panel',
-    refresh_hot_picks:    'Refreshing hot picks',
-    rerun_analysis:       'Re-running analysis',
+    refresh_hot_picks: 'Refreshing hot picks',
+    rerun_analysis: 'Re-running analysis',
 };
-
-function actionVerbFor(toolName) {
-    return ACTION_VERBS[toolName] || 'Working';
-}
+function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'Working'; }
 
 const ICON_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.4 1.06L4.5 11l8 1-8 1L2 19.34a1 1 0 0 0 1.4 1.06z"/></svg>';
 const ICON_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
 
-// ECG "thinking" animation — sweeps a heartbeat line while Mia waits for tokens.
 const ECG_THINKING_SVG = `
 <svg class="mia-ecg-thinking" viewBox="0 0 80 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <path class="mia-ecg-thinking-trace" d="M0 9 L20 9 L24 9 L26 4 L28 14 L30 9 L36 9 L38 2 L40 16 L42 9 L48 9 L50 5 L52 13 L54 9 L80 9" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -74,12 +70,7 @@ const ECG_THINKING_SVG = `
 </svg>`;
 
 export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
-
-export function initMia() {
-    document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
-    initLauncherReadyDot();
-}
-
+export function initMia() { document.getElementById('mia-launcher')?.addEventListener('click', togglePanel); initLauncherReadyDot(); }
 function initLauncherReadyDot() {
     const launcher = document.getElementById('mia-launcher');
     if (!launcher) return;
@@ -91,7 +82,6 @@ function initLauncherReadyDot() {
     }
     launcher.title = isConfigured() ? 'Ask Mia — your Market Intelligence Analyst (ready)' : 'Ask Mia — set up an API key to begin';
 }
-
 function togglePanel() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('mia-panel');
@@ -99,7 +89,6 @@ function togglePanel() {
     if (panelOpen) { panel.setAttribute('aria-hidden', 'false'); panel.classList.add('open'); renderRoot(); }
     else { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
 }
-
 function renderRoot() {
     const panel = document.getElementById('mia-panel');
     if (!isConfigured()) { renderWelcome(panel, () => renderChat()); return; }
@@ -165,7 +154,6 @@ function wireActionButton() {
     btn.addEventListener('mouseleave', cancel);
     btn.addEventListener('touchcancel', cancel);
 }
-
 function beginHold() {
     holdStartTs = Date.now();
     holdState = 'pressing';
@@ -190,7 +178,6 @@ function beginHold() {
         holdState = 'idle';
     }, CLEAR_HOLD_MS);
 }
-
 function endHold() {
     if (holdState !== 'pressing') { clearHoldTimers(); return; }
     const heldMs = Date.now() - holdStartTs;
@@ -239,7 +226,6 @@ function refreshThinkingBadge() {
     btn.classList.toggle('active', !!s.thinkingMode);
     btn.title = s.thinkingMode ? 'Thinking mode ON — deeper, slower' : 'Thinking mode OFF — faster, lighter';
 }
-
 function renderThread(history) {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
@@ -282,24 +268,41 @@ class PacedRenderer {
         this.running = false;
         this.aborted = false;
         this.firstTokenSeen = false;
+        // Resolves when the queue has fully drained AND the last paint has happened.
+        this._drainResolvers = [];
     }
     push(chunk) {
         this.queue += chunk;
         if (!this.running) this.tick();
     }
-    abort() { this.aborted = true; }
+    abort() { this.aborted = true; this._notifyDrain(); }
+    /**
+     * Returns a promise that resolves when the queue is empty and rendering is done.
+     * Call this AFTER pushing all chunks, then await it before finalizing.
+     */
+    waitForDrain() {
+        if (!this.running && this.queue.length === 0) return Promise.resolve();
+        return new Promise(resolve => this._drainResolvers.push(resolve));
+    }
     flushRemaining() {
-        // Called at end of stream; reveal anything still queued instantly.
+        // Force-drain all queued chars at once. Use only on user abort.
         if (this.queue.length > 0) {
             this.shown += this.queue;
             this.queue = '';
             this.paint();
         }
+        this._notifyDrain();
+    }
+    _notifyDrain() {
+        const r = this._drainResolvers;
+        this._drainResolvers = [];
+        r.forEach(fn => { try { fn(); } catch (_) {} });
     }
     paint() {
         const el = document.getElementById(this.bubbleId);
         if (!el) return;
         if (!this.firstTokenSeen) {
+            // Replace the ECG "thinking" indicator with the streamed text container.
             el.innerHTML = '';
             this.firstTokenSeen = true;
         }
@@ -314,7 +317,6 @@ class PacedRenderer {
             this.queue = this.queue.slice(1);
             this.shown += ch;
             this.paint();
-            // Punctuation pauses give a more natural rhythm.
             let delay = BASE_DELAY_MS;
             if (ch === '.' || ch === '!' || ch === '?') delay = BASE_DELAY_MS * 6;
             else if (ch === ',' || ch === ';' || ch === ':') delay = BASE_DELAY_MS * 3;
@@ -322,6 +324,8 @@ class PacedRenderer {
             await new Promise(r => setTimeout(r, delay));
         }
         this.running = false;
+        // Notify waiters now that we're idle.
+        this._notifyDrain();
     }
 }
 
@@ -359,9 +363,10 @@ async function doSend() {
             acc += delta;
             renderer.push(delta);
         }
-        // Drain any remaining queued chars before saving history.
-        renderer.flushRemaining();
-        await new Promise(r => setTimeout(r, 50));
+        // Wait for the renderer to drain naturally so the user actually sees the
+        // paced reveal even if Groq finished delivering bytes 10x faster than the
+        // user can read.
+        await renderer.waitForDrain();
 
         const cleaned = stripAgentNoise(acc).trim();
         const ctxText = buildContextBlock(currentSignal);
@@ -389,7 +394,6 @@ async function doSend() {
 function stripAgentNoise(s) {
     return String(s || '').replace(/^TOOL:.*$/gim, '').replace(/^RESULT:.*$/gim, '').replace(/\n{3,}/g, '\n\n');
 }
-
 function appendStreamingBubble(bubbleId) {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
@@ -405,19 +409,15 @@ function appendStreamingBubble(bubbleId) {
     `);
     thread.scrollTop = thread.scrollHeight;
 }
-
-// Tool badges now show ONLY the friendly action verb. No raw tool names.
 function showToolBadge(bubbleId, name, kind = 'read') {
     const el = document.getElementById(bubbleId);
     if (!el) return;
     const verb = actionVerbFor(name);
     const icon = kind === 'control' ? '🎹' : '⚡';
     el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${verb}…</div>`);
-    // Also reflect in the live progress text.
     const pg = document.getElementById('mia-progress');
     if (pg) pg.textContent = `${verb}…`;
 }
-
 function updateProgress(msg) {
     const text = document.getElementById('mia-progress');
     const bar = document.getElementById('mia-progress-bar');
@@ -433,20 +433,17 @@ function updateProgress(msg) {
         return;
     }
     if (typeof msg === 'string') {
-        // String form sometimes carries 'calling tool_name…' — sanitize.
         const cleaned = msg.replace(/\bcalling\s+([a-z_]+)/i, (_m, tn) => actionVerbFor(tn));
         if (text) text.textContent = cleaned;
         if (bar) bar.hidden = true;
     }
 }
-
 function setSendState(stateName) {
     const btn = document.getElementById('mia-action');
     if (!btn) return;
     btn.dataset.state = stateName;
     renderActionState();
 }
-
 function renderSettings() {
     const panel = document.getElementById('mia-panel');
     const s = loadSettings();
@@ -481,5 +478,4 @@ function renderSettings() {
     document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ groqKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });
     document.getElementById('mia-clear-models').addEventListener('click', async () => { try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); } });
 }
-
 function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
