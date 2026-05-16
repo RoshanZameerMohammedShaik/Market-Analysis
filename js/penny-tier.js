@@ -8,25 +8,17 @@
 //   1. Float / shares-outstanding (lower float = bigger pct moves)
 //   2. Short interest (high SI = squeeze potential + extra volatility)
 //
-// FREE DATA PATH (Phase 6 update):
+// FREE DATA PATH (Phase 6):
 //   Yahoo's /v10/finance/quoteSummary now requires a session crumb that
-//   CORS proxies can't carry. We get around this by hosting a tiny
-//   Cloudflare Worker (workers/yahoo-proxy/) that fetches the crumb
-//   server-side and exposes a clean /key-stats?symbol= endpoint.
-//
-//   Configure WORKER_URL below after `wrangler deploy`. Until then, the
-//   module returns null and the engine drops the penny adjustment
-//   silently — no regression, just unrealized upside.
+//   CORS proxies can't carry. We host a Cloudflare Worker (workers/yahoo-proxy/)
+//   that fetches the crumb server-side and exposes a clean /key-stats endpoint.
+//   Worker is LIVE; URL wired below.
 
 import { fetchWithProxy } from './data.js';
 
-// Set this to your deployed worker URL after `wrangler deploy` from
-// workers/yahoo-proxy/. Until set, the module gracefully degrades to
-// no-data and the engine ignores it (penny tier still gets all other
-// modules + tier-stratified calibration).
-const WORKER_URL = '';
-// Example after deploy:
-// const WORKER_URL = 'https://market-analysis-yahoo-proxy.your-account.workers.dev';
+// Live Cloudflare Worker that handles Yahoo's session-crumb dance.
+// Free tier: 100K req/day. Replace with your own deploy if forking.
+const WORKER_URL = 'https://market-analysis-yahoo-proxy.roshanzameer7866.workers.dev';
 
 const CACHE = new Map();
 const TTL_MS = 30 * 60 * 1000;
@@ -55,9 +47,7 @@ async function fetchViaWorker(symbol) {
 }
 
 async function fetchDirectYahoo(symbol) {
-    // Best-effort fallback. Currently returns 401 'Invalid Crumb' on most
-    // calls, but keeping the path so if Yahoo relaxes the wall we still
-    // benefit without a redeploy.
+    // Best-effort fallback for if Yahoo ever relaxes the crumb wall.
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`;
     try {
         const res = await fetchWithProxy(url);
@@ -89,8 +79,6 @@ export async function getPennyTierData(symbol) {
     const cached = cacheGet(symbol);
     if (cached) return cached;
 
-    // Try the worker first (fast, authoritative); fall back to direct
-    // Yahoo if the worker isn't configured yet or the call failed.
     let stats = await fetchViaWorker(symbol);
     if (!stats) stats = await fetchDirectYahoo(symbol);
     if (!stats) return null;
@@ -129,7 +117,7 @@ export async function getPennyTierData(symbol) {
         heldPercentInsiders: stats.heldPercentInsiders,
         heldPercentInstitutions: stats.heldPercentInstitutions,
         floatBucket, shortBucket, squeezeRisk: +squeezeRisk.toFixed(2),
-        source: stats.source || (WORKER_URL ? 'worker' : 'direct'),
+        source: WORKER_URL ? 'worker' : 'direct',
     };
     cacheSet(symbol, data);
     return data;
