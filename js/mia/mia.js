@@ -1,15 +1,8 @@
-// Mia v3.5 — comprehensive tool-name scrubber.
+// Mia v3.6 — trading-bar thinking animation.
 //
-// Phase 8.6 fix: previous scrubber only caught "calling X tool" / "I'll use X"
-// patterns. Missed: code-formatted `tool_name`, markdown **tool_name**,
-// preposition leaks ("from X", "with X", "via X", "through X"), and bare
-// references ("you can see by X"). Also missed unknown snake_case
-// identifiers that look like tool names (get_*, set_*, fetch_*, etc.).
-//
-// New strategy: 4-pass scrub, each more aggressive than the last. The
-// final pass catches ANY snake_case identifier that LOOKS like a tool
-// name (matching get_/set_/fetch_/run_/load_/save_/refresh_/switch_/select_/
-// toggle_/cycle_/rerun_/compare_/analyze_) and replaces it with "look it up".
+// Phase 8.7 fix: ECG sweep felt medical. Replaced with six pulsing
+// candlestick-style bars that rise/fall in a wave (mimics a price chart
+// breath). All other behavior preserved.
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -31,7 +24,6 @@ const CLEAR_HOLD_DELAY_MS = 500;
 const RENDER_CPS = 70;
 const BASE_DELAY_MS = 1000 / RENDER_CPS;
 
-// Maps tool_name → friendly action verb (lowercase, used inside sentences).
 const ACTION_VERBS = {
     get_app_state: 'reading the page',
     get_current_signal: 'reading the current signal',
@@ -62,57 +54,32 @@ function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it 
 const TOOL_NAMES = Object.keys(ACTION_VERBS);
 const TOOL_NAMES_RE_BODY = TOOL_NAMES.join('|');
 
-// Generic snake_case "looks like a tool name" pattern as a safety net for
-// any unknown function name 8B might invent.
 const SNAKE_TOOL_RE = /\b(?:get|set|fetch|run|load|save|refresh|switch|select|toggle|cycle|rerun|compare|analyze|check|read|search|invoke|call|use)_[a-z][a-z0-9_]{2,}\b/gi;
 
-// Pass 1: phrasal scaffolding. These phrases collapse to the action verb,
-// dropping the name AND the verbal scaffolding around it.
 const SCAFFOLDING_PATTERNS = [
-    // "by/via/through calling [the] X [tool]"
     new RegExp(`\\b(?:by\\s+|via\\s+|through\\s+)?calling\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
-    // "I'll/I will/let me/I can/I should call|use|run|invoke [the] X [tool]"
     new RegExp(`\\b(?:I'll|I will|let me|I can|I should|I'd|I would|I'm going to|going to)\\s+(?:call|use|run|invoke|consult|hit|query|trigger|fire)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
-    // "using/with/via/through [the] X [tool]"
     new RegExp(`\\b(?:using|with|via|through)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
-    // "X tool" / "the X tool"
     new RegExp(`\\b(?:the\\s+)?(${TOOL_NAMES_RE_BODY})\\s+tool\\b`, 'gi'),
-    // "you can see by/from X" / "available via X" / "can be retrieved by X"
     new RegExp(`\\b(?:you\\s+can\\s+see|available|retrieved|fetched|obtained|seen)\\s+(?:by|from|via|through)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
-    // "from/by/via X" prepositional leak
     new RegExp(`\\b(?:from|by|via)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
-    // "the X function" / "the X command"
     new RegExp(`\\b(?:the\\s+)?(${TOOL_NAMES_RE_BODY})\\s+(?:function|command|method|api|endpoint)\\b`, 'gi'),
 ];
 
-// Pass 2: code-formatted (\`tool_name\`) and bold-formatted (**tool_name**) leaks.
 const CODE_FORMATTED_RE = new RegExp('`(' + TOOL_NAMES_RE_BODY + ')`', 'gi');
 const BOLD_FORMATTED_RE = new RegExp('\\*\\*(' + TOOL_NAMES_RE_BODY + ')\\*\\*', 'gi');
-
-// Pass 3: bare known tool name anywhere (case-insensitive whole-word).
 const BARE_KNOWN_RE = new RegExp('\\b(' + TOOL_NAMES_RE_BODY + ')\\b', 'gi');
 
-/**
- * Replace any leaked tool-name mention in the visible reply with the
- * friendly action verb. Multi-pass: scaffolding → code/bold → bare → snake_case net.
- */
 function scrubToolNames(text) {
     if (!text) return text;
     let out = text;
-
-    // Pass 1: known scaffolding phrases.
     for (const re of SCAFFOLDING_PATTERNS) {
         out = out.replace(re, (_m, name) => actionVerbFor((name || '').toLowerCase()));
     }
-    // Pass 2: code-formatted and bold-formatted known names.
     out = out.replace(CODE_FORMATTED_RE, (_m, name) => actionVerbFor(name.toLowerCase()));
     out = out.replace(BOLD_FORMATTED_RE, (_m, name) => actionVerbFor(name.toLowerCase()));
-    // Pass 3: any remaining bare known tool name → action verb.
     out = out.replace(BARE_KNOWN_RE, (m) => actionVerbFor(m.toLowerCase()));
-    // Pass 4: generic snake_case "looks like a tool" safety net for unknowns.
     out = out.replace(SNAKE_TOOL_RE, () => 'looking it up');
-
-    // Cleanup: collapse double spaces and stray "the looking it up" artifacts.
     out = out.replace(/\bthe\s+(reading|checking|running|comparing|searching|loading|switching|toggling|refreshing|rerunning|doing\s+deep\s+research|looking\s+it\s+up)\b/gi, '$1');
     out = out.replace(/\s{2,}/g, ' ');
     out = out.replace(/\s+([.,;:!?])/g, '$1');
@@ -123,11 +90,9 @@ const ICON_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="current
 const ICON_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
 
-const ECG_THINKING_SVG = `
-<svg class="mia-ecg-thinking" viewBox="0 0 80 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path class="mia-ecg-thinking-trace" d="M0 9 L20 9 L24 9 L26 4 L28 14 L30 9 L36 9 L38 2 L40 16 L42 9 L48 9 L50 5 L52 13 L54 9 L80 9" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    <path class="mia-ecg-thinking-blip" d="M0 9 L20 9 L24 9 L26 4 L28 14 L30 9 L36 9 L38 2 L40 16 L42 9 L48 9 L50 5 L52 13 L54 9 L80 9" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
+// Trading-bar thinking indicator: six pulsing candlestick-style bars.
+// Visually says "market" instead of "hospital". CSS does the animation.
+const THINKING_INDICATOR_HTML = `<span class="mia-thinking-bars" aria-label="Mia is thinking"><i></i><i></i><i></i><i></i><i></i><i></i></span>`;
 
 export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
 export function initMia() { document.getElementById('mia-launcher')?.addEventListener('click', togglePanel); initLauncherReadyDot(); }
@@ -356,7 +321,6 @@ class PacedRenderer {
             el.innerHTML = '';
             this.firstTokenSeen = true;
         }
-        // Scrub leaked tool names on every paint so the user never sees them.
         el.innerHTML = renderMarkdown(scrubToolNames(stripAgentNoise(this.shown)));
         const thread = document.getElementById('mia-thread');
         if (thread) thread.scrollTop = thread.scrollHeight;
@@ -415,7 +379,6 @@ async function doSend() {
         }
         await renderer.waitForDrain();
 
-        // Scrub the saved version too so the persisted history never contains leaked names.
         const cleaned = scrubToolNames(stripAgentNoise(acc).trim());
         const ctxText = buildContextBlock(currentSignal);
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
@@ -449,7 +412,7 @@ function appendStreamingBubble(bubbleId) {
     thread.insertAdjacentHTML('beforeend', `
         <div class="mia-msg assistant">
             <div class="mia-msg-bubble mia-md" id="${bubbleId}">
-                ${ECG_THINKING_SVG}
+                ${THINKING_INDICATOR_HTML}
                 <span class="mia-progress" id="mia-progress">thinking…</span>
                 <div class="mia-progress-bar" id="mia-progress-bar" hidden><div class="mia-progress-bar-fill" id="mia-progress-bar-fill"></div></div>
             </div>
