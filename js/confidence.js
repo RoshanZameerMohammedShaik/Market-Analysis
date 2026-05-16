@@ -1,16 +1,7 @@
-// Weighted Confidence Engine. Tier-1 + Tier-2/3 stack + Phase 2 penny tier.
-//   - Multi-horizon expected move attached to result.multiHorizon
-//   - Options IV/skew (stocks, single-symbol) +/-4pt
-//   - Bollinger squeeze +/-3pt
-//   - Cross-timeframe agreement +/-5pt
-//   - VWAP deviation classifier +/-3pt
-//   - Sector rotation +/-3pt
-//   - Volume profile HVN +/-3pt
-//   - Cross-asset (DXY for stocks, BTC.D for alts) +/-3pt
-//   - Pre-market gap cap (60)
-//   - Recent 50%+ spike cap (55)
-//   - Earnings reaction history cap (tighter than generic when adverse)
-//   - PHASE 2: penny-tier float + short-interest module (only fires when tier='penny')
+// Weighted Confidence Engine. Phase 7 adds penny-tier accuracy modules:
+//   - FINRA daily short volume ratio (penny tier only, ±4 pts)
+//   - OpenInsider cluster-buy detection (penny tier only, ±6 pts)
+//   - Social velocity pump detection (universal, ±3 pts)
 
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
@@ -39,6 +30,9 @@ import { detectGap, gapCap } from './premarket-gap.js';
 import { findRecentSpike, recentSpikeCap } from './recent-spike.js';
 import { getEarningsReactionHistory, earningsHistoryCap } from './earnings-history.js';
 import { getPennyTierData, pennyTierAdjustment } from './penny-tier.js';
+import { getFinraShort, finraShortAdjustment } from './finra-short.js';
+import { getOpenInsider, openInsiderAdjustment } from './openinsider.js';
+import { getSocialVelocity, socialVelocityAdjustment } from './social-velocity.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -61,7 +55,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     let regime = null;
     if (mode === 'stock') {
-        try { regime = await getMacroRegime(); } catch (_) { /* */ }
+        try { regime = await getMacroRegime(); } catch (_) {}
     }
     const trendRegime = technicalPred.meta?.trendRegime || 'unknown';
     const currentVix = regime?.components?.vix?.level;
@@ -84,9 +78,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const sourceScores = [technicalScore, sentiment.score, market.score];
     if (ai.available) sourceScores.push(ai.score);
-    const minScore = Math.min(...sourceScores);
-    const maxScore = Math.max(...sourceScores);
-    const dispersion = maxScore - minScore;
+    const dispersion = Math.max(...sourceScores) - Math.min(...sourceScores);
     let disagreementPenalty = 0;
     if (dispersion > 50) disagreementPenalty = 12;
     else if (dispersion > 35) disagreementPenalty = 7;
@@ -94,226 +86,130 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     rawConfidence = Math.max(38, rawConfidence - disagreementPenalty);
 
     let regimePen = 0;
-    if (regime) {
-        const bias = regimeBias(regime.regime);
-        regimePen = bias.pen || 0;
-        rawConfidence = Math.max(38, rawConfidence - regimePen);
-    }
+    if (regime) { regimePen = regimeBias(regime.regime).pen || 0; rawConfidence = Math.max(38, rawConfidence - regimePen); }
 
-    let sectorAdj = 0;
-    let sectorMeta = null;
+    let sectorAdj = 0, sectorMeta = null;
     if (mode === 'stock' && symbolOrCoinId) {
-        try {
-            const r = await getSectorAdjustment(symbolOrCoinId, finalSignal);
-            sectorAdj = r.adjust;
-            sectorMeta = r.sector;
-            rawConfidence = Math.max(38, Math.min(88, rawConfidence + sectorAdj));
-        } catch (_) { /* */ }
+        try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(38, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
     }
 
     let earnings = null;
     if (mode === 'stock' && symbolOrCoinId) {
-        try {
-            earnings = await getEarningsProximity(symbolOrCoinId);
-            const { cap, reason } = earningsCap(earnings?.daysUntil);
-            if (cap < rawConfidence) rawConfidence = cap;
-            earnings = { ...earnings, capReason: reason };
-        } catch (_) { /* */ }
+        try { earnings = await getEarningsProximity(symbolOrCoinId); const { cap, reason } = earningsCap(earnings?.daysUntil); if (cap < rawConfidence) rawConfidence = cap; earnings = { ...earnings, capReason: reason }; } catch (_) {}
     }
-
     let calendar = null;
-    if (mode === 'stock') {
-        const cc = calendarCap(new Date());
-        if (cc.cap < rawConfidence) {
-            rawConfidence = cc.cap;
-            calendar = cc;
-        }
-    }
+    if (mode === 'stock') { const cc = calendarCap(new Date()); if (cc.cap < rawConfidence) { rawConfidence = cc.cap; calendar = cc; } }
 
-    let derivs = null;
-    let derivsResult = null;
+    let derivs = null, derivsResult = null;
     if (mode === 'crypto' && !bulkScan && symbolOrCoinId) {
-        try {
-            derivs = await fetchCryptoDerivs(symbolOrCoinId);
-            if (derivs) {
-                const priceChange1d = computePriceChange1d(multiData);
-                derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d);
-                rawConfidence = Math.max(38, Math.min(88, rawConfidence + (derivsResult.adjust || 0)));
-            }
-        } catch (_) { /* */ }
+        try { derivs = await fetchCryptoDerivs(symbolOrCoinId); if (derivs) { const priceChange1d = computePriceChange1d(multiData); derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d); rawConfidence = Math.max(38, Math.min(88, rawConfidence + (derivsResult.adjust || 0))); } } catch (_) {}
     }
 
     let peerResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try {
-            const peer = await getPeerAgreement(symbolOrCoinId, finalSignal);
-            if (peer) {
-                peerResult = peerAdjustment(finalSignal, peer);
-                if (peerResult.adjust) {
-                    rawConfidence = Math.max(38, Math.min(88, rawConfidence + peerResult.adjust));
-                }
-                peerResult.peer = peer;
-            }
-        } catch (_) { /* */ }
+        try { const peer = await getPeerAgreement(symbolOrCoinId, finalSignal); if (peer) { peerResult = peerAdjustment(finalSignal, peer); if (peerResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + peerResult.adjust)); peerResult.peer = peer; } } catch (_) {}
     }
 
-    let options = null;
-    let optionsResult = null;
+    let options = null, optionsResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try {
-            options = await fetchOptionsPositioning(symbolOrCoinId);
-            if (options) {
-                optionsResult = optionsAdjustment(finalSignal, options);
-                rawConfidence = Math.max(38, Math.min(88, rawConfidence + (optionsResult.adjust || 0)));
-            }
-        } catch (_) { /* */ }
+        try { options = await fetchOptionsPositioning(symbolOrCoinId); if (options) { optionsResult = optionsAdjustment(finalSignal, options); rawConfidence = Math.max(38, Math.min(88, rawConfidence + (optionsResult.adjust || 0))); } } catch (_) {}
     }
 
-    let squeeze = null;
-    let squeezeResult = null;
-    try {
-        const closes = (multiData?.daily?.candles || []).map(c => c.close);
-        squeeze = detectSqueeze(closes);
-        if (squeeze) {
-            squeezeResult = squeezeAdjustment(finalSignal, squeeze);
-            if (squeezeResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust));
-        }
-    } catch (_) { /* */ }
+    let squeeze = null, squeezeResult = null;
+    try { const closes = (multiData?.daily?.candles || []).map(c => c.close); squeeze = detectSqueeze(closes); if (squeeze) { squeezeResult = squeezeAdjustment(finalSignal, squeeze); if (squeezeResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust)); } } catch (_) {}
 
-    let tfAgreement = null;
-    let tfResult = null;
-    if (technicalPred.breakdown) {
-        tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown);
-        if (tfAgreement) {
-            tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement);
-            if (tfResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust));
-        }
-    }
+    let tfAgreement = null, tfResult = null;
+    if (technicalPred.breakdown) { tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown); if (tfAgreement) { tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement); if (tfResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust)); } }
 
-    let vwap = null;
-    let vwapResult = null;
-    try {
-        vwap = computeVwapClassifier(multiData?.daily?.candles || []);
-        if (vwap) {
-            vwapResult = vwapAdjustment(finalSignal, vwap);
-            if (vwapResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + vwapResult.adjust));
-        }
-    } catch (_) { /* */ }
+    let vwap = null, vwapResult = null;
+    try { vwap = computeVwapClassifier(multiData?.daily?.candles || []); if (vwap) { vwapResult = vwapAdjustment(finalSignal, vwap); if (vwapResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + vwapResult.adjust)); } } catch (_) {}
 
-    let rotation = null;
-    let rotationResult = null;
+    let rotation = null, rotationResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try {
-            rotation = await getSectorRotation(symbolOrCoinId);
-            if (rotation) {
-                rotationResult = rotationAdjustment(finalSignal, rotation);
-                if (rotationResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + rotationResult.adjust));
-            }
-        } catch (_) { /* */ }
+        try { rotation = await getSectorRotation(symbolOrCoinId); if (rotation) { rotationResult = rotationAdjustment(finalSignal, rotation); if (rotationResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + rotationResult.adjust)); } } catch (_) {}
     }
 
-    let volProfile = null;
-    let volProfileResult = null;
-    try {
-        volProfile = computeVolumeProfile(multiData?.daily?.candles || []);
-        if (volProfile) {
-            volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend);
-            if (volProfileResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + volProfileResult.adjust));
-        }
-    } catch (_) { /* */ }
+    let volProfile = null, volProfileResult = null;
+    try { volProfile = computeVolumeProfile(multiData?.daily?.candles || []); if (volProfile) { volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend); if (volProfileResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + volProfileResult.adjust)); } } catch (_) {}
 
-    let crossAsset = null;
-    let crossAssetResult = null;
+    let crossAsset = null, crossAssetResult = null;
     if (!bulkScan && symbolOrCoinId) {
-        try {
-            crossAsset = await getCrossAsset(mode, symbolOrCoinId);
-            if (crossAsset) {
-                crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset);
-                if (crossAssetResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + crossAssetResult.adjust));
-            }
-        } catch (_) { /* */ }
+        try { crossAsset = await getCrossAsset(mode, symbolOrCoinId); if (crossAsset) { crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset); if (crossAssetResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + crossAssetResult.adjust)); } } catch (_) {}
     }
 
     let gap = null;
-    if (mode === 'stock') {
-        try {
-            gap = detectGap(multiData);
-            const gc = gapCap(gap);
-            if (gc.cap < rawConfidence) {
-                rawConfidence = gc.cap;
-                gap = { ...gap, capReason: gc.reason };
-            }
-        } catch (_) { /* */ }
-    }
+    if (mode === 'stock') { try { gap = detectGap(multiData); const gc = gapCap(gap); if (gc.cap < rawConfidence) { rawConfidence = gc.cap; gap = { ...gap, capReason: gc.reason }; } } catch (_) {} }
 
     let recentSpike = null;
-    try {
-        recentSpike = findRecentSpike(multiData?.daily?.candles || []);
-        if (recentSpike) {
-            const rsc = recentSpikeCap(recentSpike);
-            if (rsc.cap < rawConfidence) {
-                rawConfidence = rsc.cap;
-                recentSpike = { ...recentSpike, capReason: rsc.reason };
-            }
-        }
-    } catch (_) { /* */ }
+    try { recentSpike = findRecentSpike(multiData?.daily?.candles || []); if (recentSpike) { const rsc = recentSpikeCap(recentSpike); if (rsc.cap < rawConfidence) { rawConfidence = rsc.cap; recentSpike = { ...recentSpike, capReason: rsc.reason }; } } } catch (_) {}
 
     let earningsHistory = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId && earnings?.daysUntil != null) {
-        try {
-            earningsHistory = await getEarningsReactionHistory(symbolOrCoinId, multiData?.daily?.candles || []);
-            if (earningsHistory) {
-                const ehc = earningsHistoryCap(earningsHistory, earnings.daysUntil, finalSignal);
-                if (ehc.cap < rawConfidence) {
-                    rawConfidence = ehc.cap;
-                    earningsHistory = { ...earningsHistory, capReason: ehc.reason };
-                }
-            }
-        } catch (_) { /* */ }
+        try { earningsHistory = await getEarningsReactionHistory(symbolOrCoinId, multiData?.daily?.candles || []); if (earningsHistory) { const ehc = earningsHistoryCap(earningsHistory, earnings.daysUntil, finalSignal); if (ehc.cap < rawConfidence) { rawConfidence = ehc.cap; earningsHistory = { ...earningsHistory, capReason: ehc.reason }; } } } catch (_) {}
     }
 
     const tier = computeTier(multiData);
+    const priceChange1d = computePriceChange1d(multiData);
 
-    // PHASE 2: penny-tier float + short-interest module. Only activates
-    // when tier === 'penny' AND we have a real symbol, AND not in a bulk
-    // scan (the Yahoo quoteSummary endpoint is too heavy for hot-picks).
-    let penny = null;
-    let pennyResult = null;
+    // PHASE 2/6: penny-tier float + short interest module (Yahoo via Worker)
+    let penny = null, pennyResult = null;
     if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
         try {
             penny = await getPennyTierData(symbolOrCoinId);
             if (penny) {
                 pennyResult = pennyTierAdjustment(finalSignal, penny, tier);
-                if (pennyResult.adjust) {
-                    rawConfidence = Math.max(38, Math.min(88, rawConfidence + pennyResult.adjust));
-                }
-                if (pennyResult.cap < rawConfidence) {
-                    rawConfidence = pennyResult.cap;
-                }
+                if (pennyResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + pennyResult.adjust));
+                if (pennyResult.cap < rawConfidence) rawConfidence = pennyResult.cap;
             }
-        } catch (_) { /* */ }
+        } catch (_) {}
+    }
+
+    // PHASE 7: FINRA daily short volume (penny tier only)
+    let finraShort = null, finraResult = null;
+    if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
+        try {
+            finraShort = await getFinraShort(symbolOrCoinId);
+            if (finraShort) {
+                finraResult = finraShortAdjustment(finalSignal, finraShort, tier, priceChange1d);
+                if (finraResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + finraResult.adjust));
+            }
+        } catch (_) {}
+    }
+
+    // PHASE 7: OpenInsider cluster-buy detection (penny tier only)
+    let insider = null, insiderResult = null;
+    if (mode === 'stock' && tier === 'penny' && !bulkScan && symbolOrCoinId) {
+        try {
+            insider = await getOpenInsider(symbolOrCoinId);
+            if (insider) {
+                insiderResult = openInsiderAdjustment(finalSignal, insider, tier);
+                if (insiderResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + insiderResult.adjust));
+            }
+        } catch (_) {}
+    }
+
+    // PHASE 7: social velocity pump detection (UNIVERSAL — all stocks)
+    let socialVel = null, socialResult = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
+        try {
+            socialVel = await getSocialVelocity(symbolOrCoinId);
+            if (socialVel) {
+                socialResult = socialVelocityAdjustment(finalSignal, socialVel);
+                if (socialResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + socialResult.adjust));
+            }
+        } catch (_) {}
     }
 
     let patternResult = null;
     if (technicalPred.indicators) {
-        const patternKey = encodePattern({
-            signal: finalSignal,
-            indicators: technicalPred.indicators,
-            tier,
-        });
+        const patternKey = encodePattern({ signal: finalSignal, indicators: technicalPred.indicators, tier });
         const adj = patternAdjustment(patternKey);
-        if (adj.cap != null && adj.cap < rawConfidence) {
-            rawConfidence = adj.cap;
-            patternResult = adj;
-        } else if (adj.adjust) {
-            rawConfidence = Math.max(38, Math.min(88, rawConfidence + adj.adjust));
-            patternResult = adj;
-        }
+        if (adj.cap != null && adj.cap < rawConfidence) { rawConfidence = adj.cap; patternResult = adj; }
+        else if (adj.adjust) { rawConfidence = Math.max(38, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
     }
 
     const calibratedConfidence = calibrate(rawConfidence, { tier, volTier });
     const calibrationApplied = getCalibrationStatus() === 'loaded';
-
     const ci = getInterval(finalSignal, calibratedConfidence);
 
     let multiHorizon = null;
@@ -323,24 +219,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const atrV = calculateATR ? calculateATR(candles) : null;
         const currentPrice = multiData?.daily?.currentPrice || closes[closes.length - 1];
         if (atrV && currentPrice) {
-            multiHorizon = predictMultiHorizon({
-                signal: finalSignal,
-                confidence: calibratedConfidence,
-                atr: atrV,
-                currentPrice,
-                volTier,
-                conformal1d: ci,
-            });
+            multiHorizon = predictMultiHorizon({ signal: finalSignal, confidence: calibratedConfidence, atr: atrV, currentPrice, volTier, conformal1d: ci });
             if (multiHorizon && squeeze?.inSqueeze && squeeze.expectedExpansionMult > 1) {
-                multiHorizon.horizons = multiHorizon.horizons.map(h => ({
-                    ...h,
-                    expectedPct: +(h.expectedPct * squeeze.expectedExpansionMult).toFixed(2),
-                    targetPrice: +(currentPrice * (1 + (h.expectedPct * squeeze.expectedExpansionMult) / 100)).toFixed(2),
-                }));
+                multiHorizon.horizons = multiHorizon.horizons.map(h => ({ ...h, expectedPct: +(h.expectedPct * squeeze.expectedExpansionMult).toFixed(2), targetPrice: +(currentPrice * (1 + (h.expectedPct * squeeze.expectedExpansionMult) / 100)).toFixed(2) }));
                 multiHorizon.squeezeAmplified = true;
             }
         }
-    } catch (_) { /* */ }
+    } catch (_) {}
 
     let widthBase = 4;
     widthBase += Math.min(8, dispersion / 6);
@@ -349,7 +234,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (earnings?.daysUntil != null && earnings.daysUntil <= 5) widthBase += 3;
     if (calendar) widthBase += 3;
     if (gap?.big) widthBase += 3;
-    if (penny?.squeezeRisk >= 0.5) widthBase += 4; // pennies are wider by nature
+    if (penny?.squeezeRisk >= 0.5) widthBase += 4;
+    if (socialVel?.label === 'extreme') widthBase += 3;
     const halfWidth = Math.round(widthBase / 2);
     const lo = Math.max(38, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
@@ -361,10 +247,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     sentiment.reasons.forEach(r => allReasons.push(`[Sentiment] ${r}`));
     market.reasons.slice(0, 2).forEach(r => allReasons.push(`[Market] ${r}`));
     if (regime?.regime && regime.regime !== 'neutral') allReasons.push(`[Macro] Market regime: ${regime.regime}`);
-    if (sectorMeta && sectorAdj !== 0) {
-        const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat';
-        allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`);
-    }
+    if (sectorMeta && sectorAdj !== 0) { const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat'; allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`); }
     if (rotationResult?.reason) allReasons.push(`[Rotation] ${rotationResult.reason}`);
     if (peerResult?.reason) allReasons.push(`[Peers] ${peerResult.reason}`);
     if (tfResult?.reason) allReasons.push(`[Timeframes] ${tfResult.reason}`);
@@ -381,6 +264,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (patternResult?.reason) allReasons.push(`[Pattern] ${patternResult.reason}`);
     if (derivsResult?.reasons?.length) derivsResult.reasons.forEach(r => allReasons.push(`[Derivs] ${r}`));
     if (pennyResult?.reasons?.length) pennyResult.reasons.forEach(r => allReasons.push(`[Penny tier] ${r}`));
+    if (finraResult?.reasons?.length) finraResult.reasons.forEach(r => allReasons.push(`[FINRA] ${r}`));
+    if (insiderResult?.reasons?.length) insiderResult.reasons.forEach(r => allReasons.push(`[Insiders] ${r}`));
+    if (socialResult?.reasons?.length) socialResult.reasons.forEach(r => allReasons.push(`[Social] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
 
     return {
@@ -413,7 +299,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         volProfile: volProfile || null,
         crossAsset: crossAsset || null,
         penny: penny ? { ...penny, ...pennyResult } : null,
-        reasons: allReasons.slice(0, 22),
+        finraShort: finraShort ? { ...finraShort, ...finraResult } : null,
+        insider: insider ? { ...insider, ...insiderResult } : null,
+        socialVelocity: socialVel ? { ...socialVel, ...socialResult } : null,
+        reasons: allReasons.slice(0, 24),
         priceTargets: technicalPred.priceTargets,
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100 },
@@ -425,7 +314,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
-        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny + recency+tier+vol calibrated',
+        method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + recency+tier+vol calibrated',
         trendRegime,
     };
 }
@@ -446,9 +335,7 @@ function computeTier(multiData) {
         const price = multiData?.daily?.currentPrice || candles[candles.length - 1]?.close;
         if (!price) return null;
         return classifyTier(price, avgVol);
-    } catch (_) {
-        return null;
-    }
+    } catch (_) { return null; }
 }
 
 function computePriceChange1d(multiData) {
@@ -463,34 +350,18 @@ function computePriceChange1d(multiData) {
 function applyWeightShifts(base, macroRegime, trendRegime, attribution) {
     const out = { ...base };
     let techShift = 0, sentShift = 0, mktShift = 0, aiShift = 0;
-
     if (trendRegime === 'trending') { techShift += 0.05; sentShift -= 0.025; mktShift -= 0.025; }
     else if (trendRegime === 'ranging') { techShift -= 0.05; sentShift += 0.025; mktShift += 0.025; }
-
     if (macroRegime === 'risk-off') { sentShift -= 0.05; techShift += 0.025; mktShift += 0.025; }
     else if (macroRegime === 'risk-on') { sentShift += 0.025; mktShift += 0.025; techShift -= 0.05; }
-
-    if (attribution) {
-        aiShift   += attribution.ai || 0;
-        techShift += attribution.technical || 0;
-        sentShift += attribution.sentiment || 0;
-        mktShift  += attribution.market || 0;
-    }
-
-    aiShift   = clampShift(aiShift);
-    techShift = clampShift(techShift);
-    sentShift = clampShift(sentShift);
-    mktShift  = clampShift(mktShift);
-
+    if (attribution) { aiShift += attribution.ai || 0; techShift += attribution.technical || 0; sentShift += attribution.sentiment || 0; mktShift += attribution.market || 0; }
+    aiShift = clampShift(aiShift); techShift = clampShift(techShift); sentShift = clampShift(sentShift); mktShift = clampShift(mktShift);
     if (out.ai > 0) out.ai = Math.max(0.05, base.ai + aiShift);
     out.technical = Math.max(0.10, base.technical + techShift);
     out.sentiment = Math.max(0.10, base.sentiment + sentShift);
-    out.market    = Math.max(0.10, base.market    + mktShift);
-
+    out.market = Math.max(0.10, base.market + mktShift);
     const sum = out.ai + out.technical + out.sentiment + out.market;
-    if (sum > 0) {
-        out.ai /= sum; out.technical /= sum; out.sentiment /= sum; out.market /= sum;
-    }
+    if (sum > 0) { out.ai /= sum; out.technical /= sum; out.sentiment /= sum; out.market /= sum; }
     return out;
 }
 

@@ -1,151 +1,94 @@
-// Yahoo Finance crumb-protected endpoint proxy.
+// Yahoo Finance crumb-protected endpoint proxy + auxiliary penny-stock data routes.
 //
-// Yahoo's /v10/finance/quoteSummary now requires a `crumb` query param
-// signed against a session cookie obtained from finance.yahoo.com.
-// Browsers can't replay this through CORS proxies. This Worker fetches
-// the crumb server-side (where CORS doesn't apply) and forwards the
-// authenticated request, returning a clean JSON payload to the
-// GitHub Pages frontend.
+// Endpoints:
+//   GET /key-stats?symbol=BBAI       — Yahoo defaultKeyStatistics (float, short interest)
+//   GET /finra-short?symbol=BBAI     — FINRA daily short volume / total volume ratio
+//   GET /openinsider?symbol=BBAI     — OpenInsider recent insider buy/sell rows
+//   GET /health                       — health probe
 //
-// What we expose:
-//   GET /key-stats?symbol=BBAI
-//     → { floatShares, sharesShort, shortPercentOfFloat, sharesOutstanding,
-//          heldPercentInsiders, heldPercentInstitutions }
-//   GET /health
-//     → { ok: true, ts: <epoch> }
+// All endpoints return CORS-friendly JSON. Errors NEVER cache (we learned).
 //
-// Free tier limits: 100K req/day. We cache aggressively (60 min) per
-// symbol on the Worker's edge memory. Crumb cached 30 min across all calls.
+// Free tier: 100K req/day on CF Workers free plan.
 //
-// Phase 6 fixes:
-//   - Use headers.getSetCookie() (the proper API for multi-cookie responses
-//     in Workers) instead of a single .get('set-cookie'). Cloudflare's fetch
-//     concatenates multiple Set-Cookie headers into a single string, which
-//     made A1=... extraction fail.
-//   - Try multiple cookie sources (fc.yahoo.com, query1, finance.yahoo.com).
-//   - Browser-realistic User-Agent so Yahoo doesn't bot-block us.
-//   - Build a full cookie jar (A1 + A3 + B + GUC + cmp + EuConsent) instead
-//     of just A1, since query2 sometimes requires multiple cookies present.
-//   - NEVER set `Cache-Control: max-age` on error responses. A transient
-//     bootstrapping failure was getting cached at the CF edge for 10 min,
-//     so frontend calls returned stale 502 even after the Worker recovered.
-//     Errors now ship `no-store, must-revalidate, max-age=0`.
-//
-// Deployment:
-//   1. cd workers/yahoo-proxy
-//   2. npm install -g wrangler
-//   3. wrangler login   (or set $env:CLOUDFLARE_API_TOKEN)
-//   4. wrangler deploy
-//   → prints the *.workers.dev URL; paste into js/penny-tier.js (WORKER_URL).
+// Why these endpoints live in the Worker:
+//   - Yahoo /v10 needs server-side cookie+crumb dance
+//   - FINRA serves daily CSVs from regulatorydata.finra.org with no CORS headers
+//   - OpenInsider HTML is gzip + non-CORS; client-side fetch fails through proxies
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
-const memCache = new Map();
+const FINRA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // FINRA updates once a day
+const INSIDER_CACHE_TTL_MS = 30 * 60 * 1000;
+
+const keyStatsCache = new Map();
+const finraCache = new Map();
+const insiderCache = new Map();
 
 let crumbCache = null;
 const CRUMB_TTL_MS = 30 * 60 * 1000;
 
-async function getCrumb() {
-    if (crumbCache && Date.now() - crumbCache.ts < CRUMB_TTL_MS) {
-        return crumbCache;
-    }
-    const cookieSources = [
-        'https://fc.yahoo.com',
-        'https://query1.finance.yahoo.com/v1/test/getcrumb',
-        'https://finance.yahoo.com',
-    ];
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
-    let a1 = null;
-    let cookieJar = null;
-    for (const src of cookieSources) {
+// ============================================================================
+// /key-stats — Yahoo defaultKeyStatistics (unchanged from Phase 6)
+// ============================================================================
+
+async function getCrumb() {
+    if (crumbCache && Date.now() - crumbCache.ts < CRUMB_TTL_MS) return crumbCache;
+    const sources = ['https://fc.yahoo.com', 'https://query1.finance.yahoo.com/v1/test/getcrumb', 'https://finance.yahoo.com'];
+    let a1 = null, jar = null;
+    for (const src of sources) {
         try {
             const res = await fetch(src, {
-                method: 'GET',
                 redirect: 'manual',
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                },
+                headers: { 'User-Agent': BROWSER_UA, 'Accept': 'text/html', 'Accept-Language': 'en-US,en;q=0.5' },
             });
-            let cookies = [];
-            if (typeof res.headers.getSetCookie === 'function') {
-                cookies = res.headers.getSetCookie();
-            }
+            let cookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
             if (!cookies.length) {
                 const single = res.headers.get('set-cookie');
                 if (single) cookies = [single];
             }
-            const jar = [];
+            const arr = [];
             for (const c of cookies) {
-                const match = c.match(/^([A-Za-z0-9_-]+)=([^;]+)/);
-                if (!match) continue;
-                const [, name, value] = match;
-                if (['A1', 'A3', 'A1S', 'B', 'GUC', 'cmp', 'EuConsent'].includes(name)) {
-                    jar.push(`${name}=${value}`);
-                    if (name === 'A1' || name === 'A3') a1 = `${name}=${value}`;
+                const m = c.match(/^([A-Za-z0-9_-]+)=([^;]+)/);
+                if (!m) continue;
+                if (['A1', 'A3', 'A1S', 'B', 'GUC', 'cmp', 'EuConsent'].includes(m[1])) {
+                    arr.push(`${m[1]}=${m[2]}`);
+                    if (m[1] === 'A1' || m[1] === 'A3') a1 = `${m[1]}=${m[2]}`;
                 }
             }
-            if (jar.length) {
-                cookieJar = jar.join('; ');
-                if (a1) break;
-            }
-        } catch (_) { /* try next source */ }
+            if (arr.length) { jar = arr.join('; '); if (a1) break; }
+        } catch (_) { /* */ }
     }
-
-    if (!cookieJar) throw new Error('failed to obtain Yahoo session cookie');
-
+    if (!jar) throw new Error('failed to obtain Yahoo session cookie');
     const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-        method: 'GET',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Cookie': cookieJar,
-            'Accept': 'text/plain,*/*;q=0.8',
-        },
+        headers: { 'User-Agent': BROWSER_UA, 'Cookie': jar, 'Accept': 'text/plain' },
     });
     const crumb = (await crumbRes.text()).trim();
     if (!crumb || crumb.length < 5 || /<html/i.test(crumb)) {
-        throw new Error(`failed to obtain Yahoo crumb (status ${crumbRes.status}, body len ${crumb.length})`);
+        throw new Error(`failed to obtain Yahoo crumb (status ${crumbRes.status})`);
     }
-
-    crumbCache = { crumb, cookie: cookieJar, ts: Date.now() };
+    crumbCache = { crumb, cookie: jar, ts: Date.now() };
     return crumbCache;
 }
 
 async function fetchKeyStats(symbol) {
     const sym = symbol.toUpperCase();
-    const cached = memCache.get(sym);
+    const cached = keyStatsCache.get(sym);
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.body;
 
     const { crumb, cookie } = await getCrumb();
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics&crumb=${encodeURIComponent(crumb)}`;
-    const res = await fetch(url, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Cookie': cookie,
-        },
-    });
-    if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-            crumbCache = null;
-            const retry = await getCrumb();
-            const url2 = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics&crumb=${encodeURIComponent(retry.crumb)}`;
-            const res2 = await fetch(url2, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Cookie': retry.cookie,
-                },
-            });
-            if (!res2.ok) throw new Error(`yahoo ${res2.status}`);
-            const j = await res2.json();
-            const body = extract(j);
-            memCache.set(sym, { ts: Date.now(), body });
-            return body;
-        }
-        throw new Error(`yahoo ${res.status}`);
+    let res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, 'Cookie': cookie } });
+    if (!res.ok && (res.status === 401 || res.status === 403)) {
+        crumbCache = null;
+        const retry = await getCrumb();
+        const url2 = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics&crumb=${encodeURIComponent(retry.crumb)}`;
+        res = await fetch(url2, { headers: { 'User-Agent': BROWSER_UA, 'Cookie': retry.cookie } });
     }
+    if (!res.ok) throw new Error(`yahoo ${res.status}`);
     const json = await res.json();
-    const body = extract(json);
-    memCache.set(sym, { ts: Date.now(), body });
+    const body = extractKeyStats(json);
+    keyStatsCache.set(sym, { ts: Date.now(), body });
     return body;
 }
 
@@ -156,25 +99,171 @@ function num(field) {
     return null;
 }
 
-function extract(json) {
+function extractKeyStats(json) {
     const stats = json?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
     if (!stats) return null;
     return {
-        floatShares:             num(stats.floatShares),
-        sharesShort:             num(stats.sharesShort),
-        sharesShortPriorMonth:   num(stats.sharesShortPriorMonth),
-        shortRatio:              num(stats.shortRatio),
-        shortPercentOfFloat:     num(stats.shortPercentOfFloat),
-        sharesOutstanding:       num(stats.sharesOutstanding),
-        heldPercentInsiders:     num(stats.heldPercentInsiders),
+        floatShares: num(stats.floatShares),
+        sharesShort: num(stats.sharesShort),
+        sharesShortPriorMonth: num(stats.sharesShortPriorMonth),
+        shortRatio: num(stats.shortRatio),
+        shortPercentOfFloat: num(stats.shortPercentOfFloat),
+        sharesOutstanding: num(stats.sharesOutstanding),
+        heldPercentInsiders: num(stats.heldPercentInsiders),
         heldPercentInstitutions: num(stats.heldPercentInstitutions),
     };
 }
 
+// ============================================================================
+// /finra-short — FINRA daily short-volume CSV (the previous-trading-day file)
+// ============================================================================
+//
+// FINRA publishes consolidated short-sale volume daily at:
+//   https://cdn.finra.org/equity/regsho/daily/CNMSshvol<YYYYMMDD>.txt
+// Format: header line + pipe-delimited rows: Date|Symbol|ShortVolume|ShortExemptVolume|TotalVolume|Market
+//
+// We try yesterday first; if 404 (weekend/holiday), walk back up to 5 days.
+// One CSV is parsed once and cached for 24h, then any symbol query is O(1).
+
+let finraDayCache = null; // { date, rows: Map<symbol, {short, exempt, total}>, ts }
+
+function yyyymmdd(d) {
+    return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+async function getLatestFinraDay() {
+    if (finraDayCache && Date.now() - finraDayCache.ts < FINRA_CACHE_TTL_MS) return finraDayCache;
+    const today = new Date();
+    for (let back = 1; back <= 6; back++) {
+        const d = new Date(today);
+        d.setUTCDate(d.getUTCDate() - back);
+        const dateStr = yyyymmdd(d);
+        const url = `https://cdn.finra.org/equity/regsho/daily/CNMSshvol${dateStr}.txt`;
+        try {
+            const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA } });
+            if (!res.ok) continue;
+            const text = await res.text();
+            if (!text || text.length < 200) continue;
+            const rows = new Map();
+            const lines = text.split(/\r?\n/);
+            for (let i = 1; i < lines.length; i++) {
+                const p = lines[i].split('|');
+                if (p.length < 5) continue;
+                const sym = p[1]?.trim().toUpperCase();
+                if (!sym) continue;
+                rows.set(sym, {
+                    short: parseInt(p[2], 10) || 0,
+                    exempt: parseInt(p[3], 10) || 0,
+                    total: parseInt(p[4], 10) || 0,
+                });
+            }
+            if (rows.size < 100) continue; // sanity
+            finraDayCache = { date: dateStr, rows, ts: Date.now() };
+            return finraDayCache;
+        } catch (_) { /* keep walking back */ }
+    }
+    throw new Error('FINRA file not found in last 6 days');
+}
+
+async function fetchFinraShort(symbol) {
+    const sym = symbol.toUpperCase();
+    const cached = finraCache.get(sym);
+    if (cached && Date.now() - cached.ts < FINRA_CACHE_TTL_MS) return cached.body;
+    const day = await getLatestFinraDay();
+    const row = day.rows.get(sym);
+    if (!row) {
+        const body = { date: day.date, found: false };
+        finraCache.set(sym, { ts: Date.now(), body });
+        return body;
+    }
+    const ratio = row.total > 0 ? row.short / row.total : null;
+    const body = {
+        date: day.date,
+        found: true,
+        shortVolume: row.short,
+        shortExempt: row.exempt,
+        totalVolume: row.total,
+        shortVolumeRatio: ratio != null ? +ratio.toFixed(4) : null,
+    };
+    finraCache.set(sym, { ts: Date.now(), body });
+    return body;
+}
+
+// ============================================================================
+// /openinsider — recent insider buy/sell rows scraped from OpenInsider HTML
+// ============================================================================
+//
+// URL: http://openinsider.com/screener?s=<SYMBOL>&fd=30  (last 30 days)
+// HTML table parsing — brittle, but the site has been stable for years.
+
+async function fetchOpenInsider(symbol) {
+    const sym = symbol.toUpperCase();
+    const cached = insiderCache.get(sym);
+    if (cached && Date.now() - cached.ts < INSIDER_CACHE_TTL_MS) return cached.body;
+
+    const url = `http://openinsider.com/screener?s=${encodeURIComponent(sym)}&fd=30&fdr=&td=0&tdr=&fdlyl=&fdlyh=&daysago=&xp=1&xs=1&xa=1&xd=1&xg=1&xf=1&xm=1&xx=1&xc=1&xw=1&excludeDerivRelated=1&vl=&vh=&ocl=&och=&sic1=-1&sicl=100&sich=9999&grp=0&nfl=&nfh=&nil=&nih=&nol=&noh=&v2l=&v2h=&oc2l=&oc2h=&sortcol=0&cnt=20&page=1`;
+    try {
+        const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, 'Accept': 'text/html' } });
+        if (!res.ok) throw new Error(`openinsider ${res.status}`);
+        const html = await res.text();
+        // Very simple HTML parse: find the data table and extract rows.
+        // Each row: <tr>...<td>X | <td>FilingDate | <td>TradeDate | <td>Ticker | <td>InsiderName | <td>Title | <td>TradeType | <td>Price | <td>Qty | <td>Owned | <td>DeltaOwn | <td>Value
+        const tableMatch = html.match(/<table[^>]*class="tinytable"[\s\S]*?<\/table>/i);
+        if (!tableMatch) {
+            const body = { found: false, rows: [] };
+            insiderCache.set(sym, { ts: Date.now(), body });
+            return body;
+        }
+        const tableHtml = tableMatch[0];
+        const trs = tableHtml.match(/<tr[\s\S]*?<\/tr>/g) || [];
+        const rows = [];
+        for (const tr of trs) {
+            const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => stripHtml(m[1]));
+            if (tds.length < 11) continue;
+            // Skip header row (usually has TH or no recognizable date)
+            const filingDate = tds[1];
+            const tradeDate = tds[2];
+            if (!/\d{4}-\d{2}-\d{2}/.test(filingDate)) continue;
+            const ticker = tds[3];
+            const insider = tds[4];
+            const title = tds[5];
+            const tradeType = tds[6];
+            const price = parseFloat(tds[7].replace(/[$,]/g, '')) || null;
+            const qty = parseInt(tds[8].replace(/[+,]/g, ''), 10) || null;
+            const value = parseFloat(tds[11].replace(/[$,+]/g, '')) || null;
+            rows.push({ filingDate, tradeDate, ticker, insider, title, tradeType, price, qty, value });
+            if (rows.length >= 20) break;
+        }
+        const body = {
+            found: rows.length > 0,
+            count: rows.length,
+            rows,
+            // Aggregates: net insider buys vs sells over the period
+            netBuyValue: rows.reduce((s, r) => {
+                if (!r.value) return s;
+                if (/Purchase|Buy/i.test(r.tradeType)) return s + r.value;
+                if (/Sale|Sell/i.test(r.tradeType)) return s - r.value;
+                return s;
+            }, 0),
+            buyCount: rows.filter(r => /Purchase|Buy/i.test(r.tradeType)).length,
+            sellCount: rows.filter(r => /Sale|Sell/i.test(r.tradeType)).length,
+        };
+        insiderCache.set(sym, { ts: Date.now(), body });
+        return body;
+    } catch (e) {
+        throw new Error(String(e.message || e));
+    }
+}
+
+function stripHtml(s) {
+    return String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// ============================================================================
+// HTTP layer
+// ============================================================================
+
 function corsJson(body, status = 200) {
-    // Only cache successful responses on the CF edge. Errors must NOT be
-    // cached or a transient failure (e.g. crumb fetch hiccup) gets locked
-    // in for 10 min on the user's region.
     const cacheControl = status === 200
         ? 'public, max-age=600'
         : 'no-store, no-cache, must-revalidate, max-age=0';
@@ -193,22 +282,35 @@ function corsJson(body, status = 200) {
 export default {
     async fetch(request) {
         const url = new URL(request.url);
-        if (request.method === 'OPTIONS') {
-            return corsJson({ ok: true });
-        }
-        if (url.pathname === '/key-stats') {
-            const symbol = url.searchParams.get('symbol');
-            if (!symbol) return corsJson({ error: 'symbol required' }, 400);
-            try {
+        if (request.method === 'OPTIONS') return corsJson({ ok: true });
+        try {
+            if (url.pathname === '/key-stats') {
+                const symbol = url.searchParams.get('symbol');
+                if (!symbol) return corsJson({ error: 'symbol required' }, 400);
                 const body = await fetchKeyStats(symbol);
                 return corsJson(body || { error: 'no data' });
-            } catch (e) {
-                return corsJson({ error: String(e.message || e) }, 502);
             }
+            if (url.pathname === '/finra-short') {
+                const symbol = url.searchParams.get('symbol');
+                if (!symbol) return corsJson({ error: 'symbol required' }, 400);
+                const body = await fetchFinraShort(symbol);
+                return corsJson(body);
+            }
+            if (url.pathname === '/openinsider') {
+                const symbol = url.searchParams.get('symbol');
+                if (!symbol) return corsJson({ error: 'symbol required' }, 400);
+                const body = await fetchOpenInsider(symbol);
+                return corsJson(body);
+            }
+            if (url.pathname === '/health') {
+                return corsJson({ ok: true, ts: Date.now() });
+            }
+        } catch (e) {
+            return corsJson({ error: String(e.message || e) }, 502);
         }
-        if (url.pathname === '/health') {
-            return corsJson({ ok: true, ts: Date.now() });
-        }
-        return corsJson({ error: 'not found', endpoints: ['/key-stats?symbol=AAPL', '/health'] }, 404);
+        return corsJson({
+            error: 'not found',
+            endpoints: ['/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X', '/health'],
+        }, 404);
     },
 };
