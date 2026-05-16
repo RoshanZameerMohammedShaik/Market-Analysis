@@ -11,50 +11,99 @@
 //   GET /key-stats?symbol=BBAI
 //     → { floatShares, sharesShort, shortPercentOfFloat, sharesOutstanding,
 //          heldPercentInsiders, heldPercentInstitutions }
+//   GET /health
+//     → { ok: true, ts: <epoch> }
 //
 // Free tier limits: 100K req/day. We cache aggressively (60 min) per
-// symbol on the Worker's edge KV-style memory.
+// symbol on the Worker's edge memory. Crumb cached 30 min across all calls.
 //
-// Deployment (one-time):
+// Phase 6 fixes:
+//   - Use headers.getSetCookie() (the proper API for multi-cookie responses
+//     in Workers) instead of a single .get('set-cookie'). Cloudflare's fetch
+//     concatenates multiple Set-Cookie headers into a single string, which
+//     made A1=... extraction fail.
+//   - Try multiple cookie sources (fc.yahoo.com, query1, finance.yahoo.com).
+//   - Browser-realistic User-Agent so Yahoo doesn't bot-block us.
+//   - Build a full cookie jar (A1 + A3 + B + GUC + cmp + EuConsent) instead
+//     of just A1, since query2 sometimes requires multiple cookies present.
+//
+// Deployment:
 //   1. cd workers/yahoo-proxy
 //   2. npm install -g wrangler
-//   3. wrangler login
+//   3. wrangler login   (or set $env:CLOUDFLARE_API_TOKEN)
 //   4. wrangler deploy
 //   → prints the *.workers.dev URL; paste into js/penny-tier.js (WORKER_URL).
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 60 min
-const memCache = new Map(); // symbol → { ts, body }
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const memCache = new Map();
 
-// Crumb cache. Yahoo crumbs typically last hours; we refetch every 30 min.
-let crumbCache = null; // { crumb, cookie, ts }
+let crumbCache = null;
 const CRUMB_TTL_MS = 30 * 60 * 1000;
 
 async function getCrumb() {
     if (crumbCache && Date.now() - crumbCache.ts < CRUMB_TTL_MS) {
         return crumbCache;
     }
-    // Step 1: hit a Yahoo finance page to receive a session cookie.
-    const homeRes = await fetch('https://fc.yahoo.com', {
-        method: 'GET',
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis-Worker)' },
-    });
-    const cookieHeader = homeRes.headers.get('set-cookie') || '';
-    // Extract just the A1=... bit; CF Workers concatenate Set-Cookie headers.
-    const a1 = cookieHeader.match(/A1=[^;]+/)?.[0];
-    if (!a1) throw new Error('failed to obtain Yahoo session cookie');
+    const cookieSources = [
+        'https://fc.yahoo.com',
+        'https://query1.finance.yahoo.com/v1/test/getcrumb',
+        'https://finance.yahoo.com',
+    ];
 
-    // Step 2: fetch the crumb token using that cookie.
-    const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    let a1 = null;
+    let cookieJar = null;
+    for (const src of cookieSources) {
+        try {
+            const res = await fetch(src, {
+                method: 'GET',
+                redirect: 'manual',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                },
+            });
+            let cookies = [];
+            if (typeof res.headers.getSetCookie === 'function') {
+                cookies = res.headers.getSetCookie();
+            }
+            if (!cookies.length) {
+                const single = res.headers.get('set-cookie');
+                if (single) cookies = [single];
+            }
+            const jar = [];
+            for (const c of cookies) {
+                const match = c.match(/^([A-Za-z0-9_-]+)=([^;]+)/);
+                if (!match) continue;
+                const [, name, value] = match;
+                if (['A1', 'A3', 'A1S', 'B', 'GUC', 'cmp', 'EuConsent'].includes(name)) {
+                    jar.push(`${name}=${value}`);
+                    if (name === 'A1' || name === 'A3') a1 = `${name}=${value}`;
+                }
+            }
+            if (jar.length) {
+                cookieJar = jar.join('; ');
+                if (a1) break;
+            }
+        } catch (_) { /* try next source */ }
+    }
+
+    if (!cookieJar) throw new Error('failed to obtain Yahoo session cookie');
+
+    const crumbRes = await fetch('https://query2.finance.yahoo.com/v1/test/getcrumb', {
         method: 'GET',
         headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis-Worker)',
-            'Cookie': a1,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Cookie': cookieJar,
+            'Accept': 'text/plain,*/*;q=0.8',
         },
     });
     const crumb = (await crumbRes.text()).trim();
-    if (!crumb || crumb.length < 5) throw new Error('failed to obtain Yahoo crumb');
+    if (!crumb || crumb.length < 5 || /<html/i.test(crumb)) {
+        throw new Error(`failed to obtain Yahoo crumb (status ${crumbRes.status}, body len ${crumb.length})`);
+    }
 
-    crumbCache = { crumb, cookie: a1, ts: Date.now() };
+    crumbCache = { crumb, cookie: cookieJar, ts: Date.now() };
     return crumbCache;
 }
 
@@ -67,7 +116,7 @@ async function fetchKeyStats(symbol) {
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics&crumb=${encodeURIComponent(crumb)}`;
     const res = await fetch(url, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis-Worker)',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
             'Cookie': cookie,
         },
     });
@@ -79,7 +128,7 @@ async function fetchKeyStats(symbol) {
             const url2 = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(sym)}?modules=defaultKeyStatistics&crumb=${encodeURIComponent(retry.crumb)}`;
             const res2 = await fetch(url2, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis-Worker)',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                     'Cookie': retry.cookie,
                 },
             });
