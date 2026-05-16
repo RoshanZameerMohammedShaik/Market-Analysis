@@ -1,9 +1,15 @@
-// Mia v3.4 — tool-name scrubber on rendered reply.
+// Mia v3.5 — comprehensive tool-name scrubber.
 //
-// Phase 8.5 fix: 8B leaked 'calling the get_accuracy_stats tool' in prose.
-// We now scrub raw tool names out of the visible text on every paint AND
-// on the final saved message, replacing them with friendly action verbs
-// (or just removing the leaky scaffolding entirely).
+// Phase 8.6 fix: previous scrubber only caught "calling X tool" / "I'll use X"
+// patterns. Missed: code-formatted `tool_name`, markdown **tool_name**,
+// preposition leaks ("from X", "with X", "via X", "through X"), and bare
+// references ("you can see by X"). Also missed unknown snake_case
+// identifiers that look like tool names (get_*, set_*, fetch_*, etc.).
+//
+// New strategy: 4-pass scrub, each more aggressive than the last. The
+// final pass catches ANY snake_case identifier that LOOKS like a tool
+// name (matching get_/set_/fetch_/run_/load_/save_/refresh_/switch_/select_/
+// toggle_/cycle_/rerun_/compare_/analyze_) and replaces it with "look it up".
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -25,6 +31,7 @@ const CLEAR_HOLD_DELAY_MS = 500;
 const RENDER_CPS = 70;
 const BASE_DELAY_MS = 1000 / RENDER_CPS;
 
+// Maps tool_name → friendly action verb (lowercase, used inside sentences).
 const ACTION_VERBS = {
     get_app_state: 'reading the page',
     get_current_signal: 'reading the current signal',
@@ -50,36 +57,65 @@ const ACTION_VERBS = {
     refresh_hot_picks: 'refreshing hot picks',
     rerun_analysis: 'rerunning analysis',
 };
-function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'working'; }
+function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it up'; }
 
 const TOOL_NAMES = Object.keys(ACTION_VERBS);
+const TOOL_NAMES_RE_BODY = TOOL_NAMES.join('|');
 
-// Pre-compile a scrubber regex matching any tool name with optional surrounding
-// scaffolding ("call the X tool", "by calling X", "I'll use X"). Covers the
-// most common leak patterns 8B emits.
-const TOOL_NAME_RE = new RegExp('\\b(' + TOOL_NAMES.join('|') + ')\\b', 'gi');
+// Generic snake_case "looks like a tool name" pattern as a safety net for
+// any unknown function name 8B might invent.
+const SNAKE_TOOL_RE = /\b(?:get|set|fetch|run|load|save|refresh|switch|select|toggle|cycle|rerun|compare|analyze|check|read|search|invoke|call|use)_[a-z][a-z0-9_]{2,}\b/gi;
+
+// Pass 1: phrasal scaffolding. These phrases collapse to the action verb,
+// dropping the name AND the verbal scaffolding around it.
 const SCAFFOLDING_PATTERNS = [
-    // "by calling the get_accuracy_stats tool" → "by checking the accuracy stats"
-    new RegExp('\\b(?:by\\s+)?calling\\s+the\\s+(' + TOOL_NAMES.join('|') + ')\\s+tool\\b', 'gi'),
-    new RegExp('\\bcalling\\s+the\\s+(' + TOOL_NAMES.join('|') + ')\\b', 'gi'),
-    new RegExp('\\b(?:I\\'ll|I will|let me|I can)\\s+(?:call|use|run|invoke)\\s+(?:the\\s+)?(' + TOOL_NAMES.join('|') + ')(?:\\s+tool)?\\b', 'gi'),
-    new RegExp('\\busing\\s+(?:the\\s+)?(' + TOOL_NAMES.join('|') + ')(?:\\s+tool)?\\b', 'gi'),
-    new RegExp('\\b(' + TOOL_NAMES.join('|') + ')\\s+tool\\b', 'gi'),
+    // "by/via/through calling [the] X [tool]"
+    new RegExp(`\\b(?:by\\s+|via\\s+|through\\s+)?calling\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
+    // "I'll/I will/let me/I can/I should call|use|run|invoke [the] X [tool]"
+    new RegExp(`\\b(?:I'll|I will|let me|I can|I should|I'd|I would|I'm going to|going to)\\s+(?:call|use|run|invoke|consult|hit|query|trigger|fire)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
+    // "using/with/via/through [the] X [tool]"
+    new RegExp(`\\b(?:using|with|via|through)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
+    // "X tool" / "the X tool"
+    new RegExp(`\\b(?:the\\s+)?(${TOOL_NAMES_RE_BODY})\\s+tool\\b`, 'gi'),
+    // "you can see by/from X" / "available via X" / "can be retrieved by X"
+    new RegExp(`\\b(?:you\\s+can\\s+see|available|retrieved|fetched|obtained|seen)\\s+(?:by|from|via|through)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
+    // "from/by/via X" prepositional leak
+    new RegExp(`\\b(?:from|by|via)\\s+(?:the\\s+)?(${TOOL_NAMES_RE_BODY})(?:\\s+tool)?\\b`, 'gi'),
+    // "the X function" / "the X command"
+    new RegExp(`\\b(?:the\\s+)?(${TOOL_NAMES_RE_BODY})\\s+(?:function|command|method|api|endpoint)\\b`, 'gi'),
 ];
+
+// Pass 2: code-formatted (\`tool_name\`) and bold-formatted (**tool_name**) leaks.
+const CODE_FORMATTED_RE = new RegExp('`(' + TOOL_NAMES_RE_BODY + ')`', 'gi');
+const BOLD_FORMATTED_RE = new RegExp('\\*\\*(' + TOOL_NAMES_RE_BODY + ')\\*\\*', 'gi');
+
+// Pass 3: bare known tool name anywhere (case-insensitive whole-word).
+const BARE_KNOWN_RE = new RegExp('\\b(' + TOOL_NAMES_RE_BODY + ')\\b', 'gi');
 
 /**
  * Replace any leaked tool-name mention in the visible reply with the
- * friendly action verb. Also clean up dangling scaffolding phrases.
+ * friendly action verb. Multi-pass: scaffolding → code/bold → bare → snake_case net.
  */
 function scrubToolNames(text) {
     if (!text) return text;
     let out = text;
-    // First pass: replace common scaffolding phrases entirely.
+
+    // Pass 1: known scaffolding phrases.
     for (const re of SCAFFOLDING_PATTERNS) {
-        out = out.replace(re, (_m, name) => actionVerbFor(name.toLowerCase()));
+        out = out.replace(re, (_m, name) => actionVerbFor((name || '').toLowerCase()));
     }
-    // Second pass: any remaining bare tool-name mention → action verb.
-    out = out.replace(TOOL_NAME_RE, (m) => actionVerbFor(m.toLowerCase()));
+    // Pass 2: code-formatted and bold-formatted known names.
+    out = out.replace(CODE_FORMATTED_RE, (_m, name) => actionVerbFor(name.toLowerCase()));
+    out = out.replace(BOLD_FORMATTED_RE, (_m, name) => actionVerbFor(name.toLowerCase()));
+    // Pass 3: any remaining bare known tool name → action verb.
+    out = out.replace(BARE_KNOWN_RE, (m) => actionVerbFor(m.toLowerCase()));
+    // Pass 4: generic snake_case "looks like a tool" safety net for unknowns.
+    out = out.replace(SNAKE_TOOL_RE, () => 'looking it up');
+
+    // Cleanup: collapse double spaces and stray "the looking it up" artifacts.
+    out = out.replace(/\bthe\s+(reading|checking|running|comparing|searching|loading|switching|toggling|refreshing|rerunning|doing\s+deep\s+research|looking\s+it\s+up)\b/gi, '$1');
+    out = out.replace(/\s{2,}/g, ' ');
+    out = out.replace(/\s+([.,;:!?])/g, '$1');
     return out;
 }
 
