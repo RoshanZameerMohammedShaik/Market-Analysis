@@ -29,7 +29,7 @@ const CRUMB_TTL_MS = 30 * 60 * 1000;
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // ============================================================================
-// /key-stats — Yahoo defaultKeyStatistics (unchanged from Phase 6)
+// /key-stats — Yahoo defaultKeyStatistics
 // ============================================================================
 
 async function getCrumb() {
@@ -115,17 +115,10 @@ function extractKeyStats(json) {
 }
 
 // ============================================================================
-// /finra-short — FINRA daily short-volume CSV (the previous-trading-day file)
+// /finra-short — FINRA daily short-volume CSV
 // ============================================================================
-//
-// FINRA publishes consolidated short-sale volume daily at:
-//   https://cdn.finra.org/equity/regsho/daily/CNMSshvol<YYYYMMDD>.txt
-// Format: header line + pipe-delimited rows: Date|Symbol|ShortVolume|ShortExemptVolume|TotalVolume|Market
-//
-// We try yesterday first; if 404 (weekend/holiday), walk back up to 5 days.
-// One CSV is parsed once and cached for 24h, then any symbol query is O(1).
 
-let finraDayCache = null; // { date, rows: Map<symbol, {short, exempt, total}>, ts }
+let finraDayCache = null;
 
 function yyyymmdd(d) {
     return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}`;
@@ -157,10 +150,10 @@ async function getLatestFinraDay() {
                     total: parseInt(p[4], 10) || 0,
                 });
             }
-            if (rows.size < 100) continue; // sanity
+            if (rows.size < 100) continue;
             finraDayCache = { date: dateStr, rows, ts: Date.now() };
             return finraDayCache;
-        } catch (_) { /* keep walking back */ }
+        } catch (_) { /* */ }
     }
     throw new Error('FINRA file not found in last 6 days');
 }
@@ -192,9 +185,6 @@ async function fetchFinraShort(symbol) {
 // ============================================================================
 // /openinsider — recent insider buy/sell rows scraped from OpenInsider HTML
 // ============================================================================
-//
-// URL: http://openinsider.com/screener?s=<SYMBOL>&fd=30  (last 30 days)
-// HTML table parsing — brittle, but the site has been stable for years.
 
 async function fetchOpenInsider(symbol) {
     const sym = symbol.toUpperCase();
@@ -206,8 +196,6 @@ async function fetchOpenInsider(symbol) {
         const res = await fetch(url, { headers: { 'User-Agent': BROWSER_UA, 'Accept': 'text/html' } });
         if (!res.ok) throw new Error(`openinsider ${res.status}`);
         const html = await res.text();
-        // Very simple HTML parse: find the data table and extract rows.
-        // Each row: <tr>...<td>X | <td>FilingDate | <td>TradeDate | <td>Ticker | <td>InsiderName | <td>Title | <td>TradeType | <td>Price | <td>Qty | <td>Owned | <td>DeltaOwn | <td>Value
         const tableMatch = html.match(/<table[^>]*class="tinytable"[\s\S]*?<\/table>/i);
         if (!tableMatch) {
             const body = { found: false, rows: [] };
@@ -220,7 +208,6 @@ async function fetchOpenInsider(symbol) {
         for (const tr of trs) {
             const tds = [...tr.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => stripHtml(m[1]));
             if (tds.length < 11) continue;
-            // Skip header row (usually has TH or no recognizable date)
             const filingDate = tds[1];
             const tradeDate = tds[2];
             if (!/\d{4}-\d{2}-\d{2}/.test(filingDate)) continue;
@@ -238,7 +225,6 @@ async function fetchOpenInsider(symbol) {
             found: rows.length > 0,
             count: rows.length,
             rows,
-            // Aggregates: net insider buys vs sells over the period
             netBuyValue: rows.reduce((s, r) => {
                 if (!r.value) return s;
                 if (/Purchase|Buy/i.test(r.tradeType)) return s + r.value;
@@ -256,7 +242,21 @@ async function fetchOpenInsider(symbol) {
 }
 
 function stripHtml(s) {
-    return String(s || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
+    let str = String(s || '');
+    // Drop JS-tooltip attribute residue first (onmouseover=Tip('...'), onmouseout=UnTip()).
+    // OpenInsider wraps the ticker cell in <a onmouseover="Tip('...', DELAY, 1)" onmouseout="UnTip()">...</a>;
+    // when our regex strips the <a> tag itself, the attribute string still lingers if
+    // the inner content contains a stray quote. Drop these explicitly first.
+    str = str.replace(/onmouseover\s*=\s*"[^"]*"/gi, '');
+    str = str.replace(/onmouseout\s*=\s*"[^"]*"/gi, '');
+    str = str.replace(/Tip\([^)]*\)/g, '');
+    str = str.replace(/UnTip\(\)/g, '');
+    // Now strip tags.
+    str = str.replace(/<[^>]+>/g, '');
+    // Drop any leftover stray punctuation that JS-attribute fragments leave behind.
+    str = str.replace(/^[",\s)>]+/, '');
+    str = str.replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
+    return str;
 }
 
 // ============================================================================
