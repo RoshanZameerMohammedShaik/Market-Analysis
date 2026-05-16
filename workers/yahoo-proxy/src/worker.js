@@ -26,6 +26,10 @@
 //   - Browser-realistic User-Agent so Yahoo doesn't bot-block us.
 //   - Build a full cookie jar (A1 + A3 + B + GUC + cmp + EuConsent) instead
 //     of just A1, since query2 sometimes requires multiple cookies present.
+//   - NEVER set `Cache-Control: max-age` on error responses. A transient
+//     bootstrapping failure was getting cached at the CF edge for 10 min,
+//     so frontend calls returned stale 502 even after the Worker recovered.
+//     Errors now ship `no-store, must-revalidate, max-age=0`.
 //
 // Deployment:
 //   1. cd workers/yahoo-proxy
@@ -121,7 +125,6 @@ async function fetchKeyStats(symbol) {
         },
     });
     if (!res.ok) {
-        // Crumb may have rotated; bust cache and retry once.
         if (res.status === 401 || res.status === 403) {
             crumbCache = null;
             const retry = await getCrumb();
@@ -169,6 +172,12 @@ function extract(json) {
 }
 
 function corsJson(body, status = 200) {
+    // Only cache successful responses on the CF edge. Errors must NOT be
+    // cached or a transient failure (e.g. crumb fetch hiccup) gets locked
+    // in for 10 min on the user's region.
+    const cacheControl = status === 200
+        ? 'public, max-age=600'
+        : 'no-store, no-cache, must-revalidate, max-age=0';
     return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -176,7 +185,7 @@ function corsJson(body, status = 200) {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Max-Age': '86400',
-            'Cache-Control': 'public, max-age=600',
+            'Cache-Control': cacheControl,
         },
     });
 }
