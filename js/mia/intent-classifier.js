@@ -8,45 +8,13 @@ import { state } from '../ui/state.js';
 const CLASSIFY_MODEL = 'llama-3.1-8b-instant';
 const URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const CLASSIFIER_SYSTEM = `Classify the user's request as exactly one letter:
+const CLASSIFIER_SYSTEM = `Classify the user's request as exactly one letter.
 
-T = needs LIVE DATA, EXTERNAL LOOKUP, APP CONTROL, or APP PERFORMANCE STATS.
-  Examples:
-  - 'what's the F&G index'
-  - 'show me NVDA'
-  - 'compare AAPL and MSFT'
-  - 'any news on TSLA'
-  - 'what is the 10y yield'
-  - 'switch to crypto'
-  - 'refresh hot picks'
-  - 'what does the current signal say'
-  - 'is the market bullish today'
-  - 'how is BTC doing right now'
-  - 'latest sentiment on AAPL'
-  - 'what is the VIX currently'
-  - 'how accurate is this app' / 'how accurate is the engine'
-  - 'what's the hit rate' / 'what's your accuracy'
-  - 'how good is this app' / 'how reliable is it'
-  - 'what's the calibration like' / 'how calibrated is it'
-  - 'how many predictions have you made'
-  - any request for a stock/crypto pick, prediction, or "what should I buy"
-    (e.g. 'give me a pick', 'what's likely to go up', 'analyze and tell me a winner')
-    — casual phrasing or terms of address don't change the intent; classify by what's being asked
-  - any phrase with: today, right now, currently, latest, this week, recent
-  - any question about THIS APP'S performance, accuracy, hit rate, calibration, or stats
+T = needs LIVE DATA, EXTERNAL LOOKUP, APP CONTROL, an ACTION on the app, a SYMBOL-SPECIFIC question, a PICK / PREDICTION / "what should I buy" request, or a question about THIS APP's performance, accuracy, calibration, or stats. Anything time-anchored (today, right now, currently, latest, recent).
 
-P = pure EXPLANATION, EDUCATION, or DEFINITION using prior knowledge only.
-  Examples:
-  - 'what is RSI'
-  - 'explain MACD'
-  - 'how does Bollinger squeeze work'
-  - 'define put/call ratio'
-  - 'why do you use FinBERT'
-  - 'difference between calls and puts'
-  - 'what is conformal prediction'
-  - 'what does confidence mean in general'
+P = pure GENERAL-KNOWLEDGE explanation, education, or definition with no live-data dependency and no symbol named (e.g. "what is RSI", "explain MACD", "difference between calls and puts").
 
-If in doubt, prefer T. Reply with ONLY the single letter T or P. No punctuation, no other text.`;
+Classify by underlying INTENT, not surface phrasing. Casual address, profanity, or tonal flourish don't change the intent. If in doubt, prefer T. Reply with ONLY the letter T or P.`;
 
 /**
  * Returns 'tool' | 'prose'.
