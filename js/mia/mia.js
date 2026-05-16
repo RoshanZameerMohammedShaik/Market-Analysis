@@ -1,9 +1,9 @@
-// Mia v3.3 — natural reading-speed streaming.
+// Mia v3.4 — tool-name scrubber on rendered reply.
 //
-// Phase 8.2 fix:
-//  - RENDER_CPS bumped from 30 → 70 (closer to natural reading speed).
-//  - Punctuation pauses scaled down: . ! ? = 3x (was 6x), , ; : = 2x (was 3x),
-//    \n = 2x (was 4x). Still a slight rhythm; no longer typewriter-slow.
+// Phase 8.5 fix: 8B leaked 'calling the get_accuracy_stats tool' in prose.
+// We now scrub raw tool names out of the visible text on every paint AND
+// on the final saved message, replacing them with friendly action verbs
+// (or just removing the leaky scaffolding entirely).
 
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
@@ -22,37 +22,66 @@ let activeAbort = null;
 const CLEAR_HOLD_MS = 3000;
 const CLEAR_HOLD_DELAY_MS = 500;
 
-// ~70 cps matches natural reading speed for adults. Higher feels dump-y,
-// lower feels typewriter-slow.
 const RENDER_CPS = 70;
 const BASE_DELAY_MS = 1000 / RENDER_CPS;
 
 const ACTION_VERBS = {
-    get_app_state: 'Reading the page',
-    get_current_signal: 'Reading the current signal',
-    get_calibration: 'Checking calibration',
-    get_accuracy_stats: 'Reading accuracy stats',
-    analyze_symbol: 'Running analysis',
-    compare_symbols: 'Comparing tickers',
-    get_hot_picks: 'Checking hot picks',
-    get_market_conditions: 'Checking the market',
-    get_news_and_sentiment: 'Checking the news',
-    get_macro_series: 'Checking macro data',
-    get_reddit_sentiment: 'Checking Reddit',
-    get_sec_filings: 'Checking SEC filings',
-    get_options_view: 'Checking options flow',
-    get_crypto_derivatives: 'Checking derivatives',
-    research_symbol: 'Doing deep research',
-    web_search: 'Searching the web',
-    select_symbol: 'Loading the symbol',
-    switch_mode: 'Switching tab',
-    switch_timeframe: 'Switching timeframe',
-    cycle_theme: 'Switching theme',
-    toggle_pl_calculator: 'Toggling P&L panel',
-    refresh_hot_picks: 'Refreshing hot picks',
-    rerun_analysis: 'Re-running analysis',
+    get_app_state: 'reading the page',
+    get_current_signal: 'reading the current signal',
+    get_calibration: 'checking calibration',
+    get_accuracy_stats: 'reading accuracy stats',
+    analyze_symbol: 'running analysis',
+    compare_symbols: 'comparing tickers',
+    get_hot_picks: 'checking hot picks',
+    get_market_conditions: 'checking the market',
+    get_news_and_sentiment: 'checking the news',
+    get_macro_series: 'checking macro data',
+    get_reddit_sentiment: 'checking Reddit',
+    get_sec_filings: 'checking SEC filings',
+    get_options_view: 'checking options flow',
+    get_crypto_derivatives: 'checking derivatives',
+    research_symbol: 'doing deep research',
+    web_search: 'searching the web',
+    select_symbol: 'loading the symbol',
+    switch_mode: 'switching tab',
+    switch_timeframe: 'switching timeframe',
+    cycle_theme: 'switching theme',
+    toggle_pl_calculator: 'toggling P&L panel',
+    refresh_hot_picks: 'refreshing hot picks',
+    rerun_analysis: 'rerunning analysis',
 };
-function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'Working'; }
+function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'working'; }
+
+const TOOL_NAMES = Object.keys(ACTION_VERBS);
+
+// Pre-compile a scrubber regex matching any tool name with optional surrounding
+// scaffolding ("call the X tool", "by calling X", "I'll use X"). Covers the
+// most common leak patterns 8B emits.
+const TOOL_NAME_RE = new RegExp('\\b(' + TOOL_NAMES.join('|') + ')\\b', 'gi');
+const SCAFFOLDING_PATTERNS = [
+    // "by calling the get_accuracy_stats tool" → "by checking the accuracy stats"
+    new RegExp('\\b(?:by\\s+)?calling\\s+the\\s+(' + TOOL_NAMES.join('|') + ')\\s+tool\\b', 'gi'),
+    new RegExp('\\bcalling\\s+the\\s+(' + TOOL_NAMES.join('|') + ')\\b', 'gi'),
+    new RegExp('\\b(?:I\\'ll|I will|let me|I can)\\s+(?:call|use|run|invoke)\\s+(?:the\\s+)?(' + TOOL_NAMES.join('|') + ')(?:\\s+tool)?\\b', 'gi'),
+    new RegExp('\\busing\\s+(?:the\\s+)?(' + TOOL_NAMES.join('|') + ')(?:\\s+tool)?\\b', 'gi'),
+    new RegExp('\\b(' + TOOL_NAMES.join('|') + ')\\s+tool\\b', 'gi'),
+];
+
+/**
+ * Replace any leaked tool-name mention in the visible reply with the
+ * friendly action verb. Also clean up dangling scaffolding phrases.
+ */
+function scrubToolNames(text) {
+    if (!text) return text;
+    let out = text;
+    // First pass: replace common scaffolding phrases entirely.
+    for (const re of SCAFFOLDING_PATTERNS) {
+        out = out.replace(re, (_m, name) => actionVerbFor(name.toLowerCase()));
+    }
+    // Second pass: any remaining bare tool-name mention → action verb.
+    out = out.replace(TOOL_NAME_RE, (m) => actionVerbFor(m.toLowerCase()));
+    return out;
+}
 
 const ICON_SEND = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.4 1.06L4.5 11l8 1-8 1L2 19.34a1 1 0 0 0 1.4 1.06z"/></svg>';
 const ICON_STOP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
@@ -291,7 +320,8 @@ class PacedRenderer {
             el.innerHTML = '';
             this.firstTokenSeen = true;
         }
-        el.innerHTML = renderMarkdown(stripAgentNoise(this.shown));
+        // Scrub leaked tool names on every paint so the user never sees them.
+        el.innerHTML = renderMarkdown(scrubToolNames(stripAgentNoise(this.shown)));
         const thread = document.getElementById('mia-thread');
         if (thread) thread.scrollTop = thread.scrollHeight;
     }
@@ -302,7 +332,6 @@ class PacedRenderer {
             this.queue = this.queue.slice(1);
             this.shown += ch;
             this.paint();
-            // Slight rhythm pause on punctuation; nothing typewriter-slow.
             let delay = BASE_DELAY_MS;
             if (ch === '.' || ch === '!' || ch === '?') delay = BASE_DELAY_MS * 3;
             else if (ch === ',' || ch === ';' || ch === ':') delay = BASE_DELAY_MS * 2;
@@ -350,7 +379,8 @@ async function doSend() {
         }
         await renderer.waitForDrain();
 
-        const cleaned = stripAgentNoise(acc).trim();
+        // Scrub the saved version too so the persisted history never contains leaked names.
+        const cleaned = scrubToolNames(stripAgentNoise(acc).trim());
         const ctxText = buildContextBlock(currentSignal);
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
@@ -361,7 +391,7 @@ async function doSend() {
         renderer.abort();
         const updated = loadHistory();
         const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
-        if (acc.trim() && aborted) updated.push({ role: 'assistant', content: stripAgentNoise(acc).trim() + '\n\n_(stopped early by you)_' });
+        if (acc.trim() && aborted) updated.push({ role: 'assistant', content: scrubToolNames(stripAgentNoise(acc).trim()) + '\n\n_(stopped early by you)_' });
         else updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
         saveHistory(updated);
         renderThread(updated);
@@ -396,9 +426,10 @@ function showToolBadge(bubbleId, name, kind = 'read') {
     if (!el) return;
     const verb = actionVerbFor(name);
     const icon = kind === 'control' ? '🎹' : '⚡';
-    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${verb}…</div>`);
+    const cap = verb.charAt(0).toUpperCase() + verb.slice(1);
+    el.insertAdjacentHTML('beforeend', `<div class="mia-tool-badge">${icon} ${cap}…</div>`);
     const pg = document.getElementById('mia-progress');
-    if (pg) pg.textContent = `${verb}…`;
+    if (pg) pg.textContent = `${cap}…`;
 }
 function updateProgress(msg) {
     const text = document.getElementById('mia-progress');
