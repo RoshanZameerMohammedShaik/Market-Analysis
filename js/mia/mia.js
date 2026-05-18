@@ -393,7 +393,8 @@ async function doSend() {
 
         const cleaned = scrubToolNames(stripAgentNoise(acc).trim());
         const ctxText = buildContextBlock(currentSignal);
-        const flagged = flagUnverifiedNumbers(cleaned, [ctxText, ...toolResults.map(t => JSON.stringify(t))]);
+        const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
+        const flagged = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
         updated.push({ role: 'assistant', content: flagged || '(empty reply)' });
         saveHistory(updated);

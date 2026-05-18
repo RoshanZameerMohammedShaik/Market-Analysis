@@ -11,7 +11,10 @@ import { runTool, toolPromptSection, listTools } from './tools.js';
 const MAX_TOOL_CALLS = 8;
 const INTRA_TURN_PACE_MS = 350;
 
-const TOOL_LINE_RE = /^[\s>*\-]*\**\s*TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})\s*\**[\s>]*$/im;
+// Matches a TOOL: invocation anywhere in the buffer. Models sometimes emit it
+// inline at the end of a prose sentence rather than on a fresh line, so we no
+// longer anchor to ^.
+const TOOL_LINE_RE = /(?:^|\s)TOOL:\s*([a-z][a-z0-9_]{2,})\s*(\{[\s\S]*?\})/i;
 
 function buildBareToolRegex(toolNames) {
     const escaped = [...toolNames]
@@ -19,10 +22,19 @@ function buildBareToolRegex(toolNames) {
         .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
         .sort((a, b) => b.length - a.length);
     if (!escaped.length) return null;
+    // Bare-name form must still anchor to start-of-line: too many false
+    // positives otherwise (any prose sentence containing 'analyze {something}').
     return new RegExp(`^[\\s>*\\-]*\\**\\s*(${escaped.join('|')})\\s*(\\{[\\s\\S]*?\\})\\s*\\**[\\s>]*$`, 'im');
 }
 
-const TOOL_LINE_STRIPPER = /^[\s>*\-]*\**\s*(?:TOOL:.*|[a-z][a-z0-9_]+\s*\{[\s\S]*?\}.*)$/gim;
+// Strip from any "TOOL:" through the end of the buffer (including everything
+// after, since the tool call ends the model's prose for this iteration).
+const TOOL_TAIL_STRIPPER = /(?:^|\s)TOOL:[\s\S]*$/im;
+// Bare-name lines that look like tool invocations on their own line.
+const BARE_TOOL_LINE_STRIPPER = /^[\s>*\-]*\**\s*[a-z][a-z0-9_]+\s*\{[\s\S]*?\}.*$/gim;
+function stripToolNoise(s) {
+    return s.replace(TOOL_TAIL_STRIPPER, '').replace(BARE_TOOL_LINE_STRIPPER, '');
+}
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -88,11 +100,14 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
                 if (m) { toolMatch = m; interrupted = true; break; }
             }
 
-            const lastNl = buffer.lastIndexOf('\n');
-            if (lastNl > yieldedUpTo) {
-                const safe = buffer.slice(yieldedUpTo, lastNl + 1);
-                yieldedUpTo = lastNl + 1;
-                const cleanedSafe = safe.replace(TOOL_LINE_STRIPPER, '');
+            // Once we see "TOOL:" anywhere, freeze yielding — the rest of the
+            // buffer is the call args, not prose. We'll resume after the call.
+            const toolMarker = buffer.search(/(?:^|\s)TOOL:/i);
+            const safeUpTo = toolMarker >= 0 ? toolMarker : buffer.lastIndexOf('\n');
+            if (safeUpTo > yieldedUpTo) {
+                const safe = buffer.slice(yieldedUpTo, toolMarker >= 0 ? safeUpTo : safeUpTo + 1);
+                yieldedUpTo = toolMarker >= 0 ? safeUpTo : safeUpTo + 1;
+                const cleanedSafe = stripToolNoise(safe);
                 if (cleanedSafe) yield { type: 'delta', text: cleanedSafe };
             }
         }
@@ -104,7 +119,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
 
         if (!interrupted) {
             if (yieldedUpTo < buffer.length) {
-                const rest = buffer.slice(yieldedUpTo).replace(TOOL_LINE_STRIPPER, '');
+                const rest = stripToolNoise(buffer.slice(yieldedUpTo));
                 if (rest) yield { type: 'delta', text: rest };
             }
             return;
@@ -117,7 +132,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
         if (!knownToolNames.has(name)) {
             const valid = [...knownToolNames].slice(0, 12).join(', ');
             const fixerMsg = `RESULT (from agent): no tool named '${name}'. Valid tools include: ${valid}. Re-emit the call using one of those names exactly, on its own line, with the format: TOOL: tool_name {"arg": "value"}`;
-            const cleanedAssistant = buffer.replace(TOOL_LINE_STRIPPER, '').trim();
+            const cleanedAssistant = stripToolNoise(buffer).trim();
             workingMessages = [
                 ...workingMessages,
                 { role: 'assistant', content: cleanedAssistant || '(invalid tool call)' },
@@ -138,7 +153,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
 
         const resultText = ok ? JSON.stringify(result).slice(0, 4000) : `error: ${error}`;
 
-        const cleanedAssistant = buffer.replace(TOOL_LINE_STRIPPER, '').trim();
+        const cleanedAssistant = stripToolNoise(buffer).trim();
         workingMessages = [
             ...workingMessages,
             { role: 'assistant', content: cleanedAssistant || '(calling tool)' },
@@ -155,7 +170,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
                 signal,
                 onProgress,
             })) {
-                yield { type: 'delta', text: delta.replace(TOOL_LINE_STRIPPER, '') };
+                yield { type: 'delta', text: stripToolNoise(delta) };
             }
             return;
         }
