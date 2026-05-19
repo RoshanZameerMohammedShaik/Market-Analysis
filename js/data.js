@@ -23,17 +23,23 @@ function isYahooUrl(url) {
 }
 
 export async function fetchWithProxy(url) {
-    // 1) Direct fetch — works for non-Yahoo CORS-friendly URLs.
-    try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (res.ok) {
-            const text = await res.text();
-            if (isValidResponse(text)) return createTextResponse(text, res);
-        }
-    } catch (e) { /* fall through */ }
+    const yahoo = isYahooUrl(url);
 
-    // 2) For Yahoo URLs, try our Worker first — it's the most reliable path.
-    if (isYahooUrl(url)) {
+    // 1) Direct fetch — only for non-Yahoo URLs. Yahoo never sends CORS
+    //    headers from the browser, so a direct attempt is guaranteed to
+    //    log an error and waste a round-trip. Skip it.
+    if (!yahoo) {
+        try {
+            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+            if (res.ok) {
+                const text = await res.text();
+                if (isValidResponse(text)) return createTextResponse(text, res);
+            }
+        } catch (e) { /* fall through */ }
+    }
+
+    // 2) For Yahoo URLs, our Worker is the primary path.
+    if (yahoo) {
         try {
             const res = await tryProxy(WORKER_PROXY, url);
             if (res) return res;
