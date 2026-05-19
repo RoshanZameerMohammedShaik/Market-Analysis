@@ -1,6 +1,13 @@
 // Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto).
-// CORS-proxy chain with JSON validation. Stock searches strictly
-// filter to EQUITY/ETF/INDEX so crypto hits don't leak into stock UI.
+// Strategy:
+//   1) Direct fetch (works for non-Yahoo URLs that send CORS headers).
+//   2) Our own Cloudflare Worker /yahoo proxy (always tried for Yahoo URLs;
+//      handles cookies/crumb for v7 quote, has stable uptime).
+//   3) Public CORS proxies as last-resort fallback (corsproxy.io etc.
+//      regularly start gating; we keep them so non-Yahoo CORS-blocked
+//      sources still have a path).
+
+const WORKER_PROXY = 'https://market-analysis-yahoo-proxy.roshanzameer7866.workers.dev/yahoo?u=';
 
 const CORS_PROXIES = [
     'https://corsproxy.io/?url=',
@@ -11,7 +18,12 @@ const CORS_PROXIES = [
 
 let workingProxy = null;
 
+function isYahooUrl(url) {
+    return /^https?:\/\/(query1|query2)\.finance\.yahoo\.com\//i.test(url);
+}
+
 export async function fetchWithProxy(url) {
+    // 1) Direct fetch — works for non-Yahoo CORS-friendly URLs.
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
@@ -19,6 +31,14 @@ export async function fetchWithProxy(url) {
             if (isValidResponse(text)) return createTextResponse(text, res);
         }
     } catch (e) { /* fall through */ }
+
+    // 2) For Yahoo URLs, try our Worker first — it's the most reliable path.
+    if (isYahooUrl(url)) {
+        try {
+            const res = await tryProxy(WORKER_PROXY, url);
+            if (res) return res;
+        } catch (e) { /* fall through */ }
+    }
 
     if (workingProxy !== null) {
         try {

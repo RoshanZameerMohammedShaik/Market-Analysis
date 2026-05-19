@@ -263,6 +263,64 @@ function stripHtml(s) {
 // HTTP layer
 // ============================================================================
 
+// ============================================================================
+// /yahoo?u=<encoded URL> — generic pass-through proxy for public Yahoo Finance
+// endpoints (chart, quote, screener, trending, search). Same Worker so we
+// don't burn a second deployment; same UA + cookies so we don't 401.
+// ============================================================================
+
+const ALLOWED_HOSTS = new Set([
+    'query1.finance.yahoo.com',
+    'query2.finance.yahoo.com',
+]);
+
+async function proxyYahoo(targetUrl) {
+    let parsed;
+    try { parsed = new URL(targetUrl); }
+    catch (_) { return corsJson({ error: 'invalid target URL' }, 400); }
+    if (!ALLOWED_HOSTS.has(parsed.host)) {
+        return corsJson({ error: `host not allowed: ${parsed.host}` }, 400);
+    }
+
+    // Some public endpoints (v7/finance/quote) now require the crumb+cookie
+    // dance. Reuse the cached crumb for those; for the rest, plain UA is fine.
+    const needsCrumb = /\/v7\/finance\/quote/.test(parsed.pathname);
+    let cookie = '';
+    if (needsCrumb) {
+        try {
+            const c = await getCrumb();
+            cookie = c.cookie;
+            // Append crumb if not already present.
+            if (!parsed.searchParams.has('crumb')) {
+                parsed.searchParams.set('crumb', c.crumb);
+            }
+        } catch (e) { /* fall through; some quote calls work without */ }
+    }
+
+    const headers = {
+        'User-Agent': BROWSER_UA,
+        'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+    };
+    if (cookie) headers['Cookie'] = cookie;
+
+    const upstream = await fetch(parsed.toString(), { headers });
+    const text = await upstream.text();
+    const cacheControl = upstream.ok
+        ? 'public, max-age=60'
+        : 'no-store, no-cache, must-revalidate, max-age=0';
+    return new Response(text, {
+        status: upstream.status,
+        headers: {
+            'Content-Type': upstream.headers.get('Content-Type') || 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Max-Age': '86400',
+            'Cache-Control': cacheControl,
+        },
+    });
+}
+
 function corsJson(body, status = 200) {
     const cacheControl = status === 200
         ? 'public, max-age=600'
@@ -302,6 +360,12 @@ export default {
                 const body = await fetchOpenInsider(symbol);
                 return corsJson(body);
             }
+            if (url.pathname === '/yahoo') {
+                const target = url.searchParams.get('u');
+                if (!target) return corsJson({ error: 'u (target URL) required' }, 400);
+                const body = await proxyYahoo(target);
+                return body; // proxyYahoo returns a fully-formed Response
+            }
             if (url.pathname === '/health') {
                 return corsJson({ ok: true, ts: Date.now() });
             }
@@ -310,7 +374,7 @@ export default {
         }
         return corsJson({
             error: 'not found',
-            endpoints: ['/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X', '/health'],
+            endpoints: ['/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X', '/yahoo?u=<encoded URL>', '/health'],
         }, 404);
     },
 };
