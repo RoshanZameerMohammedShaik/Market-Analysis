@@ -326,7 +326,7 @@ def backtest_symbol(symbol, period=PERIOD, since=None, vix_map=None):
         actual_up = close[i + 1] > close[i]
         return_pct = (close[i + 1] - close[i]) / close[i] * 100
         recent_vol = volume[max(0, i - 20):i + 1]
-        avg_vol = sum(recent_vol) / len(recent_vol) if recent_vol else 0
+        avg_vol = float(recent_vol.mean()) if len(recent_vol) > 0 else 0
         tier = classify_tier(close[i], avg_vol)
         date_str = str(df.index[i].date())
         vix_level = (vix_map or {}).get(date_str)
