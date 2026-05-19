@@ -12,7 +12,7 @@ import { loadSettings, saveSettings, isConfigured, clearSettings } from './setti
 import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
-import { flagUnverifiedNumbers } from './guard.js';
+import { flagUnverifiedNumbers, UNVERIFIED_TOKEN_RE } from './guard.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -295,9 +295,23 @@ function renderThread(history) {
     }
     thread.innerHTML = history.map(m => {
         if (m.role === 'user') return `<div class="mia-msg user"><div class="mia-msg-bubble">${escapeHtml(m.content)}</div></div>`;
-        return `<div class="mia-msg assistant"><div class="mia-msg-bubble mia-md">${renderMarkdown(m.content)}</div></div>`;
+        return `<div class="mia-msg assistant"><div class="mia-msg-bubble mia-md">${renderWithFootnote(m.content)}</div></div>`;
     }).join('');
     thread.scrollTop = thread.scrollHeight;
+}
+
+// Strip the §§MIA_UNVERIFIED:...§§ sentinel before markdown rendering
+// and append a real (unescaped) footnote div after the rendered HTML.
+// The sentinel exists because guard.js can't emit raw HTML: the markdown
+// renderer escapes everything, so any HTML the guard injected would show
+// up as literal "<div..." text.
+function renderWithFootnote(content) {
+    const m = String(content || '').match(UNVERIFIED_TOKEN_RE);
+    if (!m) return renderMarkdown(content);
+    const stripped = content.replace(UNVERIFIED_TOKEN_RE, '').trim();
+    const list = m[1];
+    const note = `<div class="mia-unverified-note" title="These numbers weren't in tool results or signal data—double-check them."><span class="mia-unverified-icon">⚠</span> Verify: ${escapeHtml(list)}</div>`;
+    return renderMarkdown(stripped) + note;
 }
 
 class PacedRenderer {

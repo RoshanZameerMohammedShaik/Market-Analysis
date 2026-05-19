@@ -127,6 +127,27 @@ function isExampleContext(reply, idx) {
     return EXAMPLE_LEADERS.some(p => window.includes(p));
 }
 
+// Sentinel emitted by flagUnverifiedNumbers when the reply contains
+// unverified numbers. mia.js detects this token AFTER markdown rendering
+// (so the HTML doesn't get escaped) and renders the real footnote.
+// Format: §§MIA_UNVERIFIED:comma-joined-numbers§§
+export const UNVERIFIED_TOKEN_RE = /§§MIA_UNVERIFIED:([^§]*)§§/;
+
+// Numbers within 1% of a verified number are themselves considered
+// verified. Lets Mia round results in the headline ($92.99 → "about $93")
+// without tripping a flag.
+function fuzzyMatchVerified(candidate, seenSet) {
+    const cand = parseFloat(candidate.replace(/[$,\s]/g, ''));
+    if (!Number.isFinite(cand)) return false;
+    for (const seen of seenSet) {
+        const s = parseFloat(seen);
+        if (!Number.isFinite(s)) continue;
+        const tol = Math.max(Math.abs(s) * 0.01, 0.01);
+        if (Math.abs(cand - s) <= tol) return true;
+    }
+    return false;
+}
+
 export function flagUnverifiedNumbers(reply, sources) {
     if (!reply) return reply;
     const seenNumbers = new Set();
@@ -139,15 +160,16 @@ export function flagUnverifiedNumbers(reply, sources) {
     harvestVerifiedFromEquations(reply, seenNumbers);
 
     const unverified = [];
-    const annotated = reply.replace(NUM_RE, (match, _g, offset) => {
+    reply.replace(NUM_RE, (match, _g, offset) => {
         const norm = normalize(match);
         const trimmed = match.trim();
 
         // Allow single-digit ordinals (1., 2., 3.) — common in lists.
         if (/^\d{1,2}$/.test(trimmed) && !match.includes('%')) return match;
 
-        // Already grounded in CONTEXT or tool RESULT.
+        // Already grounded in CONTEXT or tool RESULT (exact or ~1% fuzzy).
         if (seenNumbers.has(norm)) return match;
+        if (fuzzyMatchVerified(norm, seenNumbers)) return match;
 
         // Range patterns and example phrases — illustrative, not factual.
         if (isRangeContext(reply, offset, match.length)) return match;
@@ -157,14 +179,13 @@ export function flagUnverifiedNumbers(reply, sources) {
         return match;
     });
 
-    if (unverified.length === 0) return annotated;
+    if (unverified.length === 0) return reply;
 
-    // Consolidate to a single trailing footnote rather than inline marks on
-    // every number. Less visual noise; the user still gets the warning.
+    // Emit a sentinel token (no HTML) that mia.js substitutes after
+    // markdown render. Avoids HTML-injected-into-paragraph escape issues.
     const sample = [...new Set(unverified)].slice(0, 4).join(', ');
     const more = unverified.length > 4 ? ` (+${unverified.length - 4} more)` : '';
-    const note = `\n\n<div class="mia-unverified-note" title="These numbers weren't in tool results or signal data—double-check them."><span class="mia-unverified-icon">⚠</span> Verify: ${sample}${more}</div>`;
-    return annotated + note;
+    return reply + `\n\n§§MIA_UNVERIFIED:${sample}${more}§§`;
 }
 
 function normalize(s) {
