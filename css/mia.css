@@ -230,6 +230,17 @@
 .mia-md .mia-cite { color: var(--accent); font-weight: 600; font-family: var(--num-font); font-size: 0.82em; }
 .mia-md .mia-hedge { color: var(--yellow); font-style: italic; }
 .mia-unverified { color: var(--yellow); font-size: 0.7em; cursor: help; margin-left: 1px; }
+.mia-unverified-note {
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: color-mix(in srgb, var(--yellow) 10%, transparent);
+    border-left: 2px solid var(--yellow);
+    border-radius: 4px;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    cursor: help;
+}
+.mia-unverified-icon { color: var(--yellow); margin-right: 6px; }
 
 .mia-typing { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 8px; }
 .mia-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: mia-bounce 1.2s ease-in-out infinite; }

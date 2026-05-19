@@ -86,6 +86,12 @@ const BARE_KNOWN_RE = new RegExp('\\b(' + TOOL_NAMES_RE_BODY + ')\\b', 'gi');
 function scrubToolNames(text) {
     if (!text) return text;
     let out = text;
+    // Safety net: any "TOOL:" prefix that slipped past agent.js (partial JSON,
+    // unusual streaming chunk boundary) gets stripped from the visible reply.
+    // Drop anything from "TOOL:" through end-of-line, plus any bare-name
+    // invocation lines (e.g. "rerun_analysis {}") that look like calls.
+    out = out.replace(/(?:^|\s)TOOL:[^\n]*/gim, '');
+    out = out.replace(/^\s*[a-z][a-z0-9_]+\s*\{[^\n]*\}\s*$/gim, '');
     for (const re of SCAFFOLDING_PATTERNS) {
         out = out.replace(re, (_m, name) => actionVerbFor((name || '').toLowerCase()));
     }
