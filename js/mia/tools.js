@@ -17,7 +17,7 @@ import {
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration,
 } from './ui-bridge.js';
-import { compute, solveBreakEven } from './math-tool.js';
+import { compute } from './math-tool.js';
 import {
     fetchNewsAndSentiment, fetchFredSeries, fetchRedditSentiment,
     fetchSecRecentFilings, fetchOptionsView, fetchCryptoDerivativesView,
@@ -226,15 +226,9 @@ const TOOLS = {
         kind: 'read',
     },
     compute: {
-        desc: 'evaluate a numeric expression with full operator precedence. Use this for ANY arithmetic — never compute multi-step math in your head. Supports + - * / ^ and parentheses.',
-        args: '{"expression":"974 / 8.80"}',
-        run: ({ expression }) => compute({ expression }),
-        kind: 'read',
-    },
-    solve_break_even: {
-        desc: 'solve "how much more do I invest at currentPrice so my average cost equals target when the price reaches target". Pass investment (USD), buyPrice (entry per-share), currentPrice, target (the recovery price you want to break even at). Returns additionalInvestment plus full breakdown. If target == buyPrice, returns zero (the recovery alone breaks you even).',
-        args: '{"investment":974,"buyPrice":8.80,"currentPrice":7.96,"target":8.80}',
-        run: ({ investment, buyPrice, currentPrice, target }) => solveBreakEven({ investment, buyPrice, currentPrice, target }),
+        desc: 'evaluate any arithmetic expression. Use this for EVERY computation, however small. Supports + - * / ^ and parentheses. Pass an optional "as" name to store the result as a named variable that subsequent compute calls can reference — that\'s how multi-step problems are built up cleanly. Example chain: compute({expression:"974/8.80", as:"shares"}) → 110.68; compute({expression:"shares*7.96", as:"currentValue"}) → 880.93; compute({expression:"974-currentValue"}) → 93.07.',
+        args: '{"expression":"974 / 8.80","as":"shares"}',
+        run: ({ expression, as }) => compute({ expression, as }),
         kind: 'read',
     },
 };

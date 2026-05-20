@@ -60,7 +60,6 @@ const ACTION_VERBS = {
     get_ledger_history: 'reading live ledger history',
     get_live_calibration: 'checking live calibration',
     compute: 'crunching the math',
-    solve_break_even: 'solving the break-even',
     set_theme: 'switching theme',
     focus_search: 'jumping to search',
     clear_chat: 'clearing the chat',
@@ -384,6 +383,12 @@ async function doSend() {
     const text = (input?.value || '').trim();
     if (!text) return;
     input.value = '';
+
+    // Fresh math scope per turn so named variables don't leak across turns.
+    try {
+        const m = await import('./math-tool.js');
+        m.resetMathScope?.();
+    } catch (_) {}
 
     const history = loadHistory();
     history.push({ role: 'user', content: text });
