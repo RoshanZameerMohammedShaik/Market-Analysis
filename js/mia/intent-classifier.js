@@ -10,11 +10,11 @@ const URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const CLASSIFIER_SYSTEM = `Classify the user's request as exactly one letter.
 
-T = needs LIVE DATA, EXTERNAL LOOKUP, APP CONTROL, an ACTION on the app, a SYMBOL-SPECIFIC question, a PICK / PREDICTION / "what should I buy" request, or a question about THIS APP's performance, accuracy, calibration, or stats. Anything time-anchored (today, right now, currently, latest, recent).
+T = the answer depends on something outside general knowledge: live or time-sensitive data, an external lookup, control of the app, a specific symbol, a pick or prediction, or a question about this app's own performance.
 
-P = pure GENERAL-KNOWLEDGE explanation, education, or definition with no live-data dependency and no symbol named (e.g. "what is RSI", "explain MACD", "difference between calls and puts").
+P = pure general-knowledge explanation, education, or definition that doesn't depend on live data or a specific symbol.
 
-Classify by underlying INTENT, not surface phrasing. Casual address, profanity, or tonal flourish don't change the intent. If in doubt, prefer T. Reply with ONLY the letter T or P.`;
+Classify by underlying INTENT, not surface phrasing. Casual address or tonal flourish don't change the intent. If in doubt, prefer T. Reply with ONLY the letter T or P.`;
 
 /**
  * Returns 'tool' | 'prose'.

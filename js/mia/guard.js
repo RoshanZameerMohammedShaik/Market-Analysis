@@ -1,15 +1,20 @@
 // Anti-hallucination post-check. After Mia's final reply assembles,
-// flag any numerical claim that didn't appear in CONTEXT or any tool
-// RESULT seen during this turn. We don't strip the number — we annotate
-// it with a small ⚠ marker so the user can see and verify.
+// any number that isn't anchored to one of the verification sources
+// gets surfaced as "needs verification" via a single trailing footnote.
 //
-// Phase 8.2: don't flag illustrative numbers (ranges, examples).
-// Phase 9 (this update): math-aware. When the reply contains explicit
-// arithmetic like "974 / 8.80 = 110.68", evaluate the expression. If
-// the LHS computes to the RHS within rounding tolerance, the result is
-// verified — same status as a number that appeared in CONTEXT. Verified
-// derived numbers chain: each becomes an input for subsequent equations
-// (so a multi-step P&L calculation flows through cleanly).
+// Verification sources (any of these earns a number a pass):
+//   1. The number appears verbatim in CONTEXT or a tool RESULT.
+//   2. The number appears in an inline equation "A op B = C" whose LHS
+//      computes to the RHS within ~1% tolerance. Multi-pass: each
+//      verified result becomes an input for subsequent equations.
+//   3. The number is within 1% of any already-verified number (lets
+//      the model round in headlines: "$92.99" → "about $93").
+//   4. The number sits inside a range pattern ("0 to 100", "0-100").
+//      Pure structural grammar, not a content list.
+//
+// We deliberately don't enumerate "example phrases" or any prose
+// blacklist — the equation/structure checks above are enough; a
+// number without grounding deserves the gentle nudge.
 
 const NUM_RE = /(\$?[-+]?\d{1,5}(?:,\d{3})*(?:\.\d+)?\s*(?:%|x|tokens|kudos)?)/g;
 
@@ -88,43 +93,35 @@ function harvestVerifiedFromEquations(reply, seen) {
     }
 }
 
-// Phrases that contextually mark a number as illustrative, not a real claim.
-const EXAMPLE_LEADERS = [
-    'for example',
-    'for instance',
-    'e.g.',
-    'eg.',
-    'i.e.',
-    'such as',
-    'like ',
-    'imagine',
-    'say ',
-    'if the confidence is',
-    'if confidence is',
-    'if the score is',
-    'if the price is',
-    'ranges from',
-    'ranging from',
-    'between ',
-    'on a scale of',
-    'on a scale from',
-    'from 0 to',
-    'from 1 to',
-];
+// Range syntax: numbers connected by a range token ("0 to 100", "0-100",
+// "0–100", "between 5 and 10"). Pure structural pattern — closed-class
+// grammatical connectors, not an enumeration of prose. Numbers inside
+// such patterns are illustrative.
+//
+// We check both sides of the matched number AND look for a sibling
+// number connected by a range token. Matching includes the case where
+// NUM_RE captured the number with a leading "-" (so "0-100" yields
+// matches "0" and "-100"; the "-100" match's preceding char is a digit,
+// which is the structural giveaway for "this hyphen is a range, not a
+// sign").
+const SIBLING_NUM_AFTER = /^\s*(?:to|through|until|–|—|-)\s*\d/i;
+const SIBLING_NUM_BEFORE = /\d\s*(?:to|through|until|–|—|-)\s*$/i;
 
-// Range patterns that should NOT be flagged: numbers inside something like
-// "0 to 100", "0-100", "0–100", "0 through 100".
 function isRangeContext(reply, idx, len) {
-    const before = reply.slice(Math.max(0, idx - 20), idx);
-    const after = reply.slice(idx + len, idx + len + 20);
-    if (/(?:to|through|–|—|-)\s*$/i.test(before)) return true;
-    if (/^\s*(?:to|through|–|—|-)\s*\d/i.test(after)) return true;
-    return false;
-}
+    const before = reply.slice(Math.max(0, idx - 24), idx);
+    const after = reply.slice(idx + len, idx + len + 24);
 
-function isExampleContext(reply, idx) {
-    const window = reply.slice(Math.max(0, idx - 80), idx).toLowerCase();
-    return EXAMPLE_LEADERS.some(p => window.includes(p));
+    // Case A: matched number is followed by a range-token then another digit.
+    if (SIBLING_NUM_AFTER.test(after)) return true;
+
+    // Case B: matched number is preceded by digit + range-token (e.g. "0-").
+    if (SIBLING_NUM_BEFORE.test(before)) return true;
+
+    // Case C: NUM_RE captured a leading "-" but the char immediately before
+    // is a digit, so the "-" is a range-hyphen, not a sign.
+    if (reply[idx] === '-' && idx > 0 && /\d/.test(reply[idx - 1])) return true;
+
+    return false;
 }
 
 // Sentinel emitted by flagUnverifiedNumbers when the reply contains
@@ -171,9 +168,8 @@ export function flagUnverifiedNumbers(reply, sources) {
         if (seenNumbers.has(norm)) return match;
         if (fuzzyMatchVerified(norm, seenNumbers)) return match;
 
-        // Range patterns and example phrases — illustrative, not factual.
+        // Range patterns ("0 to 100") — illustrative, not factual.
         if (isRangeContext(reply, offset, match.length)) return match;
-        if (isExampleContext(reply, offset)) return match;
 
         unverified.push(match.trim());
         return match;
