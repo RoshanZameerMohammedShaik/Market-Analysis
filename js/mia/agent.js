@@ -6,7 +6,7 @@
 // no-tools version for the prose path so 8B can't fabricate tool calls.
 
 import { stream as llmStream } from './llm-client.js';
-import { runTool, toolPromptSection, listTools } from './tools.js';
+import { runTool, toolPromptSection, toolPromptSectionCompact, listTools } from './tools.js';
 
 const MAX_TOOL_CALLS = 8;
 const INTRA_TURN_PACE_MS = 350;
@@ -68,6 +68,7 @@ function bufferLooksComplete(buffer) {
 
 export async function* runTurn({ system, messages, signal, onProgress }) {
     const fullSystem = `${system}\n\n${toolPromptSection()}`;
+    const compactSystem = `${system}\n\n${toolPromptSectionCompact()}`;
     const knownToolNames = new Set(listTools().map(t => t.name));
     const bareRe = buildBareToolRegex(knownToolNames);
     let workingMessages = [...messages];
@@ -76,6 +77,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
 
     while (true) {
         if (!isFirstCall) await sleep(INTRA_TURN_PACE_MS);
+        const isFirst = isFirstCall;
         isFirstCall = false;
 
         let buffer = '';
@@ -83,12 +85,18 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
         let toolMatch = null;
         let interrupted = false;
 
+        // First iteration sends the full tool registry; subsequent iterations
+        // use the compact form (name list only). Saves ~375 tokens per
+        // follow-up call, which adds up fast on a 6-call deep-dive and is
+        // a major cause of TPM exhaustion on Groq's 6,000 tok/min cap.
+        const sysForThisCall = isFirst ? fullSystem : compactSystem;
+
         for await (const delta of llmStream({
-            system: fullSystem,
+            system: sysForThisCall,
             // Prose path uses the bare system without tool section so 8B can't
             // hallucinate tool calls. Only matters on the first iteration when
             // intent=prose; subsequent iterations always go on the tool path.
-            systemNoTools: isFirstCall ? system : fullSystem,
+            systemNoTools: isFirst ? system : sysForThisCall,
             messages: workingMessages,
             signal,
             onProgress,
@@ -151,7 +159,11 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
         const { ok, result, error, kind } = await runTool(name, args);
         yield { type: 'tool', name, args, kind: kind || 'read' };
 
-        const resultText = ok ? JSON.stringify(result).slice(0, 4000) : `error: ${error}`;
+        // Truncate big tool results so a verbose response (e.g. 50-row hot
+        // picks list, full ledger window) doesn't dominate the token budget
+        // on subsequent iterations. 2000 chars / ~500 tokens is enough for
+        // any single tool result Mia needs to reason about.
+        const resultText = ok ? JSON.stringify(result).slice(0, 2000) : `error: ${error}`;
 
         const cleanedAssistant = stripToolNoise(buffer).trim();
         workingMessages = [

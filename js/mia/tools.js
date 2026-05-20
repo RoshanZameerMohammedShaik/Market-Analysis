@@ -271,3 +271,16 @@ export function toolPromptSection() {
     lines.push('Never state numbers not in CONTEXT or a RESULT. Stop calling once enough to answer.');
     return lines.join('\n');
 }
+
+// Compact form used on agent-loop iterations 2+. The model already saw
+// the full registry on iteration 1's request; subsequent iterations
+// just need a name list as a refresher. Cuts ~1500 chars / ~375 tokens
+// off every follow-up iteration. Adds up fast on a 6-call deep-dive.
+export function toolPromptSectionCompact() {
+    const reads = Object.entries(TOOLS).filter(([_, t]) => (t.kind || 'read') === 'read').map(([n]) => n);
+    const ctrls = Object.entries(TOOLS).filter(([_, t]) => t.kind === 'control').map(([n]) => n);
+    return `# TOOLS (compact — use the name and args you already saw)
+Format: TOOL: tool_name {"arg": "value"} on its own line, then STOP.
+READ: ${reads.join(', ')}
+CONTROL: ${ctrls.join(', ')}`;
+}
