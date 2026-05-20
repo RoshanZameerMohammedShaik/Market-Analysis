@@ -1,0 +1,141 @@
+name: Live ledger
+
+# Per-region open-of-day prediction crons + nightly outcome resolution
+# + nightly calibration recompute. Each region is timed roughly to the
+# market's open in UTC. UTC means we don't track DST exactly — close
+# enough; ledger framing is "first price seen on the trading day".
+#
+# Crypto is 24/7 so we just snapshot once at 00:00 UTC.
+
+on:
+  schedule:
+    # NYSE — opens 13:30 UTC (winter) / 14:30 UTC (summer DST)
+    - cron: '35 13 * * 1-5'
+    # LSE / DAX — opens 08:00 UTC (winter) / 07:00 UTC (summer DST)
+    - cron: '5 8 * * 1-5'
+    # NSE (India) — opens 03:45 UTC year-round
+    - cron: '50 3 * * 1-5'
+    # HKEX — opens 01:30 UTC
+    - cron: '35 1 * * 1-5'
+    # TYO — opens 00:00 UTC
+    - cron: '5 0 * * 1-5'
+    # ASX — opens 23:00 UTC (Sun-Thu)
+    - cron: '5 23 * * 0-4'
+    # Crypto — fixed UTC snapshot
+    - cron: '0 0 * * *'
+    # Outcome resolution + calibration recompute — daily at 22:00 UTC
+    # (after NYSE close, before the next region opens)
+    - cron: '0 22 * * *'
+
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Which task to run
+        required: true
+        default: 'predict-NYSE'
+        type: choice
+        options:
+          - predict-NYSE
+          - predict-CRYPTO
+          - predict-NSE
+          - predict-LSE
+          - predict-HKEX
+          - predict-TYO
+          - predict-XETRA
+          - predict-ASX
+          - resolve-outcomes
+          - recalibrate
+
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Decide task
+        id: decide
+        run: |
+          task=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            task="${{ github.event.inputs.task }}"
+          else
+            case "${{ github.event.schedule }}" in
+              "35 13 * * 1-5")  task="predict-NYSE"   ;;
+              "5 8 * * 1-5")    task="predict-LSE-XETRA" ;;
+              "50 3 * * 1-5")   task="predict-NSE"    ;;
+              "35 1 * * 1-5")   task="predict-HKEX"   ;;
+              "5 0 * * 1-5")    task="predict-TYO"    ;;
+              "5 23 * * 0-4")   task="predict-ASX"    ;;
+              "0 0 * * *")      task="predict-CRYPTO" ;;
+              "0 22 * * *")     task="resolve-and-recalibrate" ;;
+            esac
+          fi
+          echo "task=$task" >> $GITHUB_OUTPUT
+
+      - name: Predict NYSE
+        if: contains(steps.decide.outputs.task, 'predict-NYSE')
+        run: python record_predictions.py --region NYSE
+
+      - name: Predict CRYPTO
+        if: contains(steps.decide.outputs.task, 'predict-CRYPTO')
+        run: python record_predictions.py --region CRYPTO
+
+      - name: Predict NSE
+        if: contains(steps.decide.outputs.task, 'predict-NSE')
+        run: python record_predictions.py --region NSE
+
+      - name: Predict LSE
+        if: contains(steps.decide.outputs.task, 'predict-LSE')
+        run: python record_predictions.py --region LSE
+
+      - name: Predict XETRA
+        if: contains(steps.decide.outputs.task, 'predict-XETRA') || contains(steps.decide.outputs.task, 'predict-LSE-XETRA')
+        run: python record_predictions.py --region XETRA
+
+      - name: Predict LSE (combined run)
+        if: contains(steps.decide.outputs.task, 'predict-LSE-XETRA')
+        run: python record_predictions.py --region LSE
+
+      - name: Predict HKEX
+        if: contains(steps.decide.outputs.task, 'predict-HKEX')
+        run: python record_predictions.py --region HKEX
+
+      - name: Predict TYO
+        if: contains(steps.decide.outputs.task, 'predict-TYO')
+        run: python record_predictions.py --region TYO
+
+      - name: Predict ASX
+        if: contains(steps.decide.outputs.task, 'predict-ASX')
+        run: python record_predictions.py --region ASX
+
+      - name: Resolve outcomes
+        if: contains(steps.decide.outputs.task, 'resolve')
+        run: python record_outcomes.py
+
+      - name: Recalibrate
+        if: contains(steps.decide.outputs.task, 'recalibrate')
+        run: python recalibrate_from_ledger.py
+
+      - name: Commit ledger updates
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -f model/ledger/*.jsonl model/live_calibration.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo 'No changes to commit'
+            exit 0
+          fi
+          git commit -m "chore(ledger): ${{ steps.decide.outputs.task }} [skip ci]"
+          git push
