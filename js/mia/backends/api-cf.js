@@ -23,7 +23,7 @@ export async function* stream({ system, messages, key, accountId, signal }) {
         body: JSON.stringify({
             messages: [{ role: 'system', content: system }, ...messages],
             temperature: 0.3,
-            max_tokens: 800,
+            max_tokens: 1500,
             stream: true,
         }),
         signal,
