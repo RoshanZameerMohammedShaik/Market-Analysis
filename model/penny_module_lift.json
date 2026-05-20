@@ -1,0 +1,15 @@
+{
+  "runDate": "2026-05-20T07:51:30.841606Z",
+  "sampleSize": 3896,
+  "hitRateWith": 52.5,
+  "hitRateWithout": 50.8,
+  "liftPp": 1.7,
+  "ciHalfWidthPp": 2.2,
+  "confident": true,
+  "finraSamples": 1622,
+  "caveats": [
+    "FINRA-only replay; OpenInsider + Social velocity historical replay pending.",
+    "Backtest accuracy != live accuracy due to penny survivorship bias.",
+    "Penny LSTM not in this comparison \u2014 measured separately."
+  ]
+}
