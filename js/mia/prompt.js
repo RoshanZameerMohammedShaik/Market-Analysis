@@ -38,6 +38,10 @@ PRIMARY JOB:
 - This app exists to give signals on stocks and crypto. When the user asks for a pick, prediction, or what's likely to move, that's the job — fulfil it via the tools. Echoing the engine's output is NOT giving financial advice; it's reporting what the model produced.
 - Don't invent a buy/sell call that disagrees with the displayed signal, and don't invent prices.
 
+PRICE RANGES:
+- The engine produces two bands. Probable = where the price most likely lands (narrower, what a trader cares about). Possible = the wider plausible envelope (risk context).
+- When discussing targets, lead with the probable band. Mention the possible band only when the user asks about risk, downside, or "where could it go at most". Never invent your own range.
+
 TOOLS & AGENCY:
 - You can drive the app: load symbols, switch tabs/timeframes, change theme, run the P&L calculator, filter Hot Picks, open Spikers/About, scroll to a section, etc. When intent implies action, do it — don't describe how the user could click.
 - After any control action that re-renders the signal, follow up by reading the new signal so your reply reflects what's actually on screen.
@@ -118,7 +122,10 @@ export function buildContextBlock(latestSignal) {
         }
         if (latestSignal.priceTargets) {
             const pt = latestSignal.priceTargets;
-            lines.push(`Range: $${pt.predictedLow}–$${pt.predictedHigh} • Sup $${pt.support} Res $${pt.resistance}`);
+            const probable = (pt.probableLow != null && pt.probableHigh != null)
+                ? ` • Probable: $${pt.probableLow}–$${pt.probableHigh}`
+                : '';
+            lines.push(`Range: $${pt.predictedLow}–$${pt.predictedHigh}${probable} • Sup $${pt.support} Res $${pt.resistance}`);
         }
         if (latestSignal.reasons?.length) {
             lines.push('Top reasons:');

@@ -438,12 +438,40 @@ export function calculatePriceTargets(candles, signal, confidence, timeframe = '
     if (predictedLow < recentLow * 0.95) predictedLow = recentLow - (recentLow - predictedLow) * 0.5;
     const highPct = ((predictedHigh - currentPrice) / currentPrice) * 100;
     const lowPct = ((predictedLow - currentPrice) / currentPrice) * 100;
+
+    // Probable band — narrower target zone biased toward the predicted
+    // direction. Possible band shows what's plausible (ATR × ~1); probable
+    // band shows what's likely (ATR × ~0.3, asymmetric toward the call).
+    // Widens slightly when confidence is low; tightens when high.
+    const probableInner = 0.18 + (1 - confidenceFactor) * 0.18;  // 0.18 .. 0.36
+    const probableOuter = 0.45 + (1 - confidenceFactor) * 0.20;  // 0.45 .. 0.65
+    let probableHigh, probableLow;
+    if (signal === 'BUY') {
+        probableHigh = currentPrice + expectedMove * probableOuter;
+        probableLow = currentPrice - expectedMove * probableInner;
+    } else if (signal === 'SELL') {
+        probableHigh = currentPrice + expectedMove * probableInner;
+        probableLow = currentPrice - expectedMove * probableOuter;
+    } else {
+        probableHigh = currentPrice + expectedMove * 0.30;
+        probableLow = currentPrice - expectedMove * 0.30;
+    }
+    // Probable band must always sit inside the possible band.
+    probableHigh = Math.min(probableHigh, predictedHigh);
+    probableLow = Math.max(probableLow, predictedLow);
+    const probableHighPct = ((probableHigh - currentPrice) / currentPrice) * 100;
+    const probableLowPct = ((probableLow - currentPrice) / currentPrice) * 100;
+
     return {
         currentPrice,
         predictedHigh: +predictedHigh.toFixed(2),
         predictedLow: +predictedLow.toFixed(2),
         highPercent: +highPct.toFixed(2),
         lowPercent: +lowPct.toFixed(2),
+        probableHigh: +probableHigh.toFixed(2),
+        probableLow: +probableLow.toFixed(2),
+        probableHighPercent: +probableHighPct.toFixed(2),
+        probableLowPercent: +probableLowPct.toFixed(2),
         expectedMove: +expectedMove.toFixed(2),
         atr: +atr.toFixed(2),
         support: +recentLow.toFixed(2),

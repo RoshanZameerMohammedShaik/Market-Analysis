@@ -21,12 +21,23 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     let priceTargetHTML = '';
     if (priceTargets) {
         const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
+        const hasProbable = priceTargets.probableHigh != null && priceTargets.probableLow != null;
+        const probableStrip = hasProbable
+            ? `<div class="probable-strip" title="The narrower target zone — where the price most likely lands">
+                    <span class="probable-label">Probable</span>
+                    <span class="probable-low">${fmtPriceTag(priceTargets.probableLow)}</span>
+                    <span class="probable-arrow">→</span>
+                    <span class="probable-high">${fmtPriceTag(priceTargets.probableHigh)}</span>
+                    <span class="probable-pct">(${priceTargets.probableLowPercent >= 0 ? '+' : ''}${priceTargets.probableLowPercent}% to ${priceTargets.probableHighPercent >= 0 ? '+' : ''}${priceTargets.probableHighPercent}%)</span>
+               </div>`
+            : '';
         priceTargetHTML = `
             <div class="price-targets fade-in">
                 <div class="price-targets-title">Predicted Price Range — ${tfLabel}</div>
+                ${probableStrip}
                 <div class="price-targets-grid">
                     <div class="price-target-card high">
-                        <div class="price-target-label">Predicted High</div>
+                        <div class="price-target-label">Possible High</div>
                         <div class="price-target-value high">${fmtPriceTag(priceTargets.predictedHigh)}</div>
                         <div class="price-target-pct up">▲ +${priceTargets.highPercent}%</div>
                     </div>
@@ -36,7 +47,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                         <div class="price-target-pct">ATR: ${fmtPriceTag(priceTargets.atr)}</div>
                     </div>
                     <div class="price-target-card low">
-                        <div class="price-target-label">Predicted Low</div>
+                        <div class="price-target-label">Possible Low</div>
                         <div class="price-target-value low">${fmtPriceTag(priceTargets.predictedLow)}</div>
                         <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%</div>
                     </div>
