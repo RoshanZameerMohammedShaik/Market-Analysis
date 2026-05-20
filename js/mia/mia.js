@@ -57,6 +57,8 @@ const ACTION_VERBS = {
     find_spikers: 'scanning for spike candidates',
     get_prediction_log: 'reading prediction history',
     get_source_accuracy: 'checking source accuracy',
+    get_ledger_history: 'reading live ledger history',
+    get_live_calibration: 'checking live calibration',
     set_theme: 'switching theme',
     focus_search: 'jumping to search',
     clear_chat: 'clearing the chat',

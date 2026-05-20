@@ -15,6 +15,7 @@ import {
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
+    readLedgerHistory, readLiveCalibration,
 } from './ui-bridge.js';
 import {
     fetchNewsAndSentiment, fetchFredSeries, fetchRedditSentiment,
@@ -210,6 +211,18 @@ const TOOLS = {
         args: '{"text":"NVDA · 72% BUY · $1,180"}',
         run: ({ text }) => controlCopyToClipboard({ text }),
         kind: 'control',
+    },
+    get_ledger_history: {
+        desc: 'recent live-ledger predictions (and resolved outcomes) from the open-of-day cron. Optional symbol filter; returns 1d hit-rate summary plus the last N rows.',
+        args: '{"symbol":"NVDA","limit":10}',
+        run: ({ symbol, limit }) => readLedgerHistory({ symbol, limit }),
+        kind: 'read',
+    },
+    get_live_calibration: {
+        desc: 'current empirical hit rates from the live ledger, broken down by horizon (1/3/5/10/20 days), signal (BUY/SELL/NEUTRAL), and region',
+        args: '{}',
+        run: () => readLiveCalibration(),
+        kind: 'read',
     },
 };
 

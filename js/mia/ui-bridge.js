@@ -316,6 +316,89 @@ export function readPredictionLog({ limit = 10 } = {}) {
     return { totalLogged: log.length, returned: recent.length, recent };
 }
 
+// Lazy-load + cache the current year's ledger so Mia can look up
+// recent predictions and outcomes without hammering the network.
+let _ledgerCache = null;
+let _ledgerCacheTs = 0;
+const LEDGER_CACHE_MS = 5 * 60 * 1000;
+
+async function loadLedger() {
+    if (_ledgerCache && Date.now() - _ledgerCacheTs < LEDGER_CACHE_MS) {
+        return _ledgerCache;
+    }
+    const year = new Date().getUTCFullYear();
+    try {
+        const res = await fetch(`./model/ledger/${year}.jsonl`);
+        if (!res.ok) {
+            _ledgerCache = [];
+            _ledgerCacheTs = Date.now();
+            return _ledgerCache;
+        }
+        const text = await res.text();
+        const rows = [];
+        for (const line of text.split('\n')) {
+            const t = line.trim();
+            if (!t) continue;
+            try { rows.push(JSON.parse(t)); } catch (_) {}
+        }
+        _ledgerCache = rows;
+        _ledgerCacheTs = Date.now();
+        return _ledgerCache;
+    } catch (_) {
+        _ledgerCache = [];
+        _ledgerCacheTs = Date.now();
+        return _ledgerCache;
+    }
+}
+
+export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
+    const rows = await loadLedger();
+    if (!rows.length) {
+        return { available: false, note: 'Ledger not seeded yet — needs at least one cron run.' };
+    }
+    let scoped = rows;
+    if (symbol) {
+        const sym = String(symbol).toUpperCase();
+        scoped = rows.filter(r => r.symbol === sym);
+    }
+    const lim = Math.max(1, Math.min(50, Number(limit) || 10));
+    const recent = scoped.slice(-lim);
+    // Compute simple resolved-hit-rate so Mia can summarize at a glance.
+    let resolvedN = 0, hits = 0;
+    for (const r of recent) {
+        const h1 = r.horizons?.['1'];
+        if (h1) { resolvedN++; if (h1.directionMatch) hits++; }
+    }
+    return {
+        available: true,
+        symbol: symbol || 'all',
+        rowsReturned: recent.length,
+        totalForSymbol: scoped.length,
+        resolved1d: resolvedN,
+        hits1d: hits,
+        hitRate1dPct: resolvedN ? Math.round((hits / resolvedN) * 100) : null,
+        recent,
+    };
+}
+
+export async function readLiveCalibration() {
+    try {
+        const res = await fetch('./model/live_calibration.json');
+        if (!res.ok) return { available: false, note: 'Live calibration not generated yet.' };
+        const data = await res.json();
+        return {
+            available: true,
+            generatedAt: data.generatedAt,
+            totalRowsConsidered: data.totalRowsConsidered,
+            totalResolvedHorizons: data.totalResolvedHorizons,
+            byHorizon: data.byHorizon,
+            byRegion: data.byRegion,
+        };
+    } catch (e) {
+        return { available: false, note: String(e.message || e) };
+    }
+}
+
 export function readSourceAccuracy() {
     const data = getSourceAccuracy();
     if (!data) return { available: false, note: 'Not enough resolved samples yet (need 15+ in the last 30).' };
