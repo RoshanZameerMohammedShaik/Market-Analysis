@@ -19,8 +19,10 @@ const MODEL_THINKING = 'llama-3.3-70b-versatile';
 
 const STOP_SEQUENCES = ['\nRESULT:', 'RESULT (from'];
 
-// One silent retry on 429 after this delay. Keep small — the user is waiting.
-const RETRY_429_MS = 1000;
+// Silent retry schedule on 429. Two attempts with backoff is enough to
+// clear most sliding-window throttles without making the user wait long.
+// First retry at 1s, second at 2s, then surface the error.
+const RETRY_429_DELAYS_MS = [1000, 2000];
 
 let lastUsage = null;
 
@@ -86,23 +88,23 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
     const model = modelFor(tier);
     let res;
 
-    try {
-        res = await postOnce({ model, system, messages, key, signal });
-    } catch (err) {
-        // Silent 1s retry on 429 — most sliding-window throttles clear within ~1s.
-        // 401/403 (auth) and 5xx (server) skip the retry.
-        if (err?.status === 429 && !signal?.aborted) {
-            await new Promise(r => setTimeout(r, RETRY_429_MS));
+    // Initial post with retry-on-429. 401/403 (auth) and 5xx skip retry.
+    let lastErr = null;
+    for (let attempt = 0; attempt <= RETRY_429_DELAYS_MS.length; attempt++) {
+        try {
+            res = await postOnce({ model, system, messages, key, signal });
+            lastErr = null;
+            break;
+        } catch (err) {
+            lastErr = err;
+            const is429 = err?.status === 429;
+            const moreAttempts = attempt < RETRY_429_DELAYS_MS.length;
+            if (!is429 || !moreAttempts || signal?.aborted) throw err;
+            await new Promise(r => setTimeout(r, RETRY_429_DELAYS_MS[attempt]));
             if (signal?.aborted) throw err;
-            try {
-                res = await postOnce({ model, system, messages, key, signal });
-            } catch (err2) {
-                throw err2;
-            }
-        } else {
-            throw err;
         }
     }
+    if (lastErr) throw lastErr;
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -120,9 +122,25 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
             if (payload === '[DONE]') return;
             try {
                 const json = JSON.parse(payload);
+                // Mid-stream error event: Groq sends {"error":{...}} as a
+                // data line and then closes the stream. Without this branch
+                // the error was silently swallowed and the user saw a
+                // truncated reply or, worse, mia.js's catch wiped it.
+                if (json.error) {
+                    const msg = json.error?.message || 'stream error';
+                    const status = json.error?.code === 'rate_limit_exceeded' ? 429 : 500;
+                    const e = new Error(msg);
+                    e.status = status;
+                    e.midStream = true;
+                    throw e;
+                }
                 const delta = json.choices?.[0]?.delta?.content;
                 if (delta) yield delta;
-            } catch (_) { /* skip */ }
+            } catch (e) {
+                // Re-throw genuine errors; ignore JSON parse hiccups.
+                if (e?.midStream) throw e;
+                /* skip parse errors on partial chunks */
+            }
         }
     }
 }

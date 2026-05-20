@@ -432,8 +432,24 @@ async function doSend() {
         renderer.abort();
         const updated = loadHistory();
         const aborted = e?.name === 'AbortError' || /abort/i.test(e?.message || '');
-        if (acc.trim() && aborted) updated.push({ role: 'assistant', content: scrubToolNames(stripAgentNoise(acc).trim()) + '\n\n_(stopped early by you)_' });
-        else updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
+        const partial = acc.trim();
+
+        // Preserve the partial answer the user already saw on-screen. If a
+        // stream errored mid-flight (rate limit, network blip, etc.) the
+        // sensible thing is to keep what was rendered and append a small
+        // note — not wipe the whole bubble and replace it with an error.
+        if (partial) {
+            const cleaned = scrubToolNames(stripAgentNoise(partial).trim());
+            const ctxText = buildContextBlock(currentSignal);
+            const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
+            const flaggedPartial = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
+            const note = aborted
+                ? '_(stopped early by you)_'
+                : `_(reply cut off — ${e?.status === 429 ? 'rate-limited; ask again to continue' : 'connection issue'})_`;
+            updated.push({ role: 'assistant', content: flaggedPartial + '\n\n' + note });
+        } else {
+            updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
+        }
         saveHistory(updated);
         renderThread(updated);
     } finally {
