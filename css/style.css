@@ -291,6 +291,19 @@ body {
 }
 .cal-badge.calibrated { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
 .cal-badge.raw { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+.cal-badge.live {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+    animation: cal-badge-live-pulse 2.5s ease-in-out infinite;
+}
+@keyframes cal-badge-live-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 25%, transparent); }
+    50%      { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cal-badge.live { animation: none; }
+}
 .cal-delta-row { font-size: 0.74rem; color: var(--text-muted); margin-top: 4px; }
 .cal-delta { font-family: var(--num-font); }
 .refresh-btn {

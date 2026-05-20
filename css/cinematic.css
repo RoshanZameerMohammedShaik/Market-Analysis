@@ -208,39 +208,55 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* Header ECG: bigger and brighter so it doesn't read as a stray squiggle. */
-.header-ecg {
-    width: 110px; height: 28px;
+/* Header pulse: candlestick-style trading bars on either side of the title.
+   Reads as "market activity" rather than "hospital monitor". 8 bars cycle
+   through low/mid/high heights on a phased delay so it animates left→right.
+   Theme-tinted via var(--accent). */
+.header-pulse {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
     flex-shrink: 0;
 }
-.header-ecg-trace {
-    stroke: rgba(244, 114, 182, 0.55);
-    stroke-width: 2.2 !important;
+.header-pulse i {
+    display: block;
+    width: 4px;
+    border-radius: 2px;
+    background: var(--accent, #f472b6);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
+    animation: header-pulse-bar 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    transform-origin: center;
 }
-.header-ecg-blip {
-    stroke: #f472b6;
-    stroke-width: 3.0 !important;
-    stroke-dasharray: 14 200;
-    filter: drop-shadow(0 0 6px rgba(244, 114, 182, 0.95));
-    animation: ecg-sweep 2.4s linear infinite;
+.header-pulse i:nth-child(1) { animation-delay: 0s;    }
+.header-pulse i:nth-child(2) { animation-delay: -0.18s;}
+.header-pulse i:nth-child(3) { animation-delay: -0.36s;}
+.header-pulse i:nth-child(4) { animation-delay: -0.54s;}
+.header-pulse i:nth-child(5) { animation-delay: -0.72s;}
+.header-pulse i:nth-child(6) { animation-delay: -0.90s;}
+.header-pulse i:nth-child(7) { animation-delay: -1.08s;}
+.header-pulse i:nth-child(8) { animation-delay: -1.26s;}
+.header-pulse-right i {
+    /* Right side runs in reverse so both sides read as flowing TOWARD the title. */
+    animation-direction: reverse;
 }
-.header-ecg-right .header-ecg-blip {
-    animation-delay: -1.2s;
-}
-.header-ecg-right {
-    transform: scaleX(-1);
-}
-@keyframes ecg-sweep {
-    from { stroke-dashoffset: 214; }
-    to   { stroke-dashoffset: 0; }
+@keyframes header-pulse-bar {
+    0%, 100% { height: 6px;  opacity: 0.45; }
+    25%      { height: 16px; opacity: 0.85; }
+    50%      { height: 22px; opacity: 1;    }
+    75%      { height: 12px; opacity: 0.7;  }
 }
 
 @media (max-width: 768px) {
-    .header-ecg { width: 64px; height: 20px; }
+    .header-pulse { gap: 2.5px; height: 22px; }
+    .header-pulse i { width: 3px; }
     .app-title-wrap { gap: 10px; }
 }
 @media (max-width: 480px) {
-    .header-ecg { width: 44px; }
+    .header-pulse i:nth-child(n+6) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .header-pulse i { animation: none; height: 12px; opacity: 0.7; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {

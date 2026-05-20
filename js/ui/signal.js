@@ -5,6 +5,7 @@ import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
 import { animateNumber } from './animate.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
+import { getCalibrationSource } from '../calibration.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -106,10 +107,15 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             </div>`;
     }
 
+    // Surface which calibration source actually answered: live ledger, backtest,
+    // or raw. Live = real-world hit rates; backtest = historical replay; raw =
+    // not enough data either way.
+    const calSrc = getCalibrationSource();
+    const isLive = calSrc && calSrc.startsWith('live-');
     const calibrationBadge = isDev()
         ? (calibrationApplied
-            ? `<span class="cal-badge calibrated" title="Confidence adjusted to match backtested hit rate">✓ calibrated</span>`
-            : `<span class="cal-badge raw" title="No backtest data yet — confidence is heuristic, not empirical">! raw</span>`)
+            ? `<span class="cal-badge ${isLive ? 'live' : 'calibrated'}" title="${isLive ? 'Confidence from LIVE ledger (real-world outcomes)' : 'Confidence from backtest calibration (historical replay)'}">${isLive ? '◉ live' : '✓ calibrated'}</span>`
+            : `<span class="cal-badge raw" title="No calibration data yet — confidence is heuristic, not empirical">! raw</span>`)
         : '';
     const calibrationDelta = (isDev() && calibrationApplied && rawConfidence !== confidence)
         ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>` : '';
