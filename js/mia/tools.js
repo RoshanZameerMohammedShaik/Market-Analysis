@@ -17,6 +17,7 @@ import {
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration,
 } from './ui-bridge.js';
+import { compute, solveBreakEven } from './math-tool.js';
 import {
     fetchNewsAndSentiment, fetchFredSeries, fetchRedditSentiment,
     fetchSecRecentFilings, fetchOptionsView, fetchCryptoDerivativesView,
@@ -222,6 +223,18 @@ const TOOLS = {
         desc: 'current empirical hit rates from the live ledger, broken down by horizon (1/3/5/10/20 days), signal (BUY/SELL/NEUTRAL), and region',
         args: '{}',
         run: () => readLiveCalibration(),
+        kind: 'read',
+    },
+    compute: {
+        desc: 'evaluate a numeric expression with full operator precedence. Use this for ANY arithmetic — never compute multi-step math in your head. Supports + - * / ^ and parentheses.',
+        args: '{"expression":"974 / 8.80"}',
+        run: ({ expression }) => compute({ expression }),
+        kind: 'read',
+    },
+    solve_break_even: {
+        desc: 'solve "how much more do I invest at currentPrice so my average cost equals target when the price reaches target". Pass investment (USD), buyPrice (entry per-share), currentPrice, target (the recovery price you want to break even at). Returns additionalInvestment plus full breakdown. If target == buyPrice, returns zero (the recovery alone breaks you even).',
+        args: '{"investment":974,"buyPrice":8.80,"currentPrice":7.96,"target":8.80}',
+        run: ({ investment, buyPrice, currentPrice, target }) => solveBreakEven({ investment, buyPrice, currentPrice, target }),
         kind: 'read',
     },
 };

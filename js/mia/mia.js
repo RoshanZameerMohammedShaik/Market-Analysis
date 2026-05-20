@@ -59,6 +59,8 @@ const ACTION_VERBS = {
     get_source_accuracy: 'checking source accuracy',
     get_ledger_history: 'reading live ledger history',
     get_live_calibration: 'checking live calibration',
+    compute: 'crunching the math',
+    solve_break_even: 'solving the break-even',
     set_theme: 'switching theme',
     focus_search: 'jumping to search',
     clear_chat: 'clearing the chat',
