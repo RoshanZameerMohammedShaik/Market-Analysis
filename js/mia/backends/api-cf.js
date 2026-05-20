@@ -33,7 +33,7 @@ export async function* stream({ system, messages, key, accountId, signal }) {
         const body = await res.text().catch(() => '');
         if (res.status === 401) throw new Error('Cloudflare rejected the token. Re-paste in settings.');
         if (res.status === 403) throw new Error('Token lacks Workers AI permission. Check the token scope.');
-        if (res.status === 429) throw new Error('Cloudflare Workers AI daily free quota hit. Wait until UTC midnight, or switch to Groq.');
+        if (res.status === 429) throw new Error('Cloudflare Workers AI daily free quota hit. Wait until UTC midnight, or switch to Gemini.');
         throw new Error(`Cloudflare error ${res.status}: ${body.slice(0, 200)}`);
     }
 

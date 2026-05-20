@@ -1,18 +1,17 @@
 // Unified Mia client.
 //
-// Phase 5 routing on Groq:
-//   - thinking-mode → 70B for everything (user explicitly opted in)
-//   - default       → intent classifier picks 8B (prose) or 70B (tools)
+// Backends:
+//   gemini      → Google AI Studio (Flash-Lite default, Flash thinking-mode)
+//   cloudflare  → Cloudflare Workers AI (Llama 3.3 70B, fallback)
 //
-// We accept TWO system prompts so the prose path can use a tool-free version
-// (saves ~250 prompt tokens AND prevents 8B from fabricating tool calls).
-// agent.js builds both via prompt.js + tools.toolPromptSection().
+// Thinking mode escalates Gemini Flash-Lite → Flash. Otherwise the intent
+// classifier picks Flash-Lite for prose vs. tool-tier for everything else.
 //
-// Cross-provider fallback (Groq -> CF or vice versa) still applies on 5xx /
-// network errors / long-retry 429s. Auth errors don't fall over.
+// Cross-provider fallback: when Gemini returns 5xx / mid-stream / long-retry
+// 429, we silently switch to Cloudflare. Auth errors don't fall over.
 
 import { loadSettings } from './settings.js';
-import * as groq from './backends/api-groq.js';
+import * as gemini from './backends/api-gemini.js';
 import * as cf from './backends/api-cf.js';
 import { routedStream, getLastDecision } from './router.js';
 
@@ -33,13 +32,13 @@ export const webllm = {
 
 function route() {
     const s = loadSettings();
-    if (s.backend === 'groq' && s.groqKey) {
-        return { primary: 'groq', fallback: (s.fallbackEnabled && s.cfKey && s.cfAccountId) ? 'cloudflare' : null };
+    if (s.backend === 'gemini' && s.geminiKey) {
+        return { primary: 'gemini', fallback: (s.fallbackEnabled && s.cfKey && s.cfAccountId) ? 'cloudflare' : null };
     }
     if (s.backend === 'cloudflare' && s.cfKey && s.cfAccountId) {
-        return { primary: 'cloudflare', fallback: (s.fallbackEnabled && s.groqKey) ? 'groq' : null };
+        return { primary: 'cloudflare', fallback: (s.fallbackEnabled && s.geminiKey) ? 'gemini' : null };
     }
-    throw new Error('Mia is not configured yet. Add a Groq or Cloudflare key in settings.');
+    throw new Error('Mia is not configured yet. Add a Gemini or Cloudflare key in settings.');
 }
 
 function shouldFailover(err) {
@@ -57,14 +56,14 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     const { primary, fallback } = route();
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
 
-    const groqRun = async function* () {
+    const geminiRun = async function* () {
         if (s.thinkingMode) {
-            // Thinking mode → explicit 70B for everything.
-            for await (const delta of groq.stream({ system, messages, key: s.groqKey, signal, tier: 'thinking' })) yield delta;
+            // Thinking mode → explicit Flash for everything.
+            for await (const delta of gemini.stream({ system, messages, key: s.geminiKey, signal, tier: 'thinking' })) yield delta;
             return;
         }
-        // Default: intent-classified routing.
-        for await (const delta of routedStream({ system, systemNoTools, messages, key: s.groqKey, signal, onProgress })) yield delta;
+        // Default: intent-classified routing (Flash-Lite vs Flash).
+        for await (const delta of routedStream({ system, systemNoTools, messages, key: s.geminiKey, signal, onProgress })) yield delta;
     };
 
     const cfRun = async function* () {
@@ -72,8 +71,8 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     };
 
     try {
-        if (primary === 'groq') {
-            yield* groqRun();
+        if (primary === 'gemini') {
+            yield* geminiRun();
         } else {
             yield* cfRun();
         }
@@ -81,8 +80,8 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     } catch (err) {
         if (!fallback || !shouldFailover(err) || signal?.aborted) throw err;
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: `falling back to ${fallback}…` });
-        if (fallback === 'groq') {
-            yield* groqRun();
+        if (fallback === 'gemini') {
+            yield* geminiRun();
         } else {
             yield* cfRun();
         }
@@ -92,14 +91,14 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
 export async function pingBackend() {
     const s = loadSettings();
     const tier = s.thinkingMode ? 'thinking' : 'default';
-    if (s.backend === 'groq') return groq.ping(s.groqKey, tier);
+    if (s.backend === 'gemini') return gemini.ping(s.geminiKey, tier);
     if (s.backend === 'cloudflare') return cf.ping(s.cfKey, s.cfAccountId);
     return { ok: false, msg: 'Not configured.' };
 }
 
 export function getUsage() {
     const s = loadSettings();
-    if (s.backend === 'groq') return groq.getLastUsage();
+    if (s.backend === 'gemini') return gemini.getLastUsage();
     if (s.backend === 'cloudflare') return cf.getLastUsage();
     return null;
 }
@@ -116,14 +115,14 @@ export function getRoutingSummary() {
         return {
             primary: r.primary,
             fallback: r.fallback,
-            groqModel: r.primary === 'groq' || r.fallback === 'groq'
-                ? (s.thinkingMode ? groq.getModelForTier('thinking') : `${groq.getModelForTier('default')} ↔ ${groq.getModelForTier('thinking')} (intent-classified)`)
+            geminiModel: r.primary === 'gemini' || r.fallback === 'gemini'
+                ? (s.thinkingMode ? gemini.getModelForTier('thinking') : `${gemini.getModelForTier('default')} ↔ ${gemini.getModelForTier('thinking')} (intent-classified)`)
                 : null,
             tier,
-            smartRouting: r.primary === 'groq' && !s.thinkingMode,
+            smartRouting: r.primary === 'gemini' && !s.thinkingMode,
         };
     } catch (_) {
-        return { primary: null, fallback: null, groqModel: null, tier: 'default', smartRouting: false };
+        return { primary: null, fallback: null, geminiModel: null, tier: 'default', smartRouting: false };
     }
 }
 

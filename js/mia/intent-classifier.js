@@ -1,12 +1,14 @@
-// Phase 8.4 critical fix: classifier was routing 'how accurate is this app'
-// as PROSE → 8B with no tools fabricated '72%' and '1,234 predictions'.
-// Any question about LIVE STATS or APP'S OWN PERFORMANCE must go through
-// tools, not prose-mode.
+// Cheap upfront intent classification using Gemini Flash-Lite (free tier,
+// 30 RPM). Decides whether the user's question needs tools or can be
+// answered from general knowledge. Single-token completion (~80 tokens
+// of input + 1 of output), so the cost is negligible.
+//
+// Falls back to 'tool' on any error — reliability beats cost.
 
 import { state } from '../ui/state.js';
 
-const CLASSIFY_MODEL = 'llama-3.1-8b-instant';
-const URL = 'https://api.groq.com/openai/v1/chat/completions';
+const CLASSIFY_MODEL = 'gemini-2.5-flash-lite';
+const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const CLASSIFIER_SYSTEM = `Classify the user's request as exactly one letter.
 
@@ -28,26 +30,23 @@ export async function classifyIntent({ userMessage, key, signal }) {
         : '(no symbol loaded)';
 
     try {
-        const res = await fetch(URL, {
+        const url = `${BASE_URL}/${CLASSIFY_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+        const res = await fetch(url, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: CLASSIFY_MODEL,
-                messages: [
-                    { role: 'system', content: CLASSIFIER_SYSTEM },
-                    { role: 'user', content: `${context}\n\nUser request: ${userMessage}` },
-                ],
-                max_tokens: 2,
-                temperature: 0,
+                systemInstruction: { parts: [{ text: CLASSIFIER_SYSTEM }] },
+                contents: [{ role: 'user', parts: [{ text: `${context}\n\nUser request: ${userMessage}` }] }],
+                generationConfig: {
+                    maxOutputTokens: 2,
+                    temperature: 0,
+                },
             }),
             signal: signal || AbortSignal.timeout(5000),
         });
         if (!res.ok) return 'tool';
         const j = await res.json();
-        const content = (j.choices?.[0]?.message?.content || '').trim().toUpperCase();
+        const content = (j.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
         if (content.startsWith('P')) return 'prose';
         if (content.startsWith('T')) return 'tool';
         return 'tool';

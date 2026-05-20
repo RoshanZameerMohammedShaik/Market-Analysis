@@ -1,9 +1,12 @@
-// Phase 8.8: prose path now uses the slim system prompt (buildSlimSystemPrompt)
-// instead of the full BASE prompt + extra anti-fabrication scaffolding. The
-// slim prompt already encodes the no-tool / no-fabrication rules, so per-call
-// cost drops from ~1,400 → ~250 prompt tokens.
+// Intent-classified routing for Gemini.
+//
+// prose intent → Flash-Lite (cheap, fast, no tools)
+// tool intent  → Flash      (better reasoning for multi-step + tools)
+//
+// The prose path uses a SLIM system prompt that strips the tool registry
+// (saves prompt tokens on casual chat).
 
-import * as groq from './backends/api-groq.js';
+import * as gemini from './backends/api-gemini.js';
 import { classifyIntent } from './intent-classifier.js';
 import { buildSlimSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadSettings } from './settings.js';
@@ -30,12 +33,10 @@ export async function* routedStream({ system, systemNoTools, messages, key, sign
     });
 
     if (intent === 'prose') {
-        lastDecision = { intent: 'prose', model: 'llama-3.1-8b-instant', ts: Date.now() };
+        lastDecision = { intent: 'prose', model: 'gemini-2.5-flash-lite', ts: Date.now() };
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
-        // Slim prompt + context block (so Mia still knows which symbol is loaded
-        // for prose questions like "what does the current signal mean?")
         const proseSystem = buildSlimSystemPrompt() + '\n\n' + buildContextBlock(latestSignal);
-        for await (const delta of groq.stream({
+        for await (const delta of gemini.stream({
             system: proseSystem,
             messages,
             key,
@@ -45,10 +46,10 @@ export async function* routedStream({ system, systemNoTools, messages, key, sign
         return;
     }
 
-    // Tool path: full tool-prompt system, 70B model.
-    lastDecision = { intent: 'tool', model: 'llama-3.3-70b-versatile', ts: Date.now() };
+    // Tool path: full tool-prompt system, Flash for better reasoning.
+    lastDecision = { intent: 'tool', model: 'gemini-2.5-flash', ts: Date.now() };
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
-    for await (const delta of groq.stream({
+    for await (const delta of gemini.stream({
         system,
         messages,
         key,

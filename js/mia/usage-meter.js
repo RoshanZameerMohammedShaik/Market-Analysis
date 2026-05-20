@@ -21,7 +21,7 @@ export function renderUsageMeter(container) {
         return;
     }
 
-    const provLabel = s.backend === 'cloudflare' ? 'Cloudflare' : 'Groq';
+    const provLabel = s.backend === 'cloudflare' ? 'Cloudflare' : 'Gemini';
     const fallbackTag = routing.fallback ? ` → ${routing.fallback} (auto-fallback)` : '';
 
     // Pre-first-message: show a placeholder bar so the user knows it
@@ -52,7 +52,10 @@ export function renderUsageMeter(container) {
     const filled = Math.round((pct / 100) * segments);
     const bar = Array.from({ length: segments }, (_, i) => `<i class="${i < filled ? 'on' : 'off'}"></i>`).join('');
     const allAxes = axes.map(a => `${Math.round(a.rem)} / ${a.lim} ${a.label}`).join(' • ');
-    container.innerHTML = `<div class="mia-usage ${tone}" title="${allAxes} — Groq sliding-window per-minute limits. Resets continuously.">
+    const tipSuffix = s.backend === 'gemini'
+        ? ' — Gemini per-minute and per-day caps. Resets continuously.'
+        : ' — Cloudflare daily free quota. Resets at UTC midnight.';
+    container.innerHTML = `<div class="mia-usage ${tone}" title="${allAxes}${tipSuffix}">
         <span class="mia-usage-dot"></span>
         <span class="mia-usage-text">${provLabel}${fallbackTag} • ${pct}% ${tightest.label} left</span>
         <span class="mia-usage-bar">${bar}</span>
