@@ -149,6 +149,12 @@ html[data-dev="1"] body { padding-top: 22px; }
     stroke-dasharray: 100;
     stroke-dashoffset: 100;
 }
+/* Light theme: light blue accent gets lost on light background, so the
+   ring trace + the destination-field flash both switch to green. */
+[data-theme="light"] .pl-uc-ring-fg {
+    stroke: var(--green);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--green) 80%, transparent));
+}
 .pl-use-current.pl-uc-pressing .pl-uc-ring {
     opacity: 1;
 }
@@ -181,6 +187,15 @@ html[data-dev="1"] body { padding-top: 22px; }
 }
 @keyframes pl-flash {
     0%   { background: color-mix(in srgb, var(--accent) 35%, var(--bg-secondary)); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+    100% { background: var(--bg-secondary); border-color: var(--border); box-shadow: 0 0 0 0 transparent; }
+}
+/* Light theme: green flash to match the green ring (accent blue is too
+   washed out on a white background). */
+[data-theme="light"] .pl-input-wrap:has(input.flash) {
+    animation: pl-flash-green 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes pl-flash-green {
+    0%   { background: color-mix(in srgb, var(--green) 35%, var(--bg-secondary)); border-color: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 25%, transparent); }
     100% { background: var(--bg-secondary); border-color: var(--border); box-shadow: 0 0 0 0 transparent; }
 }
 
