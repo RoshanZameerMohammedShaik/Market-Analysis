@@ -208,73 +208,64 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* MARKET ANALYZER — the "M" is an animated ECG zigzag, everything
-   else is plain uppercase text. The M's path traces the classic
-   heartbeat shape (baseline → tall peak → valley → tall peak → baseline)
-   so it reads as both a letter M AND a heartbeat tracing. */
-.app-title-mixed {
-    display: inline-flex;
-    align-items: baseline;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    line-height: 1;
-    color: var(--text-primary);
-    gap: 0;
-}
-.app-title-mixed .ecg-m {
+/* MARKET ANALYZER title with a glowing pen tip that flows through every
+   letter from M → R. Three stacked SVG <text> layers:
+     1. fill  — solid title text, always readable.
+     2. trace — dim accent outline of every letter, always visible.
+     3. blip  — bright accent stroke, masked to a moving "pen tip" via
+                stroke-dasharray so the highlight flows letter by letter
+                from start to end, then loops.
+   Theme-tinted via var(--accent), so the same title flows blue / green /
+   purple in dark / light / aurora. */
+.app-title-flow {
     display: inline-block;
-    height: 1em;
-    flex-shrink: 0;
-    color: var(--accent);
-    /* Strong glow so the M reads as the brand "logo" mark, not just decoration. */
-    filter:
-        drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 80%, transparent))
-        drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 40%, transparent));
-    margin-right: 0.02em;
-    /* Lift slightly so the SVG bottom sits on the text baseline. */
-    transform: translateY(0.06em);
+    line-height: 1;
 }
-.app-title-mixed .ecg-m svg {
-    height: 100%;
-    width: auto;
+.title-flow-svg {
     display: block;
+    height: 1.3em;
+    width: auto;
     overflow: visible;
+    color: var(--accent);
 }
-
-.ecg-m-trace, .ecg-m-blip {
+.title-flow-fill, .title-flow-trace, .title-flow-blip {
+    font-family: inherit;
+}
+.title-flow-fill {
+    /* Solid fill so the title is always readable. */
+    fill: var(--text-primary);
+    stroke: none;
+}
+.title-flow-trace, .title-flow-blip {
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
-/* Dim baseline trace — always visible so the M reads as a letter even
-   between blip sweeps. */
-.ecg-m-trace {
-    stroke-width: 3;
-    opacity: 0.5;
+.title-flow-trace {
+    stroke-width: 1.4;
+    opacity: 0.45;
 }
-/* Bright animated blip sweeps along the M every 1.4s like a real ECG
-   pen tracing a heartbeat. Faster than a generic loop animation so it
-   feels alive. */
-.ecg-m-blip {
-    stroke-width: 4;
-    /* Path length is ~115 user-space units. A 24-unit visible window
-       gives a clean moving tip; 200-unit gap means only one tip is
-       visible at a time. */
-    stroke-dasharray: 24 200;
-    animation: ecg-m-pulse 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.title-flow-blip {
+    stroke-width: 2.2;
+    /* Strong glow so the moving pen tip reads as a bright spotlight on
+       whichever letter it's currently traversing. */
+    filter:
+        drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 90%, transparent))
+        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent));
+    /* Total stroke length across all letters is ~1100 user units. A 70-unit
+       visible window with a 1100-unit gap gives one moving pen tip flowing
+       through every letter from M → R, then looping. */
+    stroke-dasharray: 70 1100;
+    animation: title-flow-sweep 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-@keyframes ecg-m-pulse {
-    /* Brief pause at the start of each loop so the eye registers the
-       reset — feels like a real heartbeat rhythm rather than a continuous
-       sweep. */
-    0%   { stroke-dashoffset: 224; }
-    8%   { stroke-dashoffset: 224; }
-    100% { stroke-dashoffset: 0;   }
+@keyframes title-flow-sweep {
+    0%   { stroke-dashoffset: 1170; }
+    100% { stroke-dashoffset: 0;    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ecg-m-blip { animation: none; stroke-dasharray: none; opacity: 0.7; }
+    .title-flow-blip { animation: none; opacity: 0.7; stroke-dasharray: none; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
