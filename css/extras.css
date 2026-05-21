@@ -136,7 +136,6 @@ html[data-dev="1"] body { padding-top: 22px; }
     height: calc(100% + 10px);
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.12s ease;
     overflow: visible;
 }
 .pl-uc-ring-fg {
