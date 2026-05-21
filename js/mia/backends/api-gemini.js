@@ -21,10 +21,11 @@ const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODEL_DEFAULT = 'gemini-2.5-flash-lite';
 const MODEL_THINKING = 'gemini-2.5-flash';
 
-// Silent retry on 429 — Gemini's per-minute caps are very generous, but
-// burst usage at the start of a session can briefly trip them. Two
-// attempts with backoff before surfacing the error.
-const RETRY_429_DELAYS_MS = [1000, 2000];
+// Silent retry on transient errors. 429 = our quota; 503 = Gemini-side
+// overload (very common, usually clears in <2s). Both retried with the
+// same backoff schedule before surfacing.
+const RETRY_DELAYS_MS = [800, 1500, 3000];
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 // Best-effort per-minute usage tracking. Gemini doesn't return per-call
 // rate-limit headers (Groq does), so we approximate by counting our own
@@ -107,6 +108,10 @@ function parseGeminiError(status, body, retryAfterSec) {
         const wait = retryAfterSec ? ` Retry in ${Math.ceil(retryAfterSec)}s.` : '';
         return `Gemini rate-limited.${wait}`;
     }
+    if (status >= 500 && status < 600) {
+        // 503 is the common one — Google-side overload. Friendly message.
+        return `Gemini is busy right now (${status}). Try again in a few seconds — this is a Google-side load issue, not your account.`;
+    }
     return `Gemini error ${status}: ${(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}`;
 }
 
@@ -139,19 +144,20 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
     if (!key) throw new Error('Gemini API key required. Paste your AI Studio key in Mia settings.');
     let res;
 
-    // Initial post with retry-on-429.
+    // Initial post with retry on 429 (our quota) and 5xx (Gemini overload).
+    // 503s in particular are common and almost always transient.
     let lastErr = null;
-    for (let attempt = 0; attempt <= RETRY_429_DELAYS_MS.length; attempt++) {
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
         try {
             res = await postOnce({ model, system, messages, key, signal });
             lastErr = null;
             break;
         } catch (err) {
             lastErr = err;
-            const is429 = err?.status === 429;
-            const moreAttempts = attempt < RETRY_429_DELAYS_MS.length;
-            if (!is429 || !moreAttempts || signal?.aborted) throw err;
-            await new Promise(r => setTimeout(r, RETRY_429_DELAYS_MS[attempt]));
+            const retryable = RETRYABLE_STATUSES.has(err?.status);
+            const moreAttempts = attempt < RETRY_DELAYS_MS.length;
+            if (!retryable || !moreAttempts || signal?.aborted) throw err;
+            await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
             if (signal?.aborted) throw err;
         }
     }
