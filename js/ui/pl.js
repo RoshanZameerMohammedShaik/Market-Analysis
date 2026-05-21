@@ -86,12 +86,24 @@ function wireUseCurrent(btn) {
     };
 
     btn.title = 'Tap: fill Current/Target Price.  Long-press: fill Purchase Price per Share.';
-    btn.addEventListener('mousedown', start);
-    btn.addEventListener('touchstart', start, { passive: false });
-    btn.addEventListener('mouseup', end);
-    btn.addEventListener('touchend', end);
-    btn.addEventListener('mouseleave', cancel);
-    btn.addEventListener('touchcancel', cancel);
+
+    // Pointer events handle mouse + touch + pen with one code path. We
+    // capture the pointer on press so we keep getting events even if the
+    // cursor strays off the chip during the 3-second hold — otherwise a
+    // small wobble would cancel the press, which is brutal UX for a long
+    // target.
+    btn.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+        start(e);
+    });
+    btn.addEventListener('pointerup', (e) => {
+        try { btn.releasePointerCapture(e.pointerId); } catch (_) {}
+        end();
+    });
+    btn.addEventListener('pointercancel', cancel);
+    // No mouseleave handler. Pointer capture means the user can drift the
+    // cursor anywhere during the hold and the gesture still completes.
 }
 
 function calculatePL() {
