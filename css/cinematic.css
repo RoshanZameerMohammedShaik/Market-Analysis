@@ -208,37 +208,71 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* Title "M" rendered as an SVG ECG-style stroke. A bright "blip" segment
-   sweeps along the path to make the M animate like a heartbeat tracing.
-   Same gesture vocabulary as Mia's logo so the brand feels coherent. */
-.app-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 0;
+/* "Market Analyzer" rendered as an ECG-traced word.
+   Layer 1 (trace): the whole word as a thin stroked outline (no fill).
+   Layer 2 (blip):  same word, but masked by a moving gradient that
+                    sweeps left→right, making a bright highlight travel
+                    across every letter like a heartbeat tracer.
+   Layer 3 (text):  the actual selectable text — invisible, sits underneath
+                    so layout / selection / a11y all work normally. */
+.app-title-ecg {
+    position: relative;
+    display: inline-block;
+    line-height: 1;
+    color: var(--text-primary);
+    isolation: isolate;
 }
-.title-m-ecg {
-    /* Slightly TALLER than the cap height so the M's spikes have presence,
-       and slightly wider since the M itself spans the SVG width. */
-    width: 1.15em; height: 1em;
-    margin-right: 0.04em;
-    margin-bottom: -0.06em;
-    color: var(--accent, currentColor);
-    flex-shrink: 0;
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 60%, transparent));
+.title-ecg-text {
+    /* The visible filled text — kept dim so the ECG trace dominates. */
+    color: color-mix(in srgb, var(--text-primary) 30%, transparent);
 }
-.title-m-trace {
-    stroke: currentColor;
+.title-ecg-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Render as outlined stroke only — no fill. Webkit-only but fine for
+       a decorative accent; falls back to transparent text in other browsers
+       (the dim filled .title-ecg-text remains as a sane fallback). */
+    -webkit-text-stroke: 1.5px currentColor;
+    -webkit-text-fill-color: transparent;
+    text-stroke: 1.5px currentColor;
+    color: var(--accent);
 }
-.title-m-blip {
-    stroke: currentColor;
-    /* Path length is ~120 with the new shape; 18 visible / 200 gap gives a
-       crisp moving highlight without saturating the whole stroke. */
-    stroke-dasharray: 18 220;
-    animation: title-m-sweep 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.title-ecg-trace {
+    opacity: 0.42;
 }
-@keyframes title-m-sweep {
-    0%   { stroke-dashoffset: 238; }
-    100% { stroke-dashoffset: 0;   }
+.title-ecg-blip {
+    /* Same outline, but masked by a moving gradient so only ~18% of the
+       word is bright at any moment. Combined with the dim trace below,
+       it reads as a heartbeat sweep traveling through each letter. */
+    -webkit-text-stroke-width: 2px;
+    text-stroke-width: 2px;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 80%, transparent));
+    -webkit-mask-image: linear-gradient(90deg,
+        transparent 0%,
+        transparent 38%,
+        black 50%,
+        transparent 62%,
+        transparent 100%);
+            mask-image: linear-gradient(90deg,
+        transparent 0%,
+        transparent 38%,
+        black 50%,
+        transparent 62%,
+        transparent 100%);
+    -webkit-mask-size: 250% 100%;
+            mask-size: 250% 100%;
+    -webkit-mask-position: 100% 0;
+            mask-position: 100% 0;
+    animation: title-ecg-sweep 3.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes title-ecg-sweep {
+    0%   { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+    100% { -webkit-mask-position: -100% 0; mask-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .title-ecg-blip { animation: none; opacity: 0.6; -webkit-mask-image: none; mask-image: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
