@@ -149,18 +149,29 @@ html[data-dev="1"] body { padding-top: 22px; }
     to   { stroke-dashoffset: 0; }
 }
 
-/* Brief flash after a successful tap or hold so the user can see which
-   field got filled. */
-.pl-use-current.pl-uc-flashed {
-    background: color-mix(in srgb, var(--accent) 22%, var(--bg-card));
-    color: var(--accent);
-    border-color: var(--accent);
+/* Pulse the chip the moment a fill fires — short, punchy, then back to
+   default. Confirms the action without lingering. */
+.pl-use-current.pl-uc-fired {
+    animation: pl-uc-fire 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.pl-use-current.pl-uc-flashed .pl-uc-ring { opacity: 0; }
+@keyframes pl-uc-fire {
+    0%   { background: var(--accent); color: #fff; transform: scale(1.12); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent); }
+    60%  { background: var(--accent); color: #fff; transform: scale(1.04); box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 0%, transparent); }
+    100% { background: var(--bg-card); color: var(--accent); transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+.pl-use-current.pl-uc-fired .pl-uc-ring { opacity: 0; }
 .pl-uc-text { display: inline-block; }
 
-.pl-field input.flash { animation: pl-flash 0.6s ease; }
-@keyframes pl-flash { 0% { background: color-mix(in srgb, var(--accent) 35%, transparent); } 100% { background: transparent; } }
+/* When a price gets autofilled, pulse the wrapper (border + bg) so the
+   exact destination field is unmistakable. The .flash class is added on
+   the <input>, but the wrapper inherits via the parent selector below. */
+.pl-input-wrap:has(input.flash) {
+    animation: pl-flash 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes pl-flash {
+    0%   { background: color-mix(in srgb, var(--accent) 35%, var(--bg-secondary)); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent); }
+    100% { background: var(--bg-secondary); border-color: var(--border); box-shadow: 0 0 0 0 transparent; }
+}
 
 .pl-btn {
     margin-top: 4px;

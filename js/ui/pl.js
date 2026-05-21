@@ -37,16 +37,19 @@ function wireUseCurrent(btn) {
             return;
         }
         input.value = state.currentPrice.toFixed(2);
+        // Punchy "this field just got filled" pulse on the wrapper.
         input.classList.add('flash');
-        setTimeout(() => input.classList.remove('flash'), 600);
-        // Briefly show which field got filled. We swap only the text span
-        // (not btn.textContent) so the SVG ring inside the button stays.
+        setTimeout(() => input.classList.remove('flash'), 700);
+        // Quick fire-pulse on the chip — confirms the action without
+        // lingering for 1.4s like before.
         textEl.textContent = `→ ${label}`;
-        btn.classList.add('pl-uc-flashed');
+        btn.classList.remove('pl-uc-fired'); // restart if rapid-fire
+        void btn.offsetWidth;
+        btn.classList.add('pl-uc-fired');
         setTimeout(() => {
             textEl.textContent = origText;
-            btn.classList.remove('pl-uc-flashed');
-        }, 1400);
+            btn.classList.remove('pl-uc-fired');
+        }, 700);
     };
 
     const start = (e) => {
