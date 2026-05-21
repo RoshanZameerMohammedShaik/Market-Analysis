@@ -15,9 +15,9 @@ export function initPLCalculator() {
 }
 
 // Tap = fill Current/Target Price (existing behavior).
-// Long-press (>=500ms) = fill Purchase Price per Share instead.
+// Long-press (>=3000ms) = fill Purchase Price per Share instead.
 // Same gesture pattern Mia's send button uses for clear-chat.
-const HOLD_MS = 500;
+const HOLD_MS = 3000;
 
 function wireUseCurrent(btn) {
     let holdTimer = null;

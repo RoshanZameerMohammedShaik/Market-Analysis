@@ -149,7 +149,7 @@ html[data-dev="1"] body { padding-top: 22px; }
     opacity: 1;
 }
 .pl-use-current.pl-uc-pressing .pl-uc-ring-fg {
-    animation: pl-uc-ring-fill 500ms linear forwards;
+    animation: pl-uc-ring-fill 3000ms linear forwards;
 }
 @keyframes pl-uc-ring-fill {
     from { stroke-dashoffset: 100; }
