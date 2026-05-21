@@ -133,9 +133,11 @@ html[data-dev="1"] body { padding-top: 22px; }
    doesn't care how wide the chip is. */
 .pl-uc-ring {
     position: absolute;
-    inset: -5px;
-    width: calc(100% + 10px);
-    height: calc(100% + 10px);
+    /* Sit just barely outside the chip's edge (1px gap) so the ring
+       traces the chip outline tightly instead of floating around it. */
+    inset: -1px;
+    width: calc(100% + 2px);
+    height: calc(100% + 2px);
     pointer-events: none;
     opacity: 0;
     overflow: visible;
