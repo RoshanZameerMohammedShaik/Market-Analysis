@@ -23,8 +23,9 @@ const MODEL_THINKING = 'gemini-2.5-flash';
 
 // Silent retry on transient errors. 429 = our quota; 503 = Gemini-side
 // overload (very common, usually clears in <2s). Both retried with the
-// same backoff schedule before surfacing.
-const RETRY_DELAYS_MS = [800, 1500, 3000];
+// same backoff schedule before surfacing. The schedule is bypassed in
+// favor of Gemini's own retryDelay hint when available.
+const RETRY_DELAYS_MS = [800, 1500, 3000, 6000];
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 // Best-effort per-minute usage tracking. Gemini doesn't return per-call
@@ -135,7 +136,22 @@ async function postOnce({ model, system, messages, key, signal }) {
     });
     if (!res.ok) {
         const respBody = await res.text().catch(() => '');
-        const retryAfter = parseFloat(res.headers.get('retry-after')) || null;
+        // Gemini surfaces retry hints two ways: standard Retry-After header
+        // (rare) and inside the JSON body via error.details[*].retryDelay
+        // ("23s"). The JSON form is what their quota API actually uses, so
+        // we prefer that.
+        let retryAfter = parseFloat(res.headers.get('retry-after')) || null;
+        try {
+            const parsed = JSON.parse(respBody);
+            const details = parsed?.error?.details || [];
+            for (const d of details) {
+                if (d.retryDelay) {
+                    const m = String(d.retryDelay).match(/^([\d.]+)\s*s/);
+                    if (m) retryAfter = parseFloat(m[1]);
+                }
+            }
+        } catch (_) { /* body wasn't JSON */ }
+
         const err = new Error(parseGeminiError(res.status, respBody, retryAfter));
         err.status = res.status;
         err.retryAfterSec = retryAfter;
@@ -150,7 +166,10 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
     let res;
 
     // Initial post with retry on 429 (our quota) and 5xx (Gemini overload).
-    // 503s in particular are common and almost always transient.
+    // 503s in particular are common and almost always transient. When
+    // Gemini gives an explicit retryDelay (e.g. "23s") we honor that
+    // instead of the schedule, capped at 30s so a stuck quota doesn't
+    // freeze the UI forever.
     let lastErr = null;
     for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
         try {
@@ -162,7 +181,10 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
             const retryable = RETRYABLE_STATUSES.has(err?.status);
             const moreAttempts = attempt < RETRY_DELAYS_MS.length;
             if (!retryable || !moreAttempts || signal?.aborted) throw err;
-            await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt]));
+            const scheduleMs = RETRY_DELAYS_MS[attempt];
+            const hintMs = err?.retryAfterSec ? Math.min(30, err.retryAfterSec) * 1000 : 0;
+            const waitMs = Math.max(scheduleMs, hintMs);
+            await new Promise(r => setTimeout(r, waitMs));
             if (signal?.aborted) throw err;
         }
     }
