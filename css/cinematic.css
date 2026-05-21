@@ -208,60 +208,65 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* "Market Analyzer" as an ECG-drawn word.
-   Two SVG <text> layers, both stroke-only, both stacked exactly:
-     - .title-ecg-trace : dim, fully drawn, sits behind so the word is
-                          always legible.
-     - .title-ecg-blip  : bright, animated via stroke-dasharray so a
-                          short "pen tip" segment draws across every
-                          letter from start to end, then loops.
-   Same drawing motion as Mia's logo, just applied to a whole word. */
-.app-title-ecg {
-    position: relative;
+/* MARKET ANALYZER — mixed-letter title.
+   Specific letters (M, A, T, Y, Z) replaced with ECG-zigzag SVGs that
+   pulse with a heartbeat-trace animation. The other letters render as
+   plain uppercase characters in the same color/weight. The ECG letters
+   share a synced animation so the heartbeat energy reads as one event. */
+.app-title-mixed {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
     line-height: 1;
+    color: var(--text-primary);
+    gap: 0;
 }
-.title-ecg-sr {
-    /* Visually hidden but kept for screen readers / text selection. */
-    position: absolute;
-    width: 1px; height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-}
-.title-ecg-svg {
-    /* Hand-drawn ECG polyline. ViewBox is 460×28, but currently only the
-       first ~200 units are populated (drafting "Market" letters). Sized
-       to a generous height so the spikes/valleys aren't cramped. */
-    height: 1.6em;
-    width: 12em;
-    overflow: visible;
+.app-title-mixed .ecg-letter {
+    display: inline-block;
+    height: 1em;
+    flex-shrink: 0;
     color: var(--accent);
-    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 65%, transparent));
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
+    margin: 0 0.01em;
+    transform: translateY(0.04em);
 }
-.title-ecg-trace, .title-ecg-blip {
+.app-title-mixed .ecg-letter svg {
+    height: 100%;
+    width: auto;
+    display: block;
+    overflow: visible;
+}
+.ecg-letter-trace, .ecg-letter-blip {
     fill: none;
     stroke: currentColor;
-    stroke-linejoin: round;
     stroke-linecap: round;
+    stroke-linejoin: round;
 }
-/* Animated blip pen-tip travels along the entire heartbeat polyline. */
-.title-ecg-blip {
-    stroke-dasharray: 28 700;
-    animation: title-ecg-draw 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.ecg-letter-trace {
+    stroke-width: 2.4;
+    opacity: 0.4;
 }
-@keyframes title-ecg-draw {
-    0%   { stroke-dashoffset: 728; }
+.ecg-letter-blip {
+    stroke-width: 3.2;
+    /* Each letter's path is ~30-90 user-space units; a 18-unit visible
+       window with a 220-unit gap gives one moving pen tip per letter,
+       synced across all ECG letters so the heartbeat reads as one event. */
+    stroke-dasharray: 18 220;
+    animation: ecg-letter-draw 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes ecg-letter-draw {
+    0%   { stroke-dashoffset: 238; }
     100% { stroke-dashoffset: 0;   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .title-ecg-blip { animation: none; stroke-dasharray: none; opacity: 0.6; }
+.app-title-mixed .ecg-space {
+    display: inline-block;
+    width: 0.35em;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .title-m-blip { animation: none; opacity: 0.5; }
+    .ecg-letter-blip { animation: none; stroke-dasharray: none; opacity: 0.5; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
