@@ -11,21 +11,77 @@ export function initPLCalculator() {
     });
 
     const useBtn = document.getElementById('pl-useCurrent');
-    if (useBtn) {
-        useBtn.addEventListener('click', () => {
-            const input = document.getElementById('pl-currentPrice');
-            if (state.currentPrice != null) {
-                input.value = state.currentPrice.toFixed(2);
-                input.classList.add('flash');
-                setTimeout(() => input.classList.remove('flash'), 600);
-            } else {
-                const errEl = document.getElementById('pl-error');
-                errEl.textContent = 'Select a stock or crypto first.';
-                errEl.classList.add('show');
-                setTimeout(() => errEl.classList.remove('show'), 2500);
-            }
-        });
-    }
+    if (useBtn) wireUseCurrent(useBtn);
+}
+
+// Tap = fill Current/Target Price (existing behavior).
+// Long-press (>=500ms) = fill Purchase Price per Share instead.
+// Same gesture pattern Mia's send button uses for clear-chat.
+const HOLD_MS = 500;
+
+function wireUseCurrent(btn) {
+    let holdTimer = null;
+    let holdState = 'idle';     // 'idle' | 'pressing' | 'firing'
+    let armed = false;
+
+    const fillInto = (inputId, label) => {
+        const input = document.getElementById(inputId);
+        if (state.currentPrice == null) {
+            const errEl = document.getElementById('pl-error');
+            errEl.textContent = 'Select a stock or crypto first.';
+            errEl.classList.add('show');
+            setTimeout(() => errEl.classList.remove('show'), 2500);
+            return;
+        }
+        input.value = state.currentPrice.toFixed(2);
+        input.classList.add('flash');
+        setTimeout(() => input.classList.remove('flash'), 600);
+        // Briefly show on the button which field got filled, so the long-press
+        // behavior is discoverable. The chip text returns to default after 1.4s.
+        btn.dataset.origText = btn.dataset.origText || btn.textContent;
+        btn.textContent = `→ ${label}`;
+        btn.classList.add('pl-uc-flashed');
+        setTimeout(() => {
+            btn.textContent = btn.dataset.origText;
+            btn.classList.remove('pl-uc-flashed');
+        }, 1400);
+    };
+
+    const start = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        e.preventDefault();
+        holdState = 'pressing';
+        armed = false;
+        holdTimer = setTimeout(() => {
+            if (holdState !== 'pressing') return;
+            armed = true;
+            holdState = 'firing';
+            fillInto('pl-buyPrice', 'Purchase');
+        }, HOLD_MS);
+        btn.classList.add('pl-uc-pressing');
+    };
+    const end = () => {
+        if (holdState === 'pressing' && !armed) {
+            // Quick tap — original behavior.
+            fillInto('pl-currentPrice', 'Current');
+        }
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        btn.classList.remove('pl-uc-pressing');
+        holdState = 'idle';
+    };
+    const cancel = () => {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        btn.classList.remove('pl-uc-pressing');
+        holdState = 'idle';
+    };
+
+    btn.title = 'Tap: fill Current/Target Price.  Long-press: fill Purchase Price per Share.';
+    btn.addEventListener('mousedown', start);
+    btn.addEventListener('touchstart', start, { passive: false });
+    btn.addEventListener('mouseup', end);
+    btn.addEventListener('touchend', end);
+    btn.addEventListener('mouseleave', cancel);
+    btn.addEventListener('touchcancel', cancel);
 }
 
 function calculatePL() {

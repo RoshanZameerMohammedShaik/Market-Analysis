@@ -117,6 +117,21 @@ html[data-dev="1"] body { padding-top: 22px; }
     text-transform: none; letter-spacing: 0;
 }
 .pl-use-current:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.pl-use-current.pl-uc-pressing {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+    color: var(--accent);
+    border-color: var(--accent);
+    animation: pl-uc-fill 0.5s linear forwards;
+}
+@keyframes pl-uc-fill {
+    from { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+    to   { background: var(--accent); color: #fff; }
+}
+.pl-use-current.pl-uc-flashed {
+    background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
+    color: var(--accent);
+    border-color: var(--accent);
+}
 
 .pl-field input.flash { animation: pl-flash 0.6s ease; }
 @keyframes pl-flash { 0% { background: color-mix(in srgb, var(--accent) 35%, transparent); } 100% { background: transparent; } }
