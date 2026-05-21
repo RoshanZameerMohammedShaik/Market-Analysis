@@ -57,13 +57,18 @@ function wireUseCurrent(btn) {
         e.preventDefault();
         holdState = 'pressing';
         armed = false;
+        // Force a reflow before adding the class so the CSS animation always
+        // restarts cleanly (without this, a second press in the same session
+        // doesn't replay the ring animation).
+        btn.classList.remove('pl-uc-pressing', 'pl-uc-fired');
+        void btn.offsetWidth;
+        btn.classList.add('pl-uc-pressing');
         holdTimer = setTimeout(() => {
             if (holdState !== 'pressing') return;
             armed = true;
             holdState = 'firing';
             fillInto('pl-buyPrice', 'Purchase');
         }, HOLD_MS);
-        btn.classList.add('pl-uc-pressing');
     };
     const end = () => {
         if (holdState === 'pressing' && !armed) {

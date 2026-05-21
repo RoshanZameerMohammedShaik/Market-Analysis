@@ -131,9 +131,9 @@ html[data-dev="1"] body { padding-top: 22px; }
    doesn't care how wide the chip is. */
 .pl-uc-ring {
     position: absolute;
-    inset: -3px;
-    width: calc(100% + 6px);
-    height: calc(100% + 6px);
+    inset: -5px;
+    width: calc(100% + 10px);
+    height: calc(100% + 10px);
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.12s ease;
@@ -141,7 +141,8 @@ html[data-dev="1"] body { padding-top: 22px; }
 }
 .pl-uc-ring-fg {
     stroke: var(--accent);
-    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+    stroke-width: 2.5;
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 80%, transparent));
     stroke-dasharray: 100;
     stroke-dashoffset: 100;
 }
