@@ -128,14 +128,40 @@ jobs:
         if: contains(steps.decide.outputs.task, 'recalibrate')
         run: python recalibrate_from_ledger.py
 
+      - name: Inspect what's on disk after the script
+        run: |
+          echo "Working directory: $(pwd)"
+          echo "Tree under model/:"
+          ls -la model/ 2>&1 || true
+          if [ -d model/ledger ]; then
+            echo "Tree under model/ledger/:"
+            ls -la model/ledger/ 2>&1
+            echo "Line counts per file:"
+            wc -l model/ledger/*.jsonl 2>&1 || true
+          else
+            echo "model/ledger/ directory does NOT exist after the script ran."
+          fi
+
       - name: Commit ledger updates
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add -f model/ledger/*.jsonl model/live_calibration.json 2>/dev/null || true
+          # Stage anything new under model/ledger/ and the calibration file.
+          # The original glob `model/ledger/*.jsonl` failed silently the first
+          # time the directory didn't exist (shell expanded literal pattern,
+          # git add errored on missing pathspec, and `2>/dev/null || true`
+          # ate the error). Use a directory-level add with -A so missing-path
+          # is fine and any new files get picked up.
+          if [ -d model/ledger ]; then
+            git add -fA model/ledger/
+          fi
+          if [ -f model/live_calibration.json ]; then
+            git add -f model/live_calibration.json
+          fi
           if git diff --cached --quiet; then
-            echo 'No changes to commit'
+            echo 'No staged changes to commit.'
             exit 0
           fi
+          git status --short
           git commit -m "chore(ledger): ${{ steps.decide.outputs.task }} [skip ci]"
           git push
