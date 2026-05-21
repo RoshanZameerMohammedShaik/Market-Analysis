@@ -208,42 +208,41 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* Header wave: smooth oscilloscope/sine wave on either side of the title.
-   The SVG path is twice the viewBox width (240 wide for a 120-wide window)
-   so we can translate the inner <g> from 0 to -120 and it tiles seamlessly.
-   Theme-tinted via var(--accent). */
-.header-wave {
-    width: 110px; height: 24px;
+/* Title "M" rendered as an SVG ECG-style stroke. A bright "blip" segment
+   sweeps along the path to make the M animate like a heartbeat tracing.
+   Same gesture vocabulary as Mia's logo so the brand feels coherent. */
+.app-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+}
+.title-m-ecg {
+    width: 1em; height: 1em;
+    /* Slightly bigger than the cap height so the ECG bump above the M's
+       baseline doesn't get cropped. */
+    margin-right: 0.04em;
+    margin-bottom: -0.05em;
+    color: var(--accent, currentColor);
     flex-shrink: 0;
-    color: var(--accent, #f472b6);
-    overflow: hidden;
-    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 50%, transparent));
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
 }
-.header-wave-path {
+.title-m-trace {
     stroke: currentColor;
-    opacity: 0.9;
 }
-.header-wave-scroll {
-    animation: header-wave-scroll 4.5s linear infinite;
+.title-m-blip {
+    stroke: currentColor;
+    /* Total length of the M path — measured at runtime gives ~85; this
+       value plus a short visible window makes the blip a moving highlight. */
+    stroke-dasharray: 14 200;
+    animation: title-m-sweep 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-.header-wave-right .header-wave-scroll {
-    /* Right side scrolls the opposite way so both sides flow TOWARD the title */
-    animation-direction: reverse;
-}
-@keyframes header-wave-scroll {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-120px); }
+@keyframes title-m-sweep {
+    0%   { stroke-dashoffset: 214; }
+    100% { stroke-dashoffset: 0;   }
 }
 
-@media (max-width: 768px) {
-    .header-wave { width: 70px; height: 20px; }
-    .app-title-wrap { gap: 10px; }
-}
-@media (max-width: 480px) {
-    .header-wave { width: 48px; }
-}
 @media (prefers-reduced-motion: reduce) {
-    .header-wave-scroll { animation: none; }
+    .title-m-blip { animation: none; opacity: 0.5; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
