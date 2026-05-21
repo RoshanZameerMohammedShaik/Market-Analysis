@@ -208,11 +208,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* MARKET ANALYZER — mixed-letter title.
-   Specific letters (M, A, T, Y, Z) replaced with ECG-zigzag SVGs that
-   pulse with a heartbeat-trace animation. The other letters render as
-   plain uppercase characters in the same color/weight. The ECG letters
-   share a synced animation so the heartbeat energy reads as one event. */
+/* MARKET ANALYZER — the "M" is an animated ECG zigzag, everything
+   else is plain uppercase text. The M's path traces the classic
+   heartbeat shape (baseline → tall peak → valley → tall peak → baseline)
+   so it reads as both a letter M AND a heartbeat tracing. */
 .app-title-mixed {
     display: inline-flex;
     align-items: baseline;
@@ -222,51 +221,60 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     color: var(--text-primary);
     gap: 0;
 }
-.app-title-mixed .ecg-letter {
+.app-title-mixed .ecg-m {
     display: inline-block;
     height: 1em;
     flex-shrink: 0;
     color: var(--accent);
-    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 55%, transparent));
-    margin: 0 0.01em;
-    transform: translateY(0.04em);
+    /* Strong glow so the M reads as the brand "logo" mark, not just decoration. */
+    filter:
+        drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 80%, transparent))
+        drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 40%, transparent));
+    margin-right: 0.02em;
+    /* Lift slightly so the SVG bottom sits on the text baseline. */
+    transform: translateY(0.06em);
 }
-.app-title-mixed .ecg-letter svg {
+.app-title-mixed .ecg-m svg {
     height: 100%;
     width: auto;
     display: block;
     overflow: visible;
 }
-.ecg-letter-trace, .ecg-letter-blip {
+
+.ecg-m-trace, .ecg-m-blip {
     fill: none;
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
-.ecg-letter-trace {
-    stroke-width: 2.4;
-    opacity: 0.4;
+/* Dim baseline trace — always visible so the M reads as a letter even
+   between blip sweeps. */
+.ecg-m-trace {
+    stroke-width: 3;
+    opacity: 0.5;
 }
-.ecg-letter-blip {
-    stroke-width: 3.2;
-    /* Each letter's path is ~30-90 user-space units; a 18-unit visible
-       window with a 220-unit gap gives one moving pen tip per letter,
-       synced across all ECG letters so the heartbeat reads as one event. */
-    stroke-dasharray: 18 220;
-    animation: ecg-letter-draw 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+/* Bright animated blip sweeps along the M every 1.4s like a real ECG
+   pen tracing a heartbeat. Faster than a generic loop animation so it
+   feels alive. */
+.ecg-m-blip {
+    stroke-width: 4;
+    /* Path length is ~115 user-space units. A 24-unit visible window
+       gives a clean moving tip; 200-unit gap means only one tip is
+       visible at a time. */
+    stroke-dasharray: 24 200;
+    animation: ecg-m-pulse 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-@keyframes ecg-letter-draw {
-    0%   { stroke-dashoffset: 238; }
+@keyframes ecg-m-pulse {
+    /* Brief pause at the start of each loop so the eye registers the
+       reset — feels like a real heartbeat rhythm rather than a continuous
+       sweep. */
+    0%   { stroke-dashoffset: 224; }
+    8%   { stroke-dashoffset: 224; }
     100% { stroke-dashoffset: 0;   }
 }
 
-.app-title-mixed .ecg-space {
-    display: inline-block;
-    width: 0.35em;
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .ecg-letter-blip { animation: none; stroke-dasharray: none; opacity: 0.5; }
+    .ecg-m-blip { animation: none; stroke-dasharray: none; opacity: 0.7; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
