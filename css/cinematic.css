@@ -217,27 +217,27 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     gap: 0;
 }
 .title-m-ecg {
-    width: 1em; height: 1em;
-    /* Slightly bigger than the cap height so the ECG bump above the M's
-       baseline doesn't get cropped. */
+    /* Slightly TALLER than the cap height so the M's spikes have presence,
+       and slightly wider since the M itself spans the SVG width. */
+    width: 1.15em; height: 1em;
     margin-right: 0.04em;
-    margin-bottom: -0.05em;
+    margin-bottom: -0.06em;
     color: var(--accent, currentColor);
     flex-shrink: 0;
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 60%, transparent));
 }
 .title-m-trace {
     stroke: currentColor;
 }
 .title-m-blip {
     stroke: currentColor;
-    /* Total length of the M path — measured at runtime gives ~85; this
-       value plus a short visible window makes the blip a moving highlight. */
-    stroke-dasharray: 14 200;
+    /* Path length is ~120 with the new shape; 18 visible / 200 gap gives a
+       crisp moving highlight without saturating the whole stroke. */
+    stroke-dasharray: 18 220;
     animation: title-m-sweep 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes title-m-sweep {
-    0%   { stroke-dashoffset: 214; }
+    0%   { stroke-dashoffset: 238; }
     100% { stroke-dashoffset: 0;   }
 }
 
