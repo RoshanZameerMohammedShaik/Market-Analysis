@@ -235,6 +235,11 @@ body {
 }
 .search-results.visible { display: block; }
 .search-result-item {
+    /* Symbol+name on the left, exchange code on the right, single row. */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 10px 14px;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
@@ -242,8 +247,41 @@ body {
 }
 .search-result-item:hover, .search-result-item.active { background: var(--bg-hover); }
 .search-result-item:last-child { border-bottom: none; }
-.search-result-symbol { font-weight: 700; font-family: var(--num-font); }
-.search-result-name { font-size: 0.78rem; color: var(--text-muted); }
+.search-result-item > div {
+    /* Inner wrapper: symbol + name flow inline, name truncates if too long. */
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    overflow: hidden;
+}
+.search-result-item .result-symbol {
+    font-weight: 700;
+    font-family: var(--num-font);
+    flex-shrink: 0;
+    color: var(--text-primary);
+}
+.search-result-item .result-name {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.search-result-item > .result-name {
+    /* The right-side exchange code chip */
+    flex-shrink: 0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    padding: 2px 7px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-transform: uppercase;
+}
 
 .chart-section { margin-bottom: 16px; }
 .chart-header { padding: 8px 0 12px; display: flex; align-items: center; gap: 12px; }
