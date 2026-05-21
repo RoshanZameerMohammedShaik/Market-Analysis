@@ -13,14 +13,15 @@
         <div class="header-content">
             <div class="app-title-wrap">
                 <h1 class="app-title app-title-ecg" aria-label="Market Analyzer">
-                    <!-- Two layers stacked on top of each other: a dim continuous outline
-                         of the entire title, and a bright blip that sweeps along the
-                         outline like an ECG tracer. Same vocabulary as Mia's logo, just
-                         applied to the whole word. The actual <h1> text content is the
-                         word itself so screen readers + selection still work. -->
-                    <span class="title-ecg-layer title-ecg-trace" aria-hidden="true">Market Analyzer</span>
-                    <span class="title-ecg-layer title-ecg-blip"  aria-hidden="true">Market Analyzer</span>
-                    <span class="title-ecg-text">Market Analyzer</span>
+                    <!-- Real ECG-style trace: SVG text with stroke (no fill), plus a
+                         stroke-dasharray animation that draws every letter's outline
+                         progressively from start to end. Same drawing motion as Mia's
+                         logo, just applied to a whole word. -->
+                    <svg class="title-ecg-svg" viewBox="0 0 380 60" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                        <text class="title-ecg-trace" x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
+                        <text class="title-ecg-blip"  x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
+                    </svg>
+                    <span class="title-ecg-sr">Market Analyzer</span>
                 </h1>
             </div>
         </div>

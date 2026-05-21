@@ -208,71 +208,63 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* "Market Analyzer" rendered as an ECG-traced word.
-   Layer 1 (trace): the whole word as a thin stroked outline (no fill).
-   Layer 2 (blip):  same word, but masked by a moving gradient that
-                    sweeps left→right, making a bright highlight travel
-                    across every letter like a heartbeat tracer.
-   Layer 3 (text):  the actual selectable text — invisible, sits underneath
-                    so layout / selection / a11y all work normally. */
+/* "Market Analyzer" as an ECG-drawn word.
+   Two SVG <text> layers, both stroke-only, both stacked exactly:
+     - .title-ecg-trace : dim, fully drawn, sits behind so the word is
+                          always legible.
+     - .title-ecg-blip  : bright, animated via stroke-dasharray so a
+                          short "pen tip" segment draws across every
+                          letter from start to end, then loops.
+   Same drawing motion as Mia's logo, just applied to a whole word. */
 .app-title-ecg {
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     line-height: 1;
-    color: var(--text-primary);
-    isolation: isolate;
 }
-.title-ecg-text {
-    /* The visible filled text — kept dim so the ECG trace dominates. */
-    color: color-mix(in srgb, var(--text-primary) 30%, transparent);
-}
-.title-ecg-layer {
+.title-ecg-sr {
+    /* Visually hidden but kept for screen readers / text selection. */
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    /* Render as outlined stroke only — no fill. Webkit-only but fine for
-       a decorative accent; falls back to transparent text in other browsers
-       (the dim filled .title-ecg-text remains as a sane fallback). */
-    -webkit-text-stroke: 1.5px currentColor;
-    -webkit-text-fill-color: transparent;
-    text-stroke: 1.5px currentColor;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+.title-ecg-svg {
+    /* Sized to match the original h1's footprint: ~22px tall × ~190px wide.
+       The SVG's viewBox is 380×60 so we use scale-to-fit. */
+    height: 1em;
+    width: 6.5em;
+    overflow: visible;
     color: var(--accent);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+.title-ecg-trace, .title-ecg-blip {
+    fill: none;
+    stroke: currentColor;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    paint-order: stroke;
 }
 .title-ecg-trace {
-    opacity: 0.42;
+    stroke-width: 1.4;
+    opacity: 0.32;
 }
 .title-ecg-blip {
-    /* Same outline, but masked by a moving gradient so only ~18% of the
-       word is bright at any moment. Combined with the dim trace below,
-       it reads as a heartbeat sweep traveling through each letter. */
-    -webkit-text-stroke-width: 2px;
-    text-stroke-width: 2px;
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 80%, transparent));
-    -webkit-mask-image: linear-gradient(90deg,
-        transparent 0%,
-        transparent 38%,
-        black 50%,
-        transparent 62%,
-        transparent 100%);
-            mask-image: linear-gradient(90deg,
-        transparent 0%,
-        transparent 38%,
-        black 50%,
-        transparent 62%,
-        transparent 100%);
-    -webkit-mask-size: 250% 100%;
-            mask-size: 250% 100%;
-    -webkit-mask-position: 100% 0;
-            mask-position: 100% 0;
-    animation: title-ecg-sweep 3.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    stroke-width: 1.8;
+    /* Total length of the rendered text-as-stroke is ~1100 user units.
+       A 60-unit visible window with a 1100-unit gap creates a single
+       moving "pen tip" tracing each letter in order. */
+    stroke-dasharray: 60 1100;
+    animation: title-ecg-draw 3.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-@keyframes title-ecg-sweep {
-    0%   { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
-    100% { -webkit-mask-position: -100% 0; mask-position: -100% 0; }
+@keyframes title-ecg-draw {
+    0%   { stroke-dashoffset: 1160; }
+    100% { stroke-dashoffset: 0;    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .title-ecg-blip { animation: none; opacity: 0.6; -webkit-mask-image: none; mask-image: none; }
+    .title-ecg-blip { animation: none; stroke-dasharray: none; opacity: 0.6; }
 }
 
 @media (prefers-reduced-motion: reduce) {
