@@ -208,64 +208,47 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* MARKET ANALYZER title with a glowing pen tip that flows through every
-   letter from M → R. Three stacked SVG <text> layers:
-     1. fill  — solid title text, always readable.
-     2. trace — dim accent outline of every letter, always visible.
-     3. blip  — bright accent stroke, masked to a moving "pen tip" via
-                stroke-dasharray so the highlight flows letter by letter
-                from start to end, then loops.
-   Theme-tinted via var(--accent), so the same title flows blue / green /
-   purple in dark / light / aurora. */
-.app-title-flow {
-    display: inline-block;
+/* MARKET ANALYZER — glowing light flows INSIDE the letters from M → R.
+   Technique: the title is filled (not outlined). A moving gradient is
+   masked to the letter shapes via background-clip:text, so the bright
+   spot is only visible WHERE the letters are. The base color stays
+   solid so the title is always readable; the gradient just adds a
+   highlight that travels through the letter bodies. Theme-tinted. */
+.app-title-glow {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     line-height: 1;
-}
-.title-flow-svg {
-    display: block;
-    height: 1.3em;
-    width: auto;
-    overflow: visible;
-    color: var(--accent);
-}
-.title-flow-fill, .title-flow-trace, .title-flow-blip {
-    font-family: inherit;
-}
-.title-flow-fill {
-    /* Solid fill so the title is always readable. */
-    fill: var(--text-primary);
-    stroke: none;
-}
-.title-flow-trace, .title-flow-blip {
-    fill: none;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-.title-flow-trace {
-    stroke-width: 1.4;
-    opacity: 0.45;
-}
-.title-flow-blip {
-    stroke-width: 2.2;
-    /* Strong glow so the moving pen tip reads as a bright spotlight on
-       whichever letter it's currently traversing. */
+    /* Layered backgrounds, all clipped to the text shape:
+       1. The moving accent-glow gradient (top, animated).
+       2. A solid base color (bottom, always-on so letters are readable). */
+    background:
+        linear-gradient(90deg,
+            transparent 0%,
+            transparent 30%,
+            color-mix(in srgb, var(--accent) 80%, transparent) 45%,
+            var(--accent) 50%,
+            color-mix(in srgb, var(--accent) 80%, transparent) 55%,
+            transparent 70%,
+            transparent 100%
+        ) 0 0 / 250% 100% no-repeat,
+        var(--text-primary);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    /* Glow halo around the bright zone — sits behind the text so it
+       reads as light spilling out of the letters. */
     filter:
-        drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 90%, transparent))
-        drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 50%, transparent));
-    /* Total stroke length across all letters is ~1100 user units. A 70-unit
-       visible window with a 1100-unit gap gives one moving pen tip flowing
-       through every letter from M → R, then looping. */
-    stroke-dasharray: 70 1100;
-    animation: title-flow-sweep 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 35%, transparent));
+    animation: title-glow-flow 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-@keyframes title-flow-sweep {
-    0%   { stroke-dashoffset: 1170; }
-    100% { stroke-dashoffset: 0;    }
+@keyframes title-glow-flow {
+    0%   { background-position: 250% 0, 0 0; }
+    100% { background-position: -250% 0, 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .title-flow-blip { animation: none; opacity: 0.7; stroke-dasharray: none; }
+    .app-title-glow { animation: none; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
