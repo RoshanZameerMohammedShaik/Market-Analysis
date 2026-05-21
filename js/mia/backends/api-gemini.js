@@ -121,6 +121,11 @@ async function postOnce({ model, system, messages, key, signal }) {
     body.generationConfig = {
         temperature: 0.3,
         maxOutputTokens: 1500,
+        // Halt as soon as the model tries to write a tool RESULT block —
+        // that's the agent's job, not the model's. Without these stops
+        // Gemini will fabricate fake tool results inline and then write
+        // an answer based on hallucinated data.
+        stopSequences: ['\nRESULT:', 'RESULT (from'],
     };
     const res = await fetch(url, {
         method: 'POST',
