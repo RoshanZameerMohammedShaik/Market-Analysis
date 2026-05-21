@@ -208,55 +208,42 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-wrap {
     display: flex; align-items: center; gap: 14px;
 }
-/* Header pulse: candlestick-style trading bars on either side of the title.
-   Reads as "market activity" rather than "hospital monitor". 8 bars cycle
-   through low/mid/high heights on a phased delay so it animates left→right.
+/* Header wave: smooth oscilloscope/sine wave on either side of the title.
+   The SVG path is twice the viewBox width (240 wide for a 120-wide window)
+   so we can translate the inner <g> from 0 to -120 and it tiles seamlessly.
    Theme-tinted via var(--accent). */
-.header-pulse {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 28px;
+.header-wave {
+    width: 110px; height: 24px;
     flex-shrink: 0;
+    color: var(--accent, #f472b6);
+    overflow: hidden;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 50%, transparent));
 }
-.header-pulse i {
-    display: block;
-    width: 4px;
-    border-radius: 2px;
-    background: var(--accent, #f472b6);
-    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 60%, transparent);
-    animation: header-pulse-bar 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-    transform-origin: center;
+.header-wave-path {
+    stroke: currentColor;
+    opacity: 0.9;
 }
-.header-pulse i:nth-child(1) { animation-delay: 0s;    }
-.header-pulse i:nth-child(2) { animation-delay: -0.18s;}
-.header-pulse i:nth-child(3) { animation-delay: -0.36s;}
-.header-pulse i:nth-child(4) { animation-delay: -0.54s;}
-.header-pulse i:nth-child(5) { animation-delay: -0.72s;}
-.header-pulse i:nth-child(6) { animation-delay: -0.90s;}
-.header-pulse i:nth-child(7) { animation-delay: -1.08s;}
-.header-pulse i:nth-child(8) { animation-delay: -1.26s;}
-.header-pulse-right i {
-    /* Right side runs in reverse so both sides read as flowing TOWARD the title. */
+.header-wave-scroll {
+    animation: header-wave-scroll 4.5s linear infinite;
+}
+.header-wave-right .header-wave-scroll {
+    /* Right side scrolls the opposite way so both sides flow TOWARD the title */
     animation-direction: reverse;
 }
-@keyframes header-pulse-bar {
-    0%, 100% { height: 6px;  opacity: 0.45; }
-    25%      { height: 16px; opacity: 0.85; }
-    50%      { height: 22px; opacity: 1;    }
-    75%      { height: 12px; opacity: 0.7;  }
+@keyframes header-wave-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-120px); }
 }
 
 @media (max-width: 768px) {
-    .header-pulse { gap: 2.5px; height: 22px; }
-    .header-pulse i { width: 3px; }
+    .header-wave { width: 70px; height: 20px; }
     .app-title-wrap { gap: 10px; }
 }
 @media (max-width: 480px) {
-    .header-pulse i:nth-child(n+6) { display: none; }
+    .header-wave { width: 48px; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .header-pulse i { animation: none; height: 12px; opacity: 0.7; }
+    .header-wave-scroll { animation: none; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
