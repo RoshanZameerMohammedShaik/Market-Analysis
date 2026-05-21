@@ -117,7 +117,9 @@ html[data-dev="1"] body { padding-top: 22px; }
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     text-transform: none; letter-spacing: 0;
     display: inline-flex; align-items: center; gap: 0;
-    overflow: visible;
+    /* Override cinematic.css's `overflow: hidden` (added for ripple
+       containment on every button) — that was clipping our ring. */
+    overflow: visible !important;
 }
 .pl-use-current:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
