@@ -27,6 +27,24 @@ function wireUseCurrent(btn) {
     const textEl = btn.querySelector('.pl-uc-text') || btn;
     const origText = textEl.textContent;
 
+    // Match the SVG ring's corner radius to the button's actual rendered
+    // border-radius. SVG rx="999" or "50%" don't clamp consistently across
+    // browsers/versions, so we measure once at init (and on resize) and
+    // set the rect's rx/ry explicitly.
+    const ringRect = btn.querySelector('.pl-uc-ring-fg');
+    const updateRingShape = () => {
+        if (!ringRect) return;
+        const h = btn.getBoundingClientRect().height;
+        if (!h) return;
+        // Plus 2 because the SVG sits 1px outside the button on each side.
+        const r = (h + 2) / 2;
+        ringRect.setAttribute('rx', String(r));
+        ringRect.setAttribute('ry', String(r));
+    };
+    updateRingShape();
+    // Re-measure if the panel was hidden when first init'd.
+    new ResizeObserver(updateRingShape).observe(btn);
+
     const fillInto = (inputId, label) => {
         const input = document.getElementById(inputId);
         if (state.currentPrice == null) {
