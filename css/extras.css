@@ -121,8 +121,14 @@ html[data-dev="1"] body { padding-top: 22px; }
 }
 .pl-use-current:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Ring overlay — invisible at rest, fills clockwise during a long-press
-   over the 500ms hold window, visually mirroring the Mia send button. */
+/* Ring overlay — pill-shaped, hugs the chip's actual horizontal bounds
+   instead of being a tiny circle in the middle. Invisible at rest;
+   fills clockwise during a 500ms long-press, mirroring the Mia send
+   button's gesture vocabulary.
+
+   Trick: pathLength="100" on the rect normalizes the perimeter to
+   100 regardless of actual size, so dasharray/dashoffset arithmetic
+   doesn't care how wide the chip is. */
 .pl-uc-ring {
     position: absolute;
     inset: -3px;
@@ -136,16 +142,17 @@ html[data-dev="1"] body { padding-top: 22px; }
 .pl-uc-ring-fg {
     stroke: var(--accent);
     filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
 }
 .pl-use-current.pl-uc-pressing .pl-uc-ring {
     opacity: 1;
 }
 .pl-use-current.pl-uc-pressing .pl-uc-ring-fg {
-    /* Total perimeter ≈ 100.53; fill it over the 500ms hold duration */
     animation: pl-uc-ring-fill 500ms linear forwards;
 }
 @keyframes pl-uc-ring-fill {
-    from { stroke-dashoffset: 100.53; }
+    from { stroke-dashoffset: 100; }
     to   { stroke-dashoffset: 0; }
 }
 
