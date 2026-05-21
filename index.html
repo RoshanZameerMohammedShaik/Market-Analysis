@@ -18,7 +18,11 @@
                          progressively from start to end. Same drawing motion as Mia's
                          logo, just applied to a whole word. -->
                     <svg class="title-ecg-svg" viewBox="0 0 380 60" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                        <!-- Solid filled base so the title is always readable. -->
+                        <text class="title-ecg-fill"  x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
+                        <!-- Dim outline trace shows the path the blip will follow. -->
                         <text class="title-ecg-trace" x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
+                        <!-- Bright animated blip draws each letter's outline in sequence. -->
                         <text class="title-ecg-blip"  x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
                     </svg>
                     <span class="title-ecg-sr">Market Analyzer</span>
