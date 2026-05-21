@@ -23,11 +23,18 @@ Schema (predicted phase):
 
 The "horizons" dict gets filled in by record_outcomes.py as each
 forward window matures.
+
+Exit codes:
+    0 = at least one row written
+    1 = zero rows written (counts get printed for diagnosis); this fails
+        the workflow loudly so silent regressions don't go unnoticed.
 """
 import argparse
 import datetime
 import json
 import os
+import sys
+import traceback
 
 import yfinance as yf
 
@@ -37,6 +44,17 @@ from ledger_universe import symbols_for_region, region_for, HORIZONS_DAYS
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEDGER_DIR = os.path.join(SCRIPT_DIR, 'model', 'ledger')
+
+# Print a sample of what each skipped-*/error symbol failed for so we can
+# diagnose silent zero-row runs from the workflow log.
+_DIAG_SAMPLES_PER_REASON = 5
+_diag_samples = {}
+
+
+def _add_diag(reason: str, symbol: str, detail: str):
+    bucket = _diag_samples.setdefault(reason, [])
+    if len(bucket) < _DIAG_SAMPLES_PER_REASON:
+        bucket.append(f'{symbol}: {detail}')
 
 
 def ledger_path_for(date_iso: str) -> str:
@@ -60,9 +78,13 @@ def already_predicted_today(path: str, date_iso: str, symbol: str) -> bool:
 def fetch_recent_candles(symbol: str, period='6mo'):
     """Pull the trailing window needed to compute indicators (RSI, MACD, BB, etc.)."""
     df = yf.download(symbol, period=period, interval='1d', progress=False, auto_adjust=False)
-    if df.empty:
-        return None
-    return extract_ohlcv(df)
+    if df is None or df.empty:
+        return None, 'empty-df'
+    try:
+        ohlcv = extract_ohlcv(df)
+    except Exception as e:
+        return None, f'extract-failed: {e}'
+    return ohlcv, None
 
 
 def candles_as_records(close, high, low, volume, n=120):
@@ -85,15 +107,20 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
     if already_predicted_today(path, date_iso, symbol):
         return ('skipped-dup', symbol)
 
-    candles_data = fetch_recent_candles(symbol)
+    candles_data, why = fetch_recent_candles(symbol)
     if candles_data is None:
+        _add_diag('skipped-no-data', symbol, why or 'unknown')
         return ('skipped-no-data', symbol)
     close, high, low, volume = candles_data
     if len(close) < 30:
+        _add_diag('skipped-thin', symbol, f'len(close)={len(close)}')
         return ('skipped-thin', symbol)
 
     candles = candles_as_records(close, high, low, volume)
     pred = generate_prediction(candles)
+    if not pred or not pred.get('signal'):
+        _add_diag('skipped-no-pred', symbol, f'pred={pred}')
+        return ('skipped-no-pred', symbol)
     entry_price = float(close[-1])
 
     row = {
@@ -121,23 +148,55 @@ def main():
     symbols = symbols_for_region(args.region)
     if not symbols:
         print(f'No symbols for region {args.region}')
-        return
+        # Empty universe is a config bug, not a runtime issue — fail loud.
+        sys.exit(1)
 
     now = datetime.datetime.utcnow()
     date_iso = now.strftime('%Y-%m-%d')
     ts_iso = now.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    print(f"Recording {args.region} predictions for {date_iso} ({len(symbols)} symbols)...")
-    counts = {'ok': 0, 'skipped-dup': 0, 'skipped-no-data': 0, 'skipped-thin': 0, 'error': 0}
+    path_for_today = ledger_path_for(date_iso)
+    print(f'Recording {args.region} predictions for {date_iso} ({len(symbols)} symbols).')
+    print(f'Output path: {path_for_today}')
+    print(f'yfinance version: {getattr(yf, "__version__", "?")}')
+
+    counts = {'ok': 0, 'skipped-dup': 0, 'skipped-no-data': 0, 'skipped-thin': 0, 'skipped-no-pred': 0, 'error': 0}
     for sym in symbols:
         try:
             status, _ = record_for_symbol(sym, date_iso, ts_iso)
             counts[status] = counts.get(status, 0) + 1
         except Exception as e:
             counts['error'] += 1
-            print(f'  [warn] {sym}: {e}')
+            _add_diag('error', sym, f'{type(e).__name__}: {e}')
+            # Print first few full tracebacks so we can fix root cause.
+            if counts['error'] <= 3:
+                traceback.print_exc()
 
-    print(f"Done: {counts}")
+    print(f'Done: {counts}')
+
+    # Show diagnostic samples for whatever bucket dominated. This is what
+    # makes the silent-failure mode loud — without these lines the workflow
+    # would just say "success" with no rows written.
+    for reason in ('skipped-no-data', 'skipped-thin', 'skipped-no-pred', 'error'):
+        if reason in _diag_samples and _diag_samples[reason]:
+            print(f'\n[{reason}] sample of {len(_diag_samples[reason])} (showing up to {_DIAG_SAMPLES_PER_REASON}):')
+            for s in _diag_samples[reason]:
+                print(f'  {s}')
+
+    # Also surface what's actually on disk for this run.
+    if os.path.exists(path_for_today):
+        size = os.path.getsize(path_for_today)
+        with open(path_for_today, 'r') as f:
+            line_count = sum(1 for _ in f)
+        print(f'\nLedger file: {path_for_today}  ({size} bytes, {line_count} lines)')
+    else:
+        print(f'\nLedger file does not exist: {path_for_today}')
+
+    # Hard-fail when zero rows were written. Without this the workflow
+    # exits 0 even on silent regressions and we'd never notice.
+    if counts['ok'] == 0:
+        print(f'\nERROR: zero rows written for region {args.region}. See diagnostic samples above.', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
