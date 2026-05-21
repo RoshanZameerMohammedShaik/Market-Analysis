@@ -231,41 +231,29 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     white-space: nowrap;
 }
 .title-ecg-svg {
-    /* Sized to match the original h1's footprint: ~22px tall × ~190px wide.
-       The SVG's viewBox is 380×60 so we use scale-to-fit. */
-    height: 1em;
-    width: 6.5em;
+    /* Hand-drawn ECG polyline. ViewBox is 460×28, but currently only the
+       first ~200 units are populated (drafting "Market" letters). Sized
+       to a generous height so the spikes/valleys aren't cramped. */
+    height: 1.6em;
+    width: 12em;
     overflow: visible;
     color: var(--accent);
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
-}
-.title-ecg-fill {
-    /* Solid fill so the title is always solid and readable. */
-    fill: var(--text-primary);
-    stroke: none;
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 65%, transparent));
 }
 .title-ecg-trace, .title-ecg-blip {
     fill: none;
     stroke: currentColor;
     stroke-linejoin: round;
     stroke-linecap: round;
-    paint-order: stroke;
 }
-.title-ecg-trace {
-    stroke-width: 2.2;
-    opacity: 0.55;
-}
+/* Animated blip pen-tip travels along the entire heartbeat polyline. */
 .title-ecg-blip {
-    stroke-width: 3;
-    /* Total length of the rendered text-as-stroke is ~1100 user units.
-       A 60-unit visible window with a 1100-unit gap creates a single
-       moving "pen tip" tracing each letter in order. */
-    stroke-dasharray: 60 1100;
-    animation: title-ecg-draw 3.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    stroke-dasharray: 28 700;
+    animation: title-ecg-draw 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes title-ecg-draw {
-    0%   { stroke-dashoffset: 1160; }
-    100% { stroke-dashoffset: 0;    }
+    0%   { stroke-dashoffset: 728; }
+    100% { stroke-dashoffset: 0;   }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -17,13 +17,60 @@
                          stroke-dasharray animation that draws every letter's outline
                          progressively from start to end. Same drawing motion as Mia's
                          logo, just applied to a whole word. -->
-                    <svg class="title-ecg-svg" viewBox="0 0 380 60" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                        <!-- Solid filled base so the title is always readable. -->
-                        <text class="title-ecg-fill"  x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
-                        <!-- Dim outline trace shows the path the blip will follow. -->
-                        <text class="title-ecg-trace" x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
-                        <!-- Bright animated blip draws each letter's outline in sequence. -->
-                        <text class="title-ecg-blip"  x="2" y="44" font-family="inherit" font-weight="800" font-size="44" letter-spacing="-1">Market Analyzer</text>
+                    <!-- "Market Analyzer" hand-drawn as one continuous ECG polyline.
+                         Each letter is a sharp zigzag of straight segments forming
+                         a recognizable letter shape; flat baseline runs at y=14
+                         connect adjacent letters into a single heartbeat trace.
+                         Drawn-progressively-by-blip animation matches Mia's logo. -->
+                    <svg class="title-ecg-svg" viewBox="0 0 460 28" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                        <path class="title-ecg-trace" d="
+                            M2 14
+                            L4 14 L8 4 L11 24 L14 4 L17 24 L21 4 L24 14
+                            L26 14 L28 8 L30 14 L32 8 L34 14 L34 22
+                            L36 14 L38 22 L40 14 L42 8 L44 14
+                            L46 14 L48 22 L50 14 L52 8 L54 14
+                            L56 14 L58 22 L60 14 L62 8 L64 22 L66 8 L68 14
+                            L70 14 L72 22 L74 8 L76 22 L78 8 L80 22 L82 14
+                            L84 14 L86 4 L88 22 L90 14 L92 4 L94 22 L96 14
+                            L98 14
+                            L102 14
+                            L104 14 L108 4 L110 22 L113 4 L115 22 L118 4 L120 14
+                            L122 14 L124 22 L126 8 L128 22 L130 8 L132 22 L134 14
+                            L136 14 L138 8 L140 22 L142 14 L144 8 L146 22 L148 14
+                            L150 14 L152 22 L154 8 L156 22 L158 14
+                            L160 14 L162 4 L164 22 L166 14
+                            L168 14 L170 22 L172 8 L174 22 L176 14
+                            L178 14 L180 4 L182 14 L184 22 L186 14
+                            L188 14 L190 8 L192 22 L194 8 L196 14
+                            L198 14
+                            L200 14
+                            "
+                            fill="none" stroke="currentColor" stroke-width="1.5"
+                            stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+                        <path class="title-ecg-blip" d="
+                            M2 14
+                            L4 14 L8 4 L11 24 L14 4 L17 24 L21 4 L24 14
+                            L26 14 L28 8 L30 14 L32 8 L34 14 L34 22
+                            L36 14 L38 22 L40 14 L42 8 L44 14
+                            L46 14 L48 22 L50 14 L52 8 L54 14
+                            L56 14 L58 22 L60 14 L62 8 L64 22 L66 8 L68 14
+                            L70 14 L72 22 L74 8 L76 22 L78 8 L80 22 L82 14
+                            L84 14 L86 4 L88 22 L90 14 L92 4 L94 22 L96 14
+                            L98 14
+                            L102 14
+                            L104 14 L108 4 L110 22 L113 4 L115 22 L118 4 L120 14
+                            L122 14 L124 22 L126 8 L128 22 L130 8 L132 22 L134 14
+                            L136 14 L138 8 L140 22 L142 14 L144 8 L146 22 L148 14
+                            L150 14 L152 22 L154 8 L156 22 L158 14
+                            L160 14 L162 4 L164 22 L166 14
+                            L168 14 L170 22 L172 8 L174 22 L176 14
+                            L178 14 L180 4 L182 14 L184 22 L186 14
+                            L188 14 L190 8 L192 22 L194 8 L196 14
+                            L198 14
+                            L200 14
+                            "
+                            fill="none" stroke="currentColor" stroke-width="2.2"
+                            stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                     <span class="title-ecg-sr">Market Analyzer</span>
                 </h1>
