@@ -3,6 +3,49 @@ import { state } from './state.js';
 
 let searchTimeout = null;
 
+// Yahoo's exchange codes are cryptic (NMS / NGM / BTS / NYQ / etc).
+// Map them to the names a user actually recognizes. Anything we don't
+// know, we show as-is rather than fabricate a label.
+const EXCHANGE_NAMES = {
+    // United States
+    NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ',
+    NYQ: 'NYSE', NYS: 'NYSE',
+    PCX: 'NYSE Arca', ASE: 'NYSE American',
+    BTS: 'Cboe BZX', BATS: 'Cboe BZX',
+    OTC: 'OTC', PNK: 'OTC Pink', OBB: 'OTC Bulletin',
+    OQB: 'OTCQB', OQX: 'OTCQX',
+    // Europe
+    LSE: 'LSE', LSIN: 'LSE',
+    GER: 'Xetra', FRA: 'Frankfurt', STU: 'Stuttgart',
+    PAR: 'Euronext Paris', AMS: 'Euronext Amsterdam',
+    BRU: 'Euronext Brussels', LIS: 'Euronext Lisbon',
+    SWX: 'SIX Swiss', VTX: 'SIX Swiss',
+    MIL: 'Borsa Italiana', MCE: 'BME Spain',
+    CPH: 'Nasdaq Copenhagen', HEL: 'Nasdaq Helsinki', STO: 'Nasdaq Stockholm',
+    ISE: 'Euronext Dublin', OSL: 'Oslo',
+    // Asia / APAC
+    HKG: 'HKEX', HKEX: 'HKEX',
+    TYO: 'Tokyo', JPX: 'Tokyo',
+    SHH: 'Shanghai', SHZ: 'Shenzhen',
+    NSE: 'NSE India', BSE: 'BSE India',
+    KSC: 'KOSPI', KOE: 'KOSDAQ',
+    TPE: 'Taiwan',
+    SES: 'SGX Singapore',
+    ASX: 'ASX',
+    // Americas (non-US)
+    TOR: 'TSX', TSX: 'TSX', CNQ: 'CSE',
+    BUE: 'Buenos Aires', BVMF: 'B3 Brazil', SAO: 'B3 Brazil',
+    MEX: 'BMV Mexico',
+    // Crypto / FX
+    CCC: 'Crypto', CCY: 'Currency',
+};
+
+function prettyExchange(code) {
+    if (!code) return '';
+    const u = String(code).toUpperCase();
+    return EXCHANGE_NAMES[u] || u;
+}
+
 export function initSearch(onSelect) {
     const input = document.getElementById('search-input');
     const results = document.getElementById('search-results');
@@ -41,9 +84,10 @@ async function performSearch(query, onSelect) {
         }
         results.innerHTML = items.map(item => {
             if (state.mode === 'stock') {
+                const exchange = prettyExchange(item.exchange);
                 return `<div class="search-result-item" data-symbol="${item.symbol}">
                     <div><span class="result-symbol">${item.symbol}</span> <span class="result-name">${item.name}</span></div>
-                    <span class="result-name">${item.exchange || ''}</span>
+                    ${exchange ? `<span class="result-name">${exchange}</span>` : ''}
                 </div>`;
             }
             return `<div class="search-result-item" data-coinid="${item.id}" data-symbol="${item.symbol}">
