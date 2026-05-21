@@ -24,6 +24,9 @@ function wireUseCurrent(btn) {
     let holdState = 'idle';     // 'idle' | 'pressing' | 'firing'
     let armed = false;
 
+    const textEl = btn.querySelector('.pl-uc-text') || btn;
+    const origText = textEl.textContent;
+
     const fillInto = (inputId, label) => {
         const input = document.getElementById(inputId);
         if (state.currentPrice == null) {
@@ -36,13 +39,12 @@ function wireUseCurrent(btn) {
         input.value = state.currentPrice.toFixed(2);
         input.classList.add('flash');
         setTimeout(() => input.classList.remove('flash'), 600);
-        // Briefly show on the button which field got filled, so the long-press
-        // behavior is discoverable. The chip text returns to default after 1.4s.
-        btn.dataset.origText = btn.dataset.origText || btn.textContent;
-        btn.textContent = `→ ${label}`;
+        // Briefly show which field got filled. We swap only the text span
+        // (not btn.textContent) so the SVG ring inside the button stays.
+        textEl.textContent = `→ ${label}`;
         btn.classList.add('pl-uc-flashed');
         setTimeout(() => {
-            btn.textContent = btn.dataset.origText;
+            textEl.textContent = origText;
             btn.classList.remove('pl-uc-flashed');
         }, 1400);
     };

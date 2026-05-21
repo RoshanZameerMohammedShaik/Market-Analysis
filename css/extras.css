@@ -105,33 +105,59 @@ html[data-dev="1"] body { padding-top: 22px; }
 .pl-input-wrap input[type=number] { -moz-appearance: textfield; }
 
 .pl-use-current {
+    position: relative;
     margin-left: 8px;
-    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.3px;
+    font-size: 0.62rem; font-weight: 800;
     padding: 3px 9px;
     border-radius: 999px;
     background: var(--bg-card);
     border: 1px solid var(--border-strong);
     color: var(--accent);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     text-transform: none; letter-spacing: 0;
+    display: inline-flex; align-items: center; gap: 0;
+    overflow: visible;
 }
 .pl-use-current:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-.pl-use-current.pl-uc-pressing {
-    background: color-mix(in srgb, var(--accent) 25%, transparent);
-    color: var(--accent);
-    border-color: var(--accent);
-    animation: pl-uc-fill 0.5s linear forwards;
+
+/* Ring overlay — invisible at rest, fills clockwise during a long-press
+   over the 500ms hold window, visually mirroring the Mia send button. */
+.pl-uc-ring {
+    position: absolute;
+    inset: -3px;
+    width: calc(100% + 6px);
+    height: calc(100% + 6px);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    overflow: visible;
 }
-@keyframes pl-uc-fill {
-    from { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-    to   { background: var(--accent); color: #fff; }
+.pl-uc-ring-fg {
+    stroke: var(--accent);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
 }
+.pl-use-current.pl-uc-pressing .pl-uc-ring {
+    opacity: 1;
+}
+.pl-use-current.pl-uc-pressing .pl-uc-ring-fg {
+    /* Total perimeter ≈ 100.53; fill it over the 500ms hold duration */
+    animation: pl-uc-ring-fill 500ms linear forwards;
+}
+@keyframes pl-uc-ring-fill {
+    from { stroke-dashoffset: 100.53; }
+    to   { stroke-dashoffset: 0; }
+}
+
+/* Brief flash after a successful tap or hold so the user can see which
+   field got filled. */
 .pl-use-current.pl-uc-flashed {
-    background: color-mix(in srgb, var(--accent) 20%, var(--bg-card));
+    background: color-mix(in srgb, var(--accent) 22%, var(--bg-card));
     color: var(--accent);
     border-color: var(--accent);
 }
+.pl-use-current.pl-uc-flashed .pl-uc-ring { opacity: 0; }
+.pl-uc-text { display: inline-block; }
 
 .pl-field input.flash { animation: pl-flash 0.6s ease; }
 @keyframes pl-flash { 0% { background: color-mix(in srgb, var(--accent) 35%, transparent); } 100% { background: transparent; } }

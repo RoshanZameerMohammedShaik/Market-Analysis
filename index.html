@@ -101,7 +101,13 @@
                     <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-buyPrice" placeholder="0.00"></div>
                 </div>
                 <div class="pl-field">
-                    <label>Current / Target Price <button type="button" class="pl-use-current" id="pl-useCurrent" title="Load current price for selected symbol">Use current</button></label>
+                    <label>Current / Target Price <button type="button" class="pl-use-current" id="pl-useCurrent" title="Tap: fill Current/Target Price. Long-press: fill Purchase Price.">
+                        <svg class="pl-uc-ring" viewBox="0 0 36 36" aria-hidden="true">
+                            <circle class="pl-uc-ring-bg" cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="2" opacity="0"/>
+                            <circle class="pl-uc-ring-fg" cx="18" cy="18" r="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="100.53" stroke-dashoffset="100.53" transform="rotate(-90 18 18)"/>
+                        </svg>
+                        <span class="pl-uc-text">Use current</span>
+                    </button></label>
                     <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-currentPrice" placeholder="0.00"></div>
                 </div>
                 <button class="pl-btn" id="pl-calcBtn">Calculate P&amp;L</button>
