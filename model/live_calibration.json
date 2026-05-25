@@ -1,7 +1,105 @@
 {
-  "generatedAt": "2026-05-24T23:03:50Z",
-  "byHorizon": {},
-  "byRegion": {},
-  "totalRowsConsidered": 544,
-  "totalResolvedHorizons": 0
+  "generatedAt": "2026-05-25T23:15:56Z",
+  "byHorizon": {
+    "1": {
+      "SELL": {
+        "50-60": {
+          "n": 72,
+          "predicted": 52.8,
+          "actual": 19.4
+        },
+        "60-70": {
+          "n": 2,
+          "predicted": 60.0,
+          "actual": 50.0
+        }
+      },
+      "NEUTRAL": {
+        "40-50": {
+          "n": 100,
+          "predicted": 45.3,
+          "actual": 33.0
+        }
+      },
+      "BUY": {
+        "60-70": {
+          "n": 3,
+          "predicted": 60.0,
+          "actual": 66.7
+        },
+        "50-60": {
+          "n": 38,
+          "predicted": 52.6,
+          "actual": 34.2
+        }
+      }
+    }
+  },
+  "byRegion": {
+    "ASX": {
+      "50-60": {
+        "n": 12,
+        "predicted": 50.7,
+        "actual": 33.3
+      },
+      "40-50": {
+        "n": 14,
+        "predicted": 45.2,
+        "actual": 21.4
+      },
+      "60-70": {
+        "n": 3,
+        "predicted": 60.0,
+        "actual": 66.7
+      }
+    },
+    "CRYPTO": {
+      "40-50": {
+        "n": 42,
+        "predicted": 45.2,
+        "actual": 52.4
+      },
+      "50-60": {
+        "n": 48,
+        "predicted": 53.1,
+        "actual": 39.6
+      }
+    },
+    "TYO": {
+      "40-50": {
+        "n": 20,
+        "predicted": 45.3,
+        "actual": 40.0
+      },
+      "50-60": {
+        "n": 9,
+        "predicted": 53.1,
+        "actual": 44.4
+      },
+      "60-70": {
+        "n": 1,
+        "predicted": 60.0,
+        "actual": 100.0
+      }
+    },
+    "NSE": {
+      "50-60": {
+        "n": 41,
+        "predicted": 52.8,
+        "actual": 0.0
+      },
+      "40-50": {
+        "n": 24,
+        "predicted": 45.4,
+        "actual": 0.0
+      },
+      "60-70": {
+        "n": 1,
+        "predicted": 60.0,
+        "actual": 0.0
+      }
+    }
+  },
+  "totalRowsConsidered": 998,
+  "totalResolvedHorizons": 215
 }
