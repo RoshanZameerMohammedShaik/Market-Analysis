@@ -25,3 +25,7 @@ env/
 
 # OS
 Thumbs.db
+
+# Local-only
+.test-screenshots/
+workers/yahoo-proxy/.wrangler/

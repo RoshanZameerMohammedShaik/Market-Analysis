@@ -13,6 +13,7 @@ import { renderWelcome, MIA_LOGO_SVG } from './welcome.js';
 import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
 import { flagUnverifiedNumbers, UNVERIFIED_TOKEN_RE } from './guard.js';
+import { initVoice, attachVoiceButton } from './voice.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -117,7 +118,11 @@ const ICON_TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" 
 const THINKING_INDICATOR_HTML = `<span class="mia-thinking-bars" aria-label="Mia is thinking"><i></i><i></i><i></i><i></i><i></i><i></i></span>`;
 
 export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
-export function initMia() { document.getElementById('mia-launcher')?.addEventListener('click', togglePanel); initLauncherReadyDot(); }
+export function initMia() {
+    document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
+    initLauncherReadyDot();
+    initVoice();
+}
 function initLauncherReadyDot() {
     const launcher = document.getElementById('mia-launcher');
     if (!launcher) return;
@@ -180,6 +185,7 @@ function renderChat() {
     refreshThinkingBadge();
     renderUsageMeter(document.getElementById('mia-usage-wrap'));
     renderThread(loadHistory());
+    attachVoiceButton();
 }
 
 let holdTimer = null;

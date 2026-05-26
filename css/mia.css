@@ -415,3 +415,152 @@
     .mia-launcher-logo { width: 36px; height: 28px; }
     .mia-providers { grid-template-columns: 1fr; }
 }
+
+/* ----------------------------------------------------------------
+   Voice mode (free Version A): mic button + overlay + glowing orb.
+   ---------------------------------------------------------------- */
+
+.mia-voice-btn {
+    width: 44px; height: 44px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.mia-voice-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-hover);
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.22);
+}
+.mia-voice-btn:active { transform: scale(0.94); }
+
+.mia-voice-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.92) 100%);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-theme="light"] .mia-voice-overlay {
+    background: radial-gradient(circle at center, rgba(15, 23, 42, 0.55) 0%, rgba(15, 23, 42, 0.88) 100%);
+}
+.mia-voice-overlay.open {
+    display: flex;
+    opacity: 1;
+}
+.mia-voice-close {
+    position: absolute; top: 22px; right: 22px;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.06);
+    color: #fff;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.mia-voice-close:hover { background: rgba(255,255,255,0.14); transform: scale(1.06); }
+.mia-voice-close:active { transform: scale(0.94); }
+
+.mia-voice-stage {
+    display: flex; flex-direction: column; align-items: center; gap: 22px;
+    width: min(420px, 92vw);
+    pointer-events: none; /* let backdrop clicks pass to overlay */
+}
+.mia-voice-stage > * { pointer-events: auto; }
+
+.mia-voice-orb {
+    position: relative;
+    width: min(320px, 78vw); height: min(320px, 78vw);
+    max-width: 360px; max-height: 360px;
+    border: none;
+    background: transparent;
+    padding: 0; margin: 0;
+    cursor: pointer;
+    border-radius: 50%;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    outline: none;
+}
+.mia-voice-orb:active { transform: scale(0.97); }
+.mia-voice-orb:focus-visible { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.45); }
+.mia-voice-canvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: block;
+    border-radius: 50%;
+}
+.mia-voice-orb-core {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    /* Subtle ambient pulse; the canvas does the heavy lifting visually. */
+}
+
+.mia-voice-orb[data-state="thinking"] {
+    animation: mia-voice-think 1.6s ease-in-out infinite;
+}
+@keyframes mia-voice-think {
+    0%, 100% { transform: scale(0.985); }
+    50%      { transform: scale(1.02); }
+}
+.mia-voice-orb.pulse {
+    animation: mia-voice-pulse 0.5s ease-out;
+}
+@keyframes mia-voice-pulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.07); }
+    100% { transform: scale(1); }
+}
+
+.mia-voice-status {
+    color: rgba(255,255,255,0.92);
+    font-size: 1.0rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    text-align: center;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    min-height: 1.4em;
+}
+.mia-voice-transcript {
+    color: rgba(255,255,255,0.78);
+    font-size: 0.92rem;
+    text-align: center;
+    line-height: 1.45;
+    max-width: 90%;
+    min-height: 1.4em;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.mia-voice-hint {
+    color: rgba(255,255,255,0.42);
+    font-size: 0.78rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 6px;
+}
+
+@media (max-width: 480px) {
+    .mia-voice-btn { width: 40px; height: 40px; }
+    .mia-voice-stage { width: 92vw; gap: 16px; }
+    .mia-voice-status { font-size: 0.92rem; }
+    .mia-voice-transcript { font-size: 0.84rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mia-voice-overlay { transition: none; }
+    .mia-voice-orb[data-state="thinking"] { animation: none; }
+    .mia-voice-orb.pulse { animation: none; }
+}
