@@ -15,7 +15,7 @@ import {
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
-    readLedgerHistory, readLiveCalibration,
+    readLedgerHistory, readLiveCalibration, findSimilarSetups,
 } from './ui-bridge.js';
 import { compute } from './math-tool.js';
 import {
@@ -52,6 +52,12 @@ const TOOLS = {
     },
     get_calibration: { desc: 'calibration tables', args: '{}', run: () => readCalibrationSnapshot(), kind: 'read' },
     get_accuracy_stats: { desc: 'running accuracy hits/total/rate', args: '{}', run: () => readAccuracyStats(), kind: 'read' },
+    find_similar_setups: {
+        desc: 'find past ledger predictions with similar RSI/MACD/BB to the current setup, report hit rate at each horizon',
+        args: '{"signal": "BUY|SELL", "k": 20, "region": "NYSE|NSE|..."}',
+        run: (a = {}) => findSimilarSetups(a),
+        kind: 'read',
+    },
     explain_prediction: {
         desc: 'top features that drove the current signal (which indicators pushed the score most, with values)',
         args: '{"topN": 3}',

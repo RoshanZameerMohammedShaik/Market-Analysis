@@ -31,6 +31,7 @@ const ACTION_VERBS = {
     get_calibration: 'checking calibration',
     get_accuracy_stats: 'reading accuracy stats',
     explain_prediction: 'pulling the top drivers',
+    find_similar_setups: 'searching past similar setups',
     analyze_symbol: 'running analysis',
     compare_symbols: 'comparing tickers',
     get_hot_picks: 'checking hot picks',
