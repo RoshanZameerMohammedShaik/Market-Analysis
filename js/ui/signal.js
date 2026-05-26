@@ -69,6 +69,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const insightSummary = generateHumanInsight(prediction, sentiment);
     const newsHTML = renderNews(newsData, sentiment);
     const pennyDashboardHTML = renderPennyDashboard(prediction);
+    const attributionHTML = renderAttribution(prediction.attribution);
 
     const technicalHTML = `
         <div class="technical-section">
@@ -157,6 +158,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             ${breakdownHTML}
             ${pennyDashboardHTML}
             <div class="insight-summary">${insightSummary}</div>
+            ${attributionHTML}
             ${priceTargetHTML}
             ${newsHTML}
             ${technicalHTML}
@@ -206,4 +208,48 @@ function generateHumanInsight(prediction, sentiment) {
         else if (sentiment.overall === 'positive' && signal === 'SELL') insight += ` <span class="highlight-yellow">Note: positive news may limit downside despite bearish technicals.</span>`;
     }
     return insight;
+}
+
+// Maps an indicator key (used internally) to a human display name.
+// Kept tight here so future indicator additions just need an entry.
+const INDICATOR_LABEL = {
+    rsi: 'RSI',
+    macd: 'MACD',
+    bb: 'Bollinger Bands',
+    maCross: 'Moving Avg Cross',
+    volume: 'Volume',
+    adx: 'ADX (trend strength)',
+    mfi: 'Money Flow Index',
+    divergence: 'Divergence',
+    failedBreak: 'Failed breakout',
+    momentum: '5-bar momentum',
+};
+
+function renderAttribution(attribution) {
+    if (!attribution || !attribution.length) return '';
+    // Find the largest absolute contribution to scale bars relative to it.
+    const maxAbs = Math.max(...attribution.map(a => Math.abs(a.netContribution)), 0.0001);
+    const rows = attribution.slice(0, 4).map(a => {
+        const label = INDICATOR_LABEL[a.indicator] || a.indicator;
+        const dirClass = a.direction === 'bullish' ? 'positive' : a.direction === 'bearish' ? 'negative' : 'neutral';
+        const arrow = a.direction === 'bullish' ? '▲' : a.direction === 'bearish' ? '▼' : '◆';
+        const widthPct = Math.round((Math.abs(a.netContribution) / maxAbs) * 100);
+        // Pull a short evidence line from the most-weighted timeframe source.
+        const heaviest = a.sources.slice().sort((s1, s2) => Math.abs(s2.raw) - Math.abs(s1.raw))[0];
+        const evidence = heaviest?.reason || '';
+        return `
+            <div class="attribution-row ${dirClass}">
+                <span class="attribution-arrow ${dirClass}">${arrow}</span>
+                <div class="attribution-body">
+                    <div class="attribution-label">${label}</div>
+                    <div class="attribution-bar"><div class="attribution-fill ${dirClass}" style="width: ${widthPct}%"></div></div>
+                    <div class="attribution-evidence">${evidence}</div>
+                </div>
+            </div>`;
+    }).join('');
+    return `
+        <div class="attribution-section" title="Which indicators pushed the score most. Bullish in green, bearish in red.">
+            <div class="attribution-title">Why this signal — top drivers</div>
+            ${rows}
+        </div>`;
 }

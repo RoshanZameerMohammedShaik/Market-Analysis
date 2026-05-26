@@ -230,98 +230,118 @@ export function generatePrediction(candles, timeframe = 'today') {
     let totalWeight = 0;
     const reasons = [];
 
+    // Per-indicator contribution log. Used downstream by Mia to answer
+    // "why did the model say this?" — surface the 2-3 features that
+    // moved the score most. Each entry carries a signed contribution
+    // (positive = bullish push, negative = bearish push), the human
+    // reason text already produced by this branch, and the live value
+    // of the underlying indicator. Built up as we go so we don't have
+    // to re-derive it later.
+    const contributions = [];
+    const addContrib = (indicator, dir, weight, value, reason) => {
+        if (!Number.isFinite(weight) || weight === 0) return;
+        contributions.push({
+            indicator,
+            value,
+            direction: dir,        // 'bull' or 'bear'
+            contribution: dir === 'bull' ? weight : -weight,
+            reason,
+        });
+    };
+
     if (rsi !== null) {
         const w = 2 * meanReversionBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (rsi < 30) { bullScore += w; reasons.push(`RSI oversold at ${rsi.toFixed(1)} — reversal likely`); }
-        else if (rsi < 40) { bullScore += w * 0.5; reasons.push(`RSI approaching oversold (${rsi.toFixed(1)})`); }
-        else if (rsi > 70) { bearScore += w; reasons.push(`RSI overbought at ${rsi.toFixed(1)} — pullback likely`); }
-        else if (rsi > 60) { bearScore += w * 0.5; reasons.push(`RSI elevated (${rsi.toFixed(1)})`); }
+        if (rsi < 30) { bullScore += w; const r = `RSI oversold at ${rsi.toFixed(1)} — reversal likely`; reasons.push(r); addContrib('rsi', 'bull', w, rsi, r); }
+        else if (rsi < 40) { bullScore += w * 0.5; const r = `RSI approaching oversold (${rsi.toFixed(1)})`; reasons.push(r); addContrib('rsi', 'bull', w * 0.5, rsi, r); }
+        else if (rsi > 70) { bearScore += w; const r = `RSI overbought at ${rsi.toFixed(1)} — pullback likely`; reasons.push(r); addContrib('rsi', 'bear', w, rsi, r); }
+        else if (rsi > 60) { bearScore += w * 0.5; const r = `RSI elevated (${rsi.toFixed(1)})`; reasons.push(r); addContrib('rsi', 'bear', w * 0.5, rsi, r); }
         else { reasons.push(`RSI neutral at ${rsi.toFixed(1)}`); }
     }
 
     if (macd) {
         const w = 2.5 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (macd.crossover) { bullScore += w; reasons.push(`MACD bullish crossover — strong buy signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : volumeConfirmedFactor < 1 ? ' (thin volume — caution)' : ''}`); }
-        else if (macd.crossunder) { bearScore += w; reasons.push(`MACD bearish crossunder — strong sell signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
-        else if (macd.histogram > 0 && macd.macd > 0) { bullScore += w * 0.6; reasons.push('MACD positive momentum'); }
-        else if (macd.histogram < 0 && macd.macd < 0) { bearScore += w * 0.6; reasons.push('MACD negative momentum'); }
-        else if (macd.histogram > 0) { bullScore += w * 0.2; reasons.push('MACD histogram turning positive'); }
-        else { bearScore += w * 0.2; reasons.push('MACD histogram weakening'); }
+        if (macd.crossover) { bullScore += w; const r = `MACD bullish crossover — strong buy signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : volumeConfirmedFactor < 1 ? ' (thin volume — caution)' : ''}`; reasons.push(r); addContrib('macd', 'bull', w, macd.histogram, r); }
+        else if (macd.crossunder) { bearScore += w; const r = `MACD bearish crossunder — strong sell signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('macd', 'bear', w, macd.histogram, r); }
+        else if (macd.histogram > 0 && macd.macd > 0) { bullScore += w * 0.6; const r = 'MACD positive momentum'; reasons.push(r); addContrib('macd', 'bull', w * 0.6, macd.histogram, r); }
+        else if (macd.histogram < 0 && macd.macd < 0) { bearScore += w * 0.6; const r = 'MACD negative momentum'; reasons.push(r); addContrib('macd', 'bear', w * 0.6, macd.histogram, r); }
+        else if (macd.histogram > 0) { bullScore += w * 0.2; const r = 'MACD histogram turning positive'; reasons.push(r); addContrib('macd', 'bull', w * 0.2, macd.histogram, r); }
+        else { bearScore += w * 0.2; const r = 'MACD histogram weakening'; reasons.push(r); addContrib('macd', 'bear', w * 0.2, macd.histogram, r); }
     }
 
     if (bb) {
         const w = 2 * meanReversionBonus;
         totalWeight += w;
-        if (bb.percentB < 0) { bullScore += w; reasons.push('Price below lower Bollinger Band — mean reversion expected'); }
-        else if (bb.percentB < 0.2) { bullScore += w * 0.75; reasons.push(`Price near lower band (${(bb.percentB * 100).toFixed(0)}%B)`); }
-        else if (bb.percentB > 1) { bearScore += w; reasons.push('Price above upper Bollinger Band — overextended'); }
-        else if (bb.percentB > 0.8) { bearScore += w * 0.75; reasons.push(`Price near upper band (${(bb.percentB * 100).toFixed(0)}%B)`); }
+        if (bb.percentB < 0) { bullScore += w; const r = 'Price below lower Bollinger Band — mean reversion expected'; reasons.push(r); addContrib('bb', 'bull', w, bb.percentB, r); }
+        else if (bb.percentB < 0.2) { bullScore += w * 0.75; const r = `Price near lower band (${(bb.percentB * 100).toFixed(0)}%B)`; reasons.push(r); addContrib('bb', 'bull', w * 0.75, bb.percentB, r); }
+        else if (bb.percentB > 1) { bearScore += w; const r = 'Price above upper Bollinger Band — overextended'; reasons.push(r); addContrib('bb', 'bear', w, bb.percentB, r); }
+        else if (bb.percentB > 0.8) { bearScore += w * 0.75; const r = `Price near upper band (${(bb.percentB * 100).toFixed(0)}%B)`; reasons.push(r); addContrib('bb', 'bear', w * 0.75, bb.percentB, r); }
     }
 
     if (maCross) {
         const w = 2 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (maCross.bullishCross) { bullScore += w; reasons.push(`Golden cross — 9 MA crossed above 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
-        else if (maCross.bearishCross) { bearScore += w; reasons.push(`Death cross — 9 MA crossed below 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`); }
-        else if (maCross.bullish) { bullScore += w * 0.5; reasons.push('Short MA above long MA — bullish trend'); }
-        else { bearScore += w * 0.5; reasons.push('Short MA below long MA — bearish trend'); }
+        if (maCross.bullishCross) { bullScore += w; const r = `Golden cross — 9 MA crossed above 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bull', w, 'golden', r); }
+        else if (maCross.bearishCross) { bearScore += w; const r = `Death cross — 9 MA crossed below 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bear', w, 'death', r); }
+        else if (maCross.bullish) { bullScore += w * 0.5; const r = 'Short MA above long MA — bullish trend'; reasons.push(r); addContrib('maCross', 'bull', w * 0.5, 'short>long', r); }
+        else { bearScore += w * 0.5; const r = 'Short MA below long MA — bearish trend'; reasons.push(r); addContrib('maCross', 'bear', w * 0.5, 'short<long', r); }
     }
 
     if (volumeData && volumes.length > 20) {
         totalWeight += 1.5;
         if (volumeData.spike) {
             const priceUp = closes[closes.length - 1] > closes[closes.length - 2];
-            if (priceUp) { bullScore += 1.5; reasons.push(`Volume spike (${volumeData.ratio.toFixed(1)}x avg) confirms upward move`); }
-            else { bearScore += 1.5; reasons.push(`Volume spike (${volumeData.ratio.toFixed(1)}x avg) confirms selling pressure`); }
+            if (priceUp) { bullScore += 1.5; const r = `Volume spike (${volumeData.ratio.toFixed(1)}x avg) confirms upward move`; reasons.push(r); addContrib('volume', 'bull', 1.5, volumeData.ratio, r); }
+            else { bearScore += 1.5; const r = `Volume spike (${volumeData.ratio.toFixed(1)}x avg) confirms selling pressure`; reasons.push(r); addContrib('volume', 'bear', 1.5, volumeData.ratio, r); }
         }
     }
 
     if (adx !== null && adx > 25) {
         totalWeight += 1.5;
-        if (bullScore > bearScore) { bullScore += 1.5; reasons.push(`ADX ${adx.toFixed(1)} — strong trend in motion`); }
-        else if (bearScore > bullScore) { bearScore += 1.5; reasons.push(`ADX ${adx.toFixed(1)} — strong trend in motion`); }
+        if (bullScore > bearScore) { bullScore += 1.5; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bull', 1.5, adx, r); }
+        else if (bearScore > bullScore) { bearScore += 1.5; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bear', 1.5, adx, r); }
     } else if (adx !== null && adx < 20) {
         reasons.push(`ADX ${adx.toFixed(1)} — ranging market, breakouts often fail`);
     }
 
     if (mfi !== null) {
         totalWeight += 1.5;
-        if (mfi < 20) { bullScore += 1.5; reasons.push(`MFI ${mfi.toFixed(1)} — oversold with weak money flow, bounce likely`); }
-        else if (mfi < 30) { bullScore += 0.75; reasons.push(`MFI ${mfi.toFixed(1)} — approaching oversold money flow`); }
-        else if (mfi > 80) { bearScore += 1.5; reasons.push(`MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`); }
-        else if (mfi > 70) { bearScore += 0.75; reasons.push(`MFI ${mfi.toFixed(1)} — elevated money flow`); }
+        if (mfi < 20) { bullScore += 1.5; const r = `MFI ${mfi.toFixed(1)} — oversold with weak money flow, bounce likely`; reasons.push(r); addContrib('mfi', 'bull', 1.5, mfi, r); }
+        else if (mfi < 30) { bullScore += 0.75; const r = `MFI ${mfi.toFixed(1)} — approaching oversold money flow`; reasons.push(r); addContrib('mfi', 'bull', 0.75, mfi, r); }
+        else if (mfi > 80) { bearScore += 1.5; const r = `MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`; reasons.push(r); addContrib('mfi', 'bear', 1.5, mfi, r); }
+        else if (mfi > 70) { bearScore += 0.75; const r = `MFI ${mfi.toFixed(1)} — elevated money flow`; reasons.push(r); addContrib('mfi', 'bear', 0.75, mfi, r); }
     }
 
-    // NEW: divergence vector.
     if (divs.bullish) {
         const w = 2 * divs.bullish.strength;
         totalWeight += w;
         bullScore += w;
         reasons.push(divs.bullish.reason);
+        addContrib('divergence', 'bull', w, divs.bullish.strength, divs.bullish.reason);
     }
     if (divs.bearish) {
         const w = 2 * divs.bearish.strength;
         totalWeight += w;
         bearScore += w;
         reasons.push(divs.bearish.reason);
+        addContrib('divergence', 'bear', w, divs.bearish.strength, divs.bearish.reason);
     }
 
-    // NEW: failed-break vector.
     if (failedBreak) {
         const w = 2.2 * failedBreak.strength;
         totalWeight += w;
         if (failedBreak.direction === 'bullish') bullScore += w;
         else bearScore += w;
         reasons.push(failedBreak.reason);
+        addContrib('failedBreak', failedBreak.direction === 'bullish' ? 'bull' : 'bear', w, failedBreak.strength, failedBreak.reason);
     }
 
     totalWeight += 1;
     const recentCloses = closes.slice(-5);
     const momentum = (recentCloses[recentCloses.length - 1] - recentCloses[0]) / recentCloses[0] * 100;
-    if (momentum > 2) { bullScore += 1; reasons.push(`Strong upward momentum (+${momentum.toFixed(1)}% over 5 periods)`); }
-    else if (momentum < -2) { bearScore += 1; reasons.push(`Strong downward momentum (${momentum.toFixed(1)}% over 5 periods)`); }
+    if (momentum > 2) { bullScore += 1; const r = `Strong upward momentum (+${momentum.toFixed(1)}% over 5 periods)`; reasons.push(r); addContrib('momentum', 'bull', 1, momentum, r); }
+    else if (momentum < -2) { bearScore += 1; const r = `Strong downward momentum (${momentum.toFixed(1)}% over 5 periods)`; reasons.push(r); addContrib('momentum', 'bear', 1, momentum, r); }
 
     const netScore = bullScore - bearScore;
     const maxPossible = totalWeight;
@@ -337,13 +357,54 @@ export function generatePrediction(candles, timeframe = 'today') {
     const confidenceMultiplier = timeframe === 'tomorrow' ? 0.92 : 1;
     const finalConfidence = Math.round(absConfidence * confidenceMultiplier);
 
+    // Sort contributions by absolute magnitude so the top features (those
+    // that moved the score most, in either direction) come first. Mia
+    // pulls the top 2-3 to explain *why* the engine called what it did.
+    const sortedContribs = contributions
+        .slice()
+        .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+
     return {
         signal,
         confidence: finalConfidence,
         reasons: reasons.filter(r => !r.includes('neutral')).slice(0, 7),
         indicators: { rsi, macd, bb, maCross, volumeData, atr, adx, mfi, momentum, trendRegime, divergences: divs, failedBreak, volumeConfirmedFactor },
         scores: { bull: bullScore, bear: bearScore, net: netScore, normalized: normalizedScore },
+        contributions: sortedContribs,
     };
+}
+
+// Pulls the top-N contributions across all timeframes weighted the same
+// way generateMultiTimeframePrediction blends them (50/25/25 daily/weekly/4h).
+// Returns a flat list sorted by aggregate magnitude — what Mia answers
+// "what drove this call?" with.
+export function summarizeAttribution(prediction, topN = 3) {
+    if (!prediction || !prediction.breakdown) return [];
+    const { daily, weekly, fourHour } = prediction.breakdown;
+    const merged = new Map();
+    const addFromTF = (tfPred, tfWeight, tfLabel) => {
+        if (!tfPred?.contributions) return;
+        for (const c of tfPred.contributions) {
+            const key = c.indicator;
+            const cur = merged.get(key) || { indicator: key, contribution: 0, sources: [] };
+            cur.contribution += c.contribution * tfWeight;
+            cur.sources.push({ timeframe: tfLabel, value: c.value, reason: c.reason, raw: c.contribution });
+            merged.set(key, cur);
+        }
+    };
+    addFromTF(daily, 0.50, 'Daily');
+    addFromTF(weekly, 0.25, 'Weekly');
+    addFromTF(fourHour, 0.25, '4H');
+    const list = [...merged.values()]
+        .map(c => ({
+            indicator: c.indicator,
+            netContribution: +c.contribution.toFixed(3),
+            direction: c.contribution > 0 ? 'bullish' : c.contribution < 0 ? 'bearish' : 'flat',
+            sources: c.sources,
+        }))
+        .sort((a, b) => Math.abs(b.netContribution) - Math.abs(a.netContribution))
+        .slice(0, topN);
+    return list;
 }
 
 export function generateMultiTimeframePrediction(multiData, timeframe = 'today') {

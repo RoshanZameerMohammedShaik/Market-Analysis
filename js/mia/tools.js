@@ -52,6 +52,25 @@ const TOOLS = {
     },
     get_calibration: { desc: 'calibration tables', args: '{}', run: () => readCalibrationSnapshot(), kind: 'read' },
     get_accuracy_stats: { desc: 'running accuracy hits/total/rate', args: '{}', run: () => readAccuracyStats(), kind: 'read' },
+    explain_prediction: {
+        desc: 'top features that drove the current signal (which indicators pushed the score most, with values)',
+        args: '{"topN": 3}',
+        run: ({ topN = 3 } = {}) => {
+            const sig = window.__miaLatestSignal;
+            if (!sig) return { available: false, note: 'No symbol selected.' };
+            if (!sig.attribution) return { available: false, note: 'Attribution data not present on this signal (older render before feature shipped — re-run analysis).' };
+            const lim = Math.max(1, Math.min(8, Number(topN) || 3));
+            return {
+                available: true,
+                symbol: state.currentSymbol,
+                signal: sig.signal,
+                confidence: sig.confidence,
+                topFeatures: sig.attribution.slice(0, lim),
+                note: 'Each entry shows the indicator, its blended contribution across daily/weekly/4H (signed: +bullish, -bearish), and which timeframes contributed.',
+            };
+        },
+        kind: 'read',
+    },
     analyze_symbol: {
         desc: 'run full analysis on a symbol', args: '{"symbol":"AAPL","mode":"stock|crypto"}',
         run: async ({ symbol, mode }) => {

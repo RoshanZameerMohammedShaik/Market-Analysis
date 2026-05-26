@@ -30,6 +30,7 @@ const ACTION_VERBS = {
     get_current_signal: 'reading the current signal',
     get_calibration: 'checking calibration',
     get_accuracy_stats: 'reading accuracy stats',
+    explain_prediction: 'pulling the top drivers',
     analyze_symbol: 'running analysis',
     compare_symbols: 'comparing tickers',
     get_hot_picks: 'checking hot picks',

@@ -5,7 +5,7 @@
 import { getAIPrediction } from './ai-model.js';
 import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
-import { generateMultiTimeframePrediction, calculateATR } from './analysis.js';
+import { generateMultiTimeframePrediction, calculateATR, summarizeAttribution } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
 import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
@@ -301,6 +301,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         socialVelocity: socialVel ? { ...socialVel, ...socialResult } : null,
         reasons: allReasons.slice(0, 24),
         priceTargets: technicalPred.priceTargets,
+        // Top features that drove the technical signal — Mia uses this to
+        // answer "why did the model say this?" without re-running anything.
+        attribution: summarizeAttribution(technicalPred, 5),
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100, modelTier: ai.modelTier || 'main' },
             technical: { score: technicalScore, weight: weights.technical * 100 },

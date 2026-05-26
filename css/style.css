@@ -326,6 +326,67 @@ body {
 .signal-label.sell { color: var(--red); }
 .signal-label.neutral { color: var(--yellow); }
 .signal-label.no_trade { color: var(--text-muted); }
+
+.attribution-section {
+    margin: 14px 0;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.attribution-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+.attribution-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+}
+.attribution-row:last-child { border-bottom: none; }
+.attribution-arrow {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    width: 16px;
+    text-align: center;
+    margin-top: 2px;
+}
+.attribution-arrow.positive { color: var(--green); }
+.attribution-arrow.negative { color: var(--red); }
+.attribution-arrow.neutral  { color: var(--yellow); }
+.attribution-body { flex: 1; min-width: 0; }
+.attribution-label {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+.attribution-bar {
+    height: 5px;
+    background: var(--bg-secondary);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.attribution-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.attribution-fill.positive { background: var(--green); }
+.attribution-fill.negative { background: var(--red); }
+.attribution-fill.neutral  { background: var(--yellow); }
+.attribution-evidence {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
 .signal-confidence { font-family: var(--num-font); font-size: 1.4rem; font-weight: 900; margin-left: auto; }
 .conf-range { font-family: var(--num-font); font-size: 0.78rem; color: var(--text-muted); }
 .trend-chip {
