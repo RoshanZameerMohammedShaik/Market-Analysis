@@ -81,6 +81,42 @@
                     </div>
                 </div>
             </section>
+
+            <section class="scanner-section" id="scanner-section">
+                <details class="scanner-details">
+                    <summary class="scanner-summary">
+                        <span class="scanner-title">📊 Full Ledger Scanner — Today's Predictions</span>
+                        <span class="scanner-hint">Sortable, filterable table over the entire global universe</span>
+                    </summary>
+                    <div class="scanner-controls">
+                        <input type="text" id="scanner-filter" class="scanner-filter" placeholder="Filter by symbol or region (e.g. AAPL, NSE)..." autocomplete="off">
+                        <select id="scanner-signal-filter" class="scanner-select">
+                            <option value="">All signals</option>
+                            <option value="BUY">BUY only</option>
+                            <option value="SELL">SELL only</option>
+                            <option value="NEUTRAL">NEUTRAL</option>
+                            <option value="NO_TRADE">NO TRADE</option>
+                        </select>
+                        <span class="scanner-meta" id="scanner-meta"></span>
+                    </div>
+                    <div class="scanner-tablewrap">
+                        <table class="scanner-table" id="scanner-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="symbol">Symbol</th>
+                                    <th data-sort="region">Region</th>
+                                    <th data-sort="signal">Signal</th>
+                                    <th data-sort="confidence" class="sortable-num">Confidence</th>
+                                    <th data-sort="entry" class="sortable-num">Entry</th>
+                                    <th data-sort="rsi" class="sortable-num">RSI</th>
+                                    <th data-sort="hit1d" class="sortable-num">1d resolved</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scanner-tbody"></tbody>
+                        </table>
+                    </div>
+                </details>
+            </section>
         </main>
 
         <aside class="pl-sidebar" id="pl-sidebar">

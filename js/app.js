@@ -4,6 +4,7 @@ import { initAbout } from './ui/about.js';
 import { initCurrency } from './currency.js';
 import { initCurrencyToggle } from './ui/currency-toggle.js';
 import { initSpikers } from './ui/spikers.js';
+import { initScanner } from './ui/scanner.js';
 import { state } from './ui/state.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -11,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
     initAbout();
     initCurrencyToggle();
+    initScanner();
     initSpikers({
         onPickSymbol: (sym) => {
             const input = document.getElementById('search-input');

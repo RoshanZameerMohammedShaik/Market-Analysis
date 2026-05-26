@@ -327,6 +327,134 @@ body {
 .signal-label.neutral { color: var(--yellow); }
 .signal-label.no_trade { color: var(--text-muted); }
 
+.scanner-section { margin: 28px 0; }
+.scanner-details {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.scanner-summary {
+    padding: 14px 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    user-select: none;
+}
+.scanner-summary::-webkit-details-marker { display: none; }
+.scanner-summary::before {
+    content: '▸';
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    transition: transform 0.18s ease;
+    margin-right: 6px;
+}
+.scanner-details[open] .scanner-summary::before { transform: rotate(90deg); }
+.scanner-title { font-weight: 800; font-size: 1.0rem; color: var(--text-primary); }
+.scanner-hint { font-size: 0.78rem; color: var(--text-muted); margin-left: 12px; }
+.scanner-controls {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    align-items: center;
+    flex-wrap: wrap;
+}
+.scanner-filter, .scanner-select {
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.scanner-filter:focus, .scanner-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+.scanner-filter { flex: 1; min-width: 200px; }
+.scanner-meta { font-size: 0.78rem; color: var(--text-muted); margin-left: auto; }
+.scanner-tablewrap {
+    max-height: 600px;
+    overflow: auto;
+    border-top: 1px solid var(--border);
+}
+.scanner-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+.scanner-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg-card);
+}
+.scanner-table th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+    white-space: nowrap;
+}
+.scanner-table th.sortable-num { text-align: right; }
+.scanner-table th:hover { color: var(--accent); }
+.scanner-table th.sorted { color: var(--accent); }
+.scanner-table th.sort-asc::after  { content: ' ▲'; font-size: 0.7em; }
+.scanner-table th.sort-desc::after { content: ' ▼'; font-size: 0.7em; }
+.scanner-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.scanner-row { cursor: pointer; transition: background 0.12s ease; }
+.scanner-row:hover { background: var(--bg-hover); }
+.scanner-symbol { font-weight: 700; color: var(--text-primary); }
+.scanner-region { font-size: 0.76rem; color: var(--text-muted); }
+.scanner-num { text-align: right; font-family: var(--num-font); }
+.scanner-empty { text-align: center; padding: 30px; color: var(--text-muted); font-style: italic; }
+.scanner-sig {
+    font-weight: 700;
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    display: inline-block;
+}
+.scanner-sig.sig-buy { background: rgba(45, 210, 139, 0.14); color: var(--green); }
+.scanner-sig.sig-sell { background: rgba(239, 68, 68, 0.14); color: var(--red); }
+.scanner-sig.sig-neutral { background: rgba(234, 179, 8, 0.14); color: var(--yellow); }
+.scanner-sig.sig-no_trade { background: rgba(148, 163, 184, 0.14); color: var(--text-muted); }
+.scanner-conf-bar {
+    display: inline-block;
+    width: 60px;
+    height: 4px;
+    background: var(--bg-card);
+    border-radius: 999px;
+    overflow: hidden;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+.scanner-conf-fill {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 999px;
+}
+.scanner-conf-num { color: var(--text-primary); font-weight: 700; }
+.hit-yes     { color: var(--green);  font-weight: 700; }
+.hit-no      { color: var(--red);    font-weight: 700; }
+.hit-pending { color: var(--text-muted); font-style: italic; }
+
 .horizon-bands {
     margin-top: 10px;
     padding: 10px 12px;
