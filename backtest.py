@@ -211,6 +211,17 @@ def generate_prediction(candles):
     if norm > 0.12: signal = 'BUY'
     elif norm < -0.12: signal = 'SELL'
     else: signal = 'NEUTRAL'
+
+    # Abstain gate — mirror of the JS engine (see js/analysis.js). When
+    # the bull/bear edge is at chance levels OR the engine returned
+    # NEUTRAL with low confidence, emit NO_TRADE so calibration metrics
+    # reflect what users actually see (we don't log NO_TRADE rows as
+    # predictions). Threshold-driven, not enumerated rules.
+    if abs_norm < 0.10:
+        signal = 'NO_TRADE'
+    elif signal == 'NEUTRAL' and confidence < 50:
+        signal = 'NO_TRADE'
+
     indicators = {'rsi': rsi_v, 'macd': macd_v, 'bb': bb_v}
     return {'signal': signal, 'confidence': confidence, 'indicators': indicators}
 
@@ -454,9 +465,11 @@ def pattern_hit_rates(directional, min_n=30):
 
 def summarize(predictions):
     total = len(predictions)
-    by_signal = {'BUY': [], 'SELL': [], 'NEUTRAL': []}
+    # NO_TRADE is the engine abstaining; we surface a count for visibility
+    # but it never gets a hit-rate (there's no direction to score against).
+    by_signal = {'BUY': [], 'SELL': [], 'NEUTRAL': [], 'NO_TRADE': []}
     for p in predictions:
-        by_signal[p['signal']].append(p)
+        by_signal.setdefault(p['signal'], []).append(p)
 
     out = {'total': total, 'by_signal': {}}
     for sig, ps in by_signal.items():
@@ -467,8 +480,15 @@ def summarize(predictions):
             hits = sum(1 for p in ps if p['actual_up'])
         elif sig == 'SELL':
             hits = sum(1 for p in ps if not p['actual_up'])
-        else:
+        elif sig == 'NEUTRAL':
             hits = sum(1 for p in ps if p['actual_up'])
+        else:  # NO_TRADE — no directional bet, so no hit-rate
+            out['by_signal'][sig] = {
+                'count': len(ps),
+                'avg_confidence': round(sum(p['confidence'] for p in ps) / len(ps), 2),
+                'note': 'abstained — not scored',
+            }
+            continue
         out['by_signal'][sig] = {
             'count': len(ps),
             'hit_rate': round(hits / len(ps) * 100, 2),

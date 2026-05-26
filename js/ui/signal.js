@@ -15,8 +15,15 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const { signal, confidence, confidenceRange, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime, regime, sector, earnings } = prediction;
 
     const signalClass = signal.toLowerCase();
-    const arrow = signal === 'BUY' ? '▲' : signal === 'SELL' ? '▼' : '◆';
-    const arrowClass = signal === 'BUY' ? 'up' : signal === 'SELL' ? 'down' : 'neutral';
+    const arrow = signal === 'BUY' ? '▲'
+        : signal === 'SELL' ? '▼'
+        : signal === 'NO_TRADE' ? '⊘'
+        : '◆';
+    const arrowClass = signal === 'BUY' ? 'up'
+        : signal === 'SELL' ? 'down'
+        : signal === 'NO_TRADE' ? 'abstain'
+        : 'neutral';
+    const signalDisplay = signal === 'NO_TRADE' ? 'NO TRADE' : signal;
     const confidenceClass = confidence >= 65 ? 'high' : confidence >= 50 ? 'medium' : 'low';
 
     let priceTargetHTML = '';
@@ -135,7 +142,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
         <div class="signal-box ${signalClass} fade-in">
             <div class="signal-header">
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
-                <span class="signal-label ${signalClass}">${signal}</span>
+                <span class="signal-label ${signalClass}">${signalDisplay}</span>
                 <span class="signal-confidence" id="signal-conf-num">${confidence}%</span>
                 ${rangeHTML}
                 ${trendChip}
@@ -169,9 +176,16 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
 }
 
 function generateHumanInsight(prediction, sentiment) {
-    const { signal, confidence, priceTargets } = prediction;
+    const { signal, confidence, priceTargets, meta } = prediction;
     const tfWord = state.timeframe === 'today' ? 'today' : 'tomorrow';
     let insight = '';
+    if (signal === 'NO_TRADE') {
+        const why = meta?.abstainReason || 'The setup isn\'t clean enough to commit either way.';
+        const wouldHaveBeen = meta?.abstainedFrom && meta.abstainedFrom !== 'NEUTRAL'
+            ? ` <span class="highlight-yellow">If forced to call: ${meta.abstainedFrom.toLowerCase()}, but conviction is too low.</span>` : '';
+        insight = `<strong>Sit this one out.</strong> ${why}${wouldHaveBeen} The honest move ${tfWord} is to wait for a cleaner setup.`;
+        return insight;
+    }
     if (signal === 'BUY') {
         if (confidence >= 70) insight = `<strong>Strong bullish signal.</strong> Multiple indicators align upward. `;
         else if (confidence >= 55) insight = `<strong>Moderate buy signal.</strong> More indicators point up than down. `;

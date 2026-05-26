@@ -173,6 +173,9 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 }
 
 function rankPicks(results, maxPicks) {
+    // NO_TRADE intentionally excluded — hot picks should only surface
+    // names the engine has conviction on. The abstain gate already
+    // weeded out the low-conviction calls; we don't recover them here.
     const buy = results.filter(r => r.signal === 'BUY').sort((a, b) => b.confidence - a.confidence);
     const neutral = results.filter(r => r.signal === 'NEUTRAL').sort((a, b) => b.confidence - a.confidence);
     const sell = results.filter(r => r.signal === 'SELL').sort((a, b) => b.confidence - a.confidence);

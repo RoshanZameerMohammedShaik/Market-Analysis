@@ -392,6 +392,65 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
 
     const priceTargets = calculatePriceTargets(multiData.daily.candles, finalSignal, baseConfidence, timeframe);
 
+    // ---------------- Abstain gate ----------------
+    // The engine is around 52% directional on calibration data — barely
+    // above coin-flip. Forcing a BUY/SELL on every symbol means publishing
+    // a lot of low-conviction noise. The abstain gate converts the weakest
+    // calls into NO_TRADE so the user only sees high-conviction prints.
+    //
+    // We deliberately decide based on PRINCIPLES, not enumerated lists:
+    //   1. If daily and weekly disagree AND confidence is mediocre → abstain.
+    //   2. If we're in a ranging regime AND the bull-vs-bear edge on the
+    //      daily timeframe is small AND confidence is mediocre → abstain.
+    //      (Ranges fail breakouts; small edge in a range = noise.)
+    //   3. If the engine returned NEUTRAL with low confidence → abstain.
+    //      (NEUTRAL with low confidence is "I have no information",
+    //       which IS abstaining — just say so.)
+    //   4. If the daily timeframe's normalized score is below the
+    //      decision threshold (|score| < 0.10) → abstain regardless.
+    //      That's the engine literally saying it's at chance.
+    //
+    // Threshold-driven, so as we add features (macro, cross-asset, etc.)
+    // and accuracy improves, the same gate naturally tightens up.
+    const dailyNorm = Math.abs(dailyPred.scores?.normalized ?? 0);
+    const lowConvidence = baseConfidence < 60;
+    const ranging = dailyPred.indicators?.trendRegime === 'ranging';
+    const veryThinEdge = dailyNorm < 0.10;
+    const thinEdge = dailyNorm < 0.18;
+
+    let abstain = false;
+    let abstainReason = null;
+    if (hardConflict && lowConvidence) {
+        abstain = true;
+        abstainReason = 'Daily and Weekly disagree, and confidence is too low to call.';
+    } else if (ranging && thinEdge && lowConvidence) {
+        abstain = true;
+        abstainReason = 'Ranging market with no clear directional edge — breakouts often fail here.';
+    } else if (finalSignal === 'NEUTRAL' && baseConfidence < 50) {
+        abstain = true;
+        abstainReason = 'Indicators are too mixed to have a directional view.';
+    } else if (veryThinEdge) {
+        abstain = true;
+        abstainReason = 'Bull/bear scores are too close — engine has no conviction.';
+    }
+
+    if (abstain) {
+        return {
+            signal: 'NO_TRADE',
+            confidence: baseConfidence,
+            reasons: [abstainReason, ...allReasons].slice(0, 7),
+            breakdown: { daily: dailyPred, weekly: weeklyPred, fourHour: fourHourPred },
+            meta: {
+                confluenceBonus, conflictPenalty, allAgree,
+                trendRegime: dailyPred.indicators?.trendRegime,
+                abstainedFrom: finalSignal,
+                abstainReason,
+            },
+            priceTargets, // still useful as a "where price could go either way" reference
+        };
+    }
+    // ----------------------------------------------
+
     return {
         signal: finalSignal,
         confidence: baseConfidence,

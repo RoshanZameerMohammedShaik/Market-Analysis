@@ -307,15 +307,25 @@ body {
 .signal-box.buy { border-color: var(--green); box-shadow: 0 8px 24px rgba(45, 210, 139, 0.12); }
 .signal-box.sell { border-color: var(--red); box-shadow: 0 8px 24px rgba(239, 68, 68, 0.12); }
 .signal-box.neutral { border-color: var(--yellow); }
+.signal-box.no_trade {
+    border-color: var(--text-muted);
+    border-style: dashed;
+    background: linear-gradient(180deg, var(--bg-secondary), var(--bg-card));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    opacity: 0.92;
+}
+.signal-box.no_trade .confidence-fill { background: var(--text-muted); }
 .signal-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .signal-arrow { font-size: 1.4rem; }
 .signal-arrow.up { color: var(--green); }
 .signal-arrow.down { color: var(--red); }
 .signal-arrow.neutral { color: var(--yellow); }
+.signal-arrow.abstain { color: var(--text-muted); }
 .signal-label { font-size: 1.15rem; font-weight: 900; letter-spacing: 0.5px; }
 .signal-label.buy { color: var(--green); }
 .signal-label.sell { color: var(--red); }
 .signal-label.neutral { color: var(--yellow); }
+.signal-label.no_trade { color: var(--text-muted); }
 .signal-confidence { font-family: var(--num-font); font-size: 1.4rem; font-weight: 900; margin-left: auto; }
 .conf-range { font-family: var(--num-font); font-size: 0.78rem; color: var(--text-muted); }
 .trend-chip {

@@ -116,8 +116,11 @@ def resolve_horizon(row: dict, h_days: int, bars):
         direction_match = move > 0
     elif signal == 'SELL':
         direction_match = move < 0
-    else:
+    elif signal == 'NEUTRAL':
         direction_match = abs(pct_move) < 1.0  # NEUTRAL hits when close to flat
+    else:
+        # NO_TRADE — engine abstained, there's nothing to score against.
+        direction_match = None
 
     return {
         'actualClose': round(actual_close, 4),
