@@ -1,36 +1,36 @@
 {
-  "generatedAt": "2026-05-25T23:15:56Z",
+  "generatedAt": "2026-05-26T23:17:24Z",
   "byHorizon": {
     "1": {
       "SELL": {
         "50-60": {
-          "n": 72,
-          "predicted": 52.8,
-          "actual": 19.4
+          "n": 272,
+          "predicted": 52.5,
+          "actual": 36.4
         },
         "60-70": {
-          "n": 2,
-          "predicted": 60.0,
-          "actual": 50.0
+          "n": 20,
+          "predicted": 61.2,
+          "actual": 60.0
         }
       },
       "NEUTRAL": {
         "40-50": {
-          "n": 100,
-          "predicted": 45.3,
-          "actual": 33.0
+          "n": 487,
+          "predicted": 45.2,
+          "actual": 39.0
         }
       },
       "BUY": {
         "60-70": {
-          "n": 3,
-          "predicted": 60.0,
-          "actual": 66.7
+          "n": 17,
+          "predicted": 60.6,
+          "actual": 64.7
         },
         "50-60": {
-          "n": 38,
-          "predicted": 52.6,
-          "actual": 34.2
+          "n": 202,
+          "predicted": 52.4,
+          "actual": 44.6
         }
       }
     }
@@ -38,19 +38,19 @@
   "byRegion": {
     "ASX": {
       "50-60": {
-        "n": 12,
-        "predicted": 50.7,
-        "actual": 33.3
+        "n": 23,
+        "predicted": 52.0,
+        "actual": 47.8
       },
       "40-50": {
-        "n": 14,
-        "predicted": 45.2,
-        "actual": 21.4
+        "n": 31,
+        "predicted": 45.4,
+        "actual": 32.3
       },
       "60-70": {
-        "n": 3,
-        "predicted": 60.0,
-        "actual": 66.7
+        "n": 4,
+        "predicted": 61.0,
+        "actual": 75.0
       }
     },
     "CRYPTO": {
@@ -67,14 +67,14 @@
     },
     "TYO": {
       "40-50": {
-        "n": 20,
-        "predicted": 45.3,
-        "actual": 40.0
+        "n": 39,
+        "predicted": 45.5,
+        "actual": 46.2
       },
       "50-60": {
-        "n": 9,
-        "predicted": 53.1,
-        "actual": 44.4
+        "n": 20,
+        "predicted": 52.4,
+        "actual": 35.0
       },
       "60-70": {
         "n": 1,
@@ -82,24 +82,58 @@
         "actual": 100.0
       }
     },
+    "HKEX": {
+      "40-50": {
+        "n": 28,
+        "predicted": 45.0,
+        "actual": 50.0
+      },
+      "50-60": {
+        "n": 21,
+        "predicted": 53.4,
+        "actual": 71.4
+      },
+      "60-70": {
+        "n": 9,
+        "predicted": 62.0,
+        "actual": 88.9
+      }
+    },
     "NSE": {
       "50-60": {
-        "n": 41,
-        "predicted": 52.8,
+        "n": 73,
+        "predicted": 52.7,
         "actual": 0.0
       },
       "40-50": {
-        "n": 24,
-        "predicted": 45.4,
+        "n": 56,
+        "predicted": 45.1,
         "actual": 0.0
       },
       "60-70": {
-        "n": 1,
-        "predicted": 60.0,
+        "n": 3,
+        "predicted": 60.7,
         "actual": 0.0
+      }
+    },
+    "NYSE": {
+      "40-50": {
+        "n": 291,
+        "predicted": 45.1,
+        "actual": 43.3
+      },
+      "50-60": {
+        "n": 289,
+        "predicted": 52.3,
+        "actual": 47.4
+      },
+      "60-70": {
+        "n": 20,
+        "predicted": 60.5,
+        "actual": 55.0
       }
     }
   },
-  "totalRowsConsidered": 998,
-  "totalResolvedHorizons": 215
+  "totalRowsConsidered": 1452,
+  "totalResolvedHorizons": 998
 }
