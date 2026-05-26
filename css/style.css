@@ -327,6 +327,67 @@ body {
 .signal-label.neutral { color: var(--yellow); }
 .signal-label.no_trade { color: var(--text-muted); }
 
+.horizon-bands {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.horizon-bands-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+.horizon-bands-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 8px;
+}
+.horizon-band {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    cursor: help;
+}
+.horizon-band-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.horizon-band-rate {
+    font-family: var(--num-font);
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 4px;
+}
+.horizon-band.high .horizon-band-rate { color: var(--green); }
+.horizon-band.mid  .horizon-band-rate { color: var(--yellow); }
+.horizon-band.low  .horizon-band-rate { color: var(--red); }
+.horizon-band-bar {
+    height: 3px;
+    background: var(--bg-card);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.horizon-band-fill.high { background: var(--green); }
+.horizon-band-fill.mid  { background: var(--yellow); }
+.horizon-band-fill.low  { background: var(--red); }
+.horizon-band-fill {
+    height: 100%;
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .attribution-section {
     margin: 14px 0;
     padding: 12px 14px;

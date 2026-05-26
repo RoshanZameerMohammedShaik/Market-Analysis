@@ -158,6 +158,51 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
 
 export function getCalibrationSource() { return lastSourceUsed; }
 export function getLiveCalibration() { return liveCalibration; }
+
+// Per-horizon confidence bands. Returns one entry per horizon in
+// byHorizon (1, 3, 5, 10, 20 days) showing the historical hit-rate for
+// signals near this confidence level at that horizon. UI uses this so
+// the user can see "engine has been 62% accurate at 1d but only 51% at
+// 20d in this band" — i.e., trust shorter horizons more.
+//
+// Returns null when the live ledger doesn't have enough resolved
+// horizons yet (we need at least 30 samples per horizon to be honest).
+export function getHorizonCalibrations(rawConfidence, signal) {
+    if (!liveCalibration?.byHorizon) return null;
+    const lo = Math.max(40, Math.min(90, Math.floor(rawConfidence / 10) * 10));
+    const bucket = `${lo}-${lo + 10}`;
+    const out = [];
+    for (const [hStr, perSignal] of Object.entries(liveCalibration.byHorizon)) {
+        if (!perSignal) continue;
+        // Match the signal first; fall back to the other side if our side
+        // hasn't accumulated enough yet (better than nothing).
+        const slots = [];
+        const matchedKey = signal === 'BUY' ? 'BUY' : signal === 'SELL' ? 'SELL' : null;
+        if (matchedKey) {
+            const s = perSignal[matchedKey]?.[bucket];
+            if (s && s.n >= 30) slots.push(s);
+        }
+        // Always also include the opposite side so light-traffic horizons
+        // still report something — the average across both is honest as
+        // long as we count it as "engine accuracy" not "BUY accuracy".
+        for (const k of ['BUY', 'SELL']) {
+            if (k === matchedKey) continue;
+            const s = perSignal[k]?.[bucket];
+            if (s && s.n >= 30) slots.push(s);
+        }
+        if (!slots.length) continue;
+        const totalN = slots.reduce((acc, s) => acc + s.n, 0);
+        const weightedActual = slots.reduce((acc, s) => acc + s.actual * s.n, 0) / totalN;
+        out.push({
+            horizonDays: parseInt(hStr, 10),
+            hitRate: Math.round(weightedActual),
+            n: totalN,
+        });
+    }
+    if (!out.length) return null;
+    out.sort((a, b) => a.horizonDays - b.horizonDays);
+    return out;
+}
 export function getCalibrationCurve() { return calibration; }
 export function getCalibrationByTier() { return calibrationByTier; }
 export function getCalibrationByVolTier() { return calibrationByVolTier; }

@@ -70,6 +70,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const newsHTML = renderNews(newsData, sentiment);
     const pennyDashboardHTML = renderPennyDashboard(prediction);
     const attributionHTML = renderAttribution(prediction.attribution);
+    const horizonBandsHTML = renderHorizonBands(prediction.horizonBands);
 
     const technicalHTML = `
         <div class="technical-section">
@@ -155,6 +156,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
+            ${horizonBandsHTML}
             ${breakdownHTML}
             ${pennyDashboardHTML}
             <div class="insight-summary">${insightSummary}</div>
@@ -224,6 +226,31 @@ const INDICATOR_LABEL = {
     failedBreak: 'Failed breakout',
     momentum: '5-bar momentum',
 };
+
+// Per-horizon confidence bands. Sourced from the live ledger; null
+// until the ledger accumulates enough resolved horizons (>=30 per
+// horizon at this confidence band). Renders a tight 5-cell strip
+// directly under the main confidence bar.
+function renderHorizonBands(bands) {
+    if (!bands || !bands.length) return '';
+    const HORIZON_LABEL = { 1: '1d', 3: '3d', 5: '5d', 10: '10d', 20: '20d' };
+    const cells = bands.map(b => {
+        const label = HORIZON_LABEL[b.horizonDays] || `${b.horizonDays}d`;
+        // Color tier: high (>=60), mid (50-59), low (<50). 50 is coin-flip.
+        const tier = b.hitRate >= 60 ? 'high' : b.hitRate >= 50 ? 'mid' : 'low';
+        return `
+            <div class="horizon-band ${tier}" title="Engine has been ${b.hitRate}% accurate at ${label} in this confidence band (n=${b.n}).">
+                <div class="horizon-band-label">${label}</div>
+                <div class="horizon-band-rate">${b.hitRate}%</div>
+                <div class="horizon-band-bar"><div class="horizon-band-fill ${tier}" style="width: ${Math.min(100, b.hitRate)}%"></div></div>
+            </div>`;
+    }).join('');
+    return `
+        <div class="horizon-bands" title="Live ledger hit-rates per horizon at this confidence band">
+            <div class="horizon-bands-title">Live accuracy by horizon</div>
+            <div class="horizon-bands-row">${cells}</div>
+        </div>`;
+}
 
 function renderAttribution(attribution) {
     if (!attribution || !attribution.length) return '';
