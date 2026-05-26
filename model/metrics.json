@@ -1,0 +1,1368 @@
+{
+  "method": "walk-forward LSTM",
+  "folds": 5,
+  "fold_accuracies": [
+    53.86,
+    53.91,
+    53.12,
+    52.2,
+    52.65
+  ],
+  "mean_accuracy": 53.15,
+  "std_accuracy": 0.67,
+  "baseline_random": 50.0,
+  "per_symbol": {
+    "AAPL": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "MSFT": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "GOOGL": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "GOOG": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "AMZN": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "META": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "NVDA": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "TSLA": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "AVGO": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "ORCL": {
+      "accuracy": 59.51,
+      "samples": 247
+    },
+    "CRM": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "ADBE": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "AMD": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "INTC": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "QCOM": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "CSCO": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "TXN": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "INTU": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "NOW": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "ASML": {
+      "accuracy": 60.73,
+      "samples": 247
+    },
+    "AMAT": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "LRCX": {
+      "accuracy": 57.89,
+      "samples": 247
+    },
+    "MU": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "KLAC": {
+      "accuracy": 61.54,
+      "samples": 247
+    },
+    "SNPS": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "CDNS": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "PANW": {
+      "accuracy": 45.75,
+      "samples": 247
+    },
+    "CRWD": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "PLTR": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "SHOP": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "NET": {
+      "accuracy": 60.73,
+      "samples": 247
+    },
+    "SNOW": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "DDOG": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "WDAY": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "ANET": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "SMCI": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "TEAM": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "MDB": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "OKTA": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "TWLO": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "NFLX": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "DIS": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "CMCSA": {
+      "accuracy": 48.18,
+      "samples": 247
+    },
+    "TMUS": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "T": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "VZ": {
+      "accuracy": 48.99,
+      "samples": 247
+    },
+    "CHTR": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "EA": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "TTWO": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "WBD": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "ROKU": {
+      "accuracy": 63.56,
+      "samples": 247
+    },
+    "PINS": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "SNAP": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "SPOT": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "MTCH": {
+      "accuracy": 47.37,
+      "samples": 247
+    },
+    "JPM": {
+      "accuracy": 56.68,
+      "samples": 247
+    },
+    "BAC": {
+      "accuracy": 59.11,
+      "samples": 247
+    },
+    "WFC": {
+      "accuracy": 59.11,
+      "samples": 247
+    },
+    "C": {
+      "accuracy": 57.49,
+      "samples": 247
+    },
+    "GS": {
+      "accuracy": 60.32,
+      "samples": 247
+    },
+    "MS": {
+      "accuracy": 57.49,
+      "samples": 247
+    },
+    "BLK": {
+      "accuracy": 55.87,
+      "samples": 247
+    },
+    "SCHW": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "AXP": {
+      "accuracy": 55.87,
+      "samples": 247
+    },
+    "V": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "MA": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "PYPL": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "COIN": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "SOFI": {
+      "accuracy": 49.39,
+      "samples": 247
+    },
+    "HOOD": {
+      "accuracy": 57.14,
+      "samples": 238
+    },
+    "COF": {
+      "accuracy": 60.73,
+      "samples": 247
+    },
+    "USB": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "PNC": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "TFC": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "BK": {
+      "accuracy": 61.13,
+      "samples": 247
+    },
+    "STT": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "AON": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "AIG": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "PRU": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "MET": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "ALL": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "PGR": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "TRV": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "CME": {
+      "accuracy": 56.68,
+      "samples": 247
+    },
+    "ICE": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "NDAQ": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "SPGI": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "MCO": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "MSCI": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "FIS": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "FISV": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "UNH": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "JNJ": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "LLY": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "PFE": {
+      "accuracy": 57.09,
+      "samples": 247
+    },
+    "ABBV": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "MRK": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "TMO": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "ABT": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "DHR": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "BMY": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "AMGN": {
+      "accuracy": 59.11,
+      "samples": 247
+    },
+    "GILD": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "CVS": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "CI": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "HUM": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "ELV": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "ISRG": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "VRTX": {
+      "accuracy": 55.87,
+      "samples": 247
+    },
+    "REGN": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "BIIB": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "MRNA": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "ZTS": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "IDXX": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "IQV": {
+      "accuracy": 49.39,
+      "samples": 247
+    },
+    "A": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "BSX": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "SYK": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "MDT": {
+      "accuracy": 44.53,
+      "samples": 247
+    },
+    "EW": {
+      "accuracy": 47.37,
+      "samples": 247
+    },
+    "BDX": {
+      "accuracy": 48.18,
+      "samples": 247
+    },
+    "BAX": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "HCA": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "HD": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "NKE": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "MCD": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "SBUX": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "BKNG": {
+      "accuracy": 48.18,
+      "samples": 247
+    },
+    "ABNB": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "LULU": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "F": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "GM": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "RIVN": {
+      "accuracy": 48.21,
+      "samples": 224
+    },
+    "LCID": {
+      "accuracy": 58.7,
+      "samples": 247
+    },
+    "TGT": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "LOW": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "TJX": {
+      "accuracy": 48.18,
+      "samples": 247
+    },
+    "ROST": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "YUM": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "CMG": {
+      "accuracy": 47.37,
+      "samples": 247
+    },
+    "DG": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "DLTR": {
+      "accuracy": 46.15,
+      "samples": 247
+    },
+    "BBY": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "AZO": {
+      "accuracy": 44.13,
+      "samples": 247
+    },
+    "ORLY": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "EXPE": {
+      "accuracy": 46.56,
+      "samples": 247
+    },
+    "MAR": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "HLT": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "RCL": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "CCL": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "NCLH": {
+      "accuracy": 46.96,
+      "samples": 247
+    },
+    "DRI": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "ULTA": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "ETSY": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "EBAY": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "WMT": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "COST": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "PG": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "KO": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "PEP": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "MO": {
+      "accuracy": 59.51,
+      "samples": 247
+    },
+    "PM": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "CL": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "KMB": {
+      "accuracy": 49.39,
+      "samples": 247
+    },
+    "GIS": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "STZ": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "KHC": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "MNST": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "KDP": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "EL": {
+      "accuracy": 58.7,
+      "samples": 247
+    },
+    "CLX": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "CHD": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "SYY": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "KR": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "XOM": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "CVX": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "COP": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "SLB": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "PSX": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "MPC": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "VLO": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "OXY": {
+      "accuracy": 57.09,
+      "samples": 247
+    },
+    "EOG": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "WMB": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "KMI": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "OKE": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "BKR": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "HAL": {
+      "accuracy": 61.13,
+      "samples": 247
+    },
+    "DVN": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "FANG": {
+      "accuracy": 61.13,
+      "samples": 247
+    },
+    "CAT": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "BA": {
+      "accuracy": 48.99,
+      "samples": 247
+    },
+    "UNP": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "UPS": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "FDX": {
+      "accuracy": 57.09,
+      "samples": 247
+    },
+    "HON": {
+      "accuracy": 48.99,
+      "samples": 247
+    },
+    "GE": {
+      "accuracy": 57.49,
+      "samples": 247
+    },
+    "RTX": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "DE": {
+      "accuracy": 48.18,
+      "samples": 247
+    },
+    "LMT": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "NOC": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "GD": {
+      "accuracy": 48.58,
+      "samples": 247
+    },
+    "MMM": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "CSX": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "NSC": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "ETN": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "EMR": {
+      "accuracy": 59.51,
+      "samples": 247
+    },
+    "PH": {
+      "accuracy": 58.7,
+      "samples": 247
+    },
+    "ITW": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "TT": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "ROK": {
+      "accuracy": 57.49,
+      "samples": 247
+    },
+    "AME": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "FAST": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "WM": {
+      "accuracy": 49.39,
+      "samples": 247
+    },
+    "RSG": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "NEE": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "DUK": {
+      "accuracy": 57.09,
+      "samples": 247
+    },
+    "SO": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "AEP": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "SRE": {
+      "accuracy": 57.89,
+      "samples": 247
+    },
+    "D": {
+      "accuracy": 53.04,
+      "samples": 247
+    },
+    "PCG": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "EXC": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "XEL": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "PEG": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "WEC": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "ED": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "EIX": {
+      "accuracy": 58.7,
+      "samples": 247
+    },
+    "ETR": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "AEE": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "ATO": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "CMS": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "DTE": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "LIN": {
+      "accuracy": 56.68,
+      "samples": 247
+    },
+    "SHW": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "APD": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "FCX": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "NEM": {
+      "accuracy": 57.89,
+      "samples": 247
+    },
+    "CTVA": {
+      "accuracy": 57.49,
+      "samples": 247
+    },
+    "DOW": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "DD": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "NUE": {
+      "accuracy": 54.66,
+      "samples": 247
+    },
+    "STLD": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "ECL": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "ALB": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "PPG": {
+      "accuracy": 48.99,
+      "samples": 247
+    },
+    "IFF": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "VMC": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "MLM": {
+      "accuracy": 52.63,
+      "samples": 247
+    },
+    "CF": {
+      "accuracy": 52.23,
+      "samples": 247
+    },
+    "MOS": {
+      "accuracy": 56.68,
+      "samples": 247
+    },
+    "PLD": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "AMT": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "CCI": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "EQIX": {
+      "accuracy": 50.2,
+      "samples": 247
+    },
+    "PSA": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "SPG": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "O": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "WELL": {
+      "accuracy": 55.87,
+      "samples": 247
+    },
+    "AVB": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "EQR": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "ARE": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "VICI": {
+      "accuracy": 51.01,
+      "samples": 247
+    },
+    "EXR": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "DLR": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "CBRE": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "IRM": {
+      "accuracy": 51.42,
+      "samples": 247
+    },
+    "GME": {
+      "accuracy": 59.11,
+      "samples": 247
+    },
+    "AMC": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "BBBY": {
+      "accuracy": 59.51,
+      "samples": 247
+    },
+    "BB": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "PLUG": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "NIO": {
+      "accuracy": 55.06,
+      "samples": 247
+    },
+    "XPEV": {
+      "accuracy": 47.77,
+      "samples": 247
+    },
+    "LI": {
+      "accuracy": 49.8,
+      "samples": 247
+    },
+    "BABA": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "JD": {
+      "accuracy": 48.99,
+      "samples": 247
+    },
+    "PDD": {
+      "accuracy": 53.85,
+      "samples": 247
+    },
+    "BIDU": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "NTES": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "BILI": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "MARA": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "RIOT": {
+      "accuracy": 55.47,
+      "samples": 247
+    },
+    "CLSK": {
+      "accuracy": 64.37,
+      "samples": 247
+    },
+    "HUT": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "BTBT": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "WULF": {
+      "accuracy": 56.28,
+      "samples": 247
+    },
+    "IREN": {
+      "accuracy": 58.74,
+      "samples": 223
+    },
+    "BTDR": {
+      "accuracy": 61.09,
+      "samples": 239
+    },
+    "GLBE": {
+      "accuracy": 53.44,
+      "samples": 247
+    },
+    "AFRM": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "UPST": {
+      "accuracy": 51.82,
+      "samples": 247
+    },
+    "OPEN": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "KSS": {
+      "accuracy": 57.89,
+      "samples": 247
+    },
+    "M": {
+      "accuracy": 58.3,
+      "samples": 247
+    },
+    "LYFT": {
+      "accuracy": 50.61,
+      "samples": 247
+    },
+    "UBER": {
+      "accuracy": 46.56,
+      "samples": 247
+    },
+    "DASH": {
+      "accuracy": 54.25,
+      "samples": 247
+    },
+    "BIRD": {
+      "accuracy": 60.44,
+      "samples": 225
+    },
+    "CVNA": {
+      "accuracy": 56.68,
+      "samples": 247
+    },
+    "BTC-USD": {
+      "accuracy": 54.97,
+      "samples": 362
+    },
+    "ETH-USD": {
+      "accuracy": 58.29,
+      "samples": 362
+    },
+    "BNB-USD": {
+      "accuracy": 56.35,
+      "samples": 362
+    },
+    "SOL-USD": {
+      "accuracy": 57.18,
+      "samples": 362
+    },
+    "XRP-USD": {
+      "accuracy": 56.63,
+      "samples": 362
+    },
+    "ADA-USD": {
+      "accuracy": 59.12,
+      "samples": 362
+    },
+    "DOGE-USD": {
+      "accuracy": 56.35,
+      "samples": 362
+    },
+    "AVAX-USD": {
+      "accuracy": 56.63,
+      "samples": 362
+    },
+    "TRX-USD": {
+      "accuracy": 52.76,
+      "samples": 362
+    },
+    "LINK-USD": {
+      "accuracy": 54.7,
+      "samples": 362
+    },
+    "MATIC-USD": {
+      "accuracy": 58.33,
+      "samples": 276
+    },
+    "DOT-USD": {
+      "accuracy": 54.7,
+      "samples": 362
+    },
+    "LTC-USD": {
+      "accuracy": 53.59,
+      "samples": 362
+    },
+    "BCH-USD": {
+      "accuracy": 49.72,
+      "samples": 362
+    },
+    "NEAR-USD": {
+      "accuracy": 54.7,
+      "samples": 362
+    },
+    "UNI-USD": {
+      "accuracy": 53.74,
+      "samples": 281
+    },
+    "XLM-USD": {
+      "accuracy": 53.31,
+      "samples": 362
+    },
+    "ETC-USD": {
+      "accuracy": 58.01,
+      "samples": 362
+    },
+    "APT-USD": {
+      "accuracy": 44.19,
+      "samples": 258
+    },
+    "OP-USD": {
+      "accuracy": 57.43,
+      "samples": 303
+    },
+    "ARB-USD": {
+      "accuracy": 81.22,
+      "samples": 362
+    },
+    "FIL-USD": {
+      "accuracy": 54.14,
+      "samples": 362
+    },
+    "ATOM-USD": {
+      "accuracy": 50.0,
+      "samples": 362
+    },
+    "AAVE-USD": {
+      "accuracy": 55.25,
+      "samples": 362
+    },
+    "MKR-USD": {
+      "accuracy": 53.04,
+      "samples": 362
+    },
+    "INJ-USD": {
+      "accuracy": 51.1,
+      "samples": 362
+    },
+    "LDO-USD": {
+      "accuracy": 56.35,
+      "samples": 362
+    },
+    "IMX-USD": {
+      "accuracy": 60.49,
+      "samples": 81
+    },
+    "GRT-USD": {
+      "accuracy": 44.83,
+      "samples": 58
+    },
+    "EGLD-USD": {
+      "accuracy": 51.66,
+      "samples": 362
+    },
+    "TIA-USD": {
+      "accuracy": 60.13,
+      "samples": 306
+    },
+    "STX-USD": {
+      "accuracy": 55.67,
+      "samples": 282
+    },
+    "SUI-USD": {
+      "accuracy": 46.84,
+      "samples": 158
+    },
+    "SEI-USD": {
+      "accuracy": 55.28,
+      "samples": 199
+    },
+    "PEPE-USD": {
+      "accuracy": 35.0,
+      "samples": 20
+    },
+    "SHIB-USD": {
+      "accuracy": 46.41,
+      "samples": 362
+    },
+    "WLD-USD": {
+      "accuracy": 59.08,
+      "samples": 303
+    },
+    "TON-USD": {
+      "accuracy": 50.28,
+      "samples": 362
+    }
+  }
+}

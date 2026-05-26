@@ -1,0 +1,65 @@
+{
+  "method": "XGBoost + isotonic calibration",
+  "splits": 5,
+  "fold_accuracies": [
+    51.68,
+    51.68,
+    52.59,
+    51.14,
+    51.88
+  ],
+  "mean_accuracy": 51.79,
+  "std_accuracy": 0.47,
+  "mean_brier": 0.2493,
+  "brier_random_baseline": 0.25,
+  "calibration_curve": [
+    {
+      "bucket": "10-20%",
+      "mean_predicted": 13.64,
+      "mean_actual": 21.15,
+      "count": 156
+    },
+    {
+      "bucket": "20-30%",
+      "mean_predicted": 23.37,
+      "mean_actual": 17.72,
+      "count": 728
+    },
+    {
+      "bucket": "30-40%",
+      "mean_predicted": 36.72,
+      "mean_actual": 39.49,
+      "count": 1623
+    },
+    {
+      "bucket": "40-50%",
+      "mean_predicted": 47.33,
+      "mean_actual": 46.32,
+      "count": 34009
+    },
+    {
+      "bucket": "50-60%",
+      "mean_predicted": 51.53,
+      "mean_actual": 48.97,
+      "count": 34895
+    },
+    {
+      "bucket": "60-70%",
+      "mean_predicted": 64.86,
+      "mean_actual": 56.58,
+      "count": 76
+    },
+    {
+      "bucket": "70-80%",
+      "mean_predicted": 72.4,
+      "mean_actual": 43.75,
+      "count": 16
+    },
+    {
+      "bucket": "80-90%",
+      "mean_predicted": 85.0,
+      "mean_actual": 100.0,
+      "count": 1
+    }
+  ]
+}
