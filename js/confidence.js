@@ -11,6 +11,7 @@ import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus } from '
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
+import { getYieldAdjustment } from './yields.js';
 import { getEarningsProximity, earningsCap } from './earnings.js';
 import { calendarCap } from './calendar-events.js';
 import { fetchCryptoDerivs, derivsAdjustment } from './crypto-derivs.js';
@@ -93,6 +94,19 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     let sectorAdj = 0, sectorMeta = null;
     if (mode === 'stock' && symbolOrCoinId) {
         try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(38, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
+    }
+
+    // 10-year yield context. Long-duration / rate-sensitive sectors get
+    // headwind/tailwind from yield trajectory; banks get the opposite.
+    // Bounded ±3pts. Only stocks (crypto isn't directly rate-sensitive).
+    let yieldResult = null;
+    if (mode === 'stock' && symbolOrCoinId) {
+        try {
+            yieldResult = await getYieldAdjustment(symbolOrCoinId, finalSignal);
+            if (yieldResult?.adjust) {
+                rawConfidence = Math.max(38, Math.min(88, rawConfidence + yieldResult.adjust));
+            }
+        } catch (_) {}
     }
 
     let earnings = null;
@@ -252,6 +266,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (vwapResult?.reason) allReasons.push(`[VWAP] ${vwapResult.reason}`);
     if (volProfileResult?.reason) allReasons.push(`[Volume Profile] ${volProfileResult.reason}`);
     if (crossAssetResult?.reason) allReasons.push(`[Cross-asset] ${crossAssetResult.reason}`);
+    if (yieldResult?.reason) allReasons.push(`[Rates] ${yieldResult.reason}`);
     if (optionsResult?.reasons?.length) optionsResult.reasons.forEach(r => allReasons.push(`[Options] ${r}`));
     if (earnings?.capReason) allReasons.push(`[Earnings] ${earnings.capReason}`);
     if (earningsHistory?.capReason) allReasons.push(`[Earnings History] ${earningsHistory.capReason}`);
@@ -295,6 +310,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         vwap: vwap || null,
         volProfile: volProfile || null,
         crossAsset: crossAsset || null,
+        yields: yieldResult || null,
         penny: penny ? { ...penny, ...pennyResult } : null,
         finraShort: finraShort ? { ...finraShort, ...finraResult } : null,
         insider: insider ? { ...insider, ...insiderResult } : null,
