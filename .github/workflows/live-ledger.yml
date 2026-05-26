@@ -144,14 +144,9 @@ jobs:
 
       - name: Commit ledger updates
         run: |
+          set -e
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          # Stage anything new under model/ledger/ and the calibration file.
-          # The original glob `model/ledger/*.jsonl` failed silently the first
-          # time the directory didn't exist (shell expanded literal pattern,
-          # git add errored on missing pathspec, and `2>/dev/null || true`
-          # ate the error). Use a directory-level add with -A so missing-path
-          # is fine and any new files get picked up.
           if [ -d model/ledger ]; then
             git add -fA model/ledger/
           fi
@@ -164,4 +159,26 @@ jobs:
           fi
           git status --short
           git commit -m "chore(ledger): ${{ steps.decide.outputs.task }} [skip ci]"
-          git push
+
+          # Push with retry: another region's cron may have pushed between
+          # this job starting and now. Rebase + retry up to 5 times so we
+          # don't fail on race conditions when multiple region crons land
+          # close together (TYO at 00:00 UTC, ASX at 23:00 UTC, HKEX at
+          # 01:30, etc.). Append-only JSONL means rebase conflicts are
+          # essentially impossible.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected; rebasing onto origin/main and retrying..."
+            git fetch origin main
+            git rebase origin/main || {
+              echo "Rebase failed (rare for append-only files); aborting."
+              git rebase --abort || true
+              exit 1
+            }
+            sleep $((attempt * 2))
+          done
+          echo "All push attempts exhausted."
+          exit 1
