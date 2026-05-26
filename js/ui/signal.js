@@ -177,6 +177,18 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     }
     lastShownConfidence = confidence;
     lastShownSymbol = state.currentSymbol;
+
+    // Pulse the chart-price ring to match the signal direction. Pulse rate
+    // scales with confidence — high-conviction signals breathe faster, the
+    // engine literally feels more excited about the call.
+    const priceEl = document.getElementById('chart-price');
+    if (priceEl) {
+        priceEl.classList.remove('chart-price-buy', 'chart-price-sell', 'chart-price-neutral', 'chart-price-no_trade');
+        priceEl.classList.add(`chart-price-${signalClass}`);
+        // Confidence drives the period: 88% → 1.6s, 38% → 4s. Inverse linear.
+        const period = 4 - ((confidence - 38) / 50) * 2.4;
+        priceEl.style.setProperty('--price-pulse-period', `${period.toFixed(2)}s`);
+    }
 }
 
 function generateHumanInsight(prediction, sentiment) {

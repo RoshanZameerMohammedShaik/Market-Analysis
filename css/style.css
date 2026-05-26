@@ -287,7 +287,55 @@ body {
 .chart-header { padding: 8px 0 12px; display: flex; align-items: center; gap: 12px; }
 .chart-header.hidden { display: none; }
 .chart-symbol { font-weight: 800; font-size: 1.1rem; font-family: var(--num-font); }
-.chart-price { font-family: var(--num-font); font-size: 1rem; }
+.chart-price {
+    font-family: var(--num-font);
+    font-size: 1rem;
+    position: relative;
+    padding: 4px 12px;
+    border-radius: 999px;
+    transition: color 0.4s ease;
+    --price-pulse-period: 3s;
+}
+/* The ring lives in ::after so we can animate scale + opacity without
+   touching layout. Fades when no signal is set (placeholder state). */
+.chart-price::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    opacity: 0;
+    pointer-events: none;
+}
+.chart-price-buy {
+    color: var(--green);
+    background: rgba(45, 210, 139, 0.10);
+}
+.chart-price-sell {
+    color: var(--red);
+    background: rgba(239, 68, 68, 0.10);
+}
+.chart-price-neutral {
+    color: var(--yellow);
+    background: rgba(234, 179, 8, 0.10);
+}
+.chart-price-no_trade {
+    color: var(--text-muted);
+    background: rgba(148, 163, 184, 0.08);
+}
+.chart-price-buy::after,
+.chart-price-sell::after,
+.chart-price-neutral::after {
+    animation: chart-price-pulse var(--price-pulse-period) ease-out infinite;
+}
+@keyframes chart-price-pulse {
+    0%   { opacity: 0.55; transform: scale(1); }
+    70%  { opacity: 0;    transform: scale(1.18); }
+    100% { opacity: 0;    transform: scale(1.18); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .chart-price::after { animation: none !important; }
+}
 .chart-container {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
@@ -566,7 +614,31 @@ body {
 .attribution-fill {
     height: 100%;
     border-radius: 999px;
-    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    /* Sequential reveal: each row's bar fills with a stagger so the user
+       feels the engine "thinking through" each indicator. CSS-only,
+       triggered fresh on every signal-box render via key-frame replay. */
+    transform-origin: left center;
+    animation: attribution-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.attribution-row:nth-child(1) .attribution-fill { animation-delay: 0.05s; }
+.attribution-row:nth-child(2) .attribution-fill { animation-delay: 0.20s; }
+.attribution-row:nth-child(3) .attribution-fill { animation-delay: 0.35s; }
+.attribution-row:nth-child(4) .attribution-fill { animation-delay: 0.50s; }
+@keyframes attribution-grow {
+    from { transform: scaleX(0); opacity: 0.4; }
+    to   { transform: scaleX(1); opacity: 1; }
+}
+/* The arrow + label fade in alongside the bar so the row feels coherent. */
+.attribution-row {
+    animation: attribution-row-in 0.45s ease both;
+}
+.attribution-row:nth-child(1) { animation-delay: 0.00s; }
+.attribution-row:nth-child(2) { animation-delay: 0.15s; }
+.attribution-row:nth-child(3) { animation-delay: 0.30s; }
+.attribution-row:nth-child(4) { animation-delay: 0.45s; }
+@keyframes attribution-row-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 .attribution-fill.positive { background: var(--green); }
 .attribution-fill.negative { background: var(--red); }
