@@ -83,9 +83,13 @@ jobs:
 
       - name: Commit refreshed artifacts
         run: |
+          set -e
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add -f model/*.json || true
+          # Add the model/ directory; missing files don't error out under -A.
+          if [ -d model ]; then
+            git add -fA model/
+          fi
           if git diff --cached --quiet; then
             echo 'No changes to commit'
             exit 0
@@ -96,5 +100,22 @@ jobs:
           if [ "${{ steps.decide.outputs.do_retrain }}" = "true" ]; then msg="$msg retrain"; fi
           if [ "${{ steps.decide.outputs.do_retrain_penny }}" = "true" ]; then msg="$msg penny"; fi
           msg="$msg [skip ci]"
+          git status --short
           git commit -m "$msg"
-          git push
+          # Same retry logic as live-ledger: cron jobs can race.
+          for attempt in 1 2 3 4 5; do
+            if git push; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push attempt $attempt rejected; rebasing onto origin/main and retrying..."
+            git fetch origin main
+            git rebase origin/main || {
+              echo "Rebase failed; aborting."
+              git rebase --abort || true
+              exit 1
+            }
+            sleep $((attempt * 2))
+          done
+          echo "All push attempts exhausted."
+          exit 1

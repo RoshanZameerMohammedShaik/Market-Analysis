@@ -67,6 +67,7 @@ jobs:
       - name: Decide task
         id: decide
         run: |
+          set -e
           task=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             task="${{ github.event.inputs.task }}"
@@ -82,6 +83,11 @@ jobs:
               "0 22 * * *")     task="resolve-and-recalibrate" ;;
             esac
           fi
+          if [ -z "$task" ]; then
+            echo "ERROR: no task matched. event_name='${{ github.event_name }}' schedule='${{ github.event.schedule }}' input='${{ github.event.inputs.task }}'"
+            exit 1
+          fi
+          echo "Resolved task: $task"
           echo "task=$task" >> $GITHUB_OUTPUT
 
       - name: Predict NYSE

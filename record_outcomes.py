@@ -129,12 +129,14 @@ def resolve_horizon(row: dict, h_days: int, bars):
 
 
 def main():
+    import sys
     today = datetime.date.today()
     year = today.year
     path = ledger_path_for_year(year)
     rows = load_rows(path)
     if not rows:
-        print(f"No ledger rows for {year}")
+        # Legit no-op on the very first cron of a new year (or fresh repo).
+        print(f"No ledger rows for {year} — nothing to resolve.")
         return
 
     # Cache of fetched bars per symbol so we don't re-download for each horizon.
@@ -144,6 +146,7 @@ def main():
     skipped_immature = 0
     fetched = 0
     errors = 0
+    rows_with_unresolved_due = 0
 
     for row in rows:
         passed = trading_days_passed(row['date'], today)
@@ -152,6 +155,7 @@ def main():
             if any(row['horizons'].get(str(h)) is None for h in HORIZONS_DAYS):
                 skipped_immature += 1
             continue
+        rows_with_unresolved_due += 1
 
         sym = row['symbol']
         if sym not in bars_cache:
@@ -176,6 +180,16 @@ def main():
 
     save_rows(path, rows)
     print(f"Resolved horizons: {updated}, fetched: {fetched}, immature: {skipped_immature}, errors: {errors}")
+    print(f"Rows considered for resolution: {rows_with_unresolved_due} (of {len(rows)} total in {year}.jsonl)")
+
+    # Hard-fail when we had work to do (mature horizons due) but resolved
+    # zero AND most fetches failed — that's yfinance being down across the
+    # board, not a legit no-op.
+    if rows_with_unresolved_due > 0 and updated == 0 and errors > 0:
+        ratio = errors / rows_with_unresolved_due
+        if ratio > 0.5:
+            print(f'\nERROR: {errors} fetch errors out of {rows_with_unresolved_due} rows due for resolution. Likely yfinance unavailable.', file=sys.stderr)
+            sys.exit(1)
 
 
 if __name__ == '__main__':

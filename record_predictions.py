@@ -192,10 +192,37 @@ def main():
     else:
         print(f'\nLedger file does not exist: {path_for_today}')
 
-    # Hard-fail when zero rows were written. Without this the workflow
-    # exits 0 even on silent regressions and we'd never notice.
+    # Hard-fail logic: distinguish "nothing to do" (legitimate) from "broken"
+    # (regression). All-dup or all-no-data on a holiday/weekend isn't a bug.
+    # Real failure is when symbols error out, fail to fetch, or produce
+    # garbage indicators in numbers higher than a few outliers.
+    err = counts.get('error', 0)
+    no_data = counts.get('skipped-no-data', 0)
+    no_pred = counts.get('skipped-no-pred', 0)
+    thin = counts.get('skipped-thin', 0)
+    total = sum(counts.values())
+    real_failures = err + no_pred + thin
+    no_data_ratio = (no_data / total) if total else 1.0
+
+    if counts['ok'] == 0 and counts['skipped-dup'] == total:
+        # Re-run for a region that already wrote rows today: legit no-op.
+        print('\nAll symbols already predicted today (cron retry / manual replay). Exit 0.')
+        return
+    if counts['ok'] == 0 and no_data_ratio >= 0.95:
+        # Likely a market-closed / holiday day, OR yfinance is down across
+        # the board. Either way, the script can't do its job today.
+        # Exit 1 so the workflow shows red — if it's a holiday the next
+        # cron clears it; if yfinance is really down we want to see it.
+        print(f'\nERROR: zero rows written and {no_data} of {total} symbols had no data. Likely market-closed or yfinance-unavailable.', file=sys.stderr)
+        sys.exit(1)
     if counts['ok'] == 0:
         print(f'\nERROR: zero rows written for region {args.region}. See diagnostic samples above.', file=sys.stderr)
+        sys.exit(1)
+    if real_failures > 0 and real_failures / total > 0.30:
+        # > 30% of the universe failed with real errors. Suspect a systemic
+        # issue (yfinance API change, generate_prediction crash on a new
+        # data shape, etc.) — surface it.
+        print(f'\nERROR: {real_failures} of {total} symbols hit real failures (errors+no-pred+thin). Likely systemic.', file=sys.stderr)
         sys.exit(1)
 
 
