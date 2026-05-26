@@ -185,9 +185,16 @@ if __name__ == '__main__':
     portable_trees = serialize_booster_to_portable_trees(booster)
 
     # Pull base_score (the constant prior added before sum of leaf values).
+    # xgboost 2.x serializes this as a 1-element array string like "[5.123621E-1]"
+    # instead of the plain "0.5" that 1.x emitted, so float() on the raw value
+    # blows up. Strip brackets and parse the first element.
     booster_cfg = json.loads(booster.save_config())
     base_score_str = booster_cfg.get('learner', {}).get('learner_model_param', {}).get('base_score', '0.5')
-    base_score = float(base_score_str)
+    base_score_str = base_score_str.strip()
+    if base_score_str.startswith('['):
+        base_score = float(base_score_str.strip('[]').split(',')[0])
+    else:
+        base_score = float(base_score_str)
 
     # Average isotonic calibrators across folds: each calibrator is a step
     # function defined by X_thresholds_ + y_thresholds_. We export them all
