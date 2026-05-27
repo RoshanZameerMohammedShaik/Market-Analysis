@@ -253,17 +253,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 .app-title-candles .cl-bar.up   { color: var(--green); }
 .app-title-candles .cl-bar.down { color: var(--red); }
-.app-title-candles .cl-wick {
-    position: absolute;
-    top: 6%;
-    bottom: 6%;
-    left: 50%;
-    width: 1px;
-    transform: translateX(-50%);
-    border-radius: 1px;
-    background: currentColor;
-    opacity: 0.55;
-}
+/* Wicks intentionally hidden in the header — Roshan asked for clean
+   bodies only. Keeping the markup so the JS contract for cl-bar/wick/
+   body stays uniform with the loader; just don't paint them here. */
+.app-title-candles .cl-wick { display: none; }
 .app-title-candles .cl-body {
     position: absolute;
     left: 0;

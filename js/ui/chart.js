@@ -2,7 +2,6 @@ import { state } from './state.js';
 import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTimeTravel } from './time-travel.js';
-import { candleLoaderHTML } from './skeleton.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -54,13 +53,15 @@ export function loadChart() {
 export function showChartPlaceholder() {
     const container = document.getElementById('tradingview-widget');
     if (!container) return;
-    // Use the same candlestick loader animation we ship for the analysis
-    // screen — at the chart's larger scale it doubles as a clear visual
-    // signal that the chart is the place where market data will land.
     container.innerHTML = `
         <div class="chart-placeholder">
             <div class="chart-ph-glow"></div>
-            <div class="chart-ph-icon chart-ph-candles">${candleLoaderHTML(11)}</div>
+            <div class="chart-ph-icon chart-ph-ecg">
+                <svg class="chart-ph-ecg-svg" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path class="chart-ph-ecg-trace" d="M0 30 L40 30 Q50 30 55 24 T65 30 L80 8 L100 52 L120 8 L140 30 Q150 30 155 24 T165 30 L200 30" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="chart-ph-ecg-blip" d="M0 30 L40 30 Q50 30 55 24 T65 30 L80 8 L100 52 L120 8 L140 30 Q150 30 155 24 T165 30 L200 30" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
             <div class="chart-ph-title">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
         </div>`;

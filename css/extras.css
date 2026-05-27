@@ -285,14 +285,34 @@ html[data-dev="1"] body { padding-top: 22px; }
 .chart-ph-glow { position: absolute; inset: 0; background: radial-gradient(circle at 30% 50%, rgba(94, 177, 255, 0.18), transparent 60%), radial-gradient(circle at 70% 50%, rgba(63, 185, 80, 0.12), transparent 60%); animation: ph-glow 8s ease-in-out infinite alternate; pointer-events: none; }
 @keyframes ph-glow { from { opacity: 0.7; } to { opacity: 1; } }
 .chart-ph-icon { font-size: 3rem; opacity: 0.7; z-index: 1; }
-.chart-ph-candles { font-size: 0; }
-.chart-ph-candles .candle-loader {
-    height: 110px;
-    gap: 10px;
-    opacity: 0.85;
+
+/* ECG-style placeholder for the empty chart. Same trace+blip pattern
+   as the Mia logo / launcher, just scaled bigger so it sits where the
+   chart will appear. The blip sweeps the full width on a loop. */
+.chart-ph-ecg { font-size: 0; }
+.chart-ph-ecg-svg {
+    width: 220px; height: 66px;
+    display: block;
+    color: var(--accent);
 }
-.chart-ph-candles .cl-bar { width: 14px; }
-.chart-ph-candles .cl-wick { width: 2px; }
+.chart-ph-ecg-trace {
+    stroke: var(--text-muted);
+    opacity: 0.35;
+}
+.chart-ph-ecg-blip {
+    stroke: var(--accent);
+    stroke-dasharray: 60 540;
+    stroke-dashoffset: 60;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.7));
+    animation: chart-ph-ecg-sweep 2.6s linear infinite;
+}
+@keyframes chart-ph-ecg-sweep {
+    0%   { stroke-dashoffset: 60; }
+    100% { stroke-dashoffset: -540; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .chart-ph-ecg-blip { animation: none; stroke-dashoffset: 0; }
+}
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
 
