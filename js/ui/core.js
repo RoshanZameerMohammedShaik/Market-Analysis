@@ -159,6 +159,14 @@ async function runAnalysis() {
             if (!multiData) throw new Error(`Could not fetch data for ${symbolName}.`);
         }
 
+        // Time-travel: truncate candles to the chosen past date and
+        // re-derive currentPrice from the close on that date. Engine
+        // sees only the bars that would have been available then.
+        if (state.timeTravelDate) {
+            multiData = truncateMultiData(multiData, state.timeTravelDate);
+            if (!multiData) throw new Error(`No bars available before ${state.timeTravelDate}.`);
+        }
+
         updateChartHeader(multiData.daily);
         if (multiData.daily.currentPrice) resolvePending(state.currentSymbol, multiData.daily.currentPrice);
 
@@ -166,12 +174,18 @@ async function runAnalysis() {
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
         setLatestSignal(result);
 
-        logPrediction({
-            mode: state.mode, symbol: state.currentSymbol,
-            signal: result.signal, confidence: result.confidence,
-            price: multiData.daily.currentPrice, timeframe: state.timeframe,
-            breakdown: result.breakdown,
-        });
+        // Don't log time-travel predictions — they're hypothetical
+        // "what would the engine have said back then?" calls, not real
+        // forward predictions. Logging them would poison live accuracy
+        // metrics.
+        if (!state.timeTravelDate) {
+            logPrediction({
+                mode: state.mode, symbol: state.currentSymbol,
+                signal: result.signal, confidence: result.confidence,
+                price: multiData.daily.currentPrice, timeframe: state.timeframe,
+                breakdown: result.breakdown,
+            });
+        }
         maybeRenderAccuracyStrip();
 
         document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis());
@@ -185,6 +199,42 @@ function wrapCandles(symbol, name, price, prev, candles) {
         daily: { symbol, name, currentPrice: price, previousClose: prev, candles },
         weekly: { symbol, name, currentPrice: price, previousClose: null, candles },
         fourHour: { symbol, name, currentPrice: price, previousClose: null, candles },
+    };
+}
+
+// Time-travel helper. Slices each timeframe's candles at the chosen
+// past date and rewrites currentPrice/previousClose so downstream
+// indicators behave as if it were that day.
+//
+// Date semantics: keep all bars whose timestamp is <= midnight UTC
+// of the day AFTER the chosen date. That way "show me 2026-04-15"
+// includes that full trading day's close.
+function truncateMultiData(multiData, dateIso) {
+    const cutoffMs = new Date(dateIso + 'T23:59:59Z').getTime() / 1000;
+    const slice = (tf) => {
+        if (!tf?.candles?.length) return tf;
+        const kept = tf.candles.filter(c => {
+            const t = c.time != null ? c.time : null;
+            // Some pipelines stamp time as ms; auto-detect.
+            const tSec = t == null ? null : (t > 1e12 ? t / 1000 : t);
+            return tSec == null || tSec <= cutoffMs;
+        });
+        if (!kept.length) return null;
+        const last = kept[kept.length - 1];
+        const prev = kept[kept.length - 2];
+        return {
+            ...tf,
+            candles: kept,
+            currentPrice: last.close,
+            previousClose: prev?.close ?? null,
+        };
+    };
+    const daily = slice(multiData.daily);
+    if (!daily) return null;
+    return {
+        daily,
+        weekly: slice(multiData.weekly) || daily,
+        fourHour: slice(multiData.fourHour) || daily,
     };
 }
 function sparklineToCandles(prices) {

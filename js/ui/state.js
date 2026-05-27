@@ -28,6 +28,10 @@ export const state = {
     currentPrice: null,
     cryptoCache: {},
     hotPicksRequestId: 0,
+    // Time-travel mode: when set to a YYYY-MM-DD string, the analysis
+    // pipeline truncates fetched candles at this date and runs the
+    // engine on what would have been visible then. null = live mode.
+    timeTravelDate: null,
 };
 
 export function nextHotPicksId() {

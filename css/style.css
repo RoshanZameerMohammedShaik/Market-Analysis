@@ -375,6 +375,102 @@ body {
 .signal-label.neutral { color: var(--yellow); }
 .signal-label.no_trade { color: var(--text-muted); }
 
+.time-travel-wrap { position: relative; margin-left: 8px; }
+.time-travel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.time-travel-btn:hover { color: var(--accent); border-color: var(--accent); }
+.time-travel-btn.active {
+    color: #fff;
+    background: var(--brand-grad-2);
+    border-color: transparent;
+    box-shadow: 0 4px 14px var(--brand-grad-shadow);
+}
+.time-travel-label { font-family: var(--num-font); }
+.time-travel-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 280px;
+    padding: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+    z-index: 30;
+    animation: tt-pop 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes tt-pop {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.time-travel-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.time-travel-row label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+.time-travel-row input[type="date"] {
+    padding: 8px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    outline: none;
+    color-scheme: dark light;
+}
+.time-travel-row input[type="date"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.15);
+}
+.time-travel-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+.tt-apply {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--brand-grad-2);
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.tt-apply:hover { transform: translateY(-1px); box-shadow: 0 6px 18px var(--brand-grad-shadow); }
+.tt-back-live {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.82rem;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.tt-back-live:hover { color: var(--accent); border-color: var(--accent); }
+.time-travel-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
 .watch-toggle {
     display: inline-flex;
     align-items: center;
