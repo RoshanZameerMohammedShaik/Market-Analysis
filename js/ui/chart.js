@@ -1,5 +1,6 @@
 import { state } from './state.js';
 import { fmtPrice, fmtPriceTag } from './format.js';
+import { attachWatchButton } from './watchlist.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -64,6 +65,7 @@ export function updateChartHeader(data) {
     const symbolEl = document.getElementById('chart-symbol');
     const priceEl = document.getElementById('chart-price');
     if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
+    attachWatchButton(data.symbol);
     if (data.currentPrice) {
         state.currentPrice = data.currentPrice;
         if (priceEl) {
