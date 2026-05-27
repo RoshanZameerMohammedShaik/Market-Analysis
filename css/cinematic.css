@@ -38,6 +38,16 @@ body::after {
 }
 
 .app-title { animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both, brand-shimmer 8s ease-in-out infinite; background-size: 200% 100% !important; }
+/* Static variant skips the gradient shimmer (title is solid color now).
+   Also resets the -webkit-text-fill-color: transparent set on the base
+   .app-title rule, otherwise the text would render invisible without
+   the gradient background to fill it. */
+.app-title.app-title-static {
+    animation: brand-rise 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    background: none !important;
+    -webkit-text-fill-color: var(--text-primary);
+    color: var(--text-primary);
+}
 @keyframes brand-rise {
     from { opacity: 0; transform: translateY(-6px); letter-spacing: -0.04em; }
     to   { opacity: 1; transform: translateY(0); letter-spacing: -0.02em; }
@@ -214,41 +224,69 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
    spot is only visible WHERE the letters are. The base color stays
    solid so the title is always readable; the gradient just adds a
    highlight that travels through the letter bodies. Theme-tinted. */
-.app-title-glow {
+/* Static title, no gradient flow — replaced by the live candle
+   animation sibling next to it. Cleaner read, faster paint, plus the
+   candles match the rest of the app's market-data identity. */
+.app-title-static {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     line-height: 1;
-    /* Layered backgrounds, all clipped to the text shape:
-       1. The moving accent-glow gradient (top, animated).
-       2. A solid base color (bottom, always-on so letters are readable). */
-    background:
-        linear-gradient(90deg,
-            transparent 0%,
-            transparent 30%,
-            color-mix(in srgb, var(--accent) 80%, transparent) 45%,
-            var(--accent) 50%,
-            color-mix(in srgb, var(--accent) 80%, transparent) 55%,
-            transparent 70%,
-            transparent 100%
-        ) 0 0 / 250% 100% no-repeat,
-        var(--text-primary);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    /* Glow halo around the bright zone — sits behind the text so it
-       reads as light spilling out of the letters. */
-    filter:
-        drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 35%, transparent));
-    animation: title-glow-flow 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    color: var(--text-primary);
+    text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
 }
-@keyframes title-glow-flow {
-    0%   { background-position: 250% 0, 0 0; }
-    100% { background-position: -250% 0, 0 0; }
+
+/* Candle row beside the title. Reuses the .cl-bar / .cl-wick / .cl-body
+   shape from the candle-loader skeleton but with its own size + slightly
+   different timing so it reads as ambient market motion, not "loading". */
+.app-title-candles {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 28px;
+    margin-left: 6px;
+}
+.app-title-candles .cl-bar {
+    position: relative;
+    width: 5px;
+    height: 100%;
+    display: inline-block;
+}
+.app-title-candles .cl-bar.up   { color: var(--green); }
+.app-title-candles .cl-bar.down { color: var(--red); }
+.app-title-candles .cl-wick {
+    position: absolute;
+    top: 6%;
+    bottom: 6%;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.55;
+}
+.app-title-candles .cl-body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-radius: 1.5px;
+    background: currentColor;
+    animation: app-title-candle 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.app-title-candles .cl-bar:nth-child(1) .cl-body { animation-delay: 0.00s; }
+.app-title-candles .cl-bar:nth-child(2) .cl-body { animation-delay: 0.20s; }
+.app-title-candles .cl-bar:nth-child(3) .cl-body { animation-delay: 0.40s; }
+.app-title-candles .cl-bar:nth-child(4) .cl-body { animation-delay: 0.60s; }
+.app-title-candles .cl-bar:nth-child(5) .cl-body { animation-delay: 0.80s; }
+@keyframes app-title-candle {
+    0%   { top: 55%; bottom: 30%; opacity: 0.55; }
+    25%  { top: 22%; bottom: 18%; opacity: 0.95; }
+    50%  { top: 35%; bottom: 50%; opacity: 0.95; }
+    75%  { top: 18%; bottom: 60%; opacity: 0.95; }
+    100% { top: 55%; bottom: 30%; opacity: 0.55; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .app-title-glow { animation: none; }
+    .app-title-candles .cl-body { animation: none; top: 25%; bottom: 25%; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {

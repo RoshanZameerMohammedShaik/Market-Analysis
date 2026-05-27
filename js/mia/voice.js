@@ -97,27 +97,51 @@ function speakable(text) {
         .trim();
 }
 
+// Voice panel docks to the right side instead of taking the whole screen.
+// User can see and interact with the app while Mia talks (and also use
+// Mia's navigation tools — controlSelectSymbol etc. — while still in
+// voice mode). Has a minimize button: collapsing the panel turns the
+// floating Mia launcher into a live orb that breathes/pulses with the
+// session state, so the user knows Mia is still listening / speaking
+// while they work.
+//
+// The orb's central core embeds Mia's M ECG SVG (her brand mark) so
+// the visual identity ties together: Mia logo on launcher, on welcome
+// avatar, and now beating inside the orb during voice sessions.
 const VOICE_OVERLAY_HTML = `
 <div class="mia-voice-overlay" id="mia-voice-overlay" aria-hidden="true">
-    <button class="mia-voice-close" id="mia-voice-close" title="Exit voice mode" aria-label="Exit voice mode">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
-            <path d="M6 6 L18 18 M18 6 L6 18"/>
-        </svg>
-    </button>
-    <div class="mia-voice-stage">
-        <button class="mia-voice-orb" id="mia-voice-orb" type="button" aria-label="Tap to interrupt" data-state="idle">
-            <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
-            <div class="mia-voice-orb-core"></div>
-        </button>
-        <div class="mia-voice-status" id="mia-voice-status">Tap the orb to talk to Mia</div>
-        <div class="mia-voice-transcript" id="mia-voice-transcript"></div>
-        <div class="mia-voice-hint" id="mia-voice-hint">Tap the orb anytime to interrupt</div>
+    <div class="mia-voice-panel" id="mia-voice-panel">
+        <div class="mia-voice-head">
+            <span class="mia-voice-head-title">Voice mode</span>
+            <div class="mia-voice-head-actions">
+                <button class="mia-voice-min" id="mia-voice-min" title="Minimize — keep listening while you use the app" aria-label="Minimize">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12 L19 12"/></svg>
+                </button>
+                <button class="mia-voice-close" id="mia-voice-close" title="Exit voice mode" aria-label="Exit voice mode">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="mia-voice-stage">
+            <button class="mia-voice-orb" id="mia-voice-orb" type="button" aria-label="Tap to interrupt" data-state="idle">
+                <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
+                <span class="mia-voice-orb-mark" aria-hidden="true">
+                    <svg viewBox="0 0 32 24" width="60" height="44" xmlns="http://www.w3.org/2000/svg">
+                        <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path class="mia-voice-orb-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+            </button>
+            <div class="mia-voice-status" id="mia-voice-status">Mia</div>
+            <div class="mia-voice-transcript" id="mia-voice-transcript"></div>
+        </div>
     </div>
 </div>`;
 
 // State for the active voice session. Reset when the overlay opens.
 const session = {
     open: false,
+    minimized: false, // panel hidden but session still alive (mic + TTS active)
     state: 'idle', // idle | listening | thinking | speaking
     rec: null,
     audioCtx: null,
@@ -188,25 +212,36 @@ function insertVoiceButton() {
 }
 
 function wireOverlayEvents() {
-    const overlay = document.getElementById('mia-voice-overlay');
     document.getElementById('mia-voice-close').addEventListener('click', closeVoice);
+    document.getElementById('mia-voice-min').addEventListener('click', minimizeVoice);
     document.getElementById('mia-voice-orb').addEventListener('click', onOrbTap);
-    overlay.addEventListener('click', (e) => {
-        // Tapping the dim backdrop also closes — but only if the click
-        // landed on the overlay itself, not on the orb / status / close btn.
-        if (e.target === overlay) closeVoice();
-    });
+    // The Mia launcher is the entry point AND the minimized handle —
+    // tapping it while a session is minimized re-opens the panel.
+    document.getElementById('mia-launcher')?.addEventListener('click', (e) => {
+        if (session.minimized && session.open) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            restoreVoice();
+        }
+    }, true); // capture phase so we beat the chat-toggle handler
 }
 
 async function openVoice() {
     if (!isVoiceSupported()) return;
     if (!isConfigured()) return;
     session.open = true;
+    session.minimized = false;
     session.autoLoop = true;
     session.history = loadHistory();
     const overlay = document.getElementById('mia-voice-overlay');
     overlay.classList.add('open');
+    overlay.classList.remove('minimized');
     overlay.setAttribute('aria-hidden', 'false');
+    // Add a body class so the rest of the app can shift right to make
+    // room for the docked panel without us touching individual layouts.
+    document.body.classList.add('mia-voice-panel-open');
+    document.body.classList.remove('mia-voice-minimized');
+    setLauncherOrbMode(false);
 
     // Pull the current theme accent so the orb glow matches whatever
     // theme the user picked. Read it freshly each open so theme switches
@@ -224,6 +259,7 @@ async function openVoice() {
 
 function closeVoice() {
     session.open = false;
+    session.minimized = false;
     session.autoLoop = false;
     stopListening();
     stopSpeaking();
@@ -231,11 +267,50 @@ function closeVoice() {
     stopCanvasLoop();
     releaseMic();
     const overlay = document.getElementById('mia-voice-overlay');
-    overlay.classList.remove('open');
+    overlay.classList.remove('open', 'minimized');
     overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('mia-voice-panel-open', 'mia-voice-minimized');
+    setLauncherOrbMode(false);
     setOrbState('idle');
-    setStatus('Tap the orb to talk to Mia');
+    setStatus('Mia');
     setTranscript('');
+}
+
+// Minimize: hide the panel but keep the mic/agent/TTS pipeline alive.
+// The Mia launcher swaps to "live orb" mode so the user knows Mia is
+// still listening / speaking while they navigate the app.
+function minimizeVoice() {
+    if (!session.open) return;
+    session.minimized = true;
+    const overlay = document.getElementById('mia-voice-overlay');
+    overlay.classList.add('minimized');
+    document.body.classList.add('mia-voice-minimized');
+    document.body.classList.remove('mia-voice-panel-open');
+    setLauncherOrbMode(true);
+    // Canvas RAF stays running — the launcher orb taps the same draw
+    // loop via its own canvas (or shares state with the main one).
+}
+
+function restoreVoice() {
+    if (!session.open) return;
+    session.minimized = false;
+    const overlay = document.getElementById('mia-voice-overlay');
+    overlay.classList.remove('minimized');
+    document.body.classList.add('mia-voice-panel-open');
+    document.body.classList.remove('mia-voice-minimized');
+    setLauncherOrbMode(false);
+}
+
+// Toggle the floating Mia launcher between "chat icon" and "live orb"
+// modes. In orb mode it shows the active session state through CSS
+// pulse + a tinted ring, with the orb-state attribute mirroring the
+// main orb so listening/thinking/speaking visuals stay in sync.
+function setLauncherOrbMode(on) {
+    const launcher = document.getElementById('mia-launcher');
+    if (!launcher) return;
+    launcher.classList.toggle('mia-launcher-orb', !!on);
+    if (on) launcher.dataset.orbState = session.state || 'idle';
+    else delete launcher.dataset.orbState;
 }
 
 function releaseMic() {
@@ -254,14 +329,69 @@ function setOrbState(s) {
     session.state = s;
     const orb = document.getElementById('mia-voice-orb');
     if (orb) orb.dataset.state = s;
+    // Mirror onto the launcher so the minimized-orb avatar reflects
+    // the current state (idle, listening, thinking, speaking).
+    const launcher = document.getElementById('mia-launcher');
+    if (launcher && launcher.classList.contains('mia-launcher-orb')) {
+        launcher.dataset.orbState = s;
+    }
 }
 function setStatus(msg) {
+    // Keep the "Mia" identity label fixed; the orb's state communicates
+    // listening/thinking/speaking visually. We only swap the label out
+    // for short error states ("Mic error: …") so we don't need a
+    // separate UI region for them.
     const el = document.getElementById('mia-voice-status');
-    if (el) el.textContent = msg;
+    if (!el) return;
+    const isError = /error|couldn|didn|retry/i.test(msg);
+    el.textContent = isError ? msg : 'Mia';
 }
 function setTranscript(msg) {
     const el = document.getElementById('mia-voice-transcript');
-    if (el) el.textContent = msg;
+    if (!el) return;
+    el.textContent = msg;
+    // Reset any leftover spoken-sentence DOM structure from a prior turn.
+    el.dataset.mode = msg ? 'plain' : 'empty';
+    el.scrollTop = el.scrollHeight;
+}
+
+// Mia-speaking transcript: each utterance becomes a sentence span we
+// can highlight progressively as boundary events fire. Old sentences
+// stay above so the user sees the running monologue.
+function appendTranscript(sentence) {
+    const el = document.getElementById('mia-voice-transcript');
+    if (!el) return;
+    if (el.dataset.mode !== 'speaking') {
+        el.innerHTML = '';
+        el.dataset.mode = 'speaking';
+    }
+    const span = document.createElement('div');
+    span.className = 'mia-voice-tx-sent';
+    span.dataset.full = sentence;
+    span.innerHTML = `<span class="mia-voice-tx-spoken"></span><span class="mia-voice-tx-pending">${escapeText(sentence)}</span>`;
+    el.appendChild(span);
+    el.scrollTop = el.scrollHeight;
+}
+
+function highlightTranscript(sentence, charIdx) {
+    const el = document.getElementById('mia-voice-transcript');
+    if (!el) return;
+    // Find the most recent sentence span matching this utterance.
+    const sents = el.querySelectorAll('.mia-voice-tx-sent');
+    if (!sents.length) return;
+    const last = sents[sents.length - 1];
+    if (last.dataset.full !== sentence) return;
+    const spoken = last.querySelector('.mia-voice-tx-spoken');
+    const pending = last.querySelector('.mia-voice-tx-pending');
+    if (!spoken || !pending) return;
+    const upTo = Math.max(0, Math.min(sentence.length, charIdx));
+    spoken.textContent = sentence.slice(0, upTo);
+    pending.textContent = sentence.slice(upTo);
+    el.scrollTop = el.scrollHeight;
+}
+
+function escapeText(s) {
+    return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
 function onOrbTap() {
@@ -455,18 +585,31 @@ function drainSpeakQueue() {
     const next = session.speakQueue.shift();
     if (!next) return;
     session.speaking = true;
+    // Stream the spoken text into the visible transcript word-by-word as
+    // the TTS utterance fires boundary events. The user reads what Mia
+    // is saying in lock-step with hearing it — same reason captioning
+    // boosts comprehension on streaming video.
+    appendTranscript(next);
+    let charIdx = 0;
     const u = new SpeechSynthesisUtterance(next);
     const v = pickVoice();
     if (v) u.voice = v;
     u.rate = 1.05;
     u.pitch = 1.02;
-    u.onboundary = () => {
+    u.onboundary = (e) => {
         // Each word boundary kicks the synthetic-amplitude clock, which is
         // what makes the orb pulse-with-the-voice during speech.
         session.lastBoundaryTs = performance.now();
+        if (typeof e.charIndex === 'number') {
+            charIdx = e.charIndex;
+            highlightTranscript(next, charIdx);
+        }
     };
     u.onend = () => {
         session.speaking = false;
+        // Clear the per-utterance highlight; the sentence stays visible
+        // in the transcript history until the next listen wipes it.
+        highlightTranscript(next, next.length);
         if (session.speakQueue.length > 0) drainSpeakQueue();
     };
     u.onerror = (e) => {

@@ -441,51 +441,73 @@
 }
 .mia-voice-btn:active { transform: scale(0.94); }
 
+/* The overlay used to dim the entire screen. Now it's a slim
+   container that holds the right-side panel — no backdrop. The user
+   sees and uses the app while Mia talks. */
 .mia-voice-overlay {
-    position: fixed; inset: 0;
-    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.92) 100%);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 0;
     z-index: 1200;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
 }
-[data-theme="light"] .mia-voice-overlay {
-    background: radial-gradient(circle at center, rgba(15, 23, 42, 0.55) 0%, rgba(15, 23, 42, 0.88) 100%);
+.mia-voice-overlay.open { pointer-events: auto; }
+
+.mia-voice-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(420px, 96vw);
+    background: linear-gradient(180deg, rgba(15, 17, 26, 0.97), rgba(10, 12, 18, 0.97));
+    border-left: 1px solid rgba(255,255,255,0.08);
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+    transform: translateX(100%);
+    transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex; flex-direction: column;
+    pointer-events: auto;
 }
-.mia-voice-overlay.open {
-    display: flex;
-    opacity: 1;
+[data-theme="light"] .mia-voice-panel {
+    background: linear-gradient(180deg, rgba(20, 26, 44, 0.97), rgba(15, 20, 36, 0.97));
 }
-.mia-voice-close {
-    position: absolute; top: 22px; right: 22px;
-    width: 44px; height: 44px;
+.mia-voice-overlay.open .mia-voice-panel { transform: translateX(0); }
+.mia-voice-overlay.minimized .mia-voice-panel { transform: translateX(100%); }
+
+.mia-voice-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.mia-voice-head-title {
+    color: rgba(255,255,255,0.78);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+}
+.mia-voice-head-actions { display: flex; gap: 6px; }
+.mia-voice-min, .mia-voice-close {
+    width: 32px; height: 32px;
     border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.04);
     color: #fff;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s ease, transform 0.15s ease;
     -webkit-tap-highlight-color: transparent;
 }
-.mia-voice-close:hover { background: rgba(255,255,255,0.14); transform: scale(1.06); }
-.mia-voice-close:active { transform: scale(0.94); }
+.mia-voice-min:hover, .mia-voice-close:hover { background: rgba(255,255,255,0.12); transform: scale(1.06); }
+.mia-voice-min:active, .mia-voice-close:active { transform: scale(0.94); }
 
 .mia-voice-stage {
-    display: flex; flex-direction: column; align-items: center; gap: 22px;
-    width: min(420px, 92vw);
-    pointer-events: none; /* let backdrop clicks pass to overlay */
+    flex: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+    padding: 24px 20px 28px;
+    overflow: hidden;
 }
-.mia-voice-stage > * { pointer-events: auto; }
 
 .mia-voice-orb {
     position: relative;
-    width: min(320px, 78vw); height: min(320px, 78vw);
-    max-width: 360px; max-height: 360px;
+    width: min(280px, 70vw); height: min(280px, 70vw);
+    max-width: 320px; max-height: 320px;
+    flex-shrink: 0;
     border: none;
     background: transparent;
     padding: 0; margin: 0;
@@ -503,10 +525,27 @@
     display: block;
     border-radius: 50%;
 }
-.mia-voice-orb-core {
-    position: absolute; inset: 0;
+.mia-voice-orb-mark {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
     pointer-events: none;
-    /* Subtle ambient pulse; the canvas does the heavy lifting visually. */
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.35));
+    opacity: 0.92;
+}
+.mia-voice-orb-mark svg { display: block; }
+/* ECG trace path stays visible, blip path traces the M shape on a loop. */
+.mia-voice-orb-ecg-blip {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: mia-voice-ecg 2.2s ease-in-out infinite;
+}
+.mia-voice-orb[data-state="thinking"] .mia-voice-orb-ecg-blip { animation-duration: 1.4s; }
+.mia-voice-orb[data-state="speaking"] .mia-voice-orb-ecg-blip { animation-duration: 1.0s; }
+.mia-voice-orb[data-state="listening"] .mia-voice-orb-ecg-blip { animation-duration: 1.6s; }
+@keyframes mia-voice-ecg {
+    0%   { stroke-dashoffset: 50; }
+    55%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -50; }
 }
 
 .mia-voice-orb[data-state="thinking"] {
@@ -526,41 +565,123 @@
 }
 
 .mia-voice-status {
-    color: rgba(255,255,255,0.92);
-    font-size: 1.0rem;
-    font-weight: 600;
-    letter-spacing: 0.2px;
+    color: rgba(255,255,255,0.95);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.6px;
     text-align: center;
     text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     min-height: 1.4em;
 }
+/* Live transcript region. Scroll-into-view keeps the latest sentence
+   in sight; older ones stay above for context. */
 .mia-voice-transcript {
-    color: rgba(255,255,255,0.78);
-    font-size: 0.92rem;
-    text-align: center;
-    line-height: 1.45;
-    max-width: 90%;
-    min-height: 1.4em;
+    color: rgba(255,255,255,0.86);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    width: 100%;
+    flex: 1;
+    overflow-y: auto;
+    text-align: left;
     text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    padding: 6px 4px 12px;
 }
-.mia-voice-hint {
-    color: rgba(255,255,255,0.42);
-    font-size: 0.78rem;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-top: 6px;
+.mia-voice-transcript[data-mode="empty"]::before {
+    content: '';
+}
+.mia-voice-tx-sent {
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+.mia-voice-tx-spoken {
+    color: rgba(255,255,255,0.96);
+    font-weight: 600;
+}
+.mia-voice-tx-pending {
+    color: rgba(255,255,255,0.45);
+}
+
+/* When app body has the panel-open class, push main layout to the
+   left so the docked panel doesn't cover the chart. */
+body.mia-voice-panel-open {
+    padding-right: min(420px, 96vw);
+    transition: padding-right 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+body.mia-voice-panel-open .mia-launcher,
+body.mia-voice-minimized .mia-launcher {
+    /* Launcher hugs the right edge of the *page*, so when the panel
+       slides in we slide the launcher left of the panel so it stays
+       reachable as the minimize handle. */
+    right: calc(min(420px, 96vw) + 22px);
+}
+body.mia-voice-minimized {
+    padding-right: 0;
+}
+body.mia-voice-minimized .mia-launcher {
+    right: 22px;
+}
+
+/* Minimized: launcher turns into a live orb. We keep it small (60px)
+   but reuse the orb canvas + ECG mark by swapping its visual style. */
+.mia-launcher.mia-launcher-orb {
+    background: radial-gradient(circle at 35% 30%, #fff 0%, rgba(var(--accent-rgb), 0.95) 35%, rgba(var(--accent-rgb), 0.55) 100%);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.18),
+                0 0 28px rgba(var(--accent-rgb), 0.55);
+}
+.mia-launcher.mia-launcher-orb::before {
+    /* Replace the conic spin with a slower, breathy ambient glow so
+       the user reads it as "live, listening" not "loading". */
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.55) 0%, transparent 70%);
+    filter: blur(8px);
+    animation: mia-orb-launch-breath 3.4s ease-in-out infinite;
+}
+.mia-launcher.mia-launcher-orb[data-orb-state="listening"] {
+    animation: mia-orb-launch-listen 1.4s ease-in-out infinite;
+}
+.mia-launcher.mia-launcher-orb[data-orb-state="speaking"] {
+    animation: mia-orb-launch-speak 0.9s ease-in-out infinite;
+}
+.mia-launcher.mia-launcher-orb[data-orb-state="thinking"] {
+    animation: mia-orb-launch-think 1.5s ease-in-out infinite;
+}
+@keyframes mia-orb-launch-breath {
+    0%, 100% { opacity: 0.6; }
+    50%      { opacity: 1; }
+}
+@keyframes mia-orb-launch-listen {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.18), 0 0 28px rgba(var(--accent-rgb), 0.55); }
+    50%      { transform: scale(1.07); box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0.10), 0 0 36px rgba(var(--accent-rgb), 0.85); }
+}
+@keyframes mia-orb-launch-speak {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.10); }
+}
+@keyframes mia-orb-launch-think {
+    0%, 100% { transform: scale(0.97); }
+    50%      { transform: scale(1.04); }
+}
+
+/* Hide the ECG-logo SVG inside the launcher when in orb mode so the
+   pure glowing-ball look comes through. */
+.mia-launcher.mia-launcher-orb .mia-launcher-logo { opacity: 0; }
+.mia-launcher.mia-launcher-orb .mia-launcher-ready-dot { display: none; }
+
+@media (max-width: 720px) {
+    body.mia-voice-panel-open { padding-right: 0; }
+    body.mia-voice-panel-open .mia-launcher { right: 22px; bottom: 88px; }
+    .mia-voice-panel { width: 96vw; }
 }
 
 @media (max-width: 480px) {
     .mia-voice-btn { width: 40px; height: 40px; }
-    .mia-voice-stage { width: 92vw; gap: 16px; }
-    .mia-voice-status { font-size: 0.92rem; }
+    .mia-voice-status { font-size: 1.15rem; }
     .mia-voice-transcript { font-size: 0.84rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .mia-voice-overlay { transition: none; }
+    .mia-voice-panel { transition: none; }
     .mia-voice-orb[data-state="thinking"] { animation: none; }
     .mia-voice-orb.pulse { animation: none; }
+    .mia-voice-orb-ecg-blip { animation: none; stroke-dashoffset: 0; }
+    .mia-launcher.mia-launcher-orb { animation: none; }
 }

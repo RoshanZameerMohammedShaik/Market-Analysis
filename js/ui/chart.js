@@ -2,6 +2,7 @@ import { state } from './state.js';
 import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTimeTravel } from './time-travel.js';
+import { candleLoaderHTML } from './skeleton.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -53,10 +54,13 @@ export function loadChart() {
 export function showChartPlaceholder() {
     const container = document.getElementById('tradingview-widget');
     if (!container) return;
+    // Use the same candlestick loader animation we ship for the analysis
+    // screen — at the chart's larger scale it doubles as a clear visual
+    // signal that the chart is the place where market data will land.
     container.innerHTML = `
         <div class="chart-placeholder">
             <div class="chart-ph-glow"></div>
-            <div class="chart-ph-icon">📊</div>
+            <div class="chart-ph-icon chart-ph-candles">${candleLoaderHTML(11)}</div>
             <div class="chart-ph-title">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
         </div>`;
