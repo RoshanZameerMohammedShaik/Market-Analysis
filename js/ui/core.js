@@ -19,6 +19,7 @@ import { startTipRotation } from './tips.js';
 import { initMia, setLatestSignal } from '../mia/mia.js';
 import { startDyk } from './dyk.js';
 import { initRipple } from './ripple.js';
+import { candleLoaderHTML } from './skeleton.js';
 
 let stopTips = null;
 
@@ -121,7 +122,7 @@ function onSelectFromCard({ mode, symbol, coinId }) {
 async function runAnalysis() {
     const signalSection = document.getElementById('signal-section');
     signalSection.innerHTML = `<div class="loading fade-in">
-        <div class="loader"></div>
+        ${candleLoaderHTML(7)}
         <span class="loading-text">Running full analysis: AI + Technicals + Sentiment + Market...</span>
     </div>`;
 

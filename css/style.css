@@ -1026,6 +1026,66 @@ body {
 .loading-text { font-size: 0.88rem; }
 .loading-tip { font-size: 0.74rem; color: var(--text-muted); font-style: italic; }
 
+/* Candlestick skeleton loader. Renders a row of OHLC bars whose body
+   heights, wick lengths, and colors animate in a staggered loop —
+   visually says "we are computing a market chart" instead of generic
+   spinner. Used on the multi-second analysis screen where the user
+   stares at the loader long enough to notice. */
+.candle-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 64px;
+    margin: 6px 0 4px;
+}
+.candle-loader .cl-bar {
+    position: relative;
+    width: 8px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.candle-loader .cl-wick {
+    position: absolute;
+    top: 6%;
+    bottom: 6%;
+    left: 50%;
+    width: 1.5px;
+    transform: translateX(-50%);
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.55;
+}
+.candle-loader .cl-body {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-radius: 1.5px;
+    background: currentColor;
+    animation: cl-grow 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.candle-loader .cl-bar.up   { color: var(--green); }
+.candle-loader .cl-bar.down { color: var(--red); }
+.candle-loader .cl-bar:nth-child(1) .cl-body { animation-delay: 0.00s; }
+.candle-loader .cl-bar:nth-child(2) .cl-body { animation-delay: 0.10s; }
+.candle-loader .cl-bar:nth-child(3) .cl-body { animation-delay: 0.20s; }
+.candle-loader .cl-bar:nth-child(4) .cl-body { animation-delay: 0.30s; }
+.candle-loader .cl-bar:nth-child(5) .cl-body { animation-delay: 0.40s; }
+.candle-loader .cl-bar:nth-child(6) .cl-body { animation-delay: 0.50s; }
+.candle-loader .cl-bar:nth-child(7) .cl-body { animation-delay: 0.60s; }
+@keyframes cl-grow {
+    0%   { top: 60%; bottom: 35%; opacity: 0.45; }
+    25%  { top: 25%; bottom: 18%; opacity: 0.95; }
+    50%  { top: 38%; bottom: 50%; opacity: 0.95; }
+    75%  { top: 18%; bottom: 60%; opacity: 0.95; }
+    100% { top: 60%; bottom: 35%; opacity: 0.45; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .candle-loader .cl-body { animation: none; top: 25%; bottom: 25%; }
+}
+
 .error-message { padding: 16px; background: var(--red-bg); color: var(--red); border: 1px solid var(--red); border-radius: var(--radius-md); }
 .empty-state { text-align: center; padding: 48px 16px; color: var(--text-muted); }
 .empty-state-icon { font-size: 2.4rem; margin-bottom: 8px; }
