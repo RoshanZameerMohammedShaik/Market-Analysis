@@ -4,7 +4,7 @@
 const SECTIONS = [
     {
         title: 'Meet Mia',
-        intro: 'Market Intelligence Analyst — your in-app chatbot. Click the 💬 launcher (bottom-right) to ask anything about a stock, an indicator, or what a signal means. Mia always reads the live signal data so her numbers match what you see on screen.',
+        intro: 'Market Intelligence Analyst — your in-app chatbot. Click the 💬 launcher (bottom-right) to ask anything about a stock, an indicator, or what a signal means.',
         items: [],
     },
     {
@@ -32,7 +32,7 @@ const SECTIONS = [
         title: 'Sources we blend',
         items: [
             ['Technicals', 'Multi-timeframe indicator agreement. The largest weight, most reliable in the medium term.'],
-            ['AI Model', 'A small LSTM trained on 23 symbols, retrained monthly. Acts as a pattern-recognition co-pilot.'],
+            ['AI Model', 'A small LSTM trained on 300 stocks and 38 crypto symbols, retrained monthly. Acts as a pattern-recognition co-pilot.'],
             ['Sentiment', 'FinBERT analyzes recent news headlines. Recent news weighted higher than stale news.'],
             ['Market', 'Fear & Greed Index, VIX, S&P 500 trend. Provides regime context.'],
         ],
