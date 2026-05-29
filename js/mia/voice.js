@@ -773,8 +773,13 @@ function drawOrb(now) {
     const baseR = Math.min(W, H) * 0.40;
     const accent = session.accentRgb;
 
-    // Outermost ambient glow halo, lights the empty space around the orb.
-    const haloR = baseR + 80 + amp * 80;
+    // Outermost ambient glow halo. Sized so the gradient terminates *inside*
+    // the canvas, not at its hard edge — otherwise we get a visible ring
+    // where the halo gets clipped (canvas is square-ish but the orb is
+    // round visually). Halo terminates at ~95% of the canvas-half so the
+    // outer alpha is already 0 by the time it could touch the edge.
+    const canvasHalf = Math.min(W, H) / 2;
+    const haloR = Math.min(baseR + 60 + amp * 40, canvasHalf * 0.95);
     const haloGrad = ctx.createRadialGradient(cx, cy, baseR * 0.6, cx, cy, haloR);
     haloGrad.addColorStop(0, `rgba(${accent}, ${0.18 + amp * 0.22})`);
     haloGrad.addColorStop(1, `rgba(${accent}, 0)`);
