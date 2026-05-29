@@ -280,7 +280,7 @@ function refreshThinkingBadge() {
     btn.classList.toggle('active', !!s.thinkingMode);
     btn.title = s.thinkingMode ? 'Thinking mode ON — deeper, slower' : 'Thinking mode OFF — faster, lighter';
 }
-function renderThread(history) {
+export function renderThread(history) {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
     if (history.length === 0) {

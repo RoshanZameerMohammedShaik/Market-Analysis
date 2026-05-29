@@ -33,6 +33,7 @@
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory } from './memory.js';
+import { renderThread } from './mia.js';
 import { isConfigured } from './settings.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -370,15 +371,34 @@ function restoreVoice() {
 }
 
 // Toggle the floating Mia launcher between "chat icon" and "live orb"
-// modes. In orb mode it shows the active session state through CSS
-// pulse + a tinted ring, with the orb-state attribute mirroring the
-// main orb so listening/thinking/speaking visuals stay in sync.
+// modes. In orb mode it shows a real canvas-rendered orb (same
+// drawOrb code as the main voice canvas, just smaller and tinted with
+// a Siri-style multi-hue palette so the minimized state visually
+// distinguishes itself from the chat-panel orb).
 function setLauncherOrbMode(on) {
     const launcher = document.getElementById('mia-launcher');
     if (!launcher) return;
     launcher.classList.toggle('mia-launcher-orb', !!on);
-    if (on) launcher.dataset.orbState = session.state || 'idle';
-    else delete launcher.dataset.orbState;
+    if (on) {
+        launcher.dataset.orbState = session.state || 'idle';
+        ensureLauncherCanvas(launcher);
+        const canvas = launcher.querySelector('.mia-launcher-canvas');
+        if (canvas) registerOrbTarget('launcher', canvas, SIRI_PALETTE);
+    } else {
+        delete launcher.dataset.orbState;
+        unregisterOrbTarget('launcher');
+        const canvas = launcher.querySelector('.mia-launcher-canvas');
+        if (canvas) canvas.remove();
+    }
+}
+
+function ensureLauncherCanvas(launcher) {
+    if (launcher.querySelector('.mia-launcher-canvas')) return;
+    const canvas = document.createElement('canvas');
+    canvas.className = 'mia-launcher-canvas';
+    // Insert before existing children so the canvas sits behind the
+    // ready-dot and any logo, not on top of them.
+    launcher.insertBefore(canvas, launcher.firstChild);
 }
 
 function releaseMic() {
@@ -488,6 +508,18 @@ function highlightTranscript(sentence, charIdx) {
 
 function escapeText(s) {
     return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+// Re-render the chat thread behind the voice overlay so the user sees
+// their conversation populate live. The chat content is blurred + dimmed
+// by .voice-active CSS, but messages should still be visibly arriving as
+// the user talks. Falls back to session.history when no override is
+// passed (e.g., user-bubble append, final assistant persist).
+function syncChatThread(historyOverride) {
+    if (!document.getElementById('mia-thread')) return;
+    try {
+        renderThread(historyOverride || session.history);
+    } catch (_) { /* mia-thread not mounted yet — fine, will sync next render */ }
 }
 
 function onOrbTap() {
@@ -610,6 +642,7 @@ async function handleUserUtterance(text) {
     // the chat panel too — and vice versa.
     session.history.push({ role: 'user', content: text });
     saveHistory(session.history);
+    syncChatThread(); // user bubble appears behind the blur immediately
 
     session.chunker = makeSentenceChunker();
     session.speakQueue = [];
@@ -617,6 +650,7 @@ async function handleUserUtterance(text) {
 
     let acc = '';
     let firstTokenAt = 0;
+    let lastThreadSync = 0;
     const ac = new AbortController();
     session.abort = ac;
 
@@ -637,6 +671,14 @@ async function handleUserUtterance(text) {
             acc += ev.text;
             const sentences = session.chunker.push(ev.text);
             for (const s of sentences) enqueueSpeak(s);
+            // Throttled live render of Mia's streaming reply into the chat
+            // thread so the user sees the message grow behind the blur in
+            // sync with hearing it. Throttle keeps re-render cost low.
+            const now = Date.now();
+            if (now - lastThreadSync > 250) {
+                lastThreadSync = now;
+                syncChatThread([...session.history, { role: 'assistant', content: acc }]);
+            }
         }
         // Flush any trailing partial sentence.
         const tail = session.chunker.flush();
@@ -659,6 +701,7 @@ async function handleUserUtterance(text) {
         updated.push({ role: 'assistant', content: acc.trim() });
         saveHistory(updated);
         session.history = updated;
+        syncChatThread(); // final, non-throttled render with the complete reply
     }
 
     // Wait until the speak queue drains before going back to listen.
@@ -847,35 +890,66 @@ function pulseOrb() {
 
 // ---------- Canvas / orb rendering ----------
 
-function setupCanvas() {
-    const canvas = document.getElementById('mia-voice-canvas');
+// Render targets for the orb: the main voice-mode canvas inside the
+// chat panel AND, when minimized, a small canvas inside the launcher.
+// Both share session.state and session.smoothedAmp so they pulse in
+// lock-step with what Mia is actually doing. The launcher target uses
+// a Siri-style multi-hue palette to visually distinguish the
+// minimized/active orb from the main orb.
+const orbTargets = new Map(); // key (string) -> { ctx, W, H, palette }
+
+const SIRI_PALETTE = ['56, 189, 248', '236, 72, 153', '99, 102, 241'];
+
+function registerOrbTarget(key, canvas, palette) {
     if (!canvas) return;
-    // Match canvas backing store to display size, accounting for DPR.
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
     const ctx = canvas.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset in case the canvas was reused
     ctx.scale(dpr, dpr);
-    session.canvas = canvas;
-    session.canvasCtx = ctx;
-    session.canvasW = rect.width;
-    session.canvasH = rect.height;
+    orbTargets.set(key, { ctx, W: rect.width, H: rect.height, palette: palette || null });
+}
+
+function unregisterOrbTarget(key) {
+    orbTargets.delete(key);
+}
+
+function setupCanvas() {
+    const canvas = document.getElementById('mia-voice-canvas');
+    if (!canvas) return;
+    registerOrbTarget('main', canvas, null);
 }
 
 function startCanvasLoop() {
     if (session.rafId) cancelAnimationFrame(session.rafId);
     const tick = (now) => {
-        if (!session.open) return;
-        drawOrb(now);
+        // Loop runs as long as a session is alive (open OR minimized).
+        // When fully closed, all targets get unregistered.
+        if (!session.open && orbTargets.size === 0) return;
+        // Smooth amplitude once per frame, then render every target with
+        // that shared value so all orbs pulse in sync.
+        updateAmplitude(now);
+        for (const target of orbTargets.values()) drawOrb(now, target);
         session.rafId = requestAnimationFrame(tick);
     };
     session.rafId = requestAnimationFrame(tick);
 }
 
+function updateAmplitude(now) {
+    let raw = 0;
+    if (session.state === 'listening') raw = readMicAmplitude();
+    else if (session.state === 'speaking') raw = syntheticSpeechAmplitude(now);
+    else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
+    else raw = 0.20 + 0.05 * Math.sin(now * 0.003); // idle breath
+    session.smoothedAmp = session.smoothedAmp * 0.78 + raw * 0.22;
+}
+
 function stopCanvasLoop() {
     if (session.rafId) cancelAnimationFrame(session.rafId);
     session.rafId = null;
+    orbTargets.clear();
 }
 
 function readMicAmplitude() {
@@ -902,29 +976,26 @@ function syntheticSpeechAmplitude(now) {
     return Math.min(1, carrier + kick * 0.35);
 }
 
-function drawOrb(now) {
-    const ctx = session.canvasCtx;
+function drawOrb(now, target) {
+    const { ctx, W, H, palette } = target;
     if (!ctx) return;
-    const W = session.canvasW;
-    const H = session.canvasH;
     const cx = W / 2, cy = H / 2;
     ctx.clearRect(0, 0, W, H);
 
-    // Pick raw amplitude based on state.
-    let raw = 0;
-    if (session.state === 'listening') raw = readMicAmplitude();
-    else if (session.state === 'speaking') raw = syntheticSpeechAmplitude(now);
-    else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
-    else raw = 0.20 + 0.05 * Math.sin(now * 0.003); // idle breath
-
-    // Smooth so the orb doesn't strobe on noisy frames.
-    session.smoothedAmp = session.smoothedAmp * 0.78 + raw * 0.22;
+    // Amplitude is shared across targets — updated once per frame in
+    // startCanvasLoop's tick. All orbs (main + launcher) pulse together.
     const amp = session.smoothedAmp;
 
     // baseR = the outer radius the petals reach near. Eats most of the canvas
     // so the orb feels weighty, ChatGPT-style.
     const baseR = Math.min(W, H) * 0.40;
-    const accent = session.accentRgb;
+
+    // Palette = either a static accent (chat-panel orb, theme-tinted) or a
+    // multi-hue Siri-style array that cycles per petal layer (launcher orb).
+    // Single-color palette gets duplicated so the per-petal lookup still
+    // works without branching downstream.
+    const palettes = palette && palette.length ? palette : [session.accentRgb, session.accentRgb, session.accentRgb];
+    const corePalette = palettes[0];
 
     // Outermost ambient glow halo. Sized so the gradient terminates *inside*
     // the canvas, not at its hard edge — otherwise we get a visible ring
@@ -934,14 +1005,17 @@ function drawOrb(now) {
     const canvasHalf = Math.min(W, H) / 2;
     const haloR = Math.min(baseR + 60 + amp * 40, canvasHalf * 0.95);
     const haloGrad = ctx.createRadialGradient(cx, cy, baseR * 0.6, cx, cy, haloR);
-    haloGrad.addColorStop(0, `rgba(${accent}, ${0.18 + amp * 0.22})`);
-    haloGrad.addColorStop(1, `rgba(${accent}, 0)`);
+    haloGrad.addColorStop(0, `rgba(${corePalette}, ${0.18 + amp * 0.22})`);
+    haloGrad.addColorStop(1, `rgba(${corePalette}, 0)`);
     ctx.fillStyle = haloGrad;
     ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
     // Petal/wave layers — four rotating offset blobs that pulse with amp.
     // Each layer is drawn around 1.0 * baseR so the wobble sits *outside*
-    // the inner solid orb and is actually visible.
+    // the inner solid orb and is actually visible. With a multi-hue
+    // palette, each petal cycles through a different color so the orb
+    // shimmers iridescently like Siri rather than reading as a single
+    // tinted ball.
     ctx.save();
     ctx.globalCompositeOperation = 'lighter'; // additive blend → glowy bloom
     const petals = 4;
@@ -963,12 +1037,13 @@ function drawOrb(now) {
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath();
+        const petalAccent = palettes[p % palettes.length];
         const fill = ctx.createRadialGradient(cx, cy, baseR * 0.55, cx, cy, baseR * 1.35);
         const layerAlpha = (0.22 + amp * 0.22) * (1 - p * 0.14);
-        fill.addColorStop(0, `rgba(${accent}, 0)`);
-        fill.addColorStop(0.55, `rgba(${accent}, ${layerAlpha * 0.6})`);
-        fill.addColorStop(0.85, `rgba(${accent}, ${layerAlpha})`);
-        fill.addColorStop(1, `rgba(${accent}, 0)`);
+        fill.addColorStop(0, `rgba(${petalAccent}, 0)`);
+        fill.addColorStop(0.55, `rgba(${petalAccent}, ${layerAlpha * 0.6})`);
+        fill.addColorStop(0.85, `rgba(${petalAccent}, ${layerAlpha})`);
+        fill.addColorStop(1, `rgba(${petalAccent}, 0)`);
         ctx.fillStyle = fill;
         ctx.fill();
     }
@@ -978,8 +1053,8 @@ function drawOrb(now) {
     const coreR = baseR * (0.62 + 0.06 * amp);
     const core = ctx.createRadialGradient(cx - coreR * 0.32, cy - coreR * 0.36, 0, cx, cy, coreR);
     core.addColorStop(0, `rgba(255, 255, 255, ${0.92 + amp * 0.08})`);
-    core.addColorStop(0.18, `rgba(${accent}, ${0.95})`);
-    core.addColorStop(1, `rgba(${accent}, 0.55)`);
+    core.addColorStop(0.18, `rgba(${corePalette}, ${0.95})`);
+    core.addColorStop(1, `rgba(${corePalette}, 0.55)`);
     ctx.fillStyle = core;
     ctx.beginPath(); ctx.arc(cx, cy, coreR, 0, Math.PI * 2); ctx.fill();
 
