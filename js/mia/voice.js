@@ -533,22 +533,6 @@ async function handleUserUtterance(text) {
     const ac = new AbortController();
     session.abort = ac;
 
-    // If the LLM hasn't streamed a single token within 800ms, slip in a
-    // brief acknowledgement so the user doesn't sit in dead silence —
-    // dead air is the strongest "this is a bot" signal there is.
-    // Composed structurally rather than read from a static list (per
-    // [[feedback-dynamic-only]]): one mild lead atom optionally combined
-    // with a short tail, so each occurrence reads slightly different.
-    const fillerTimer = setTimeout(() => {
-        if (firstTokenAt || ac.signal.aborted || !session.open) return;
-        const leads = ['okay', 'mm', 'right', 'so'];
-        const tails = ['', '', 'one sec', 'let me see', 'thinking'];
-        const lead = leads[Math.floor(Math.random() * leads.length)];
-        const tail = tails[Math.floor(Math.random() * tails.length)];
-        const phrase = tail ? `${lead}, ${tail}…` : `${lead}…`;
-        enqueueSpeak(phrase);
-    }, 800);
-
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(window.__miaLatestSignal || null);
         for await (const ev of runTurn({ system, messages: session.history, signal: ac.signal, onProgress: () => {} })) {
@@ -560,7 +544,6 @@ async function handleUserUtterance(text) {
             if (ev.type !== 'delta' || !ev.text) continue;
             if (!firstTokenAt) {
                 firstTokenAt = Date.now();
-                clearTimeout(fillerTimer);
                 setOrbState('speaking');
                 setStatus('Mia is speaking…');
             }
@@ -572,7 +555,6 @@ async function handleUserUtterance(text) {
         const tail = session.chunker.flush();
         for (const s of tail) enqueueSpeak(s);
     } catch (e) {
-        clearTimeout(fillerTimer);
         if (e?.name !== 'AbortError') {
             console.warn('[voice] agent error:', e);
             setStatus(`Connection issue. Tap to try again.`);
@@ -580,7 +562,6 @@ async function handleUserUtterance(text) {
             return;
         }
     } finally {
-        clearTimeout(fillerTimer);
         session.abort = null;
     }
 
