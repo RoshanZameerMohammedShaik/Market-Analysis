@@ -382,13 +382,22 @@ function setLauncherOrbMode(on) {
     if (on) {
         launcher.dataset.orbState = session.state || 'idle';
         ensureLauncherCanvas(launcher);
+        ensureLauncherCaption();
         const canvas = launcher.querySelector('.mia-launcher-canvas');
-        if (canvas) registerOrbTarget('launcher', canvas, SIRI_PALETTE);
+        if (canvas) {
+            registerOrbTarget('launcher', canvas, SIRI_PALETTE, {
+                petals: 8,        // double density → blob reads smooth, not lobed
+                haloMul: 1.35,    // bigger glow halo so the orb feels luminous
+                flow: 1.0,        // colors rotate around the orb over time
+                glowAlpha: 1.45,  // brighter petals at small size
+            });
+        }
     } else {
         delete launcher.dataset.orbState;
         unregisterOrbTarget('launcher');
         const canvas = launcher.querySelector('.mia-launcher-canvas');
         if (canvas) canvas.remove();
+        clearLauncherCaption();
     }
 }
 
@@ -399,6 +408,57 @@ function ensureLauncherCanvas(launcher) {
     // Insert before existing children so the canvas sits behind the
     // ready-dot and any logo, not on top of them.
     launcher.insertBefore(canvas, launcher.firstChild);
+}
+
+// Floating mini-caption shown next to the minimized launcher orb so the
+// user can still see what they're saying / what Mia is saying without
+// re-opening the panel. Positioned with `position: fixed` to the left
+// of the launcher; the launcher's own coords drive placement so window
+// resizes / mobile layouts work without extra wiring.
+function ensureLauncherCaption() {
+    if (document.getElementById('mia-launcher-caption')) return;
+    const el = document.createElement('div');
+    el.id = 'mia-launcher-caption';
+    el.className = 'mia-launcher-caption';
+    el.setAttribute('aria-live', 'polite');
+    el.dataset.role = 'idle';
+    document.body.appendChild(el);
+}
+
+function setLauncherCaption(text, role) {
+    ensureLauncherCaption();
+    const el = document.getElementById('mia-launcher-caption');
+    if (!el) return;
+    const trimmed = String(text || '').trim();
+    if (!trimmed) {
+        el.classList.remove('visible');
+        el.dataset.role = 'idle';
+        return;
+    }
+    el.dataset.role = role || 'idle';
+    el.textContent = trimmed;
+    el.classList.add('visible');
+    scheduleLauncherCaptionFade();
+}
+
+let launcherCaptionFadeTimer = null;
+function scheduleLauncherCaptionFade() {
+    if (launcherCaptionFadeTimer) clearTimeout(launcherCaptionFadeTimer);
+    // Fade after 4.5s of no updates. Each new setLauncherCaption call
+    // resets this timer, so during active speech the caption stays up.
+    launcherCaptionFadeTimer = setTimeout(() => {
+        const el = document.getElementById('mia-launcher-caption');
+        if (el) el.classList.remove('visible');
+        launcherCaptionFadeTimer = null;
+    }, 4500);
+}
+
+function clearLauncherCaption() {
+    const el = document.getElementById('mia-launcher-caption');
+    if (!el) return;
+    el.classList.remove('visible');
+    el.textContent = '';
+    if (launcherCaptionFadeTimer) { clearTimeout(launcherCaptionFadeTimer); launcherCaptionFadeTimer = null; }
 }
 
 function releaseMic() {
@@ -441,6 +501,9 @@ function setTranscript(msg) {
     // Reset any leftover spoken-sentence DOM structure from a prior turn.
     el.dataset.mode = msg ? 'plain' : 'empty';
     el.scrollTop = el.scrollHeight;
+    // Mirror to launcher caption while minimized so the user sees their
+    // spoken text floating next to the orb without reopening the panel.
+    if (session.minimized) setLauncherCaption(msg, 'user');
 }
 
 // Mia-speaking transcript: each utterance becomes a sentence span we
@@ -459,6 +522,10 @@ function appendTranscript(sentence) {
     span.innerHTML = `<span class="mia-voice-tx-spoken"></span><span class="mia-voice-tx-pending">${escapeText(sentence)}</span>`;
     el.appendChild(span);
     el.scrollTop = el.scrollHeight;
+    // Mirror Mia's most recent sentence into the launcher caption so the
+    // user can read along while minimized. highlightTranscript will keep
+    // updating it word-by-word as the synthesizer speaks.
+    if (session.minimized) setLauncherCaption(sentence, 'mia');
 }
 
 // Snap a character index up to the END of the word that contains it, so
@@ -491,19 +558,30 @@ function computeWordEnds(sentence) {
 
 function highlightTranscript(sentence, charIdx) {
     const el = document.getElementById('mia-voice-transcript');
-    if (!el) return;
-    // Find the most recent sentence span matching this utterance.
-    const sents = el.querySelectorAll('.mia-voice-tx-sent');
-    if (!sents.length) return;
-    const last = sents[sents.length - 1];
-    if (last.dataset.full !== sentence) return;
-    const spoken = last.querySelector('.mia-voice-tx-spoken');
-    const pending = last.querySelector('.mia-voice-tx-pending');
-    if (!spoken || !pending) return;
     const upTo = snapToWordBoundary(sentence, Math.max(0, Math.min(sentence.length, charIdx)));
-    spoken.textContent = sentence.slice(0, upTo);
-    pending.textContent = sentence.slice(upTo);
-    el.scrollTop = el.scrollHeight;
+    if (el) {
+        // Find the most recent sentence span matching this utterance.
+        const sents = el.querySelectorAll('.mia-voice-tx-sent');
+        if (sents.length) {
+            const last = sents[sents.length - 1];
+            if (last.dataset.full === sentence) {
+                const spoken = last.querySelector('.mia-voice-tx-spoken');
+                const pending = last.querySelector('.mia-voice-tx-pending');
+                if (spoken && pending) {
+                    spoken.textContent = sentence.slice(0, upTo);
+                    pending.textContent = sentence.slice(upTo);
+                    el.scrollTop = el.scrollHeight;
+                }
+            }
+        }
+    }
+    // Mirror the spoken portion into the launcher caption so the user
+    // reads along with what Mia is actually saying out loud — matches
+    // the audio pace, not just the full sentence dumped at once.
+    if (session.minimized) {
+        const partial = sentence.slice(0, upTo);
+        if (partial.trim()) setLauncherCaption(partial, 'mia');
+    }
 }
 
 function escapeText(s) {
@@ -898,9 +976,18 @@ function pulseOrb() {
 // minimized/active orb from the main orb.
 const orbTargets = new Map(); // key (string) -> { ctx, W, H, palette }
 
-const SIRI_PALETTE = ['56, 189, 248', '236, 72, 153', '99, 102, 241'];
+// Siri-style palette — extra hues so the rotation around the orb feels
+// like a continuous gradient sweep, not three jumpy color bands.
+const SIRI_PALETTE = [
+    '56, 189, 248',   // sky-400
+    '129, 140, 248',  // indigo-400
+    '167, 139, 250',  // violet-400
+    '236, 72, 153',   // pink-500
+    '244, 114, 182',  // pink-400
+    '99, 102, 241',   // indigo-500
+];
 
-function registerOrbTarget(key, canvas, palette) {
+function registerOrbTarget(key, canvas, palette, opts = {}) {
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -909,7 +996,18 @@ function registerOrbTarget(key, canvas, palette) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0); // reset in case the canvas was reused
     ctx.scale(dpr, dpr);
-    orbTargets.set(key, { ctx, W: rect.width, H: rect.height, palette: palette || null });
+    orbTargets.set(key, {
+        ctx,
+        W: rect.width,
+        H: rect.height,
+        palette: palette || null,
+        // Render-quality knobs per target. Defaults match the original
+        // main-orb behavior; the launcher overrides for smoother flow.
+        petals: opts.petals || 4,
+        haloMul: opts.haloMul != null ? opts.haloMul : 1.0,
+        flow: opts.flow != null ? opts.flow : 0,         // 0..1: how much palette rotates over time
+        glowAlpha: opts.glowAlpha != null ? opts.glowAlpha : 1.0, // multiplier on petal alpha
+    });
 }
 
 function unregisterOrbTarget(key) {
@@ -977,7 +1075,7 @@ function syntheticSpeechAmplitude(now) {
 }
 
 function drawOrb(now, target) {
-    const { ctx, W, H, palette } = target;
+    const { ctx, W, H, palette, petals, haloMul, flow, glowAlpha } = target;
     if (!ctx) return;
     const cx = W / 2, cy = H / 2;
     ctx.clearRect(0, 0, W, H);
@@ -995,7 +1093,18 @@ function drawOrb(now, target) {
     // Single-color palette gets duplicated so the per-petal lookup still
     // works without branching downstream.
     const palettes = palette && palette.length ? palette : [session.accentRgb, session.accentRgb, session.accentRgb];
-    const corePalette = palettes[0];
+    // Time-shifted palette index so the colors flow AROUND the orb instead
+    // of locking each petal to one hue. flow=0 → static (main orb); flow=1
+    // → palette completes a full revolution every ~6.3s (launcher orb).
+    const flowOffset = flow * (now * 0.00025);
+    const pickColor = (i) => {
+        const idx = (i + flowOffset * palettes.length) % palettes.length;
+        const lo = Math.floor(idx) % palettes.length;
+        const hi = (lo + 1) % palettes.length;
+        const t = idx - Math.floor(idx);
+        return blendRgbStrings(palettes[lo], palettes[hi], t);
+    };
+    const corePalette = pickColor(0);
 
     // Outermost ambient glow halo. Sized so the gradient terminates *inside*
     // the canvas, not at its hard edge — otherwise we get a visible ring
@@ -1003,27 +1112,24 @@ function drawOrb(now, target) {
     // round visually). Halo terminates at ~95% of the canvas-half so the
     // outer alpha is already 0 by the time it could touch the edge.
     const canvasHalf = Math.min(W, H) / 2;
-    const haloR = Math.min(baseR + 60 + amp * 40, canvasHalf * 0.95);
+    const haloR = Math.min(baseR + (60 + amp * 40) * haloMul, canvasHalf * 0.97);
     const haloGrad = ctx.createRadialGradient(cx, cy, baseR * 0.6, cx, cy, haloR);
-    haloGrad.addColorStop(0, `rgba(${corePalette}, ${0.18 + amp * 0.22})`);
+    haloGrad.addColorStop(0, `rgba(${corePalette}, ${(0.18 + amp * 0.22) * glowAlpha})`);
     haloGrad.addColorStop(1, `rgba(${corePalette}, 0)`);
     ctx.fillStyle = haloGrad;
     ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
-    // Petal/wave layers — four rotating offset blobs that pulse with amp.
-    // Each layer is drawn around 1.0 * baseR so the wobble sits *outside*
-    // the inner solid orb and is actually visible. With a multi-hue
-    // palette, each petal cycles through a different color so the orb
-    // shimmers iridescently like Siri rather than reading as a single
-    // tinted ball.
+    // Petal/wave layers — N rotating offset blobs that pulse with amp and
+    // each pick a hue from the palette via flow-shifted lookup. With more
+    // petals (launcher uses 8) and time-shifted color, the orb reads as a
+    // continuous iridescent gradient sweep instead of distinct lobes.
     ctx.save();
     ctx.globalCompositeOperation = 'lighter'; // additive blend → glowy bloom
-    const petals = 4;
     for (let p = 0; p < petals; p++) {
         const phase = now * (0.0007 + p * 0.0003) + p * (Math.PI * 2 / petals);
         const layerR = baseR * (0.95 + 0.05 * Math.sin(phase * 0.8) + 0.10 * amp);
         ctx.beginPath();
-        const points = 80;
+        const points = 96;
         for (let i = 0; i <= points; i++) {
             const t = (i / points) * Math.PI * 2;
             // Wobble shape: low-frequency overall undulation + high-frequency
@@ -1037,9 +1143,11 @@ function drawOrb(now, target) {
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.closePath();
-        const petalAccent = palettes[p % palettes.length];
+        const petalAccent = pickColor(p);
         const fill = ctx.createRadialGradient(cx, cy, baseR * 0.55, cx, cy, baseR * 1.35);
-        const layerAlpha = (0.22 + amp * 0.22) * (1 - p * 0.14);
+        // More petals → less per-petal alpha so the additive blend doesn't
+        // wash the orb out to white. Fade-out tied to petal count, not 4.
+        const layerAlpha = (0.22 + amp * 0.22) * (1 - p / petals * 0.55) * glowAlpha;
         fill.addColorStop(0, `rgba(${petalAccent}, 0)`);
         fill.addColorStop(0.55, `rgba(${petalAccent}, ${layerAlpha * 0.6})`);
         fill.addColorStop(0.85, `rgba(${petalAccent}, ${layerAlpha})`);
@@ -1063,4 +1171,16 @@ function drawOrb(now, target) {
     ctx.beginPath();
     ctx.ellipse(cx - coreR * 0.34, cy - coreR * 0.44, coreR * 0.32, coreR * 0.16, -0.5, 0, Math.PI * 2);
     ctx.fill();
+}
+
+// Linear blend two "r, g, b" rgb strings. Used to interpolate between
+// adjacent palette colors so the flow rotation reads smoothly instead
+// of stepping through discrete hues.
+function blendRgbStrings(a, b, t) {
+    const pa = a.split(',').map(s => parseInt(s.trim(), 10));
+    const pb = b.split(',').map(s => parseInt(s.trim(), 10));
+    const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
+    const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
+    const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
+    return `${r}, ${g}, ${bl}`;
 }
