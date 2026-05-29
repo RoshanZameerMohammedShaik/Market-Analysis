@@ -133,8 +133,8 @@ const VOICE_OVERLAY_HTML = `
             <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
             <span class="mia-voice-orb-mark" aria-hidden="true">
                 <svg viewBox="0 0 32 24" width="60" height="44" xmlns="http://www.w3.org/2000/svg">
-                    <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path class="mia-voice-orb-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="mia-voice-orb-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </span>
         </button>
@@ -1237,7 +1237,10 @@ function drawOrb(now, target) {
     ctx.restore();
 
     // Inner solid orb — the bright "ball" the petals halo around.
-    const coreR = baseR * (0.62 + 0.06 * amp);
+    // Sized smaller (was 0.62) so the petals + ribbons + ECG mark have
+    // more room to read, and the core feels like an inner light source
+    // rather than a dominant ball.
+    const coreR = baseR * (0.48 + 0.05 * amp);
     const core = ctx.createRadialGradient(cx - coreR * 0.32, cy - coreR * 0.36, 0, cx, cy, coreR);
     core.addColorStop(0, `rgba(255, 255, 255, ${0.92 + amp * 0.08})`);
     core.addColorStop(0.18, `rgba(${corePalette}, ${0.95})`);
