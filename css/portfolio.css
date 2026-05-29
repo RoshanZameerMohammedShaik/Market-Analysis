@@ -455,6 +455,13 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
    These overrides make it behave as a normal block-flow card inside
    the panel. The original CSS still applies elsewhere if pl.js were
    ever rendered standalone again. */
+/* The original .pl-sidebar is a fixed-position slide-in floating sheet
+   (see css/pl-toggle.css). When we relocate it into the portfolio
+   panel, ALL of its positioning needs to be cancelled — not just
+   undone, but explicitly overridden with !important since the
+   pl-toggle.css rules use !important themselves. The transform:
+   translateX(110%) was the killer; without overriding it the relocated
+   aside sat 110% off-screen even though its DOM was inside the panel. */
 .pl-sidebar-in-portfolio {
     position: static !important;
     width: 100% !important;
@@ -463,17 +470,35 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
     max-height: none !important;
     top: auto !important;
     right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
     margin: 0 !important;
     padding: 8px !important;
     border: none !important;
+    border-radius: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
     overflow: visible !important;
+    transform: none !important;
+    transition: none !important;
+    z-index: auto !important;
 }
 .pl-sidebar-in-portfolio .pl-sidebar-header { display: none; }
 .pl-sidebar-in-portfolio .pl-body {
     padding: 0;
     gap: 8px;
+}
+/* Override the mobile breakpoint version of .pl-sidebar too — it has
+   its own transform: translateY(100%) that hides bottom-sheet-style. */
+@media (max-width: 1024px) {
+    .pl-sidebar-in-portfolio {
+        transform: none !important;
+        bottom: auto !important;
+        left: auto !important;
+        right: auto !important;
+        max-height: none !important;
+        height: auto !important;
+    }
 }
 
 /* Mobile: panel goes full-width if both panels would overflow. The
