@@ -149,9 +149,15 @@ function initLauncherReadyDot() {
     launcher.title = isConfigured() ? 'Ask Mia — your Market Intelligence Analyst (ready)' : 'Ask Mia — set up an API key to begin';
 }
 function togglePanel() {
-    panelOpen = !panelOpen;
+    // Source of truth is the stack, NOT the local panelOpen flag.
+    // Voice mode opens the Mia panel directly via openSidePanel('mia'),
+    // bypassing this function — so panelOpen would desync and the ✕
+    // would do the wrong thing on first click. Reading from the stack
+    // guarantees the click always toggles whatever's actually visible.
     const panel = document.getElementById('mia-panel');
     if (!panel) return;
+    const wasOpen = isSidePanelOpen('mia');
+    panelOpen = !wasOpen;
     if (panelOpen) {
         // Route through the side-panel stack so Mia and Portfolio
         // coordinate position when both are open. Stack handles the
