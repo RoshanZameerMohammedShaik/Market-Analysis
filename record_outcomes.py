@@ -23,6 +23,7 @@ Usage:
 """
 import datetime
 import json
+import math
 import os
 from collections import defaultdict
 
@@ -105,6 +106,13 @@ def resolve_horizon(row: dict, h_days: int, bars):
 
     entry = row['entry']
     actual_close = float(closes[h_days])
+    # yfinance can return NaN closes on unsettled bars (NSE in particular —
+    # intraday H/L come back populated but the daily close stays NaN until
+    # the post-market settlement window completes). A NaN close coerced to
+    # directionMatch=False silently inverts the calibration for that region,
+    # so treat NaN as "not yet matured" and let the next cron retry.
+    if math.isnan(actual_close):
+        return None
     window_high = float(max(highs[1:h_days + 1])) if highs[1:h_days + 1] else None
     window_low = float(min(lows[1:h_days + 1])) if lows[1:h_days + 1] else None
 
