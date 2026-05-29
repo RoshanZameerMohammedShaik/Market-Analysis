@@ -81,7 +81,10 @@
     z-index: 600;
     transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.mia-panel.open { right: 0; }
+/* When open, position based on the side-panel stack — first-opened sits
+   at right:0, second-opened slides to right:width-of-first. The CSS var
+   is set by side-panel-stack.js via document.documentElement.style. */
+.mia-panel.open { right: var(--mia-stack-right, 0px); }
 
 .mia-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 .mia-head-title { display: flex; align-items: center; gap: 12px; }

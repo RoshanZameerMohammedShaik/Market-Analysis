@@ -1,37 +1,74 @@
-/* Portfolio Simulation panel — practice trading UI.
-   Visually echoes the watchlist + scanner sections so the three live
-   together as one "power user" zone above the FAQs. */
+/* Portfolio Simulation — slide-in side panel from the right edge.
+   Coordinates with Mia's panel via side-panel-stack.js: first-opened
+   stays at right:0, second-opened sits to its left. */
 
-.portfolio-section { margin: 28px 0; }
-.portfolio-details {
-    background: var(--bg-secondary);
+.portfolio-launcher {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-left: 12px;
+    padding: 6px 14px;
+    background: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    overflow: hidden;
-}
-.portfolio-summary {
-    padding: 14px 18px;
+    border-radius: 999px;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 700;
     cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    user-select: none;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
-.portfolio-summary::-webkit-details-marker { display: none; }
-.portfolio-summary::before {
-    content: '▸';
-    font-size: 0.9rem;
-    margin-right: 8px;
-    transition: transform 0.18s ease;
-    display: inline-block;
+.portfolio-launcher:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+    transform: translateY(-1px);
 }
-.portfolio-details[open] .portfolio-summary::before { transform: rotate(90deg); }
-.portfolio-title { font-weight: 800; color: var(--text-primary); font-size: 1rem; }
-.portfolio-hint { font-size: 0.78rem; color: var(--text-muted); }
+.portfolio-launcher-icon { font-size: 1.05rem; }
+.portfolio-launcher-label { letter-spacing: 0.4px; }
+body.side-panel-portfolio-open .portfolio-launcher {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
 
-.portfolio-body { padding: 14px 18px 22px; }
+.portfolio-panel {
+    position: fixed; top: 0; right: -440px; bottom: 0;
+    width: min(420px, 96vw);
+    background: var(--bg-card);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+    display: flex; flex-direction: column;
+    z-index: 600;
+    transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.portfolio-panel.open { right: var(--portfolio-stack-right, 0px); }
+
+.portfolio-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.portfolio-panel-title {
+    font-weight: 800;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+.portfolio-panel-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.portfolio-panel-close:hover { background: var(--bg-hover); transform: scale(1.06); }
+.portfolio-panel-close:active { transform: scale(0.94); }
+
+.portfolio-panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+}
+.portfolio-body { padding: 14px 16px 22px; }
 
 .portfolio-empty {
     display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
@@ -60,8 +97,9 @@
 
 .portfolio-summary-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
+    /* 2 columns in the side panel — fits 4 stats in a tidy 2x2 grid. */
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
     margin-bottom: 14px;
 }
 .portfolio-stat {
@@ -119,32 +157,72 @@
 .portfolio-no-holdings p { margin: 0; }
 
 .portfolio-holding {
-    background: var(--bg-card);
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 12px;
+    padding: 10px 12px;
 }
+/* Side-panel holdings layout: 2-row card per position. Top row =
+   symbol + units + sell. Bottom row = price/value/pnl as compact stats.
+   Fits cleanly in a 420px panel without horizontal scrolling. */
 .portfolio-holding-main {
     display: grid;
-    grid-template-columns: minmax(80px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) auto;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    gap: 10px;
+    column-gap: 10px;
+    row-gap: 6px;
     font-size: 0.86rem;
 }
 .portfolio-holding-sym {
     font-weight: 800;
     color: var(--text-primary);
+    grid-column: 1;
+    grid-row: 1;
 }
-.portfolio-holding-units,
-.portfolio-holding-price,
-.portfolio-holding-value {
+.portfolio-holding-units {
+    font-family: var(--num-font);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    grid-column: 1;
+    grid-row: 2;
+}
+.portfolio-holding-price {
     font-family: var(--num-font);
     color: var(--text-primary);
     font-weight: 600;
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    font-size: 0.84rem;
+}
+.portfolio-holding-value {
+    font-family: var(--num-font);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
 }
 .portfolio-holding-pnl {
     font-family: var(--num-font);
     font-weight: 700;
+    grid-column: 1;
+    grid-row: 3;
+    font-size: 0.86rem;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    align-self: center;
+}
+/* Sell button on row 3 right side, lined up with the P&L value. The
+   button styling itself comes from the shared .portfolio-sell-btn rule
+   below; this just slots it into the grid. */
+.portfolio-holding .portfolio-sell-btn {
+    grid-column: 2;
+    grid-row: 3;
+    margin-top: 6px;
+    padding-top: 6px;
+    align-self: center;
+    justify-self: end;
 }
 .portfolio-holding-pnl.pos { color: var(--green); }
 .portfolio-holding-pnl.neg { color: var(--red); }
@@ -262,6 +340,16 @@
 }
 .portfolio-toast.pos { border-left: 4px solid var(--green); }
 .portfolio-toast.neg { border-left: 4px solid var(--red); }
+
+/* Mobile: panel goes full-width if both panels would overflow. The
+   stack still works (second-opened sits to the left of first), but at
+   small viewports there's no room for two — second push will scroll
+   the first off-screen. Acceptable for phones. */
+@media (max-width: 720px) {
+    .portfolio-panel { width: 96vw; }
+    .portfolio-launcher-label { display: none; }
+    .portfolio-launcher { padding: 6px 10px; }
+}
 
 /* Trade buttons in the chart header (next to the watchlist star). Sized
    to match the existing star/timeframe controls so they read as a row

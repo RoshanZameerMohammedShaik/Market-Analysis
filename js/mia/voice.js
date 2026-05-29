@@ -34,6 +34,7 @@ import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory } from './memory.js';
 import { renderThread } from './mia.js';
+import { openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { isConfigured } from './settings.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -287,11 +288,10 @@ async function openVoice() {
     // Make sure the chat panel is open and switch it to voice mode. The
     // panel itself stays mounted; only the overlay layer + blur class
     // change. Chat content (head, thread, foot) fades+blurs behind.
+    // Route .open through the side-panel stack so the Portfolio panel
+    // (if also open) recomputes its layout.
+    if (!isSidePanelOpen('mia')) openSidePanel('mia');
     const panel = document.getElementById('mia-panel');
-    if (panel && !panel.classList.contains('open')) {
-        panel.classList.add('open');
-        panel.setAttribute('aria-hidden', 'false');
-    }
     ensureVoiceOverlayMounted();
     if (panel) panel.classList.add('voice-active');
     const overlay = document.getElementById('mia-voice-overlay');
@@ -331,6 +331,9 @@ function closeVoice() {
     setOrbState('idle');
     setStatus('Mia');
     setTranscript('');
+    // Note: we don't close the Mia panel itself when voice closes —
+    // user might want to drop back to chat in the same panel. They
+    // close the panel separately via the chat ✕ button.
 }
 
 // Minimize: collapse the WHOLE chat panel (panel + voice overlay both
@@ -341,13 +344,11 @@ function closeVoice() {
 function minimizeVoice() {
     if (!session.open) return;
     session.minimized = true;
-    const panel = document.getElementById('mia-panel');
-    if (panel) {
-        // Closing the panel here is intentional — minimize means "get
-        // the panel out of the way". The voice session keeps running.
-        panel.classList.remove('open');
-        panel.setAttribute('aria-hidden', 'true');
-    }
+    // Closing the panel via the stack is intentional — minimize means
+    // "get the panel out of the way". The voice session keeps running.
+    // Going through the stack also re-promotes any other open panel
+    // (Portfolio) to the right edge.
+    closeSidePanel('mia');
     document.body.classList.add('mia-voice-minimized');
     setLauncherOrbMode(true);
 }
@@ -355,11 +356,11 @@ function minimizeVoice() {
 function restoreVoice() {
     if (!session.open) return;
     session.minimized = false;
+    // Re-open via the stack so layout is correct relative to any
+    // Portfolio panel that may have moved while voice was minimized.
+    if (!isSidePanelOpen('mia')) openSidePanel('mia');
     const panel = document.getElementById('mia-panel');
-    if (panel) {
-        panel.classList.add('open', 'voice-active');
-        panel.setAttribute('aria-hidden', 'false');
-    }
+    if (panel) panel.classList.add('voice-active');
     ensureVoiceOverlayMounted();
     const overlay = document.getElementById('mia-voice-overlay');
     if (overlay) overlay.setAttribute('aria-hidden', 'false');

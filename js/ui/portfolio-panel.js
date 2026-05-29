@@ -20,13 +20,25 @@ import {
 import { COMMON_CURRENCIES, getRateToUSD, fromUSDCached, warmCommonRates } from '../portfolio/fx.js';
 import { subscribe } from '../portfolio/pricing.js';
 import { sell as tradeSell, unrealizedPnL } from '../portfolio/trade.js';
+import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';
 
 const subs = new Map();   // symbol -> { handle, price }
-let panelMounted = false;
+const PANEL_WIDTH = 420;
 
 export function initPortfolioPanel() {
     initPortfolio();
     ensurePanelMounted();
+    registerSidePanel('portfolio', {
+        width: () => Math.min(PANEL_WIDTH, window.innerWidth * 0.96),
+        getElement: () => document.getElementById('portfolio-panel'),
+        onLayout: () => {
+            const el = document.getElementById('portfolio-panel');
+            if (!el) return;
+            el.classList.toggle('open', isSidePanelOpen('portfolio'));
+            el.setAttribute('aria-hidden', isSidePanelOpen('portfolio') ? 'false' : 'true');
+        },
+    });
+    bindLauncher();
     rebindLiveSubs();
     document.addEventListener('ma:portfolio-changed', () => {
         rebindLiveSubs();
@@ -39,23 +51,40 @@ export function initPortfolioPanel() {
 }
 
 function ensurePanelMounted() {
-    if (document.getElementById('portfolio-section')) return;
-    // Slot the panel right above the watchlist section so the practice-
-    // trading + watchlist + scanner stack reads as one "power user" zone.
-    const after = document.getElementById('scanner-section') || document.querySelector('.hotpicks-section');
-    if (!after) return;
-    const html = `
-        <section class="portfolio-section" id="portfolio-section">
-            <details class="portfolio-details" open>
-                <summary class="portfolio-summary">
-                    <span class="portfolio-title">💼 Portfolio Simulation</span>
-                    <span class="portfolio-hint">Practice trading with simulated money — no real funds at risk</span>
-                </summary>
-                <div class="portfolio-body" id="portfolio-body"></div>
-            </details>
-        </section>`;
-    after.insertAdjacentHTML('afterend', html);
-    panelMounted = true;
+    const el = document.getElementById('portfolio-panel');
+    if (!el) return;
+    // Render the head + body shell once. renderPanel() patches the body.
+    el.innerHTML = `
+        <div class="portfolio-panel-head">
+            <span class="portfolio-panel-title">💼 Portfolio Simulation</span>
+            <button class="portfolio-panel-close" id="portfolio-panel-close" type="button" title="Close">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+            </button>
+        </div>
+        <div class="portfolio-panel-scroll">
+            <div class="portfolio-body" id="portfolio-body"></div>
+        </div>`;
+    el.querySelector('#portfolio-panel-close').addEventListener('click', closePortfolioPanel);
+}
+
+function bindLauncher() {
+    const btn = document.getElementById('portfolio-launcher');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        if (isSidePanelOpen('portfolio')) closePortfolioPanel();
+        else openPortfolioPanel();
+    });
+}
+
+export function openPortfolioPanel() {
+    openSidePanel('portfolio');
+    // Re-render so the user sees the latest state (in case it changed
+    // while the panel was closed via Mia tool / chart-header trade).
+    renderPanel();
+}
+
+export function closePortfolioPanel() {
+    closeSidePanel('portfolio');
 }
 
 function renderPanel() {

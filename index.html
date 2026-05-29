@@ -45,6 +45,10 @@
                         <button class="tab-btn active" data-timeframe="today">Today</button>
                         <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
                     </div>
+                    <button class="portfolio-launcher" id="portfolio-launcher" type="button" title="Open practice portfolio">
+                        <span class="portfolio-launcher-icon" aria-hidden="true">💼</span>
+                        <span class="portfolio-launcher-label">Portfolio</span>
+                    </button>
                 </div>
                 <div class="search-container">
                     <span class="search-icon">🔍</span>
@@ -169,6 +173,7 @@
         </svg>
     </button>
     <div id="mia-panel" class="mia-panel" aria-hidden="true"></div>
+    <aside id="portfolio-panel" class="portfolio-panel" aria-hidden="true" aria-label="Practice portfolio"></aside>
 
     <script type="module" src="js/app.js"></script>
 </body>

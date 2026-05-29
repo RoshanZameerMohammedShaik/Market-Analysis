@@ -14,6 +14,7 @@ import { renderUsageMeter } from './usage-meter.js';
 import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
 import { flagUnverifiedNumbers, UNVERIFIED_TOKEN_RE } from './guard.js';
 import { initVoice, attachVoiceButton } from './voice.js';
+import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -121,6 +122,17 @@ const THINKING_INDICATOR_HTML = `<span class="mia-thinking-bars" aria-label="Mia
 
 export function setLatestSignal(sig) { currentSignal = sig; window.__miaLatestSignal = sig || null; }
 export function initMia() {
+    registerSidePanel('mia', {
+        width: () => Math.min(400, window.innerWidth * 0.96), // matches .mia-panel width
+        getElement: () => document.getElementById('mia-panel'),
+        onLayout: () => {
+            const panel = document.getElementById('mia-panel');
+            if (!panel) return;
+            const open = isSidePanelOpen('mia');
+            panel.classList.toggle('open', open);
+            panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        },
+    });
     document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);
     initLauncherReadyDot();
     initVoice();
@@ -140,8 +152,16 @@ function togglePanel() {
     panelOpen = !panelOpen;
     const panel = document.getElementById('mia-panel');
     if (!panel) return;
-    if (panelOpen) { panel.setAttribute('aria-hidden', 'false'); panel.classList.add('open'); renderRoot(); }
-    else { panel.classList.remove('open'); panel.setAttribute('aria-hidden', 'true'); }
+    if (panelOpen) {
+        // Route through the side-panel stack so Mia and Portfolio
+        // coordinate position when both are open. Stack handles the
+        // .open class + aria-hidden via the registered onLayout
+        // callback; we just need to render inside.
+        openSidePanel('mia');
+        renderRoot();
+    } else {
+        closeSidePanel('mia');
+    }
 }
 function renderRoot() {
     const panel = document.getElementById('mia-panel');
