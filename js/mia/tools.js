@@ -24,6 +24,9 @@ import {
 } from './external-tools.js';
 import { researchSymbol } from './research-bundle.js';
 import { webSearch } from './web-search.js';
+import { getPortfolio, isInstantiated, totalDepositedUSD } from '../portfolio/state.js';
+import { buy as portfolioBuy, sell as portfolioSell, unrealizedPnL } from '../portfolio/trade.js';
+import { getCurrentPrice } from '../portfolio/pricing.js';
 
 const TOOLS = {
     get_app_state: {
@@ -255,6 +258,58 @@ const TOOLS = {
         args: '{"expression":"974 / 8.80","as":"shares"}',
         run: ({ expression, as }) => compute({ expression, as }),
         kind: 'read',
+    },
+    get_portfolio: {
+        desc: 'simulated practice portfolio: cash + positions + unrealized P&L per holding + total return since instantiation. Returns null if user has not loaded a portfolio yet.',
+        args: '{}',
+        run: async () => {
+            if (!isInstantiated()) return { instantiated: false, note: 'User has not loaded a practice portfolio yet.' };
+            const p = getPortfolio();
+            const positions = [];
+            let heldUSD = 0;
+            for (const [sym, pos] of Object.entries(p.positions)) {
+                let price = null;
+                try { price = await getCurrentPrice(sym); } catch (_) {}
+                const pnl = price != null ? unrealizedPnL(sym, price) : null;
+                if (pnl) heldUSD += pnl.marketValueUSD;
+                positions.push({
+                    symbol: sym,
+                    units: pos.units,
+                    avgCostUSD: pnl?.avgCostUSD,
+                    currentPriceUSD: price,
+                    marketValueUSD: pnl?.marketValueUSD,
+                    unrealizedUSD: pnl?.unrealizedUSD,
+                    unrealizedPct: pnl?.unrealizedPct,
+                });
+            }
+            const totalDepUSD = totalDepositedUSD();
+            const totalUSD = p.cashUSD + heldUSD;
+            return {
+                instantiated: true,
+                currency: p.currency,
+                cashUSD: p.cashUSD,
+                heldUSD,
+                totalUSD,
+                totalDepositedUSD: totalDepUSD,
+                totalPnLUSD: totalUSD - totalDepUSD,
+                totalPnLPct: totalDepUSD > 0 ? ((totalUSD - totalDepUSD) / totalDepUSD) * 100 : 0,
+                positions,
+            };
+        },
+        kind: 'read',
+    },
+    place_trade: {
+        desc: 'execute a market BUY or SELL on the practice portfolio. Long-only — sell only what the user holds. quote.mode is "amountUSD" (dollar amount), "units" (fractional shares), or "all" (sell entire position; SELL only). Refuses if portfolio not instantiated or insufficient cash. Confirm with the user before calling — never trade silently.',
+        args: '{"symbol":"NVDA","side":"BUY","mode":"amountUSD","value":250}',
+        run: async ({ symbol, side, mode, value }) => {
+            if (!isInstantiated()) throw new Error('No practice portfolio loaded. User must instantiate one first.');
+            const sd = String(side || '').toUpperCase();
+            if (sd !== 'BUY' && sd !== 'SELL') throw new Error('side must be BUY or SELL.');
+            const quote = mode === 'all' ? { mode: 'all' } : { mode, value };
+            const fn = sd === 'BUY' ? portfolioBuy : portfolioSell;
+            return await fn(symbol, quote);
+        },
+        kind: 'action',
     },
 };
 

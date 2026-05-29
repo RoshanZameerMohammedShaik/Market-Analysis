@@ -1,0 +1,306 @@
+/* Portfolio Simulation panel — practice trading UI.
+   Visually echoes the watchlist + scanner sections so the three live
+   together as one "power user" zone above the FAQs. */
+
+.portfolio-section { margin: 28px 0; }
+.portfolio-details {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.portfolio-summary {
+    padding: 14px 18px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    user-select: none;
+}
+.portfolio-summary::-webkit-details-marker { display: none; }
+.portfolio-summary::before {
+    content: '▸';
+    font-size: 0.9rem;
+    margin-right: 8px;
+    transition: transform 0.18s ease;
+    display: inline-block;
+}
+.portfolio-details[open] .portfolio-summary::before { transform: rotate(90deg); }
+.portfolio-title { font-weight: 800; color: var(--text-primary); font-size: 1rem; }
+.portfolio-hint { font-size: 0.78rem; color: var(--text-muted); }
+
+.portfolio-body { padding: 14px 18px 22px; }
+
+.portfolio-empty {
+    display: flex; flex-direction: column; gap: 12px; align-items: flex-start;
+    padding: 8px 0 4px;
+}
+.portfolio-empty-line { color: var(--text-muted); font-size: 0.92rem; line-height: 1.5; max-width: 60ch; margin: 0; }
+.portfolio-cta {
+    background: var(--brand-grad);
+    color: #fff;
+    font-weight: 700;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 18px var(--brand-grad-shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.portfolio-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 24px var(--brand-grad-shadow); }
+.portfolio-cta:active { transform: translateY(0); }
+.portfolio-import-row { padding-top: 4px; }
+.portfolio-link-btn {
+    background: none; border: none; padding: 0;
+    color: var(--accent); cursor: pointer;
+    font-size: 0.84rem; text-decoration: underline;
+}
+
+.portfolio-summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.portfolio-stat {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.portfolio-stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    font-weight: 700;
+}
+.portfolio-stat-value {
+    font-family: var(--num-font);
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+.portfolio-stat-value.pos { color: var(--green); }
+.portfolio-stat-value.neg { color: var(--red); }
+
+.portfolio-actions {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 12px;
+}
+.portfolio-action-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.portfolio-action-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+.portfolio-action-btn.danger { color: var(--red); }
+.portfolio-action-btn.danger:hover { border-color: var(--red); background: rgba(239, 68, 68, 0.06); }
+
+.portfolio-holdings { display: flex; flex-direction: column; gap: 6px; }
+.portfolio-no-holdings {
+    padding: 16px;
+    background: var(--bg-card);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.portfolio-no-holdings p { margin: 0; }
+
+.portfolio-holding {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+}
+.portfolio-holding-main {
+    display: grid;
+    grid-template-columns: minmax(80px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(90px, 1fr) minmax(110px, 1.2fr) auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.86rem;
+}
+.portfolio-holding-sym {
+    font-weight: 800;
+    color: var(--text-primary);
+}
+.portfolio-holding-units,
+.portfolio-holding-price,
+.portfolio-holding-value {
+    font-family: var(--num-font);
+    color: var(--text-primary);
+    font-weight: 600;
+}
+.portfolio-holding-pnl {
+    font-family: var(--num-font);
+    font-weight: 700;
+}
+.portfolio-holding-pnl.pos { color: var(--green); }
+.portfolio-holding-pnl.neg { color: var(--red); }
+.portfolio-sell-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--red);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.portfolio-sell-btn:hover { border-color: var(--red); background: rgba(239, 68, 68, 0.06); }
+.portfolio-sell-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Modals (instantiate / add funds) */
+.portfolio-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1100;
+}
+.portfolio-modal {
+    width: min(440px, 92vw);
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    padding: 22px;
+    display: flex; flex-direction: column; gap: 14px;
+}
+.portfolio-modal-title { margin: 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 800; }
+.portfolio-modal-desc { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; margin: 0; }
+.portfolio-modal-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.portfolio-modal-row label {
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 700;
+}
+.portfolio-modal-row select,
+.portfolio-modal-row input {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    font-family: var(--num-font);
+    font-size: 0.95rem;
+    text-transform: none;
+}
+.portfolio-modal-row select:focus,
+.portfolio-modal-row input:focus { outline: none; border-color: var(--accent); }
+.portfolio-modal-fxhint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    min-height: 1.2em;
+}
+.portfolio-modal-actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding-top: 4px;
+}
+.portfolio-modal-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.portfolio-modal-btn:hover { border-color: var(--accent); background: var(--bg-hover); }
+.portfolio-modal-btn.primary {
+    background: var(--brand-grad);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 14px var(--brand-grad-shadow);
+}
+.portfolio-modal-btn.primary:hover { box-shadow: 0 8px 22px var(--brand-grad-shadow); }
+
+/* Toast — shared by trade success/failure messages. Slides up from
+   the bottom-left so it doesn't fight Mia's launcher in the bottom-right. */
+.portfolio-toast {
+    position: fixed;
+    bottom: 22px; left: 22px;
+    max-width: min(420px, 80vw);
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: rgba(15, 17, 26, 0.92);
+    color: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    font-size: 0.86rem;
+    line-height: 1.4;
+    z-index: 1050;
+    opacity: 0;
+    transform: translateY(8px);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.portfolio-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.portfolio-toast.pos { border-left: 4px solid var(--green); }
+.portfolio-toast.neg { border-left: 4px solid var(--red); }
+
+/* Trade buttons in the chart header (next to the watchlist star). Sized
+   to match the existing star/timeframe controls so they read as a row
+   of equal-weight tools, not bolted-on badges. */
+.trade-buttons {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 8px;
+}
+.trade-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.trade-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+.trade-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.trade-btn.buy-btn { color: var(--green); }
+.trade-btn.buy-btn:hover:not(:disabled) {
+    border-color: var(--green);
+    background: rgba(45, 210, 139, 0.10);
+}
+.trade-btn.sell-btn { color: var(--red); }
+.trade-btn.sell-btn:hover:not(:disabled) {
+    border-color: var(--red);
+    background: rgba(239, 68, 68, 0.08);
+}
+.trade-price-hint {
+    font-family: var(--num-font);
+    color: var(--text-primary);
+    font-weight: 600;
+}

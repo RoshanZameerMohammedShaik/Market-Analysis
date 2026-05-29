@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
+import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
 
 const TV_CRYPTO_MAP = {
@@ -73,6 +74,7 @@ export function updateChartHeader(data) {
     if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
     attachTimeTravel();
     attachWatchButton(data.symbol);
+    attachTradeButtons(data.symbol);
     if (data.currentPrice) {
         state.currentPrice = data.currentPrice;
         if (priceEl) {
