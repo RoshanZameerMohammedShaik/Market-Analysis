@@ -628,9 +628,12 @@ body.mia-voice-minimized .mia-launcher {
     right: 22px;
 }
 
-/* Minimized: launcher turns into a live orb. We keep it small (60px)
-   but reuse the orb canvas + ECG mark by swapping its visual style. */
+/* Minimized: launcher turns into a live orb. Slightly larger than the
+   default chat launcher so the user reads it as "active session" not
+   just "icon". Reuses the same float position; only width/height +
+   gradient + shadow change. */
 .mia-launcher.mia-launcher-orb {
+    width: 72px; height: 72px;
     background: radial-gradient(circle at 35% 30%, #fff 0%, rgba(var(--accent-rgb), 0.95) 35%, rgba(var(--accent-rgb), 0.55) 100%);
     box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.18),
                 0 0 28px rgba(var(--accent-rgb), 0.55);
@@ -655,17 +658,31 @@ body.mia-voice-minimized .mia-launcher {
     0%, 100% { opacity: 0.6; }
     50%      { opacity: 1; }
 }
+/* Listening: outward Siri-style ring expansion so the user can tell
+   from across the page that Mia is hearing them. The expanding ring
+   is a layered box-shadow that grows from 4px to 14px with fading
+   alpha — same conceptual pulse as Apple's "active mic" indicator. */
 @keyframes mia-orb-launch-listen {
-    0%, 100% { transform: scale(1); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.18), 0 0 28px rgba(var(--accent-rgb), 0.55); }
-    50%      { transform: scale(1.07); box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0.10), 0 0 36px rgba(var(--accent-rgb), 0.85); }
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.22),
+                    0 0 0 0   rgba(var(--accent-rgb), 0.0),
+                    0 0 28px  rgba(var(--accent-rgb), 0.55);
+    }
+    50% {
+        transform: scale(1.10);
+        box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0.12),
+                    0 0 0 14px rgba(var(--accent-rgb), 0.06),
+                    0 0 42px  rgba(var(--accent-rgb), 0.95);
+    }
 }
 @keyframes mia-orb-launch-speak {
-    0%, 100% { transform: scale(1); }
-    50%      { transform: scale(1.10); }
+    0%, 100% { transform: scale(1.0); }
+    50%      { transform: scale(1.14); }
 }
 @keyframes mia-orb-launch-think {
-    0%, 100% { transform: scale(0.97); }
-    50%      { transform: scale(1.04); }
+    0%, 100% { transform: scale(0.96); }
+    50%      { transform: scale(1.06); }
 }
 
 /* Hide the ECG-logo SVG inside the launcher when in orb mode so the

@@ -221,7 +221,16 @@ function wireOverlayEvents() {
         if (session.minimized && session.open) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            restoreVoice();
+            // While minimized, the launcher acts as both the orb (interrupt
+            // mid-sentence) AND the restore handle. If Mia is actively
+            // speaking or thinking, treat the tap as an interrupt — same
+            // as tapping the main orb. If she's listening or idle, just
+            // restore the panel so the user can see what's going on.
+            if (session.state === 'speaking' || session.state === 'thinking') {
+                onOrbTap();
+            } else {
+                restoreVoice();
+            }
         }
     }, true); // capture phase so we beat the chat-toggle handler
 }
