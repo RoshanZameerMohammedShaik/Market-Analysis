@@ -1170,7 +1170,10 @@ function drawOrb(now, target) {
             const baseRibbonR = baseR * (0.78 + r * 0.06) + amp * baseR * 0.04;
             // Stroke width: ribbons are thin "strings" that thicken with
             // amp so loud speech shows fatter color streams.
-            const lineW = Math.max(1.4, baseR * 0.06 + amp * baseR * 0.05);
+            // Thinner ribbons — Roshan asked for "string-like" not "rope".
+            // Floor at 0.8px so they're still visible at small canvas
+            // sizes; amp adds a tiny ~1px swell on loud speech.
+            const lineW = Math.max(0.8, baseR * 0.022 + amp * baseR * 0.02);
             const ribbonAccent = pickColor(r * 1.2 + 0.6); // offset hue from petals
             ctx.strokeStyle = `rgba(${ribbonAccent}, ${(0.55 + amp * 0.30) * glowAlpha})`;
             ctx.lineWidth = lineW;
