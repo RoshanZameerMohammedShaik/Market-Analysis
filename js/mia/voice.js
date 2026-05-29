@@ -596,8 +596,17 @@ function drainSpeakQueue() {
     const u = new SpeechSynthesisUtterance(next);
     const v = pickVoice();
     if (v) u.voice = v;
-    u.rate = 1.05;
-    u.pitch = 1.02;
+    // Adaptive pacing for a more human cadence:
+    // - Full statements (ending in . ! ?) read slightly slower so the
+    //   beat at the end has weight — declarative cadence.
+    // - Clause-y / comma-ending fragments stay at the brisker rate so the
+    //   thought feels in-flight and connects to the next utterance.
+    // - Pitch varies in a tiny ±0.04 band per utterance so a multi-
+    //   sentence response doesn't read in a perfect monotone.
+    const lastChar = next.trim().slice(-1);
+    const isFullStop = ['.', '!', '?'].includes(lastChar);
+    u.rate = isFullStop ? 1.0 : 1.05;
+    u.pitch = 1.02 + (Math.random() * 0.08 - 0.04);
     // Estimated speech duration so we can drive a fallback caption advance
     // on browsers (Firefox, some Safari) that don't fire onboundary. ~5
     // chars/sec at rate=1.05 is roughly conversational TTS pacing.
@@ -641,7 +650,16 @@ function drainSpeakQueue() {
         // Clear the per-utterance highlight; the sentence stays visible
         // in the transcript history until the next listen wipes it.
         highlightTranscript(next, next.length);
-        if (session.speakQueue.length > 0) drainSpeakQueue();
+        if (session.speakQueue.length > 0) {
+            // Insert a small natural beat between utterances. Sentence
+            // endings get a longer pause (~180ms) so the listener has a
+            // moment to register the statement; clause/comma endings get
+            // a shorter pause (~80ms) so the thought stays in-flight.
+            // Without this gap, the queue chains utterances back-to-back
+            // with no breath, which is the dead giveaway "this is a bot."
+            const gap = isFullStop ? 180 : 80;
+            setTimeout(() => drainSpeakQueue(), gap);
+        }
     };
     u.onerror = (e) => {
         // 'canceled' / 'interrupted' fires when we call cancel() ourselves
