@@ -152,6 +152,21 @@ export function controlToggleCurrency() {
 }
 
 function ensurePLOpen() {
+    // If the P&L calculator has been moved into the portfolio side panel
+    // (the new home as of the portfolio-panel feature), open the
+    // portfolio panel and expand the calc <details>. Otherwise fall back
+    // to the legacy pl-toggle classic-sidebar path.
+    const movedHost = document.getElementById('portfolio-pl-host');
+    const calc = document.getElementById('pl-sidebar');
+    if (movedHost && calc && movedHost.contains(calc)) {
+        const launcher = document.getElementById('portfolio-launcher');
+        if (launcher && !document.body.classList.contains('side-panel-portfolio-open')) {
+            launcher.click();
+        }
+        const section = document.getElementById('portfolio-pl-section');
+        if (section && !section.open) section.open = true;
+        return;
+    }
     if (!document.body.classList.contains('pl-open')) {
         const btn = document.getElementById('pl-toggle');
         if (btn) btn.click();

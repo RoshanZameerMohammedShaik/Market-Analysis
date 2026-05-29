@@ -20,11 +20,71 @@
     background: var(--bg-hover);
     transform: translateY(-1px);
 }
-.portfolio-launcher-icon { font-size: 1.05rem; }
+.portfolio-launcher-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px;
+}
 .portfolio-launcher-label { letter-spacing: 0.4px; }
 body.side-panel-portfolio-open .portfolio-launcher {
     border-color: var(--accent);
     background: var(--bg-hover);
+}
+
+/* Animated portfolio icon — three rising bars + a trend line that rises
+   to a dot in the upper right. Each bar grows from its bottom edge
+   slightly out of phase, giving the icon a constant "the portfolio is
+   alive" pulse. The trend line redraws via stroke-dasharray. */
+.portfolio-icon { overflow: visible; color: var(--text-primary); }
+.portfolio-icon-bar {
+    fill: currentColor;
+    opacity: 0.85;
+    transform-origin: center bottom;
+    animation: portfolio-bar-grow 2.4s ease-in-out infinite;
+}
+.portfolio-icon-bar.bar-1 { animation-delay: 0s; }
+.portfolio-icon-bar.bar-2 { animation-delay: 0.2s; }
+.portfolio-icon-bar.bar-3 { animation-delay: 0.4s; }
+.portfolio-icon-trend {
+    stroke: var(--green, #2dd28b);
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: portfolio-trend-draw 2.4s ease-in-out infinite;
+}
+.portfolio-icon-dot {
+    fill: var(--green, #2dd28b);
+    opacity: 0;
+    animation: portfolio-dot-pulse 2.4s ease-in-out infinite;
+}
+@keyframes portfolio-bar-grow {
+    0%, 100% { transform: scaleY(0.85); }
+    50%      { transform: scaleY(1.0); }
+}
+@keyframes portfolio-trend-draw {
+    0%   { stroke-dashoffset: 24; }
+    55%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -24; }
+}
+@keyframes portfolio-dot-pulse {
+    0%, 50% { opacity: 0; transform: scale(0.6); }
+    65%     { opacity: 1; transform: scale(1.0); }
+    85%     { opacity: 1; transform: scale(1.2); }
+    100%    { opacity: 0; transform: scale(0.6); }
+}
+/* When the panel is open, slow down + tint slightly so the launcher
+   reads as "active state" without animating in a distracting way while
+   the user is focused on the panel itself. */
+body.side-panel-portfolio-open .portfolio-icon-bar,
+body.side-panel-portfolio-open .portfolio-icon-trend,
+body.side-panel-portfolio-open .portfolio-icon-dot {
+    animation-duration: 4s;
+}
+/* Honor reduced-motion so the icon is static for users who opted out. */
+@media (prefers-reduced-motion: reduce) {
+    .portfolio-icon-bar,
+    .portfolio-icon-trend,
+    .portfolio-icon-dot { animation: none; }
+    .portfolio-icon-trend { stroke-dashoffset: 0; }
+    .portfolio-icon-dot { opacity: 1; }
 }
 
 .portfolio-panel {
@@ -46,11 +106,18 @@ body.side-panel-portfolio-open .portfolio-launcher {
     background: var(--bg-secondary);
 }
 .portfolio-panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 800;
     color: var(--text-primary);
     font-size: 0.95rem;
     letter-spacing: 0.3px;
 }
+.portfolio-panel-title .portfolio-icon {
+    width: 20px; height: 20px;
+}
+.portfolio-panel-title-text { display: inline-block; }
 .portfolio-panel-close {
     width: 32px; height: 32px;
     border-radius: 50%;
@@ -340,6 +407,72 @@ body.side-panel-portfolio-open .portfolio-launcher {
 }
 .portfolio-toast.pos { border-left: 4px solid var(--green); }
 .portfolio-toast.neg { border-left: 4px solid var(--red); }
+
+/* P&L Calculator slot inside the portfolio panel. Wraps the relocated
+   #pl-sidebar aside in a collapsible details so it doesn't dominate
+   the panel by default — user clicks the summary to expand. The aside
+   itself keeps its original ID + JS handlers (we move the node, not
+   re-render it). */
+.portfolio-pl-section {
+    margin-top: 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.portfolio-pl-summary {
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    user-select: none;
+}
+.portfolio-pl-summary::-webkit-details-marker { display: none; }
+.portfolio-pl-summary::before {
+    content: '▸';
+    font-size: 0.85rem;
+    margin-right: 4px;
+    transition: transform 0.18s ease;
+    display: inline-block;
+}
+.portfolio-pl-section[open] .portfolio-pl-summary::before { transform: rotate(90deg); }
+.portfolio-pl-summary-text {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+}
+.portfolio-pl-summary-hint {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+}
+.portfolio-pl-host { padding: 0 8px 8px; }
+
+/* When relocated into the portfolio panel, the P&L sidebar's original
+   layout (fixed-position aside, sticky, full-page-height) is wrong.
+   These overrides make it behave as a normal block-flow card inside
+   the panel. The original CSS still applies elsewhere if pl.js were
+   ever rendered standalone again. */
+.pl-sidebar-in-portfolio {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    top: auto !important;
+    right: auto !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+.pl-sidebar-in-portfolio .pl-sidebar-header { display: none; }
+.pl-sidebar-in-portfolio .pl-body {
+    padding: 0;
+    gap: 8px;
+}
 
 /* Mobile: panel goes full-width if both panels would overflow. The
    stack still works (second-opened sits to the left of first), but at

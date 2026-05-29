@@ -25,6 +25,19 @@ import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } fro
 const subs = new Map();   // symbol -> { handle, price }
 const PANEL_WIDTH = 420;
 
+// Animated portfolio mark — three rising bars + a trend line. CSS
+// animates the bars and the line so the icon "grows" subtly even at
+// rest, hinting that the portfolio is alive. Replaces the 💼 emoji
+// (which read flat and cartoonish next to the rest of the UI).
+const LAUNCHER_ICON_SVG = `
+<svg class="portfolio-icon" viewBox="0 0 22 22" width="18" height="18" aria-hidden="true">
+    <rect class="portfolio-icon-bar bar-1" x="3"  y="13" width="3" height="6"  rx="1"/>
+    <rect class="portfolio-icon-bar bar-2" x="9.5" y="9"  width="3" height="10" rx="1"/>
+    <rect class="portfolio-icon-bar bar-3" x="16" y="6"  width="3" height="13" rx="1"/>
+    <path class="portfolio-icon-trend" d="M3 11 L10.5 7 L17 4" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle class="portfolio-icon-dot" cx="17" cy="4" r="1.6"/>
+</svg>`;
+
 export function initPortfolioPanel() {
     initPortfolio();
     ensurePanelMounted();
@@ -56,20 +69,35 @@ function ensurePanelMounted() {
     // Render the head + body shell once. renderPanel() patches the body.
     el.innerHTML = `
         <div class="portfolio-panel-head">
-            <span class="portfolio-panel-title">💼 Portfolio Simulation</span>
-            <button class="portfolio-panel-close" id="portfolio-panel-close" type="button" title="Close">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
+            <span class="portfolio-panel-title">${LAUNCHER_ICON_SVG}<span class="portfolio-panel-title-text">Portfolio Simulation</span></span>
+            <button class="portfolio-panel-close" id="portfolio-panel-close" type="button" title="Close" aria-label="Close portfolio panel">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" pointer-events="none"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
             </button>
         </div>
         <div class="portfolio-panel-scroll">
             <div class="portfolio-body" id="portfolio-body"></div>
         </div>`;
-    el.querySelector('#portfolio-panel-close').addEventListener('click', closePortfolioPanel);
+    // Delegated click handler on the panel itself so even if the close
+    // button is re-rendered or the SVG inside swallows pointer-events,
+    // we still catch it. (Kept the direct listener too for redundancy.)
+    el.addEventListener('click', (e) => {
+        if (e.target.closest('#portfolio-panel-close')) {
+            e.preventDefault();
+            e.stopPropagation();
+            closePortfolioPanel();
+        }
+    });
 }
 
 function bindLauncher() {
     const btn = document.getElementById('portfolio-launcher');
     if (!btn) return;
+    // Inject the animated SVG icon once; replaces the 💼 emoji
+    // placeholder so the launcher reads as a polished UI control.
+    const iconHost = document.getElementById('portfolio-launcher-icon');
+    if (iconHost && !iconHost.querySelector('svg')) {
+        iconHost.innerHTML = LAUNCHER_ICON_SVG;
+    }
     btn.addEventListener('click', () => {
         if (isSidePanelOpen('portfolio')) closePortfolioPanel();
         else openPortfolioPanel();
@@ -100,9 +128,17 @@ function renderPanel() {
                 <div class="portfolio-import-row">
                     <button class="portfolio-link-btn" id="portfolio-import-btn">Import a previous snapshot</button>
                 </div>
-            </div>`;
+            </div>
+            <details class="portfolio-pl-section" id="portfolio-pl-section">
+                <summary class="portfolio-pl-summary">
+                    <span class="portfolio-pl-summary-text">P&amp;L Calculator</span>
+                    <span class="portfolio-pl-summary-hint">Plan a trade even before loading a portfolio</span>
+                </summary>
+                <div class="portfolio-pl-host" id="portfolio-pl-host"></div>
+            </details>`;
         document.getElementById('portfolio-instantiate-btn').addEventListener('click', openInstantiateModal);
         document.getElementById('portfolio-import-btn').addEventListener('click', openImportPrompt);
+        movePLCalculatorIntoPanel();
         return;
     }
 
@@ -141,19 +177,44 @@ function renderPanel() {
         </div>
         <div class="portfolio-holdings" id="portfolio-holdings">
             ${renderHoldings(p, cur)}
-        </div>`;
+        </div>
+        <details class="portfolio-pl-section" id="portfolio-pl-section">
+            <summary class="portfolio-pl-summary">
+                <span class="portfolio-pl-summary-text">P&amp;L Calculator</span>
+                <span class="portfolio-pl-summary-hint">Plan a trade — entry, target, projected return</span>
+            </summary>
+            <div class="portfolio-pl-host" id="portfolio-pl-host"></div>
+        </details>`;
 
     document.getElementById('portfolio-add-funds').addEventListener('click', openAddFundsModal);
     document.getElementById('portfolio-export').addEventListener('click', doExport);
     document.getElementById('portfolio-import-2').addEventListener('click', openImportPrompt);
     document.getElementById('portfolio-reset').addEventListener('click', confirmReset);
     document.getElementById('portfolio-holdings').addEventListener('click', onHoldingsClick);
+    movePLCalculatorIntoPanel();
 
     // After full re-render, paint live prices into rows from whatever
     // ticks we already have cached so the UI doesn't sit on '—'.
     for (const [sym, sub] of subs) {
         if (sub.price != null) updateRow(sym, sub.price);
     }
+}
+
+// Relocate the P&L calculator aside (originally rendered in the main
+// app grid as a sidebar) into the portfolio panel. We physically move
+// the same DOM node — DON'T clone — so all the listeners pl.js
+// attached at init still work, and so the moved aside doesn't double-
+// exist (which would cause duplicate IDs and break getElementById).
+//
+// Called every render. The first call moves it; subsequent calls
+// short-circuit because the node is already in the right host.
+function movePLCalculatorIntoPanel() {
+    const host = document.getElementById('portfolio-pl-host');
+    const calc = document.getElementById('pl-sidebar');
+    if (!host || !calc) return;
+    if (host.contains(calc)) return; // already moved
+    host.appendChild(calc);
+    calc.classList.add('pl-sidebar-in-portfolio');
 }
 
 function renderHoldings(p, cur) {
