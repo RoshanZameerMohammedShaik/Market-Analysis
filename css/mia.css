@@ -638,8 +638,13 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb {
     width: 72px; height: 72px;
     background: transparent;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.10),
-                0 0 24px rgba(99, 102, 241, 0.45);
+    /* No solid ring around the orb — the canvas draws ribbons that
+       rotate AROUND the core, so any box-shadow outline reads as a
+       hard circle competing with the soft ribbon flow. Only a wide,
+       diffuse outer glow stays so the orb still has a sense of bloom
+       on any background. */
+    box-shadow: 0 0 36px rgba(99, 102, 241, 0.42),
+                0 0 64px rgba(236, 72, 153, 0.20);
     overflow: visible;
     /* Cancel the chat-mode breath/pulse animations — the canvas now
        drives all visual motion, and stacking the two would make the
@@ -669,22 +674,20 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb[data-orb-state="thinking"] {
     animation: mia-orb-launch-think 1.5s ease-in-out infinite;
 }
-/* Listening: outward Siri-style ring expansion around the canvas so
-   the user can tell from across the page that Mia is hearing them.
-   Ring colors are neutral white/blue since the canvas itself carries
-   the iridescent Siri palette internally. */
+/* Listening: pulse the outer color glow only — no hard rings, since the
+   canvas-drawn ribbons already give a clear "active" reading. The bloom
+   intensifies and shifts hue between the two halves of the cycle so the
+   orb breathes color outward like Siri. */
 @keyframes mia-orb-launch-listen {
     0%, 100% {
         transform: scale(1);
-        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.14),
-                    0 0 0 0   rgba(99, 102, 241, 0.0),
-                    0 0 28px  rgba(99, 102, 241, 0.55);
+        box-shadow: 0 0 36px rgba(99, 102, 241, 0.45),
+                    0 0 64px rgba(236, 72, 153, 0.18);
     }
     50% {
-        transform: scale(1.08);
-        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.10),
-                    0 0 0 14px rgba(236, 72, 153, 0.10),
-                    0 0 42px  rgba(56, 189, 248, 0.85);
+        transform: scale(1.06);
+        box-shadow: 0 0 48px rgba(56, 189, 248, 0.80),
+                    0 0 96px rgba(236, 72, 153, 0.36);
     }
 }
 @keyframes mia-orb-launch-speak {
@@ -696,9 +699,23 @@ body.mia-voice-minimized .mia-launcher {
     50%      { transform: scale(1.06); }
 }
 
-/* Hide the ECG-logo SVG inside the launcher when in orb mode so the
-   pure glowing-ball look comes through. */
-.mia-launcher.mia-launcher-orb .mia-launcher-logo { opacity: 0; }
+/* Keep the ECG-mark logo visible in orb mode — it sits on top of the
+   canvas so the brand is preserved while ribbons flow around it. The
+   SVG strokes get a soft white drop-shadow so the mark stays legible
+   against the iridescent canvas underneath. */
+.mia-launcher.mia-launcher-orb .mia-launcher-logo {
+    opacity: 1;
+    position: relative;
+    z-index: 2;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.mia-launcher.mia-launcher-orb .mia-launcher-logo .mia-ecg-trace {
+    stroke: rgba(255, 255, 255, 0.55);
+}
+.mia-launcher.mia-launcher-orb .mia-launcher-logo .mia-ecg-blip {
+    stroke: #ffffff;
+}
 .mia-launcher.mia-launcher-orb .mia-launcher-ready-dot { display: none; }
 
 /* Floating mini-caption next to the minimized launcher orb. Shows the

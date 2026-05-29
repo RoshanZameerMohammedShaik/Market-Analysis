@@ -386,10 +386,11 @@ function setLauncherOrbMode(on) {
         const canvas = launcher.querySelector('.mia-launcher-canvas');
         if (canvas) {
             registerOrbTarget('launcher', canvas, SIRI_PALETTE, {
-                petals: 8,        // double density → blob reads smooth, not lobed
-                haloMul: 1.35,    // bigger glow halo so the orb feels luminous
+                petals: 6,        // smaller petal layer; ribbons carry the motion now
+                haloMul: 1.45,    // bigger glow halo so the orb feels luminous
                 flow: 1.0,        // colors rotate around the orb over time
-                glowAlpha: 1.45,  // brighter petals at small size
+                glowAlpha: 1.35,  // brighter petals at small size
+                ribbons: 5,       // 5 sinuous color ribbons curling around the orb
             });
         }
     } else {
@@ -1007,6 +1008,7 @@ function registerOrbTarget(key, canvas, palette, opts = {}) {
         haloMul: opts.haloMul != null ? opts.haloMul : 1.0,
         flow: opts.flow != null ? opts.flow : 0,         // 0..1: how much palette rotates over time
         glowAlpha: opts.glowAlpha != null ? opts.glowAlpha : 1.0, // multiplier on petal alpha
+        ribbons: opts.ribbons || 0, // count of orbiting string-ribbons drawn around the core
     });
 }
 
@@ -1075,7 +1077,7 @@ function syntheticSpeechAmplitude(now) {
 }
 
 function drawOrb(now, target) {
-    const { ctx, W, H, palette, petals, haloMul, flow, glowAlpha } = target;
+    const { ctx, W, H, palette, petals, haloMul, flow, glowAlpha, ribbons } = target;
     if (!ctx) return;
     const cx = W / 2, cy = H / 2;
     ctx.clearRect(0, 0, W, H);
@@ -1118,6 +1120,49 @@ function drawOrb(now, target) {
     haloGrad.addColorStop(1, `rgba(${corePalette}, 0)`);
     ctx.fillStyle = haloGrad;
     ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
+
+    // Ribbons — flowing color "strings" that orbit the core at varying
+    // radii. Each ribbon is a stroked sinusoid wrapped around a base
+    // circumference, so it reads as a flexible flowing line. Multiple
+    // ribbons at different phases + radii create the rotating color
+    // currents you see on iOS Siri. Drawn UNDER the petals so the orb
+    // core stays focal, but glows through additive blend.
+    if (ribbons > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        for (let r = 0; r < ribbons; r++) {
+            const ribbonPhase = now * (0.0008 + r * 0.0004) + r * 1.7;
+            // Base radius slightly outside the core so ribbons orbit the
+            // ball rather than sit inside it. Each ribbon picks its own
+            // band so they don't all overlap.
+            const baseRibbonR = baseR * (0.78 + r * 0.06) + amp * baseR * 0.04;
+            // Stroke width: ribbons are thin "strings" that thicken with
+            // amp so loud speech shows fatter color streams.
+            const lineW = Math.max(1.4, baseR * 0.06 + amp * baseR * 0.05);
+            const ribbonAccent = pickColor(r * 1.2 + 0.6); // offset hue from petals
+            ctx.strokeStyle = `rgba(${ribbonAccent}, ${(0.55 + amp * 0.30) * glowAlpha})`;
+            ctx.lineWidth = lineW;
+            ctx.beginPath();
+            const segs = 140;
+            for (let i = 0; i <= segs; i++) {
+                const t = (i / segs) * Math.PI * 2;
+                // Wobble the ribbon's radius along its length so it
+                // undulates like a string blown by wind. Two superposed
+                // sinusoids give a flowing snake shape, and the phase
+                // shift per ribbon means none are in lockstep.
+                const wobble1 = Math.sin(t * 3 + ribbonPhase * 1.4) * baseR * (0.10 + amp * 0.10);
+                const wobble2 = Math.sin(t * 5 - ribbonPhase * 0.8) * baseR * (0.05 + amp * 0.06);
+                const rr = baseRibbonR + wobble1 + wobble2;
+                const angle = t + ribbonPhase * 0.6;
+                const x = cx + Math.cos(angle) * rr;
+                const y = cy + Math.sin(angle) * rr;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
 
     // Petal/wave layers — N rotating offset blobs that pulse with amp and
     // each pick a hue from the palette via flow-shifted lookup. With more
