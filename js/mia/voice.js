@@ -591,15 +591,45 @@ function drainSpeakQueue() {
     // boosts comprehension on streaming video.
     appendTranscript(next);
     let charIdx = 0;
+    let boundaryFired = false;
+    let highlightTimer = null;
     const u = new SpeechSynthesisUtterance(next);
     const v = pickVoice();
     if (v) u.voice = v;
     u.rate = 1.05;
     u.pitch = 1.02;
+    // Estimated speech duration so we can drive a fallback caption advance
+    // on browsers (Firefox, some Safari) that don't fire onboundary. ~5
+    // chars/sec at rate=1.05 is roughly conversational TTS pacing.
+    const estDurMs = Math.max(800, (next.length / 5.25) * 1000 / u.rate);
+    const speakStart = performance.now();
+    u.onstart = () => {
+        // If onboundary hasn't fired within 200ms of audio starting,
+        // assume the browser doesn't support it and start a timer-driven
+        // caption advance so the user still sees per-character streaming.
+        setTimeout(() => {
+            if (boundaryFired || !session.speaking) return;
+            const advanceTick = () => {
+                if (boundaryFired || !session.speaking) { highlightTimer = null; return; }
+                const elapsed = performance.now() - speakStart;
+                const ratio = Math.min(1, elapsed / estDurMs);
+                const target = Math.floor(ratio * next.length);
+                if (target > charIdx) {
+                    charIdx = target;
+                    highlightTranscript(next, charIdx);
+                }
+                if (ratio < 1) highlightTimer = setTimeout(advanceTick, 40);
+                else highlightTimer = null;
+            };
+            advanceTick();
+        }, 200);
+    };
     u.onboundary = (e) => {
         // Each word boundary kicks the synthetic-amplitude clock, which is
         // what makes the orb pulse-with-the-voice during speech.
         session.lastBoundaryTs = performance.now();
+        boundaryFired = true;
+        if (highlightTimer) { clearTimeout(highlightTimer); highlightTimer = null; }
         if (typeof e.charIndex === 'number') {
             charIdx = e.charIndex;
             highlightTranscript(next, charIdx);
@@ -607,6 +637,7 @@ function drainSpeakQueue() {
     };
     u.onend = () => {
         session.speaking = false;
+        if (highlightTimer) { clearTimeout(highlightTimer); highlightTimer = null; }
         // Clear the per-utterance highlight; the sentence stays visible
         // in the transcript history until the next listen wipes it.
         highlightTranscript(next, next.length);
@@ -619,6 +650,7 @@ function drainSpeakQueue() {
             console.warn('[voice] tts error:', e.error);
         }
         session.speaking = false;
+        if (highlightTimer) { clearTimeout(highlightTimer); highlightTimer = null; }
         if (session.speakQueue.length > 0) drainSpeakQueue();
     };
     try { speechSynthesis.speak(u); }
