@@ -638,13 +638,12 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb {
     width: 72px; height: 72px;
     background: transparent;
-    /* No solid ring around the orb — the canvas draws ribbons that
-       rotate AROUND the core, so any box-shadow outline reads as a
-       hard circle competing with the soft ribbon flow. Only a wide,
-       diffuse outer glow stays so the orb still has a sense of bloom
-       on any background. */
-    box-shadow: 0 0 36px rgba(99, 102, 241, 0.42),
-                0 0 64px rgba(236, 72, 153, 0.20);
+    /* No box-shadow at all on the orb — translucent color shadows on
+       dark pages read as a dark shady halo behind the orb (Roshan
+       called it out). Bloom now comes entirely from the canvas itself
+       (halo gradient inside drawOrb) so the orb sits cleanly on any
+       background without a circle behind it. */
+    box-shadow: none;
     overflow: visible;
     /* Cancel the chat-mode breath/pulse animations — the canvas now
        drives all visual motion, and stacking the two would make the
@@ -674,21 +673,13 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb[data-orb-state="thinking"] {
     animation: mia-orb-launch-think 1.5s ease-in-out infinite;
 }
-/* Listening: pulse the outer color glow only — no hard rings, since the
-   canvas-drawn ribbons already give a clear "active" reading. The bloom
-   intensifies and shifts hue between the two halves of the cycle so the
-   orb breathes color outward like Siri. */
+/* Listening: scale-only breathing pulse — no box-shadow rings, since
+   they paint a dark halo on light/dark backgrounds. The canvas-drawn
+   ribbons + halo gradient inside drawOrb already make "listening"
+   visually obvious, and amplitude modulates them in real time. */
 @keyframes mia-orb-launch-listen {
-    0%, 100% {
-        transform: scale(1);
-        box-shadow: 0 0 36px rgba(99, 102, 241, 0.45),
-                    0 0 64px rgba(236, 72, 153, 0.18);
-    }
-    50% {
-        transform: scale(1.06);
-        box-shadow: 0 0 48px rgba(56, 189, 248, 0.80),
-                    0 0 96px rgba(236, 72, 153, 0.36);
-    }
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.06); }
 }
 @keyframes mia-orb-launch-speak {
     0%, 100% { transform: scale(1.0); }
@@ -718,10 +709,49 @@ body.mia-voice-minimized .mia-launcher {
 }
 .mia-launcher.mia-launcher-orb .mia-launcher-ready-dot { display: none; }
 
+/* Soft backdrop-blur "glass plate" that activates only when the launcher
+   caption is visible, covering the orb + caption area so the page
+   underneath reads softer behind the active conversation. Edges fade to
+   transparent via radial mask so it doesn't paint a visible rectangle —
+   just a gentle blurred halo around the active region. Pointer-events
+   off; orb stays clickable through it. */
+.mia-launcher-glass {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: 600px; height: 220px;
+    max-width: 100vw;
+    pointer-events: none;
+    z-index: 498; /* below caption (499) and launcher (500) */
+    opacity: 0;
+    transition: opacity 0.28s ease;
+    backdrop-filter: blur(8px) saturate(1.05);
+    -webkit-backdrop-filter: blur(8px) saturate(1.05);
+    /* Radial mask: full strength near the orb (bottom-right corner) and
+       fading to transparent at the outer reach, so the blur softens its
+       way into the page rather than ending at a hard rectangle edge. */
+    -webkit-mask-image: radial-gradient(ellipse at 88% 70%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0) 78%);
+            mask-image: radial-gradient(ellipse at 88% 70%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0) 78%);
+    display: none;
+}
+body.mia-voice-minimized .mia-launcher-glass {
+    display: block;
+}
+body.mia-voice-minimized .mia-launcher-glass.visible {
+    opacity: 1;
+}
+@media (max-width: 720px) {
+    .mia-launcher-glass {
+        width: 100vw; height: 280px;
+        -webkit-mask-image: radial-gradient(ellipse at 50% 70%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0) 78%);
+                mask-image: radial-gradient(ellipse at 50% 70%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0) 78%);
+    }
+}
+
 /* Floating mini-caption next to the minimized launcher orb. Shows the
    user's spoken text while listening, then Mia's spoken words as she
-   speaks. Glassy backdrop-blur pill so the text reads against any
-   background underneath (chart, dashboard, whatever the user is on).
+   speaks. The text pill itself is now transparent — the .mia-launcher-glass
+   plate handles the backdrop blur underneath it. */
    Hidden by default; only shown while voice is minimized AND there's
    recent text to display. */
 .mia-launcher-caption {
@@ -729,13 +759,14 @@ body.mia-voice-minimized .mia-launcher {
     bottom: 38px;
     right: 110px; /* clear the 72px launcher + 22px page edge + small gap */
     max-width: min(380px, calc(100vw - 130px));
-    padding: 9px 14px;
-    border-radius: 18px;
-    background: rgba(15, 17, 26, 0.55);
-    backdrop-filter: blur(10px) saturate(1.1);
-    -webkit-backdrop-filter: blur(10px) saturate(1.1);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+    padding: 8px 14px;
+    border-radius: 16px;
+    /* Transparent pill: the .mia-launcher-glass plate behind it handles
+       the backdrop blur, so the caption itself just provides enough
+       background tint for text contrast. Stacking another backdrop-filter
+       here would double-blur and look fuzzy. */
+    background: rgba(10, 12, 18, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     color: rgba(255, 255, 255, 0.95);
     font-size: 0.86rem;
     line-height: 1.45;

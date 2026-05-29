@@ -416,7 +416,19 @@ function ensureLauncherCanvas(launcher) {
 // re-opening the panel. Positioned with `position: fixed` to the left
 // of the launcher; the launcher's own coords drive placement so window
 // resizes / mobile layouts work without extra wiring.
+//
+// Pairs with .mia-launcher-glass — a soft backdrop-blur "glass plate"
+// that activates only when the caption is visible, covering the orb +
+// caption area so the underlying page reads softer behind the active
+// conversation.
 function ensureLauncherCaption() {
+    if (!document.getElementById('mia-launcher-glass')) {
+        const glass = document.createElement('div');
+        glass.id = 'mia-launcher-glass';
+        glass.className = 'mia-launcher-glass';
+        glass.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(glass);
+    }
     if (document.getElementById('mia-launcher-caption')) return;
     const el = document.createElement('div');
     el.id = 'mia-launcher-caption';
@@ -429,16 +441,19 @@ function ensureLauncherCaption() {
 function setLauncherCaption(text, role) {
     ensureLauncherCaption();
     const el = document.getElementById('mia-launcher-caption');
+    const glass = document.getElementById('mia-launcher-glass');
     if (!el) return;
     const trimmed = String(text || '').trim();
     if (!trimmed) {
         el.classList.remove('visible');
+        glass?.classList.remove('visible');
         el.dataset.role = 'idle';
         return;
     }
     el.dataset.role = role || 'idle';
     el.textContent = trimmed;
     el.classList.add('visible');
+    glass?.classList.add('visible');
     scheduleLauncherCaptionFade();
 }
 
@@ -449,16 +464,21 @@ function scheduleLauncherCaptionFade() {
     // resets this timer, so during active speech the caption stays up.
     launcherCaptionFadeTimer = setTimeout(() => {
         const el = document.getElementById('mia-launcher-caption');
+        const glass = document.getElementById('mia-launcher-glass');
         if (el) el.classList.remove('visible');
+        if (glass) glass.classList.remove('visible');
         launcherCaptionFadeTimer = null;
     }, 4500);
 }
 
 function clearLauncherCaption() {
     const el = document.getElementById('mia-launcher-caption');
-    if (!el) return;
-    el.classList.remove('visible');
-    el.textContent = '';
+    const glass = document.getElementById('mia-launcher-glass');
+    if (el) {
+        el.classList.remove('visible');
+        el.textContent = '';
+    }
+    if (glass) glass.classList.remove('visible');
     if (launcherCaptionFadeTimer) { clearTimeout(launcherCaptionFadeTimer); launcherCaptionFadeTimer = null; }
 }
 
