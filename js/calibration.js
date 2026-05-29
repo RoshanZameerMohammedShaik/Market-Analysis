@@ -52,6 +52,23 @@ export async function loadCalibration() {
 
 export function getCalibrationStatus() { return calibrationStatus; }
 
+// Mirror of ledger_universe.region_for — keep in sync. The region tag
+// makes Priority 0b region-specific live calibration usable for non-US
+// symbols (RELIANCE.NS, 0700.HK, 7203.T, etc.) once the ledger has ≥30
+// resolved horizons in that region's bucket.
+export function regionFor(symbol) {
+    if (!symbol) return null;
+    const s = String(symbol).toUpperCase();
+    if (s.endsWith('-USD')) return 'CRYPTO';
+    if (s.endsWith('.NS')) return 'NSE';
+    if (s.endsWith('.L') || s.endsWith('.LON')) return 'LSE';
+    if (s.endsWith('.HK')) return 'HKEX';
+    if (s.endsWith('.T')) return 'TYO';
+    if (s.endsWith('.DE')) return 'XETRA';
+    if (s.endsWith('.AX')) return 'ASX';
+    return 'NYSE';
+}
+
 export function classifyTier(price, avgVolume) {
     const p = Number(price) || 0;
     const v = Number(avgVolume) || 0;

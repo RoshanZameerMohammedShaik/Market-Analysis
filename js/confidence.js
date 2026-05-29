@@ -7,7 +7,7 @@ import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
 import { generateMultiTimeframePrediction, calculateATR, summarizeAttribution } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
-import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations } from './calibration.js';
+import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
@@ -219,7 +219,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         else if (adj.adjust) { rawConfidence = Math.max(38, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
     }
 
-    const calibratedConfidence = calibrate(rawConfidence, { tier, volTier });
+    const region = regionFor(symbolOrCoinId);
+    const calibratedConfidence = calibrate(rawConfidence, { tier, volTier, region });
     const calibrationApplied = getCalibrationStatus() === 'loaded';
     const ci = getInterval(finalSignal, calibratedConfidence);
 
