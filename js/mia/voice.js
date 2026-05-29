@@ -1039,7 +1039,18 @@ function unregisterOrbTarget(key) {
 function setupCanvas() {
     const canvas = document.getElementById('mia-voice-canvas');
     if (!canvas) return;
-    registerOrbTarget('main', canvas, null);
+    // Trial: give the main orb the same Siri-style palette + flow as the
+    // launcher so the chat-panel orb reads iridescent instead of theme-
+    // tinted single-color. Ribbon count kept low (3) and glow neutral so
+    // it doesn't get noisy at the larger 240px panel size.
+    // To revert to the original single-accent orb, pass `null` for the
+    // palette and drop the opts.
+    registerOrbTarget('main', canvas, SIRI_PALETTE, {
+        petals: 6,
+        flow: 0.6,      // gentler color rotation than launcher (which is 1.0)
+        ribbons: 3,
+        glowAlpha: 1.0,
+    });
 }
 
 function startCanvasLoop() {

@@ -72,8 +72,8 @@
 }
 
 .mia-panel {
-    position: fixed; top: 0; right: -480px; bottom: 0;
-    width: min(460px, 96vw);
+    position: fixed; top: 0; right: -420px; bottom: 0;
+    width: min(400px, 96vw);
     background: var(--bg-card);
     border-left: 1px solid var(--border-strong);
     box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
@@ -523,8 +523,8 @@
 
 .mia-voice-orb {
     position: relative;
-    width: min(280px, 70vw); height: min(280px, 70vw);
-    max-width: 320px; max-height: 320px;
+    width: min(240px, 64vw); height: min(240px, 64vw);
+    max-width: 270px; max-height: 270px;
     flex-shrink: 0;
     border: none;
     background: transparent;
