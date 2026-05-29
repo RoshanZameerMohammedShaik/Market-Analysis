@@ -382,6 +382,34 @@ function appendTranscript(sentence) {
     el.scrollTop = el.scrollHeight;
 }
 
+// Snap a character index up to the END of the word that contains it, so
+// the caption always advances on whole-word boundaries. Without this
+// snap a fallback timer (which thinks in characters) leaves half-words
+// stranded — "becau" / "becaus" / "because" — which reads as broken
+// streaming, not word-by-word like real captions.
+function snapToWordBoundary(sentence, charIdx) {
+    if (charIdx <= 0) return 0;
+    if (charIdx >= sentence.length) return sentence.length;
+    let i = charIdx;
+    while (i < sentence.length && /\S/.test(sentence[i])) i++;
+    return i;
+}
+
+// Pre-compute the index AFTER each word in the sentence (i.e., the
+// position right after the last non-space char of every word). The
+// timer-driven caption fallback uses this list to step word-by-word
+// rather than character-by-character, which is what the user reads as
+// "real captioning" instead of "broken typewriter."
+function computeWordEnds(sentence) {
+    const ends = [];
+    const re = /\S+/g;
+    let m;
+    while ((m = re.exec(sentence)) !== null) {
+        ends.push(m.index + m[0].length);
+    }
+    return ends;
+}
+
 function highlightTranscript(sentence, charIdx) {
     const el = document.getElementById('mia-voice-transcript');
     if (!el) return;
@@ -393,7 +421,7 @@ function highlightTranscript(sentence, charIdx) {
     const spoken = last.querySelector('.mia-voice-tx-spoken');
     const pending = last.querySelector('.mia-voice-tx-pending');
     if (!spoken || !pending) return;
-    const upTo = Math.max(0, Math.min(sentence.length, charIdx));
+    const upTo = snapToWordBoundary(sentence, Math.max(0, Math.min(sentence.length, charIdx)));
     spoken.textContent = sentence.slice(0, upTo);
     pending.textContent = sentence.slice(upTo);
     el.scrollTop = el.scrollHeight;
@@ -616,31 +644,35 @@ function drainSpeakQueue() {
     const isFullStop = ['.', '!', '?'].includes(lastChar);
     u.rate = isFullStop ? 1.0 : 1.05;
     u.pitch = 1.02 + (Math.random() * 0.08 - 0.04);
-    // Estimated speech duration so we can drive a fallback caption advance
-    // on browsers (Firefox, some Safari) that don't fire onboundary. ~5
-    // chars/sec at rate=1.05 is roughly conversational TTS pacing.
-    const estDurMs = Math.max(800, (next.length / 5.25) * 1000 / u.rate);
-    const speakStart = performance.now();
+
+    // Pre-tokenize the sentence into word-end indices. Caption advance
+    // jumps to whichever word-end is closest to the current audio
+    // position, which keeps the visible text aligned with the spoken
+    // word — never half a word, never lagging by a paragraph. This
+    // word-grid is shared by both the boundary path (Chrome/Edge) and
+    // the timer fallback (Firefox/Safari) so the on-screen behavior is
+    // identical regardless of browser support.
+    const wordEnds = computeWordEnds(next);
+    const words = wordEnds.length || 1;
+    // ~3.2 words/sec at rate=1.05 is conversational TTS. Scale by the
+    // actual rate so a slower utterance gives the caption longer per word.
+    const wordDurMs = Math.max(120, (1000 / 3.2) / u.rate);
+
     u.onstart = () => {
-        // If onboundary hasn't fired within 200ms of audio starting,
-        // assume the browser doesn't support it and start a timer-driven
-        // caption advance so the user still sees per-character streaming.
-        setTimeout(() => {
-            if (boundaryFired || !session.speaking) return;
-            const advanceTick = () => {
-                if (boundaryFired || !session.speaking) { highlightTimer = null; return; }
-                const elapsed = performance.now() - speakStart;
-                const ratio = Math.min(1, elapsed / estDurMs);
-                const target = Math.floor(ratio * next.length);
-                if (target > charIdx) {
-                    charIdx = target;
-                    highlightTranscript(next, charIdx);
-                }
-                if (ratio < 1) highlightTimer = setTimeout(advanceTick, 40);
-                else highlightTimer = null;
-            };
-            advanceTick();
-        }, 200);
+        // Start the per-word fallback advance immediately. If onboundary
+        // fires we cancel it (the browser is doing real word sync); if
+        // it doesn't, this drives caption advance at ~roughly the audio
+        // pace. No 200ms delay — that just left the first word stranded.
+        let wordIdx = 0;
+        const advanceTick = () => {
+            if (boundaryFired || !session.speaking) { highlightTimer = null; return; }
+            wordIdx++;
+            if (wordIdx >= words) { highlightTimer = null; return; }
+            charIdx = wordEnds[wordIdx - 1];
+            highlightTranscript(next, charIdx);
+            highlightTimer = setTimeout(advanceTick, wordDurMs);
+        };
+        highlightTimer = setTimeout(advanceTick, wordDurMs);
     };
     u.onboundary = (e) => {
         // Each word boundary kicks the synthetic-amplitude clock, which is
@@ -649,6 +681,9 @@ function drainSpeakQueue() {
         boundaryFired = true;
         if (highlightTimer) { clearTimeout(highlightTimer); highlightTimer = null; }
         if (typeof e.charIndex === 'number') {
+            // Snap to the word-end at or after charIndex so the caption
+            // shows the WHOLE word the synthesizer just started speaking
+            // (and the partial-word leading up to it stays in pending).
             charIdx = e.charIndex;
             highlightTranscript(next, charIdx);
         }
