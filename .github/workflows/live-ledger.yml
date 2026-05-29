@@ -149,6 +149,8 @@ jobs:
           fi
 
       - name: Commit ledger updates
+        env:
+          TASK: ${{ steps.decide.outputs.task }}
         run: |
           set -e
           git config user.name 'github-actions[bot]'
@@ -164,26 +166,70 @@ jobs:
             exit 0
           fi
           git status --short
-          git commit -m "chore(ledger): ${{ steps.decide.outputs.task }} [skip ci]"
+          git commit -m "chore(ledger): $TASK [skip ci]"
 
-          # Push with retry: another region's cron may have pushed between
-          # this job starting and now. Rebase + retry up to 5 times so we
-          # don't fail on race conditions when multiple region crons land
-          # close together (TYO at 00:00 UTC, ASX at 23:00 UTC, HKEX at
-          # 01:30, etc.). Append-only JSONL means rebase conflicts are
-          # essentially impossible.
+          # Push with retry. If the push is rejected because origin moved,
+          # we try `rebase origin/main` first — for clean append-only changes
+          # this almost always succeeds. But the prior assumption that JSONL
+          # is purely append-only was wrong: record_outcomes.py REWRITES
+          # rows in place (filling matured horizon outcomes), so a predict-*
+          # cron landing concurrently with a resolve cron will hit a real
+          # 3-way merge conflict.
+          #
+          # Recovery strategy when rebase conflicts: hard-reset to origin
+          # (drop our local commit cleanly) and re-run the original task —
+          # all task scripts are idempotent (record_predictions skips
+          # already-predicted-today rows; record_outcomes rewrites the file
+          # deterministically; recalibrate regenerates from the ledger).
+          # This is cheaper and more correct than trying to merge JSONL by
+          # hand inside a workflow.
+
+          run_task() {
+            case "$TASK" in
+              predict-NYSE)        python record_predictions.py --region NYSE   ;;
+              predict-CRYPTO)      python record_predictions.py --region CRYPTO ;;
+              predict-NSE)         python record_predictions.py --region NSE    ;;
+              predict-LSE)         python record_predictions.py --region LSE    ;;
+              predict-XETRA)       python record_predictions.py --region XETRA  ;;
+              predict-LSE-XETRA)   python record_predictions.py --region XETRA && python record_predictions.py --region LSE ;;
+              predict-HKEX)        python record_predictions.py --region HKEX   ;;
+              predict-TYO)         python record_predictions.py --region TYO    ;;
+              predict-ASX)         python record_predictions.py --region ASX    ;;
+              resolve-and-recalibrate)
+                python record_outcomes.py
+                python recalibrate_from_ledger.py
+                ;;
+              *) echo "Unknown TASK: $TASK"; return 1 ;;
+            esac
+          }
+
           for attempt in 1 2 3 4 5; do
             if git push; then
               echo "Pushed on attempt $attempt"
               exit 0
             fi
-            echo "Push attempt $attempt rejected; rebasing onto origin/main and retrying..."
+            echo "Push attempt $attempt rejected; pulling origin/main..."
             git fetch origin main
-            git rebase origin/main || {
-              echo "Rebase failed (rare for append-only files); aborting."
-              git rebase --abort || true
-              exit 1
-            }
+            if git rebase origin/main; then
+              echo "Rebase clean on attempt $attempt; pushing again."
+              sleep $((attempt * 2))
+              continue
+            fi
+
+            echo "Rebase had a content conflict. Aborting rebase, hard-resetting to origin/main, and re-running task."
+            git rebase --abort || true
+            git reset --hard origin/main
+            run_task
+            git add -fA model/ledger/ || true
+            if [ -f model/live_calibration.json ]; then
+              git add -f model/live_calibration.json
+            fi
+            if git diff --cached --quiet; then
+              echo 'After re-run, nothing new to commit (idempotent path won).'
+              exit 0
+            fi
+            git status --short
+            git commit -m "chore(ledger): $TASK [skip ci]"
             sleep $((attempt * 2))
           done
           echo "All push attempts exhausted."

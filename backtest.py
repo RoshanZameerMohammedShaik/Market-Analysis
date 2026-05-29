@@ -588,8 +588,16 @@ if __name__ == '__main__':
     print("\n─── OVERALL ───")
     print(f"Total predictions: {overall['total']}")
     for sig, stats in overall['by_signal'].items():
-        if stats.get('count'):
-            print(f"  {sig}: {stats['hit_rate']}% hit rate (n={stats['count']}, avg confidence {stats['avg_confidence']}%)")
+        if not stats.get('count'):
+            continue
+        # NO_TRADE has no hit_rate (abstain — nothing to score). summarize()
+        # writes a 'note' key for those rows; print that instead so the
+        # overall summary still surfaces NO_TRADE counts without crashing.
+        if 'hit_rate' not in stats:
+            note = stats.get('note', 'no hit rate')
+            print(f"  {sig}: n={stats['count']}, avg confidence {stats['avg_confidence']}% ({note})")
+            continue
+        print(f"  {sig}: {stats['hit_rate']}% hit rate (n={stats['count']}, avg confidence {stats['avg_confidence']}%)")
     print("\nCalibration (predicted → actual):")
     for b in overall['calibration']:
         diff = b['actual'] - b['predicted']
