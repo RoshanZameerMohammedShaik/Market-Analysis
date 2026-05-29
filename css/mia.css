@@ -441,39 +441,47 @@
 }
 .mia-voice-btn:active { transform: scale(0.94); }
 
-/* The overlay used to dim the entire screen. Now it's a slim
-   container that holds the right-side panel — no backdrop. The user
-   sees and uses the app while Mia talks. */
+/* Voice overlay sits inside .mia-panel as an absolutely-positioned layer.
+   When .mia-panel.voice-active is set, the overlay fades in and the
+   chat content (head/thread/foot) blurs+dims behind it so the orb is
+   the focal point. Closing voice removes the class and chat returns. */
 .mia-voice-overlay {
-    position: fixed; top: 0; right: 0; bottom: 0;
-    width: 0;
-    z-index: 1200;
-    pointer-events: none;
-}
-.mia-voice-overlay.open { pointer-events: auto; }
-
-.mia-voice-panel {
-    position: fixed; top: 0; right: 0; bottom: 0;
-    /* Match the chat panel width (.mia-panel) so toggling between chat and
-       voice doesn't change the layout offset. */
-    width: min(460px, 96vw);
-    background: linear-gradient(180deg, rgba(15, 17, 26, 0.97), rgba(10, 12, 18, 0.97));
-    border-left: 1px solid rgba(255,255,255,0.08);
-    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
-    transform: translateX(100%);
-    transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: linear-gradient(180deg, rgba(15, 17, 26, 0.78), rgba(10, 12, 18, 0.82));
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
     display: flex; flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.mia-panel.voice-active > .mia-voice-overlay {
+    opacity: 1;
     pointer-events: auto;
 }
-[data-theme="light"] .mia-voice-panel {
-    background: linear-gradient(180deg, rgba(20, 26, 44, 0.97), rgba(15, 20, 36, 0.97));
+[data-theme="light"] .mia-voice-overlay {
+    background: linear-gradient(180deg, rgba(20, 26, 44, 0.80), rgba(15, 20, 36, 0.84));
 }
-.mia-voice-overlay.open .mia-voice-panel { transform: translateX(0); }
-.mia-voice-overlay.minimized .mia-voice-panel { transform: translateX(100%); }
+
+/* Blur + dim the chat behind the voice overlay so the orb feels like
+   the active surface. Pointer-events off so taps land on the overlay,
+   not the chat composer underneath. */
+.mia-panel.voice-active > .mia-head,
+.mia-panel.voice-active > .mia-usage-wrap,
+.mia-panel.voice-active > .mia-thread,
+.mia-panel.voice-active > .mia-foot {
+    filter: blur(6px);
+    opacity: 0.45;
+    pointer-events: none;
+    transition: filter 0.28s ease, opacity 0.28s ease;
+}
 
 .mia-voice-head {
+    width: 100%;
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px;
+    padding: 4px 4px 10px;
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .mia-voice-head-title {
@@ -498,10 +506,12 @@
 .mia-voice-min:hover, .mia-voice-close:hover { background: rgba(255,255,255,0.12); transform: scale(1.06); }
 .mia-voice-min:active, .mia-voice-close:active { transform: scale(0.94); }
 
+/* The voice overlay's content stack: head bar with min/close, then
+   orb + status + transcript filling the rest of the panel. */
 .mia-voice-stage {
     flex: 1;
     display: flex; flex-direction: column; align-items: center; gap: 18px;
-    padding: 24px 20px 28px;
+    padding: 14px 16px 24px;
     overflow: hidden;
 }
 
@@ -607,23 +617,9 @@
     color: rgba(255,255,255,0.45);
 }
 
-/* When app body has the panel-open class, push main layout to the
-   left so the docked panel doesn't cover the chart. Width matches
-   .mia-voice-panel so the offset is exact. */
-body.mia-voice-panel-open {
-    padding-right: min(460px, 96vw);
-    transition: padding-right 0.34s cubic-bezier(0.22, 1, 0.36, 1);
-}
-body.mia-voice-panel-open .mia-launcher,
-body.mia-voice-minimized .mia-launcher {
-    /* Launcher hugs the right edge of the *page*, so when the panel
-       slides in we slide the launcher left of the panel so it stays
-       reachable as the minimize handle. */
-    right: calc(min(460px, 96vw) + 22px);
-}
-body.mia-voice-minimized {
-    padding-right: 0;
-}
+/* Voice mode reuses .mia-panel as its host, so the launcher offset
+   rules that used to dodge a second panel are gone. The launcher
+   keeps its default right:22px in all voice states. */
 body.mia-voice-minimized .mia-launcher {
     right: 22px;
 }
@@ -691,9 +687,7 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb .mia-launcher-ready-dot { display: none; }
 
 @media (max-width: 720px) {
-    body.mia-voice-panel-open { padding-right: 0; }
-    body.mia-voice-panel-open .mia-launcher { right: 22px; bottom: 88px; }
-    .mia-voice-panel { width: 96vw; }
+    body.mia-voice-minimized .mia-launcher { right: 22px; bottom: 88px; }
 }
 
 @media (max-width: 480px) {
@@ -703,9 +697,12 @@ body.mia-voice-minimized .mia-launcher {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .mia-voice-panel { transition: none; }
+    .mia-voice-overlay { transition: none; }
     .mia-voice-orb[data-state="thinking"] { animation: none; }
     .mia-voice-orb.pulse { animation: none; }
     .mia-voice-orb-ecg-blip { animation: none; stroke-dashoffset: 0; }
     .mia-launcher.mia-launcher-orb { animation: none; }
+    .mia-panel.voice-active > .mia-head,
+    .mia-panel.voice-active > .mia-thread,
+    .mia-panel.voice-active > .mia-foot { transition: none; }
 }

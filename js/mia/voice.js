@@ -108,9 +108,15 @@ function speakable(text) {
 // The orb's central core embeds Mia's M ECG SVG (her brand mark) so
 // the visual identity ties together: Mia logo on launcher, on welcome
 // avatar, and now beating inside the orb during voice sessions.
+//
+// Voice mode renders as an overlay layer INSIDE the chat panel, not as a
+// separate side panel. CSS blurs the chat content behind it. That way
+// switching from chat to voice doesn't open a second panel — same panel,
+// different mode. The minimize / close controls live in the overlay
+// itself; the chat panel header stays underneath.
 const VOICE_OVERLAY_HTML = `
 <div class="mia-voice-overlay" id="mia-voice-overlay" aria-hidden="true">
-    <div class="mia-voice-panel" id="mia-voice-panel">
+    <div class="mia-voice-stage">
         <div class="mia-voice-head">
             <span class="mia-voice-head-title">Voice mode</span>
             <div class="mia-voice-head-actions">
@@ -122,19 +128,17 @@ const VOICE_OVERLAY_HTML = `
                 </button>
             </div>
         </div>
-        <div class="mia-voice-stage">
-            <button class="mia-voice-orb" id="mia-voice-orb" type="button" aria-label="Tap to interrupt" data-state="idle">
-                <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
-                <span class="mia-voice-orb-mark" aria-hidden="true">
-                    <svg viewBox="0 0 32 24" width="60" height="44" xmlns="http://www.w3.org/2000/svg">
-                        <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path class="mia-voice-orb-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </span>
-            </button>
-            <div class="mia-voice-status" id="mia-voice-status">Mia</div>
-            <div class="mia-voice-transcript" id="mia-voice-transcript"></div>
-        </div>
+        <button class="mia-voice-orb" id="mia-voice-orb" type="button" aria-label="Tap to interrupt" data-state="idle">
+            <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
+            <span class="mia-voice-orb-mark" aria-hidden="true">
+                <svg viewBox="0 0 32 24" width="60" height="44" xmlns="http://www.w3.org/2000/svg">
+                    <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="mia-voice-orb-ecg-blip" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </span>
+        </button>
+        <div class="mia-voice-status" id="mia-voice-status">Mia</div>
+        <div class="mia-voice-transcript" id="mia-voice-transcript"></div>
     </div>
 </div>`;
 
@@ -171,21 +175,58 @@ const session = {
 export function initVoice() {
     if (!isVoiceSupported()) return;
     insertVoiceButton();
-    if (!document.getElementById('mia-voice-overlay')) {
-        document.body.insertAdjacentHTML('beforeend', VOICE_OVERLAY_HTML);
-        wireOverlayEvents();
-    }
+    ensureVoiceOverlayMounted();
+}
+
+// The voice overlay lives inside .mia-panel so chat and voice share the
+// same container. mia.js's renderChat() rebuilds the panel innerHTML on
+// every open/back-from-settings, which would wipe the overlay — so we
+// re-mount on every call. Cheap; the markup is static.
+function ensureVoiceOverlayMounted() {
+    const panel = document.getElementById('mia-panel');
+    if (!panel) return;
+    if (panel.querySelector('#mia-voice-overlay')) return;
+    panel.insertAdjacentHTML('beforeend', VOICE_OVERLAY_HTML);
+    wireOverlayEvents();
 }
 
 export function isVoiceSupported() {
     return !!(SR && TTS_AVAILABLE);
 }
 
-// Re-attach the mic button after each renderChat() — mia.js rebuilds the
-// footer so the button needs to re-insert itself.
+// Re-attach the mic button + voice overlay after each renderChat() —
+// mia.js rebuilds the panel innerHTML so both need to re-insert.
 export function attachVoiceButton() {
     if (!isVoiceSupported()) return;
     insertVoiceButton();
+    ensureVoiceOverlayMounted();
+    // Hook the chat-panel close button so closing the panel while voice
+    // is active treats it as minimize (panel slides away, voice keeps
+    // running, launcher becomes orb). Without this hook, closing chat
+    // would leave voice running with no visible UI at all.
+    const closeBtn = document.getElementById('mia-close-btn');
+    if (closeBtn && !closeBtn.dataset.voiceHooked) {
+        closeBtn.dataset.voiceHooked = '1';
+        closeBtn.addEventListener('click', (e) => {
+            if (session.open && !session.minimized) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                minimizeVoice();
+            }
+        }, true); // capture so we beat mia.js's togglePanel
+    }
+    // If a voice session was already active when the panel re-rendered
+    // (e.g., user opened settings and came back), restore the visual
+    // state so the orb/transcript pick up where they left off.
+    if (session.open && !session.minimized) {
+        const panel = document.getElementById('mia-panel');
+        if (panel) panel.classList.add('voice-active');
+        const overlay = document.getElementById('mia-voice-overlay');
+        if (overlay) overlay.setAttribute('aria-hidden', 'false');
+        setupCanvas();
+        startCanvasLoop();
+        setOrbState(session.state);
+    }
 }
 
 function insertVoiceButton() {
@@ -242,13 +283,18 @@ async function openVoice() {
     session.minimized = false;
     session.autoLoop = true;
     session.history = loadHistory();
+    // Make sure the chat panel is open and switch it to voice mode. The
+    // panel itself stays mounted; only the overlay layer + blur class
+    // change. Chat content (head, thread, foot) fades+blurs behind.
+    const panel = document.getElementById('mia-panel');
+    if (panel && !panel.classList.contains('open')) {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+    }
+    ensureVoiceOverlayMounted();
+    if (panel) panel.classList.add('voice-active');
     const overlay = document.getElementById('mia-voice-overlay');
-    overlay.classList.add('open');
-    overlay.classList.remove('minimized');
-    overlay.setAttribute('aria-hidden', 'false');
-    // Add a body class so the rest of the app can shift right to make
-    // room for the docked panel without us touching individual layouts.
-    document.body.classList.add('mia-voice-panel-open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.remove('mia-voice-minimized');
     setLauncherOrbMode(false);
 
@@ -275,39 +321,52 @@ function closeVoice() {
     abortAgent();
     stopCanvasLoop();
     releaseMic();
+    const panel = document.getElementById('mia-panel');
+    if (panel) panel.classList.remove('voice-active');
     const overlay = document.getElementById('mia-voice-overlay');
-    overlay.classList.remove('open', 'minimized');
-    overlay.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('mia-voice-panel-open', 'mia-voice-minimized');
+    if (overlay) overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('mia-voice-minimized');
     setLauncherOrbMode(false);
     setOrbState('idle');
     setStatus('Mia');
     setTranscript('');
 }
 
-// Minimize: hide the panel but keep the mic/agent/TTS pipeline alive.
-// The Mia launcher swaps to "live orb" mode so the user knows Mia is
-// still listening / speaking while they navigate the app.
+// Minimize: collapse the WHOLE chat panel (panel + voice overlay both
+// slide off-screen together since they share a container now) but keep
+// the mic/agent/TTS pipeline alive. The Mia launcher swaps to live-orb
+// mode so the user knows Mia is still listening / speaking while they
+// use the app.
 function minimizeVoice() {
     if (!session.open) return;
     session.minimized = true;
-    const overlay = document.getElementById('mia-voice-overlay');
-    overlay.classList.add('minimized');
+    const panel = document.getElementById('mia-panel');
+    if (panel) {
+        // Closing the panel here is intentional — minimize means "get
+        // the panel out of the way". The voice session keeps running.
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+    }
     document.body.classList.add('mia-voice-minimized');
-    document.body.classList.remove('mia-voice-panel-open');
     setLauncherOrbMode(true);
-    // Canvas RAF stays running — the launcher orb taps the same draw
-    // loop via its own canvas (or shares state with the main one).
 }
 
 function restoreVoice() {
     if (!session.open) return;
     session.minimized = false;
+    const panel = document.getElementById('mia-panel');
+    if (panel) {
+        panel.classList.add('open', 'voice-active');
+        panel.setAttribute('aria-hidden', 'false');
+    }
+    ensureVoiceOverlayMounted();
     const overlay = document.getElementById('mia-voice-overlay');
-    overlay.classList.remove('minimized');
-    document.body.classList.add('mia-voice-panel-open');
+    if (overlay) overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.remove('mia-voice-minimized');
     setLauncherOrbMode(false);
+    // Re-setup the canvas in case the panel re-rendered while minimized.
+    setupCanvas();
+    startCanvasLoop();
 }
 
 // Toggle the floating Mia launcher between "chat icon" and "live orb"
