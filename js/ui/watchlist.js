@@ -22,6 +22,8 @@
 // market open and once at outcome resolution time, so 5 min is
 // plenty fresh.
 
+import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice } from './price-alerts.js';
+
 const LS_KEY = 'ma-watchlist-v1';
 const LS_LAST_SEEN = 'ma-watchlist-last-seen-v1';
 const POLL_MS = 5 * 60 * 1000;
@@ -165,24 +167,70 @@ function refreshPanel(currentSignalsMap) {
     const cur = currentSignalsMap || {};
     list.innerHTML = arr.map(sym => {
         const info = cur[sym];
+        const alertHtml = renderAlertRow(sym);
         if (!info) {
             return `
                 <div class="watchlist-item" data-symbol="${sym}">
-                    <span class="watchlist-symbol">${sym}</span>
-                    <span class="watchlist-meta">no ledger data today</span>
-                    <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
+                    <div class="watchlist-row-main">
+                        <span class="watchlist-symbol">${sym}</span>
+                        <span class="watchlist-meta">no ledger data today</span>
+                        <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
+                    </div>
+                    ${alertHtml}
                 </div>`;
         }
         const sigClass = (info.signal || 'NEUTRAL').toLowerCase();
         const sigLabel = info.signal === 'NO_TRADE' ? 'NO TRADE' : info.signal;
         return `
             <div class="watchlist-item" data-symbol="${sym}">
-                <span class="watchlist-symbol">${sym}</span>
-                <span class="watchlist-sig sig-${sigClass}">${sigLabel}</span>
-                <span class="watchlist-conf">${info.confidence}%</span>
-                <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
+                <div class="watchlist-row-main">
+                    <span class="watchlist-symbol">${sym}</span>
+                    <span class="watchlist-sig sig-${sigClass}">${sigLabel}</span>
+                    <span class="watchlist-conf">${info.confidence}%</span>
+                    <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
+                </div>
+                ${alertHtml}
             </div>`;
     }).join('');
+}
+
+// Render the per-symbol price-alert section. Crypto symbols get a real
+// form (above / below price inputs + live price tick); non-crypto get a
+// short note explaining why realtime isn't available on the free path.
+function renderAlertRow(sym) {
+    if (!isCryptoSymbol(sym)) {
+        return `
+            <div class="watchlist-alert-row stocks-disabled">
+                <span class="watchlist-alert-note">Realtime price alerts available on crypto only — free stock-data feeds are 5–15 min delayed.</span>
+            </div>`;
+    }
+    const a = getAlert(sym) || {};
+    const live = getLastPrice(sym);
+    const livePart = live != null
+        ? `<span class="watchlist-live-price" data-symbol="${sym}">$${formatPrice(live)}</span>`
+        : `<span class="watchlist-live-price waiting" data-symbol="${sym}">waiting…</span>`;
+    return `
+        <div class="watchlist-alert-row" data-symbol="${sym}">
+            ${livePart}
+            <label class="watchlist-alert-field">
+                <span>Above</span>
+                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="above" data-symbol="${sym}" placeholder="—" value="${a.above != null ? a.above : ''}">
+            </label>
+            <label class="watchlist-alert-field">
+                <span>Below</span>
+                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="below" data-symbol="${sym}" placeholder="—" value="${a.below != null ? a.below : ''}">
+            </label>
+        </div>`;
+}
+
+// Adaptive precision: prices > $1000 show as integer-friendly; small-cap
+// alts down to fractions of a cent need lots of decimals to be useful.
+function formatPrice(p) {
+    if (!Number.isFinite(p)) return '—';
+    if (p >= 1000) return p.toFixed(2);
+    if (p >= 1) return p.toFixed(3);
+    if (p >= 0.01) return p.toFixed(4);
+    return p.toFixed(8);
 }
 
 function ensureWatchlistPanel() {
@@ -207,7 +255,10 @@ function ensureWatchlistPanel() {
         </section>`;
     after.insertAdjacentHTML('afterend', html);
     document.getElementById('watchlist-perm-btn').addEventListener('click', requestPermission);
-    document.getElementById('watchlist-list').addEventListener('click', (e) => {
+    const listEl = document.getElementById('watchlist-list');
+    listEl.addEventListener('click', (e) => {
+        // Don't navigate when the user is interacting with the alert form.
+        if (e.target.closest('.watchlist-alert-row')) return;
         const rm = e.target.closest('.watchlist-remove');
         if (rm) { e.stopPropagation(); toggleWatch(rm.dataset.symbol); return; }
         const item = e.target.closest('.watchlist-item');
@@ -222,6 +273,37 @@ function ensureWatchlistPanel() {
                 }, 400);
             }
         }
+    });
+    // Alert-input change handler: write through to the price-alerts module
+    // immediately on change. WebSocket connection is opened/closed inside
+    // setAlert based on whether any threshold is set.
+    listEl.addEventListener('change', (e) => {
+        const input = e.target.closest('.watchlist-alert-input');
+        if (!input) return;
+        const sym = input.dataset.symbol;
+        const above = listEl.querySelector(`.watchlist-alert-input[data-direction="above"][data-symbol="${sym}"]`);
+        const below = listEl.querySelector(`.watchlist-alert-input[data-direction="below"][data-symbol="${sym}"]`);
+        const aboveVal = above && above.value !== '' ? parseFloat(above.value) : null;
+        const belowVal = below && below.value !== '' ? parseFloat(below.value) : null;
+        setAlert(sym, { above: aboveVal, below: belowVal });
+        if ((aboveVal != null || belowVal != null) && 'Notification' in window && Notification.permission === 'default') {
+            requestPermission();
+        }
+    });
+    // Live price tick → patch the row's price label in place. Avoids
+    // re-rendering the whole list (which would blow away the user's
+    // half-typed threshold input).
+    document.addEventListener('ma:price-tick', (e) => {
+        const { symbol, price } = e.detail || {};
+        const el = listEl.querySelector(`.watchlist-live-price[data-symbol="${symbol}"]`);
+        if (!el) return;
+        el.textContent = `$${formatPrice(price)}`;
+        el.classList.remove('waiting');
+    });
+    // Alert fired → re-render so the threshold input shows blank and
+    // any one-shot state is reflected.
+    document.addEventListener('ma:price-alert-fired', () => {
+        refreshUI();
     });
     refreshPermissionUI();
 }
@@ -288,6 +370,7 @@ export function attachWatchButton(symbol) {
 export function initWatchlist() {
     loadWatchlist();
     loadLastSeen();
+    initPriceAlerts();
     ensureWatchlistPanel();
     refreshUI();
     startPolling();
