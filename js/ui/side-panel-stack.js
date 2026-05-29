@@ -60,10 +60,12 @@ function recomputeLayout() {
     // another panel" if it wants distinct visual treatment per state.
     document.body.classList.toggle('side-panel-mia-open', openOrder.includes('mia'));
     document.body.classList.toggle('side-panel-portfolio-open', openOrder.includes('portfolio'));
-    // Notify each panel so it can reposition launchers / minimize buttons
-    // / etc. relative to its new offset.
-    for (const id of openOrder) {
-        const cfg = PANELS.get(id);
+    // Notify EVERY registered panel so each one can sync its open class /
+    // aria-hidden / launcher state with the current stack. We can't iterate
+    // only openOrder here, because a panel that just closed has been removed
+    // from openOrder and would never get notified — its .open class would
+    // stay set forever, leaving it visible after the user clicked ✕.
+    for (const [id, cfg] of PANELS.entries()) {
         cfg?.onLayout?.();
     }
 }
