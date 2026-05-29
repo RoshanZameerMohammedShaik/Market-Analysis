@@ -107,15 +107,17 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 }
 .portfolio-panel-title {
     display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    align-items: baseline;
+    gap: 4px; /* tight — icon sits close to the trailing "n" of Simulation */
     font-weight: 800;
     color: var(--text-primary);
     font-size: 0.95rem;
     letter-spacing: 0.3px;
 }
 .portfolio-panel-title .portfolio-icon {
-    width: 20px; height: 20px;
+    width: 18px; height: 18px;
+    align-self: center;
+    margin-left: 1px;
 }
 .portfolio-panel-title-text { display: inline-block; }
 .portfolio-panel-close {

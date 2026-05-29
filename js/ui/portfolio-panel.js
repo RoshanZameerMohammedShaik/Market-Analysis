@@ -69,7 +69,7 @@ function ensurePanelMounted() {
     // Render the head + body shell once. renderPanel() patches the body.
     el.innerHTML = `
         <div class="portfolio-panel-head">
-            <span class="portfolio-panel-title">${LAUNCHER_ICON_SVG}<span class="portfolio-panel-title-text">Portfolio Simulation</span></span>
+            <span class="portfolio-panel-title"><span class="portfolio-panel-title-text">Portfolio Simulation</span>${LAUNCHER_ICON_SVG}</span>
             <button class="portfolio-panel-close" id="portfolio-panel-close" type="button" title="Close" aria-label="Close portfolio panel">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" pointer-events="none"><path d="M6 6 L18 18 M18 6 L6 18"/></svg>
             </button>
