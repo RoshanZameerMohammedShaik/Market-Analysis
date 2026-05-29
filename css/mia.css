@@ -703,9 +703,11 @@ body.mia-voice-minimized .mia-launcher {
 }
 .mia-launcher.mia-launcher-orb .mia-launcher-logo .mia-ecg-trace {
     stroke: rgba(255, 255, 255, 0.55);
+    stroke-width: 1.0;
 }
 .mia-launcher.mia-launcher-orb .mia-launcher-logo .mia-ecg-blip {
     stroke: #ffffff;
+    stroke-width: 1.4;
 }
 .mia-launcher.mia-launcher-orb .mia-launcher-ready-dot { display: none; }
 
