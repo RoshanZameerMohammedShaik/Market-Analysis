@@ -96,6 +96,18 @@ const EMOJI_REGEX = /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Compo
 // Strip stuff that doesn't read well aloud: markdown bold/italic, code
 // fences, list bullets, our own §§MIA_UNVERIFIED:...§§ sentinel, link
 // brackets, bare URLs, the agent's TOOL: scaffolding, and emoji.
+//
+// Currency / percent handling:
+//   "$84.44" → "84.44" — TTS reads "$" as "dollar" each time, so a
+//      sentence like "$85.27 - $84.44" sounds like "dollar 85.27 dollar
+//      84.44" — clunky with multiple prices in one sentence. Strip the
+//      glyph; Mia's prompt is responsible for whether to add "dollars"
+//      verbally when the context calls for it.
+//   "0.98%" → "0.98 percent" — make sure TTS pronounces it consistently
+//      (some engines say "percent", some say "percentage sign", some
+//      say nothing). Inserting the word ourselves removes the ambiguity.
+//   Markdown bold residues (`**` or stray `*`) and table pipes (`|`)
+//      get scrubbed too; otherwise TTS reads them as "asterisk" / "bar".
 function speakable(text) {
     return String(text || '')
         .replace(/§§MIA_UNVERIFIED:[^§]*§§/g, '')
@@ -109,11 +121,19 @@ function speakable(text) {
         .replace(/^[\s\-\*\+]+/gm, '')
         .replace(/^\d+\.\s+/gm, '')
         .replace(/[#>]/g, '')
+        // Strip any lingering markdown / pipe / asterisk noise.
+        .replace(/\*+/g, '')
+        .replace(/\|/g, ' ')
+        // Currency: drop the $ glyph entirely. "$84.44" → "84.44".
+        // The TTS will read the digits naturally (e.g. "eighty-four
+        // point four four") and Mia's prompt handles whether to add
+        // "dollars" in the spoken phrasing for context.
+        .replace(/\$(?=\d)/g, '')
+        // Percent: insert the word so the engine pronounces it
+        // consistently. "0.98%" → "0.98 percent".
+        .replace(/(\d)\s*%/g, '$1 percent')
         // Strip emoji so the TTS doesn't read them as Unicode names.
         .replace(EMOJI_REGEX, '')
-        // Read currency cleanly: "$1,234" → "1234 dollars" sounds weird;
-        // we'll let the engine read the digits naturally and just kill
-        // the $ glyph (so "1,234" reads as "one thousand two hundred...").
         .replace(/\s+/g, ' ')
         .trim();
 }
