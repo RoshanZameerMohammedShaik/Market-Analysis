@@ -257,7 +257,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
        shifts the arrow's apex down off the cap-height so the whole
        composition reads as anchored to the baseline rather than
        hovering above the text. */
-    margin-left: -10px;
+    margin-left: -13px;
     margin-top: -3px;
 }
 .app-title-portfolio-svg {
