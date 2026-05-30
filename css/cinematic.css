@@ -258,7 +258,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
        composition reads as anchored to the baseline rather than
        hovering above the text. */
     margin-left: -13px;
-    margin-top: -3px;
+    margin-top: -4px;
 }
 .app-title-portfolio-svg {
     /* 26×28 viewBox now (was 22×28) — added a 4th candle in front,
