@@ -203,34 +203,28 @@ export async function openLiveSession(opts = {}) {
             ws.binaryType = 'arraybuffer';
             let setupAcked = false;
 
-            // Setup payload matches Google's working get-started-websocket
-            // example exactly — { config: { model, responseModalities,
-            // systemInstruction } }. Earlier I had `setup` instead of
-            // `config` (from the spec reference page) which got 1008
-            // policy-violation closes. The narrow shape is what actually
-            // works; advanced fields like inputAudioTranscription,
-            // realtimeInputConfig, and speechConfig.voiceConfig fall back
-            // to server defaults if omitted, which is fine for now.
+            // Wire format for the raw WebSocket Live API:
+            //   { "setup": { "model": "models/...",
+            //                "generationConfig": { "responseModalities": [...],
+            //                                      "speechConfig": {...} },
+            //                "systemInstruction": { "parts": [...] } } }
+            // The Python/JS SDKs use a `config={}` parameter that maps to
+            // this `setup` envelope on the wire — I previously copied
+            // `{config:...}` straight from an SDK example which is why
+            // every model 1007'd: the server got valid JSON it didn't
+            // recognize. Reference: ai.google.dev/api/live#bidigeneratecontentsetup
             const sendSetup = () => {
-                // Live preview models choke on huge system prompts —
-                // we observed 1007 'Invalid frame payload' rejections
-                // with our full ~20K-char Mia system prompt. Trim to a
-                // condensed identity-only version for Live; the model
-                // can still call Mia's tools via text mode for any
-                // hard data lookup. Tools and prompt rules ride the
-                // text path, not the voice path.
                 const compactPrompt = compactPromptForLive(systemPrompt);
-                // Use the bare-minimum payload that Google's working
-                // get-started example uses. Adding speechConfig was
-                // also a 1007 suspect — the preview models accept it
-                // documented but trip on it for at least some accounts.
-                // If the connection succeeds with this minimal payload,
-                // we'll send a separate clientContent message later to
-                // request a specific voice (different code path).
+                const generationConfig = { responseModalities: ['AUDIO'] };
+                if (voiceName) {
+                    generationConfig.speechConfig = {
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+                    };
+                }
                 const setupMsg = {
-                    config: {
+                    setup: {
                         model: `models/${modelId}`,
-                        responseModalities: ['AUDIO'],
+                        generationConfig,
                         systemInstruction: { parts: [{ text: compactPrompt }] },
                     },
                 };
