@@ -33,7 +33,7 @@
 import { runTurn } from './agent.js';
 import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory } from './memory.js';
-import { renderThread } from './mia.js';
+import { renderThread, actionVerbFor } from './mia.js';
 import { openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { isConfigured } from './settings.js';
 
@@ -758,8 +758,17 @@ async function handleUserUtterance(text) {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(window.__miaLatestSignal || null);
         for await (const ev of runTurn({ system, messages: session.history, signal: ac.signal, onProgress: () => {} })) {
             if (ev.type === 'tool') {
-                // Soft cue — flash the orb to indicate Mia is using a tool.
+                // Surface WHAT Mia is doing, not just that something is
+                // happening. The actionVerbFor map (shared with the chat
+                // path's tool badges) gives a user-friendly verb per tool
+                // name — never the raw tool identifier. Updates both the
+                // in-panel status text AND the floating launcher caption
+                // so minimized users see it too.
                 pulseOrb();
+                const verb = actionVerbFor(ev.name);
+                const cap = verb.charAt(0).toUpperCase() + verb.slice(1) + '…';
+                setStatus(cap);
+                if (session.minimized) setLauncherCaption(cap, 'mia');
                 continue;
             }
             if (ev.type !== 'delta' || !ev.text) continue;

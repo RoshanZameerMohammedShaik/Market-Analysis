@@ -63,13 +63,16 @@ const ACTION_VERBS = {
     get_source_accuracy: 'checking source accuracy',
     get_ledger_history: 'reading live ledger history',
     get_live_calibration: 'checking live calibration',
+    get_top_losers: "scanning today's biggest movers",
+    get_portfolio: 'reading your portfolio',
+    place_trade: 'placing the trade',
     compute: 'crunching the math',
     set_theme: 'switching theme',
     focus_search: 'jumping to search',
     clear_chat: 'clearing the chat',
     copy_to_clipboard: 'copying that for you',
 };
-function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it up'; }
+export function actionVerbFor(toolName) { return ACTION_VERBS[toolName] || 'looking it up'; }
 
 const TOOL_NAMES = Object.keys(ACTION_VERBS);
 const TOOL_NAMES_RE_BODY = TOOL_NAMES.join('|');
