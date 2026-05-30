@@ -409,6 +409,15 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
 // if the user wants "biggest movers either way"). Powered by the same
 // ledger the engine writes — no scraping news sites for "top losers"
 // articles, just the actual outcomes our cron recorded.
+//
+// IMPORTANT: this is scoped to OUR tracked universe (~530 symbols across
+// the regions we cover). The "worst performing stock today" answer is
+// "worst performer in our universe" — NOT "worst performer in all of
+// global markets." A microcap ADR like ZCMD that's not in our coverage
+// won't appear, even if it dropped 60%. The coverage object in the
+// return value makes that explicit so Mia can honestly qualify her
+// answer instead of presenting a tracked-universe winner as a global
+// truth.
 export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
@@ -427,11 +436,20 @@ export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) 
     if (!chosenDate) {
         return { available: false, note: 'No resolved 1d horizons in the ledger yet — wait for the next outcome-resolution cron.' };
     }
+    // Build coverage metadata BEFORE region-filtering, so Mia knows the
+    // full universe size + the regions we actually track.
+    const allRegions = [...new Set(scoped.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
+    const coverage = {
+        universeSize: scoped.length,
+        regions: allRegions,
+        scope: 'tracked-only',
+        note: `Limited to the ~530 symbols our engine tracks (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid names from NSE / HKEX / TYO / LSE / DAX / ASX). Stocks outside this universe — small-cap ADRs, OTC, foreign micro-caps — are not visible here. For absolute-worst-in-all-markets answers, use a web search.`,
+    };
     if (region) {
         const reg = String(region).toUpperCase();
         scoped = scoped.filter(r => String(r.region || '').toUpperCase() === reg);
         if (!scoped.length) {
-            return { available: false, note: `No resolved rows for region ${reg} on ${chosenDate}.`, asOfDate: chosenDate };
+            return { available: false, note: `No resolved rows for region ${reg} on ${chosenDate}.`, asOfDate: chosenDate, coverage };
         }
     }
     const sideLower = String(side || 'down').toLowerCase();
@@ -461,6 +479,7 @@ export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) 
         side: sideLower,
         region: region || 'all',
         candidatesConsidered: scoped.length,
+        coverage,
         results: top,
     };
 }

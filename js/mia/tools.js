@@ -254,7 +254,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_top_losers: {
-        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day. side="down" returns worst performers (most-negative pctMove), "up" returns best performers, "movers" returns biggest absolute moves either direction. Optional region filter (NYSE / NSE / HKEX / TYO / LSE / XETRA / ASX / CRYPTO). Use this for "what\'s down today" / "biggest losers" / "biggest gainers" questions instead of web-searching news articles.',
+        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day, SCOPED to our ~530-symbol universe (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid NSE / HKEX / TYO / LSE / DAX / ASX names). side="down" worst performers, "up" best, "movers" biggest absolute. Optional region filter. RESULT INCLUDES a coverage object — when answering, ALWAYS qualify the scope ("worst in our tracked universe is X — we don\'t cover micro-caps or OTC, so a Google search may surface a different name"). For a true market-wide answer use web_search instead.',
         args: '{"side":"down","limit":10,"region":"NYSE"}',
         run: ({ side, limit, region } = {}) => readTopLosers({ side, limit, region }),
         kind: 'read',
