@@ -20,21 +20,32 @@
 // fully exhausted. That preserves quality-vs-speed routing while
 // maximizing total free quota across both tiers.
 
+// Each entry below is a real, currently-available Gemini text model on
+// the free-tier API as of mid-2026. We aggressively include the
+// 'latest' aliases (gemini-flash-latest, gemini-pro-latest) because
+// Google rotates generation IDs every ~6 months and the aliases
+// always resolve to the current stable. Specific generation IDs are
+// kept too — they have INDEPENDENT quotas from the alias, so calling
+// both effectively doubles per-day capacity.
+//
+// Models that 404 (Google retired) get auto-marked cooling for 1h by
+// the chain walker and skipped. So this list can include older IDs
+// safely; they'll just get pruned at runtime if they're gone.
 export const GEMINI_MODELS = [
     // ── Newest / highest-quality reasoning ────────────────────────
-    // (Preview models are experimental; Google may deprecate them
-    //  with little notice. We try them but treat 404 / 400 errors as
-    //  "not available right now" and continue to the next model.)
+    // gemini-pro-latest auto-points to the current best Pro tier.
+    { id: 'gemini-pro-latest',               tier: 'reasoning', label: 'Gemini Pro (latest)' },
     { id: 'gemini-2.5-pro',                  tier: 'reasoning', label: 'Gemini 2.5 Pro' },
     { id: 'gemini-2.5-flash',                tier: 'reasoning', label: 'Gemini 2.5 Flash' },
     { id: 'gemini-2.0-flash',                tier: 'reasoning', label: 'Gemini 2.0 Flash' },
-    { id: 'gemini-1.5-pro',                  tier: 'reasoning', label: 'Gemini 1.5 Pro' },
-    { id: 'gemini-1.5-flash',                tier: 'reasoning', label: 'Gemini 1.5 Flash' },
 
-    // ── Fast / lightweight ────────────────────────────────────────
+    // ── Fast / lightweight (preferred for prose / quick chat) ─────
+    // gemini-flash-latest = always-current Flash, ~250-1500 RPD free.
+    { id: 'gemini-flash-latest',             tier: 'fast',      label: 'Gemini Flash (latest)' },
     { id: 'gemini-2.5-flash-lite',           tier: 'fast',      label: 'Gemini 2.5 Flash-Lite' },
     { id: 'gemini-2.0-flash-lite',           tier: 'fast',      label: 'Gemini 2.0 Flash-Lite' },
     { id: 'gemini-1.5-flash-8b',             tier: 'fast',      label: 'Gemini 1.5 Flash-8B' },
+    { id: 'gemini-flash-lite-latest',        tier: 'fast',      label: 'Gemini Flash-Lite (latest)' },
 ];
 
 // Convenience: short, user-friendly name for the model status pill.

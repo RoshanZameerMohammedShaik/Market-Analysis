@@ -111,10 +111,20 @@ export function renderUsageMeter(container) {
     // clears the cooldown manually — useful when a stale entry is
     // blocking the user (e.g., server gave a generous retry-After but
     // capacity actually freed up earlier).
-    const coolingBadges = modelStatus.cooling.map(c => {
+    // With an 8-model rotation, several can be cooling at once. Show
+    // the first 2 explicitly + a "+N more" pill so the meter doesn't
+    // wrap into a wall of yellow.
+    const MAX_BADGES_VISIBLE = 2;
+    const visible = modelStatus.cooling.slice(0, MAX_BADGES_VISIBLE);
+    const overflow = modelStatus.cooling.length - visible.length;
+    const visibleBadges = visible.map(c => {
         const short = modelShortName(c.model);
         return `<span class="mia-cooldown-badge" data-model="${c.model}" title="${c.model} — quota reached, auto-recovering in ${fmtCoolingTime(c.secondsRemaining)}. Click × to clear and try anyway.">${short}: cooling ${fmtCoolingTime(c.secondsRemaining)}<button class="mia-cooldown-clear" data-model="${c.model}" type="button" aria-label="Clear cooldown for ${c.model}">×</button></span>`;
     }).join('');
+    const overflowBadge = overflow > 0
+        ? `<span class="mia-cooldown-badge mia-cooldown-overflow" title="${modelStatus.cooling.slice(MAX_BADGES_VISIBLE).map(c => c.model).join(', ')} also cooling">+${overflow} more</span>`
+        : '';
+    const coolingBadges = visibleBadges + overflowBadge;
     // Active tier indicator — which model the most recent reply came
     // from. Helps the user understand "wait, is it on Lite or Flash?"
     const activeTag = modelStatus.activeModel
