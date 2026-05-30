@@ -22,15 +22,18 @@
                         <rect class="app-title-pf-candle candle-2" x="6"   y="15" width="3.5" height="9"  rx="0.8"/>
                         <rect class="app-title-pf-candle candle-3" x="12"  y="10" width="3.5" height="14" rx="0.8"/>
                         <rect class="app-title-pf-candle candle-4" x="18"  y="4"  width="3.5" height="20" rx="0.8"/>
-                        <!-- Curved arrow that arches above ALL 4 candle tops
-                             with a clear gap. Single quadratic Bezier from
-                             (1, 17) — 2px above c1's top — sweeping up to
-                             (21, -2) — 6px above c4's top — with control
-                             point (8, 0) pulling the curve outward and up
-                             so it never grazes c2 (top y=15) or c3 (top
-                             y=10). Visible as a leading-trend arc above
-                             the staircase, not a flat ceiling. -->
-                        <path class="app-title-pf-arrow" d="M1 17 Q8 0 21 -2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Quadratic Bezier with arc bulging DOWNWARD
+                             (smile / concave-up). Path still goes low →
+                             high (left bottom to right top), but the
+                             middle dips below the straight-chord line so
+                             the curve "grins" rather than humping.
+                             Verified clearance over each candle top:
+                               at c2 mid (x=7.75): curve y≈12.15 (top 15) ✓
+                               at c3 mid (x=13.75): curve y≈6.5  (top 10) ✓
+                             Control point (11, 11) gives ~1.7px downward
+                             dip vs. the straight chord while keeping the
+                             curve safely above c2 and c3. -->
+                        <path class="app-title-pf-arrow" d="M1 17 Q11 11 21 -2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                         <path class="app-title-pf-arrowhead" d="M17.5 -1 L21 -2 L21 1.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
