@@ -269,20 +269,15 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     overflow: visible;
 }
 .app-title-pf-candle {
-    /* Solid 100% accent fill (was 0.92 alpha) so the candles read at
-       full color saturation. Multi-stop drop-shadow stack creates a
-       layered glow halo: tight inner bloom + soft outer halo, both
-       tinted to the accent color. The stacked filters compound, so a
-       small single-shadow value reads as a proper neon-style glow. */
+    /* Solid accent fill, no glow filter. Roshan asked the glow be
+       removed — the stacked drop-shadows read as overdone next to the
+       crisp MARKET ANALYZER title; flat color keeps the staircase
+       legible and matches the rest of the header's clean typography. */
     fill: rgb(var(--accent-rgb));
     transform-origin: center bottom;
     transform-box: fill-box;
     transform: scaleY(0);
     animation: app-title-pf-candle-grow 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
-    filter:
-        drop-shadow(0 0 2px rgba(var(--accent-rgb), 1))
-        drop-shadow(0 0 5px rgba(var(--accent-rgb), 0.85))
-        drop-shadow(0 0 9px rgba(var(--accent-rgb), 0.55));
 }
 .app-title-pf-candle.candle-1 { animation-delay: 0.00s; }
 .app-title-pf-candle.candle-2 { animation-delay: 0.32s; }
@@ -294,23 +289,12 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     stroke-dasharray: 35;
     stroke-dashoffset: 35;
     animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
-    /* Stronger glow stack so the green arrow visibly leads the trend
-       and pulls the eye up the staircase. Two tints (accent magenta +
-       green core) layer for a richer, more cinematic look. */
-    filter:
-        drop-shadow(0 0 2px var(--green))
-        drop-shadow(0 0 6px rgba(34, 197, 94, 0.85))
-        drop-shadow(0 0 10px rgba(var(--accent-rgb), 0.5));
 }
 .app-title-pf-arrowhead {
     stroke: var(--green);
     stroke-dasharray: 8;
     stroke-dashoffset: 8;
     animation: app-title-pf-arrowhead-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
-    filter:
-        drop-shadow(0 0 2px var(--green))
-        drop-shadow(0 0 6px rgba(34, 197, 94, 0.85))
-        drop-shadow(0 0 10px rgba(var(--accent-rgb), 0.5));
 }
 @keyframes app-title-pf-candle-grow {
     0%,  10%  { transform: scaleY(0);    opacity: 0.4; }
