@@ -3,6 +3,7 @@ import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
+import { candleLoaderHTML } from './skeleton.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -54,14 +55,18 @@ export function loadChart() {
 export function showChartPlaceholder() {
     const container = document.getElementById('tradingview-widget');
     if (!container) return;
+    // Replace the M-shaped ECG mark with the same red/green candle
+    // animation we use in the analysis loader. Roshan asked to bring
+    // the original "MARKET ANALYZER" candle row back as the empty-chart
+    // hero. Reusing candleLoaderHTML() keeps a single source of truth
+    // for the candlestick markup; CSS gives the chart-ph variant its
+    // own size scale (it's the focal element here, not a tucked-in
+    // skeleton inside a panel).
     container.innerHTML = `
         <div class="chart-placeholder">
             <div class="chart-ph-glow"></div>
-            <div class="chart-ph-icon chart-ph-ecg">
-                <svg class="chart-ph-ecg-svg" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path class="chart-ph-ecg-trace" d="M0 30 L40 30 Q50 30 55 24 T65 30 L80 8 L100 52 L120 8 L140 30 Q150 30 155 24 T165 30 L200 30" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path class="chart-ph-ecg-blip" d="M0 30 L40 30 Q50 30 55 24 T65 30 L80 8 L100 52 L120 8 L140 30 Q150 30 155 24 T165 30 L200 30" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+            <div class="chart-ph-icon chart-ph-candles">
+                ${candleLoaderHTML(7)}
             </div>
             <div class="chart-ph-title">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>

@@ -286,32 +286,34 @@ html[data-dev="1"] body { padding-top: 22px; }
 @keyframes ph-glow { from { opacity: 0.7; } to { opacity: 1; } }
 .chart-ph-icon { font-size: 3rem; opacity: 0.7; z-index: 1; }
 
-/* ECG-style placeholder for the empty chart. Same trace+blip pattern
-   as the Mia logo / launcher, just scaled bigger so it sits where the
-   chart will appear. The blip sweeps the full width on a loop. */
-.chart-ph-ecg { font-size: 0; }
-.chart-ph-ecg-svg {
-    width: 220px; height: 66px;
-    display: block;
-    color: var(--accent);
+/* Empty-chart hero: red/green candle row that matches the analysis
+   loader animation. Reuses .candle-loader markup verbatim (single
+   source of truth) and scopes its own size + pacing under
+   .chart-ph-candles. The original loader (used inside the "Running
+   full analysis…" panel) stays untouched at its smaller 64px size. */
+.chart-ph-candles {
+    font-size: 0;
+    z-index: 1;
 }
-.chart-ph-ecg-trace {
-    stroke: var(--text-muted);
-    opacity: 0.35;
+.chart-ph-candles .candle-loader {
+    height: 110px;
+    gap: 10px;
+    margin: 0;
 }
-.chart-ph-ecg-blip {
-    stroke: var(--accent);
-    stroke-dasharray: 60 540;
-    stroke-dashoffset: 60;
-    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.7));
-    animation: chart-ph-ecg-sweep 2.6s linear infinite;
+.chart-ph-candles .candle-loader .cl-bar {
+    width: 14px;
 }
-@keyframes chart-ph-ecg-sweep {
-    0%   { stroke-dashoffset: 60; }
-    100% { stroke-dashoffset: -540; }
+.chart-ph-candles .candle-loader .cl-wick {
+    width: 2px;
+    opacity: 0.6;
 }
-@media (prefers-reduced-motion: reduce) {
-    .chart-ph-ecg-blip { animation: none; stroke-dashoffset: 0; }
+.chart-ph-candles .candle-loader .cl-body {
+    border-radius: 2.5px;
+    /* Slower, more graceful loop than the in-panel loader (1.6s).
+       This is decorative ambience on a quiet placeholder, not a
+       "we're working on something" indicator that needs urgency. */
+    animation-duration: 2.4s;
+    filter: drop-shadow(0 0 4px currentColor);
 }
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
