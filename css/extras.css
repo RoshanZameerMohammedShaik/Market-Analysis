@@ -295,35 +295,25 @@ html[data-dev="1"] body { padding-top: 22px; }
     font-size: 0;
     z-index: 1;
 }
+/* Match the portfolio-button candle styling exactly: thin bars, no
+   wicks, theme green/red, no extra glow. Just a slightly bigger
+   canvas so it reads as the chart-placeholder hero rather than a
+   button-sized mark. */
 .chart-ph-candles .candle-loader {
-    height: 56px;
-    gap: 6px;
+    height: 28px;
+    gap: 4px;
     margin: 0;
 }
 .chart-ph-candles .candle-loader .cl-bar {
-    width: 8px;
+    width: 5px;
 }
-/* Hide wicks on the empty-chart hero — Roshan wanted clean bodies
-   only, no lines inside the candles. The skeleton-loader keeps its
-   wicks since that's the analysis-loading context where they help
-   sell the "market data" look. */
 .chart-ph-candles .candle-loader .cl-wick {
     display: none;
 }
-/* Brighter, more saturated colors than the muted theme green/red so
-   the candles read vividly on the empty-chart placeholder. The
-   skeleton-loader keeps the calmer theme tones since it's an
-   in-panel widget that shouldn't outshine its context. */
-.chart-ph-candles .candle-loader .cl-bar.up   { color: #22dd6b; }
-.chart-ph-candles .candle-loader .cl-bar.down { color: #ff4d6d; }
+.chart-ph-candles .candle-loader .cl-bar.up   { color: var(--green); }
+.chart-ph-candles .candle-loader .cl-bar.down { color: var(--red); }
 .chart-ph-candles .candle-loader .cl-body {
-    border-radius: 2px;
-    /* Slower, more graceful loop than the in-panel loader (1.6s).
-       This is decorative ambience on a quiet placeholder, not a
-       "we're working on something" indicator that needs urgency. */
-    animation-duration: 2.4s;
-    /* Stronger glow per body to amplify the bright colors. */
-    filter: drop-shadow(0 0 6px currentColor);
+    border-radius: 1.5px;
 }
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
