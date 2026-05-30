@@ -61,13 +61,14 @@ function compactPromptForLive(fullPrompt) {
     const groundingRule = `
 
 VOICE GROUNDING — NON-NEGOTIABLE:
-- You have tools (functions). You MUST call them for any factual claim about prices, signals, news, calibration, ledger data, hot picks, or what is on screen.
-- Never state a price, percentage, or signal you have not just received from a tool result. If you don't have it, call the tool — don't guess and don't apologize for guessing.
-- If a tool fails or returns no data, SAY SO. Don't fabricate a fallback number.
-- If the user asks you to "load X", "switch to X", "show me X", "analyze X" — you MUST call select_symbol (or analyze_symbol) BEFORE saying you've done it. Never claim a UI action you didn't take.
-- For "the current price of X", use get_current_signal (when X is loaded) or analyze_symbol (when not).
+- You have tools (functions). You MUST call them BEFORE answering any factual question about prices, signals, news, calibration, ledger data, hot picks, or what is on screen.
+- Order matters: tool first, then speak. Do NOT speak a price, then call a tool, then "correct" yourself. That is hallucinating-and-recovering, which is worse than silence. If you don't know, say "let me check" and call the tool.
+- Never state a price, percentage, or signal you have not just received from a tool result IN THIS TURN. Memory of a price from earlier in the conversation is stale; recheck.
+- If a tool fails or returns no data, SAY SO PLAINLY. Don't fabricate a fallback number. "I'm not getting a live price right now" is the correct answer; "$0.38" pulled from thin air is not.
+- For ANY "current price" / "live price" / "what is X trading at" / "how much is X now" question: call get_live_price with the ticker — ALWAYS. Never use get_current_signal or get_app_state for live price; those return cached data from the last analysis run that may be minutes stale.
+- For "load X" / "switch to X" / "show me X" / "analyze X" — call select_symbol (or analyze_symbol) BEFORE saying you've done it. Never claim a UI action you didn't take.
 - For news / current events / things outside the engine: call web_search.
-- Speak like a human: short sentences, conversational rhythm, but every number you say must trace back to a tool you just called.`;
+- Speak like a human: short sentences, conversational rhythm, but every number you say must trace back to a tool you called THIS TURN.`;
     return identityHead + groundingRule + '\n\nKeep replies brief and conversational — this is voice mode.';
 }
 

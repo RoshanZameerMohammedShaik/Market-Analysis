@@ -33,6 +33,29 @@ const TOOLS = {
         desc: 'app snapshot (mode, symbol, theme, latest signal summary)', args: '{}',
         run: () => readUiSnapshot(), kind: 'read',
     },
+    get_live_price: {
+        desc: 'fetch the LIVE current price for a symbol from a fresh data feed (Binance WS for crypto, Stooq snapshot for stocks). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, fetchedAt }.',
+        args: '{"symbol":"AAPL"}',
+        run: async ({ symbol }) => {
+            if (!symbol) return { error: 'symbol required' };
+            const sym = String(symbol).toUpperCase().trim();
+            try {
+                const priceUSD = await getCurrentPrice(sym);
+                if (priceUSD == null || !Number.isFinite(priceUSD)) {
+                    return { error: `No live price available for ${sym}.` };
+                }
+                return {
+                    symbol: sym,
+                    priceUSD,
+                    fetchedAt: new Date().toISOString(),
+                    source: sym.match(/USDT?$|^[A-Z]{3,4}$/) ? 'binance' : 'stooq',
+                };
+            } catch (e) {
+                return { error: e.message || 'Failed to fetch live price.' };
+            }
+        },
+        kind: 'read',
+    },
     get_current_signal: {
         desc: 'full on-screen signal with all sub-modules', args: '{}',
         run: () => {
