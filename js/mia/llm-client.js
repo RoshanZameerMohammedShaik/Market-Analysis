@@ -14,7 +14,7 @@ import { loadSettings } from './settings.js';
 import * as gemini from './backends/api-gemini.js';
 import * as cf from './backends/api-cf.js';
 import { routedStream, getLastDecision } from './router.js';
-import { isCooling, markCooling, msUntilHealthy, clearCooldown } from './backends/tier-cooldown.js';
+import { isCooling, markCooling, msUntilHealthy, clearCooldown, getCooldownState } from './backends/tier-cooldown.js';
 
 export const webllm = {
     clearCache: async () => {
@@ -229,7 +229,9 @@ export function getLastRoutingDecision() {
 // in use right now, plus any tiers that are currently cooling. Reads
 // the router's last decision (which records the model picked for the
 // most recent call) and the cooldown map from tier-cooldown.js.
-import { getCooldownState } from './backends/tier-cooldown.js';
+// (getCooldownState is imported at the top of the file — having an
+// import statement here in the middle is a parse error in strict ES
+// module loading, which silently broke the whole Mia pipeline.)
 export function getModelStatus() {
     const last = getLastDecision();
     const cooling = getCooldownState();
