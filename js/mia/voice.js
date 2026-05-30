@@ -79,11 +79,16 @@ function makeSentenceChunker() {
 // browser voices verbalize emojis as their Unicode names ("smiling
 // face with smiling eyes", "thumbs up sign") which sounds robotic and
 // breaks immersion. The visible chat bubble keeps the emoji — only
-// the audio stream gets stripped. Uses the Unicode property escape
-// for "Extended Pictographic" which covers emojis + pictographs +
-// keycaps + flags + symbols. Also strips zero-width joiners and
-// variation selectors that compose emoji sequences.
-const EMOJI_REGEX = /\p{Extended_Pictographic}|‍|️|[\u{1F1E6}-\u{1F1FF}]/gu;
+// the audio stream gets stripped.
+//
+// Cast a wide net by combining several Unicode property classes:
+//   Extended_Pictographic   — most emoji (faces, hearts, animals, etc.)
+//   Emoji                   — broader set including dingbats
+//   Emoji_Modifier          — skin-tone modifiers U+1F3FB..U+1F3FF
+//   Emoji_Component         — zero-width joiner glue + keycap chars
+// Also explicitly cover regional indicators (flags) and the ZWJ /
+// variation selector codepoints that build composite emoji sequences.
+const EMOJI_REGEX = /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Component}|[\u{1F1E6}-\u{1F1FF}]|[‍️]/gu;
 
 // Strip stuff that doesn't read well aloud: markdown bold/italic, code
 // fences, list bullets, our own §§MIA_UNVERIFIED:...§§ sentinel, link

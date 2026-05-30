@@ -6,6 +6,7 @@
 
 import { getUsage, getRoutingSummary, getModelStatus } from './llm-client.js';
 import { clearCooldown } from './backends/tier-cooldown.js';
+import { GEMINI_MODELS } from './backends/gemini-models.js';
 import { loadSettings } from './settings.js';
 
 // Re-render the meter whenever a tier moves in/out of cooldown so the
@@ -105,26 +106,25 @@ export function renderUsageMeter(container) {
     const provLabel = s.backend === 'cloudflare' ? 'Cloudflare' : 'Gemini';
     const fallbackTag = routing.fallback ? ` → ${routing.fallback} (auto-fallback)` : '';
 
-    // If any Gemini tier is cooling, surface that visibly. Multiple tiers
-    // cooling at once = the rare "rate-limited everywhere" state where
-    // we'd be falling over to Cloudflare. Each badge has a tiny × that
-    // clears the cooldown manually — useful when a stale entry is
-    // blocking the user (e.g., server gave a generous retry-After but
-    // capacity actually freed up earlier).
-    // With an 8-model rotation, several can be cooling at once. Show
-    // the first 2 explicitly + a "+N more" pill so the meter doesn't
-    // wrap into a wall of yellow.
-    const MAX_BADGES_VISIBLE = 2;
-    const visible = modelStatus.cooling.slice(0, MAX_BADGES_VISIBLE);
-    const overflow = modelStatus.cooling.length - visible.length;
-    const visibleBadges = visible.map(c => {
-        const short = modelShortName(c.model);
-        return `<span class="mia-cooldown-badge" data-model="${c.model}" title="${c.model} — quota reached, auto-recovering in ${fmtCoolingTime(c.secondsRemaining)}. Click × to clear and try anyway.">${short}: cooling ${fmtCoolingTime(c.secondsRemaining)}<button class="mia-cooldown-clear" data-model="${c.model}" type="button" aria-label="Clear cooldown for ${c.model}">×</button></span>`;
-    }).join('');
-    const overflowBadge = overflow > 0
-        ? `<span class="mia-cooldown-badge mia-cooldown-overflow" title="${modelStatus.cooling.slice(MAX_BADGES_VISIBLE).map(c => c.model).join(', ')} also cooling">+${overflow} more</span>`
-        : '';
-    const coolingBadges = visibleBadges + overflowBadge;
+    // Smart-routing rule: per-model cooling badges add noise during normal
+    // operation (the chain just routes around the cooling model — that's
+    // its job, the user doesn't need to see each one). Only surface a
+    // badge when EVERY Gemini model is cooling — that's the genuinely
+    // notable state where the user is waiting on the earliest reset and
+    // we'd be falling through to Cloudflare. We compute the soonest
+    // reset across all cooling models so the countdown reflects "when
+    // will Mia be back" rather than "when does this specific model
+    // recover."
+    const totalGeminiModels = GEMINI_MODELS.length;
+    const allCooling = modelStatus.cooling.length >= totalGeminiModels;
+    let coolingBadges = '';
+    if (allCooling && modelStatus.cooling.length > 0) {
+        const soonestSecs = Math.min(...modelStatus.cooling.map(c => c.secondsRemaining));
+        // Find the model that hits soonest so the × button targets it —
+        // clearing only that one is enough to unstick the chain.
+        const soonest = modelStatus.cooling.reduce((a, b) => a.secondsRemaining < b.secondsRemaining ? a : b);
+        coolingBadges = `<span class="mia-cooldown-badge" data-model="${soonest.model}" title="All Gemini models exhausted. Earliest one resets in ${fmtCoolingTime(soonestSecs)}. Click × to force-retry now.">All models cooling — back in ${fmtCoolingTime(soonestSecs)}<button class="mia-cooldown-clear" data-model="${soonest.model}" type="button" aria-label="Force retry now">×</button></span>`;
+    }
     // Active tier indicator — which model the most recent reply came
     // from. Helps the user understand "wait, is it on Lite or Flash?"
     const activeTag = modelStatus.activeModel
