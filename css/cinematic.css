@@ -249,21 +249,20 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     display: inline-flex;
     align-items: center;
     height: 30px;
-    /* Negative margin-left tucks the mark UNDER the title's trailing
-       whitespace — the rendered glyph for 'R' has a tiny advance gap
-       that we can eat into with -2px so the candles read as touching
-       the letter, not floating away from it.
-       margin-top: -6px lifts the whole composition up so the arrow
-       arc sits closer to the cap-height of MARKET ANALYZER rather
-       than the baseline. */
-    margin-left: -2px;
+    /* Aggressive negative margin-left tucks the mark right up against
+       the 'R' in ANALYZER. Roshan kept asking to bring it closer; -4px
+       eats into the title's trailing kerning whitespace so the leftmost
+       candle visually butts the letter without overlapping the glyph.
+       margin-top: -6px lifts the composition so the arrow apex aligns
+       with the cap-height of MARKET ANALYZER. */
+    margin-left: -4px;
     margin-top: -6px;
 }
 .app-title-portfolio-svg {
-    /* 22×28 viewBox (was 28×28). Narrower box trims dead space on the
-       left so the staircase reads as flush to the title rather than
-       floating in a square. */
-    width: 24px;
+    /* 26×28 viewBox now (was 22×28) — added a 4th candle in front,
+       extending width by 4 viewBox units. The leftmost candle still
+       starts at x=0 so the SVG remains flush to the title. */
+    width: 28px;
     height: 30px;
     overflow: visible;
 }
@@ -283,10 +282,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-pf-candle.candle-3 { animation-delay: 0.64s; }
 .app-title-pf-arrow {
     stroke: var(--green);
-    /* Path length: 2*sqrt(7^2+5^2)+sqrt(7^2+6^2) ≈ 17.8. 19 covers it
-       with a small buffer so the line fully retracts on reset. */
-    stroke-dasharray: 19;
-    stroke-dashoffset: 19;
+    /* Path length: 3 diagonal segments of ~7.5 units each ≈ 23. Use 25
+       so the dash fully retracts at the start of each loop. */
+    stroke-dasharray: 25;
+    stroke-dashoffset: 25;
     animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
     filter: drop-shadow(0 0 2px rgba(var(--accent-rgb), 0.45));
 }
@@ -304,11 +303,11 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     100%      { transform: scaleY(0);    opacity: 0.4; }
 }
 @keyframes app-title-pf-arrow-draw {
-    0%        { stroke-dashoffset: 19; opacity: 0.5; }
-    25%       { stroke-dashoffset: 19; opacity: 0.5; }
+    0%        { stroke-dashoffset: 25; opacity: 0.5; }
+    25%       { stroke-dashoffset: 25; opacity: 0.5; }
     65%       { stroke-dashoffset: 0;  opacity: 1; }
     85%       { stroke-dashoffset: 0;  opacity: 1; }
-    100%      { stroke-dashoffset: 19; opacity: 0.5; }
+    100%      { stroke-dashoffset: 25; opacity: 0.5; }
 }
 @keyframes app-title-pf-arrowhead-draw {
     0%, 55%   { stroke-dashoffset: 8; opacity: 0; }

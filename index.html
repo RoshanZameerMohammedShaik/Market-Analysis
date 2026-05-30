@@ -14,22 +14,19 @@
             <div class="app-title-wrap">
                 <h1 class="app-title app-title-static">MARKET ANALYZER</h1>
                 <span class="app-title-portfolio" aria-hidden="true">
-                    <svg class="app-title-portfolio-svg" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Tight viewBox (22 wide) shifts the whole composition
-                             left so it sits flush against the 'R' in ANALYZER
-                             without empty SVG padding pushing it away. -->
-                        <!-- 3 candles: short, medium, tall. Bottoms at y=24,
-                             tops at y=15 / y=10 / y=4. 1px lower than before
-                             to make room for the arrow's gap above. -->
-                        <rect class="app-title-pf-candle candle-1" x="0"  y="15" width="4" height="9"  rx="1"/>
-                        <rect class="app-title-pf-candle candle-2" x="7"  y="10" width="4" height="14" rx="1"/>
-                        <rect class="app-title-pf-candle candle-3" x="14" y="4"  width="4" height="20" rx="1"/>
-                        <!-- Arrow stays ~3px above each candle top so the gap
-                             reads as "trend leading the price action" rather
-                             than the arrow sitting on top of the candles.
-                             Path: (2,12) above c1, (9,7) above c2, (16,1) above c3. -->
-                        <path class="app-title-pf-arrow" d="M2 12 L9 7 L16 1" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path class="app-title-pf-arrowhead" d="M12.5 1 L16 1 L16 4.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg class="app-title-portfolio-svg" viewBox="0 0 26 28" xmlns="http://www.w3.org/2000/svg">
+                        <!-- 4 candles: tiny, small, medium, tall. Bottoms all
+                             at y=24. Tops at y=19 / y=15 / y=10 / y=4 — a
+                             stair-step that the arrow above climbs cleanly. -->
+                        <rect class="app-title-pf-candle candle-1" x="0"   y="19" width="3.5" height="5"  rx="0.8"/>
+                        <rect class="app-title-pf-candle candle-2" x="6"   y="15" width="3.5" height="9"  rx="0.8"/>
+                        <rect class="app-title-pf-candle candle-3" x="12"  y="10" width="3.5" height="14" rx="0.8"/>
+                        <rect class="app-title-pf-candle candle-4" x="18"  y="4"  width="3.5" height="20" rx="0.8"/>
+                        <!-- Arrow rides ~3px above each candle top so it reads
+                             as "trend leading the price action". Climbs over
+                             all 4 candles before the up-right arrowhead. -->
+                        <path class="app-title-pf-arrow" d="M1.75 16 L7.75 12 L13.75 7 L19.75 1" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path class="app-title-pf-arrowhead" d="M16.25 1 L19.75 1 L19.75 4.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
             </div>
