@@ -9,7 +9,19 @@ export function loadHistory() {
         const raw = localStorage.getItem(KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
+        if (!Array.isArray(parsed)) return [];
+        // Defensive filter: drop any entry that's not a clean
+        // {role: 'user'|'assistant'|'system', content: <non-empty string>}.
+        // Without this, a single corrupt entry (NaN content, missing role,
+        // {} placeholder) would get sent to the LLM as context and reliably
+        // cause silent 400s on every subsequent turn.
+        return parsed.filter(m => {
+            if (!m || typeof m !== 'object') return false;
+            if (m.role !== 'user' && m.role !== 'assistant' && m.role !== 'system') return false;
+            if (typeof m.content !== 'string') return false;
+            if (!m.content.trim()) return false;
+            return true;
+        });
     } catch (_) { return []; }
 }
 
