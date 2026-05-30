@@ -50,6 +50,8 @@ export function init() {
         cycleTheme(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
     });
 
+    initSettingsMenu();
+
     document.getElementById('refresh-hotpicks').addEventListener('click', e => {
         const btn = e.currentTarget;
         btn.classList.add('spinning');
@@ -261,4 +263,42 @@ function clearAnalysis() {
     state.currentCoinId = null;
     state.currentPrice = null;
     document.getElementById('search-input').value = '';
+}
+
+// Settings dropdown — single gear button replaces the row of header
+// icons. Click toggles the menu. Click any menu item closes the menu;
+// each item's actual behavior is wired by its own module via getElementById
+// (about-btn → about.js, currency-toggle → currency-toggle.js, theme-
+// toggle → handler above), so we just need to manage open/close here.
+function initSettingsMenu() {
+    const btn = document.getElementById('settings-toggle');
+    const menu = document.getElementById('header-settings-menu');
+    if (!btn || !menu) return;
+
+    const setOpen = (open) => {
+        menu.classList.toggle('open', open);
+        menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setOpen(!menu.classList.contains('open'));
+    });
+    // Close on item click — let the item's own handler run first via
+    // bubbling, then close the menu after a microtask so the action's
+    // re-render doesn't fight the close animation.
+    menu.addEventListener('click', () => {
+        setTimeout(() => setOpen(false), 0);
+    });
+    // Click anywhere outside the menu/button → close.
+    document.addEventListener('click', (e) => {
+        if (!menu.classList.contains('open')) return;
+        if (menu.contains(e.target) || btn.contains(e.target)) return;
+        setOpen(false);
+    });
+    // Escape key closes the menu.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && menu.classList.contains('open')) setOpen(false);
+    });
 }

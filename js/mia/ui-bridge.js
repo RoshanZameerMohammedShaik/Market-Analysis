@@ -96,11 +96,19 @@ export function controlCycleTheme() {
 }
 
 export function controlTogglePL() {
-    const btn = document.getElementById('pl-toggle');
-    if (!btn) throw new Error('pl toggle missing');
-    announce({ text: 'Toggling P&L panel…', target: btn });
-    btn.click();
-    return { ok: true, open: document.body.classList.contains('pl-open') };
+    // The standalone P&L sidebar / header button was removed; the
+    // calculator now lives inside the portfolio panel. Tool calls
+    // requesting the P&L panel route there: open the portfolio panel
+    // and expand the inline calc <details> section.
+    const launcher = document.getElementById('portfolio-launcher');
+    if (!launcher) throw new Error('portfolio launcher missing');
+    announce({ text: 'Opening P&L calculator…', target: launcher });
+    if (!document.body.classList.contains('side-panel-portfolio-open')) {
+        launcher.click();
+    }
+    const section = document.getElementById('portfolio-pl-section');
+    if (section && !section.open) section.open = true;
+    return { ok: true, host: 'portfolio-panel' };
 }
 
 export function controlRefreshHotPicks() {

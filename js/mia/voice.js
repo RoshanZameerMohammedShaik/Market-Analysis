@@ -1045,6 +1045,7 @@ function registerOrbTarget(key, canvas, palette, opts = {}) {
         flow: opts.flow != null ? opts.flow : 0,         // 0..1: how much palette rotates over time
         glowAlpha: opts.glowAlpha != null ? opts.glowAlpha : 1.0, // multiplier on petal alpha
         ribbons: opts.ribbons || 0, // count of orbiting string-ribbons drawn around the core
+        ribbonWidth: opts.ribbonWidth != null ? opts.ribbonWidth : 1.0, // multiplier on the per-ribbon stroke width
     });
 }
 
@@ -1059,6 +1060,8 @@ function setupCanvas() {
     // launcher so the chat-panel orb reads iridescent instead of theme-
     // tinted single-color. Ribbon count kept low (3) and glow neutral so
     // it doesn't get noisy at the larger 240px panel size.
+    // ribbonWidth 0.5 makes the main-orb ribbons noticeably thinner than
+    // the launcher's — they read as "strings" instead of bands.
     // To revert to the original single-accent orb, pass `null` for the
     // palette and drop the opts.
     registerOrbTarget('main', canvas, SIRI_PALETTE, {
@@ -1066,6 +1069,14 @@ function setupCanvas() {
         flow: 0.6,      // gentler color rotation than launcher (which is 1.0)
         ribbons: 3,
         glowAlpha: 1.0,
+        ribbonWidth: 0.5,
+        haloMul: 1.0,
+        // Note: drawOrb uses Math.min(W, H) * 0.40 for baseR. With our
+        // canvas at 150% of the button (so ~360px when button is 240),
+        // baseR becomes ~144 — but the visible orb the user perceives
+        // is still the 240px button. That intentional gap between baseR
+        // and the visible boundary is what gives the halo room to fade
+        // out softly instead of hitting an arbitrary cap.
     });
 }
 
@@ -1124,7 +1135,7 @@ function syntheticSpeechAmplitude(now) {
 }
 
 function drawOrb(now, target) {
-    const { ctx, W, H, palette, petals, haloMul, flow, glowAlpha, ribbons } = target;
+    const { ctx, W, H, palette, petals, haloMul, flow, glowAlpha, ribbons, ribbonWidth } = target;
     if (!ctx) return;
     const cx = W / 2, cy = H / 2;
     ctx.clearRect(0, 0, W, H);
@@ -1187,9 +1198,12 @@ function drawOrb(now, target) {
             // Stroke width: ribbons are thin "strings" that thicken with
             // amp so loud speech shows fatter color streams.
             // Thinner ribbons — Roshan asked for "string-like" not "rope".
-            // Floor at 0.8px so they're still visible at small canvas
-            // sizes; amp adds a tiny ~1px swell on loud speech.
-            const lineW = Math.max(0.8, baseR * 0.022 + amp * baseR * 0.02);
+            // Per-target ribbonWidth multiplier lets the main orb go even
+            // thinner than the launcher (main: 0.5x, launcher: 1.0x).
+            // Floor at 0.6px so they're still visible at small canvas
+            // sizes; amp adds a tiny swell on loud speech.
+            const baseLineW = baseR * 0.022 + amp * baseR * 0.02;
+            const lineW = Math.max(0.6, baseLineW * (ribbonWidth || 1.0));
             const ribbonAccent = pickColor(r * 1.2 + 0.6); // offset hue from petals
             ctx.strokeStyle = `rgba(${ribbonAccent}, ${(0.55 + amp * 0.30) * glowAlpha})`;
             ctx.lineWidth = lineW;

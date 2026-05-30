@@ -4,7 +4,10 @@
 
 .mia-launcher {
     position: fixed; bottom: 22px; right: 22px;
-    z-index: 500;
+    /* Above panels (z:600) so it stays visible + clickable when the
+       Portfolio panel is open in front of it. Below modals (z:1100)
+       so trade/instantiate dialogs can still cover it cleanly. */
+    z-index: 700;
     width: 60px; height: 60px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
@@ -537,18 +540,27 @@
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
     outline: none;
+    /* IMPORTANT: don't clip overflow here. The canvas extends beyond
+       the button via negative inset so petals + halo can bleed past
+       the visible orb radius. Clipping = ring artifact. */
+    overflow: visible;
 }
 .mia-voice-orb:active { transform: scale(0.97); }
 .mia-voice-orb:focus-visible { box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.45); }
 .mia-voice-canvas {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
+    /* Canvas oversizes the button by 50% so the petals + halo have plenty
+       of room to extend past the visual orb radius. The halo cap
+       inside drawOrb is canvasHalf * 0.97 — without this oversize, that
+       cap kicks in near the visible orb radius, painting a soft-but-
+       distinct edge exactly where the OLD hard ring used to be. With a
+       larger canvas, the halo fades naturally before reaching its cap. */
+    position: absolute;
+    inset: -25%;
+    width: 150%; height: 150%;
     display: block;
+    pointer-events: none;
     /* No border-radius clip: the halo and petal layers are designed to
-       bleed past the orb's nominal radius. Clipping to a circle creates
-       a visible hard edge where the halo cuts off, which reads as an
-       unwanted outer ring. Letting the glow extend naturally past the
-       canvas square keeps the orb soft. */
+       bleed past the orb's nominal radius. */
 }
 .mia-voice-orb-mark {
     position: absolute; left: 50%; top: 50%;

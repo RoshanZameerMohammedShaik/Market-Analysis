@@ -75,3 +75,61 @@ function recomputeLayout() {
 export function getOpenOrder() {
     return [...openOrder];
 }
+
+// Selectors for elements that should NOT trigger click-outside close.
+// Any registered panel can opt extra selectors in via opts.outsideExempt
+// passed to registerSidePanel. We always exempt:
+//   - the panels themselves (their .getElement())
+//   - any modal backdrops the panels open (Trade modal, Instantiate
+//     modal, etc. — clicking their content shouldn't close the panel
+//     behind them)
+//   - launcher buttons (clicking the launcher to toggle is its own
+//     handler; we'd close-then-toggle-open which is jittery)
+const ALWAYS_EXEMPT_SELECTORS = [
+    '#mia-launcher',
+    '#portfolio-launcher',
+    '.portfolio-modal-backdrop',
+    '.portfolio-modal',
+    '.search-results',
+    '.mia-voice-overlay',
+    '.mia-launcher-caption',
+    '.mia-launcher-glass',
+];
+
+// Click-outside-to-close. Listens at the document level (capture phase
+// so we beat any panel-internal handlers that might preventDefault).
+// When ANY panel is open and the click target is outside every open
+// panel + every exempt selector, close all open panels.
+function isClickOutsideAllPanels(target) {
+    if (!target || target.nodeType !== 1) return false;
+    // If click is inside any registered panel's element, NOT outside.
+    for (const id of openOrder) {
+        const cfg = PANELS.get(id);
+        const el = cfg?.getElement?.();
+        if (el && el.contains(target)) return false;
+    }
+    // If click matches any always-exempt selector, NOT outside.
+    for (const sel of ALWAYS_EXEMPT_SELECTORS) {
+        if (target.closest(sel)) return false;
+    }
+    return true;
+}
+
+document.addEventListener('mousedown', (e) => {
+    if (openOrder.length === 0) return;
+    if (!isClickOutsideAllPanels(e.target)) return;
+    // Close all open panels — same as ✕ on each, in reverse order so
+    // the layout recomputes one panel at a time and we don't fight
+    // the transitions.
+    const toClose = [...openOrder].reverse();
+    for (const id of toClose) closeSidePanel(id);
+}, true);
+// Same handler for touchstart so mobile gestures close too. We use
+// touchstart not touchend so the close happens immediately on tap-down,
+// matching the responsiveness of the chat-app pattern users expect.
+document.addEventListener('touchstart', (e) => {
+    if (openOrder.length === 0) return;
+    if (!isClickOutsideAllPanels(e.target)) return;
+    const toClose = [...openOrder].reverse();
+    for (const id of toClose) closeSidePanel(id);
+}, { capture: true, passive: true });
