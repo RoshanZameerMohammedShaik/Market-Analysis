@@ -66,7 +66,7 @@ export function showChartPlaceholder() {
         <div class="chart-placeholder">
             <div class="chart-ph-glow"></div>
             <div class="chart-ph-icon chart-ph-candles">
-                ${candleLoaderHTML(7)}
+                ${candleLoaderHTML(4)}
             </div>
             <div class="chart-ph-title">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>

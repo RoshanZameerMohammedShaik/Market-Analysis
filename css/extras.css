@@ -296,7 +296,7 @@ html[data-dev="1"] body { padding-top: 22px; }
     z-index: 1;
 }
 .chart-ph-candles .candle-loader {
-    height: 64px;
+    height: 56px;
     gap: 6px;
     margin: 0;
 }
@@ -310,13 +310,20 @@ html[data-dev="1"] body { padding-top: 22px; }
 .chart-ph-candles .candle-loader .cl-wick {
     display: none;
 }
+/* Brighter, more saturated colors than the muted theme green/red so
+   the candles read vividly on the empty-chart placeholder. The
+   skeleton-loader keeps the calmer theme tones since it's an
+   in-panel widget that shouldn't outshine its context. */
+.chart-ph-candles .candle-loader .cl-bar.up   { color: #22dd6b; }
+.chart-ph-candles .candle-loader .cl-bar.down { color: #ff4d6d; }
 .chart-ph-candles .candle-loader .cl-body {
     border-radius: 2px;
     /* Slower, more graceful loop than the in-panel loader (1.6s).
        This is decorative ambience on a quiet placeholder, not a
        "we're working on something" indicator that needs urgency. */
     animation-duration: 2.4s;
-    filter: drop-shadow(0 0 3px currentColor);
+    /* Stronger glow per body to amplify the bright colors. */
+    filter: drop-shadow(0 0 6px currentColor);
 }
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
