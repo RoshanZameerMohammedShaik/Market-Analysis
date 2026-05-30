@@ -437,9 +437,27 @@ async function doSend() {
     let acc = '';
     const toolResults = [];
 
+    // Hard safety net: if a turn sits at "thinking…" with zero progress
+    // for 30 seconds, abort it. Without this, a hung Gemini SSE stream
+    // (filter-trip silent return, dropped connection that keeps the
+    // reader pending, etc.) leaves the user staring at the orb forever
+    // with no error and no recovery. The abort fires through the same
+    // AbortController as the manual stop button, so the catch in this
+    // function picks it up cleanly and saves a partial-or-empty reply.
+    const HUNG_TURN_MS = 30_000;
+    let lastProgressAt = Date.now();
+    const hungTurnTimer = setInterval(() => {
+        if (Date.now() - lastProgressAt > HUNG_TURN_MS) {
+            console.warn('[mia] Turn hung for >30s with no progress — aborting.');
+            try { activeAbort?.abort(); } catch (_) {}
+            clearInterval(hungTurnTimer);
+        }
+    }, 5_000);
+
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
+        for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => { lastProgressAt = Date.now(); updateProgress(m); } })) {
+            lastProgressAt = Date.now(); // any event resets the watchdog
             if (ev.type === 'tool') {
                 toolResults.push(ev);
                 showToolBadge(bubbleId, ev.name, ev.kind);
@@ -522,6 +540,7 @@ async function doSend() {
         saveHistory(updated);
         renderThread(updated);
     } finally {
+        clearInterval(hungTurnTimer);
         setSendState('idle');
         activeAbort = null;
         renderUsageMeter(document.getElementById('mia-usage-wrap'));
