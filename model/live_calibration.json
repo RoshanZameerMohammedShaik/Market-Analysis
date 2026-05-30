@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-29T23:22:20Z",
+  "generatedAt": "2026-05-30T23:07:45Z",
   "byHorizon": {
     "1": {
       "SELL": {
@@ -70,9 +70,9 @@
     "5": {
       "SELL": {
         "50-60": {
-          "n": 45,
-          "predicted": 52.5,
-          "actual": 66.7
+          "n": 60,
+          "predicted": 52.6,
+          "actual": 65.0
         },
         "60-70": {
           "n": 2,
@@ -82,9 +82,9 @@
       },
       "NEUTRAL": {
         "40-50": {
-          "n": 76,
-          "predicted": 45.2,
-          "actual": 10.5
+          "n": 94,
+          "predicted": 45.3,
+          "actual": 13.8
         }
       },
       "BUY": {
@@ -94,9 +94,9 @@
           "actual": 50.0
         },
         "50-60": {
-          "n": 24,
-          "predicted": 53.2,
-          "actual": 58.3
+          "n": 34,
+          "predicted": 52.9,
+          "actual": 58.8
         }
       }
     }
@@ -172,14 +172,14 @@
     },
     "NSE": {
       "50-60": {
-        "n": 269,
+        "n": 294,
         "predicted": 52.7,
-        "actual": 46.1
+        "actual": 47.3
       },
       "40-50": {
-        "n": 184,
+        "n": 202,
         "predicted": 45.2,
-        "actual": 60.3
+        "actual": 57.4
       },
       "60-70": {
         "n": 11,
@@ -229,6 +229,6 @@
       }
     }
   },
-  "totalRowsConsidered": 3021,
-  "totalResolvedHorizons": 3471
+  "totalRowsConsidered": 3051,
+  "totalResolvedHorizons": 3514
 }
