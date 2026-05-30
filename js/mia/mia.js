@@ -437,27 +437,9 @@ async function doSend() {
     let acc = '';
     const toolResults = [];
 
-    // Hard safety net: if a turn sits at "thinking…" with zero progress
-    // for 30 seconds, abort it. Without this, a hung Gemini SSE stream
-    // (filter-trip silent return, dropped connection that keeps the
-    // reader pending, etc.) leaves the user staring at the orb forever
-    // with no error and no recovery. The abort fires through the same
-    // AbortController as the manual stop button, so the catch in this
-    // function picks it up cleanly and saves a partial-or-empty reply.
-    const HUNG_TURN_MS = 30_000;
-    let lastProgressAt = Date.now();
-    const hungTurnTimer = setInterval(() => {
-        if (Date.now() - lastProgressAt > HUNG_TURN_MS) {
-            console.warn('[mia] Turn hung for >30s with no progress — aborting.');
-            try { activeAbort?.abort(); } catch (_) {}
-            clearInterval(hungTurnTimer);
-        }
-    }, 5_000);
-
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
-        for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => { lastProgressAt = Date.now(); updateProgress(m); } })) {
-            lastProgressAt = Date.now(); // any event resets the watchdog
+        for await (const ev of runTurn({ system, messages: history, signal: activeAbort.signal, onProgress: m => updateProgress(m) })) {
             if (ev.type === 'tool') {
                 toolResults.push(ev);
                 showToolBadge(bubbleId, ev.name, ev.kind);
@@ -470,6 +452,10 @@ async function doSend() {
             renderer.push(delta);
         }
         await renderer.waitForDrain();
+        // Note: the `lastProgressAt` watchdog from earlier was reverted
+        // because it was firing on transient pauses and abort-classifying
+        // legitimate Gemini calls. If responses hang again we'll diagnose
+        // via console logs first, not blanket-kill turns.
 
         const cleaned = scrubToolNames(stripAgentNoise(acc).trim());
         const ctxText = buildContextBlock(currentSignal);
@@ -522,7 +508,14 @@ async function doSend() {
             // they need to actually fix.
             let userMsg;
             if (aborted) {
-                userMsg = '_Stopped by you._';
+                // 'aborted' here means an AbortController fired, which can
+                // be: user clicked stop, panel closed mid-turn, watchdog
+                // killed a hang, or some race condition we haven't traced
+                // yet. Don't accuse the user — say something neutral. Log
+                // the actual error to the console so we can see WHICH
+                // abort path fired.
+                console.warn('[mia] Turn aborted:', e?.message || '(no message)', e);
+                userMsg = '_Stopped — try sending again._';
             } else if (e?.status === 401 || e?.status === 403 || /API key/i.test(e?.message || '')) {
                 userMsg = `Sorry — ${e.message}`;
             } else if (e?.status === 429 || e?.tierCooling) {
@@ -540,7 +533,6 @@ async function doSend() {
         saveHistory(updated);
         renderThread(updated);
     } finally {
-        clearInterval(hungTurnTimer);
         setSendState('idle');
         activeAbort = null;
         renderUsageMeter(document.getElementById('mia-usage-wrap'));
