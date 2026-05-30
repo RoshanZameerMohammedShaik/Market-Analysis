@@ -439,14 +439,14 @@ function ensureLauncherCaption() {
     document.body.appendChild(el);
 }
 
-function setLauncherCaption(text, role) {
+function setLauncherCaption(text, role, opts = {}) {
     ensureLauncherCaption();
     const el = document.getElementById('mia-launcher-caption');
     const glass = document.getElementById('mia-launcher-glass');
     if (!el) return;
     const trimmed = String(text || '').trim();
     if (!trimmed) {
-        el.classList.remove('visible');
+        el.classList.remove('visible', 'shimmer');
         glass?.classList.remove('visible');
         el.dataset.role = 'idle';
         return;
@@ -454,6 +454,7 @@ function setLauncherCaption(text, role) {
     el.dataset.role = role || 'idle';
     el.textContent = trimmed;
     el.classList.add('visible');
+    el.classList.toggle('shimmer', !!opts.shimmer);
     glass?.classList.add('visible');
     scheduleLauncherCaptionFade();
 }
@@ -506,15 +507,18 @@ function setOrbState(s) {
         launcher.dataset.orbState = s;
     }
 }
-function setStatus(msg) {
-    // Keep the "Mia" identity label fixed; the orb's state communicates
-    // listening/thinking/speaking visually. We only swap the label out
-    // for short error states ("Mic error: …") so we don't need a
-    // separate UI region for them.
+function setStatus(msg, opts = {}) {
+    // Default behavior keeps the "Mia" identity label fixed; the orb's
+    // state communicates listening/thinking/speaking visually. We swap
+    // the label out for: (a) short error states, (b) tool-action lines
+    // ("Checking the news…") that the caller marks with opts.shimmer so
+    // the user sees what's happening during otherwise-silent waits.
     const el = document.getElementById('mia-voice-status');
     if (!el) return;
     const isError = /error|couldn|didn|retry/i.test(msg);
-    el.textContent = isError ? msg : 'Mia';
+    const showLiteral = isError || !!opts.shimmer;
+    el.textContent = showLiteral ? msg : 'Mia';
+    el.classList.toggle('shimmer', !!opts.shimmer && !isError);
 }
 function setTranscript(msg) {
     const el = document.getElementById('mia-voice-transcript');
@@ -763,12 +767,14 @@ async function handleUserUtterance(text) {
                 // path's tool badges) gives a user-friendly verb per tool
                 // name — never the raw tool identifier. Updates both the
                 // in-panel status text AND the floating launcher caption
-                // so minimized users see it too.
+                // so minimized users see it too. Shimmer class is added
+                // so the status text reads as "in-progress" with a
+                // ChatGPT-style left-to-right light sweep.
                 pulseOrb();
                 const verb = actionVerbFor(ev.name);
                 const cap = verb.charAt(0).toUpperCase() + verb.slice(1) + '…';
-                setStatus(cap);
-                if (session.minimized) setLauncherCaption(cap, 'mia');
+                setStatus(cap, { shimmer: true });
+                if (session.minimized) setLauncherCaption(cap, 'mia', { shimmer: true });
                 continue;
             }
             if (ev.type !== 'delta' || !ev.text) continue;

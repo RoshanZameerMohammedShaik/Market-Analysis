@@ -598,6 +598,34 @@
     text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     min-height: 1.4em;
 }
+/* Shimmer: ChatGPT-style left-to-right light sweep over the text while
+   a tool is running. Implemented as a moving linear-gradient clipped to
+   the text — so only the glyphs catch the highlight, no rectangle bg.
+   Drops the text-shadow during shimmer so the gradient reads cleanly. */
+.shimmer {
+    background-image: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.55) 0%,
+        rgba(255, 255, 255, 0.55) 35%,
+        rgba(255, 255, 255, 1.0)  50%,
+        rgba(255, 255, 255, 0.55) 65%,
+        rgba(255, 255, 255, 0.55) 100%
+    );
+    background-size: 220% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    text-shadow: none !important;
+    animation: ma-shimmer-sweep 1.6s linear infinite;
+}
+@keyframes ma-shimmer-sweep {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .shimmer { animation: none; background-position: 50% 0; }
+}
 /* Live transcript region. Scroll-into-view keeps the latest sentence
    in sight; older ones stay above for context. */
 .mia-voice-transcript {
