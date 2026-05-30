@@ -1099,19 +1099,40 @@ function startListening() {
     };
     rec.onerror = (e) => {
         console.warn('[voice] recognition error:', e.error);
+        // 'no-speech' = the user just paused. We DON'T want to drop to
+        // idle and force a tap to resume — voice mode should feel like
+        // an open mic. The onend handler re-arms automatically. Same
+        // story for 'aborted' (we cancelled it ourselves).
         if (e.error === 'no-speech' || e.error === 'aborted') return;
+        // 'audio-capture' / 'not-allowed' / 'network' / etc. are real
+        // problems the user needs to know about; halt and surface.
         setStatus(`Mic error: ${e.error}. Tap to retry.`);
         setOrbState('idle');
     };
     rec.onend = () => {
         // Some browsers fire onend without ever firing a final result if the
-        // user said nothing. If we still have a pending finalTranscript, run
-        // it. Otherwise drop back to idle and let the user re-tap.
+        // user said nothing. If we have text, run the turn. If not,
+        // auto-rearm so voice mode behaves like an always-on mic — silent
+        // moments shouldn't kick the user back to a tap-to-resume state.
         if (session.state !== 'listening') return;
         const text = (session.finalTranscript + ' ' + session.interimTranscript).trim();
-        if (text) handleUserUtterance(text);
-        else {
-            setStatus('Didn\'t catch that. Tap to try again.');
+        if (text) {
+            handleUserUtterance(text);
+            return;
+        }
+        // No speech this round — restart listening transparently. autoLoop
+        // controls whether voice mode keeps itself alive (true while the
+        // overlay is open and the user hasn't closed it). Status stays as
+        // "Listening…" so the user sees no break in the conversation flow.
+        if (session.autoLoop && session.open) {
+            // setTimeout(0) puts the new SR.start() in the next tick, so
+            // the previous instance has fully torn down before we spin up
+            // a fresh one — Chrome throws InvalidStateError if you call
+            // start() on a recognizer that isn't quite finished ending.
+            setTimeout(() => {
+                if (session.open && session.state === 'listening') startListening();
+            }, 0);
+        } else {
             setOrbState('idle');
         }
     };

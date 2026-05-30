@@ -249,18 +249,25 @@ export async function openLiveSession(opts = {}) {
                 // Native tool calling. Pass FunctionDeclarations and the
                 // model picks/executes tools mid-conversation. We dispatch
                 // toolCall messages to runTool() in the message handler.
-                // toolConfig.functionCallingConfig.mode=AUTO is the default
-                // but we set it explicitly so a server-side default change
-                // can't silently disable Mia's tool use.
+                //
+                // No toolConfig.functionCallingConfig at the setup level —
+                // we tried setting mode='AUTO' explicitly to insure against
+                // a server-side default change, but Live's setup proto
+                // rejects the field with 1007 ("Inconsistent data") even
+                // though AUTO is the documented default elsewhere. Plain
+                // `tools` alone works; the model defaults to AUTO without
+                // needing the explicit hint.
                 if (functionDeclarations && functionDeclarations.length) {
                     setupBody.tools = [{ functionDeclarations }];
-                    setupBody.toolConfig = {
-                        functionCallingConfig: { mode: 'AUTO' },
-                    };
                 }
                 const setupMsg = { setup: setupBody };
-                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)', 'tools:', functionDeclarations?.length || 0);
-                ws.send(JSON.stringify(setupMsg));
+                const setupJson = JSON.stringify(setupMsg);
+                // Log payload size so a future 1007 (which is usually a
+                // schema or size violation) shows up alongside the model
+                // identifier; lets us narrow "what changed" without a
+                // network capture.
+                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)', 'tools:', functionDeclarations?.length || 0, 'setupBytes:', setupJson.length);
+                ws.send(setupJson);
             };
 
             const setupTimeout = setTimeout(() => {
