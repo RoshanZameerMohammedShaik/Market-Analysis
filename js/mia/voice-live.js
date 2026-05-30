@@ -220,7 +220,13 @@ export async function openLiveSession(opts = {}) {
                 // hard data lookup. Tools and prompt rules ride the
                 // text path, not the voice path.
                 const compactPrompt = compactPromptForLive(systemPrompt);
-                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length);
+                // Use the bare-minimum payload that Google's working
+                // get-started example uses. Adding speechConfig was
+                // also a 1007 suspect — the preview models accept it
+                // documented but trip on it for at least some accounts.
+                // If the connection succeeds with this minimal payload,
+                // we'll send a separate clientContent message later to
+                // request a specific voice (different code path).
                 const setupMsg = {
                     config: {
                         model: `models/${modelId}`,
@@ -228,16 +234,7 @@ export async function openLiveSession(opts = {}) {
                         systemInstruction: { parts: [{ text: compactPrompt }] },
                     },
                 };
-                // Voice selection — speechConfig is documented but some
-                // preview models reject it with 1007. We add it ONLY if
-                // the caller explicitly named a voice. If the model 1007s
-                // on this, the chain falls through and the next model
-                // gets tried (some support speechConfig, some don't).
-                if (voiceName) {
-                    setupMsg.config.speechConfig = {
-                        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
-                    };
-                }
+                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)');
                 ws.send(JSON.stringify(setupMsg));
             };
 
