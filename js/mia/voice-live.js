@@ -31,10 +31,13 @@ const LIVE_MODELS = {
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
-// Default voice — Aoede is a warm female voice. Other prebuilt
-// options Google ships: Puck, Charon, Kore, Fenrir, Leda, Orus, Zephyr.
-// User can override via opts.voiceName when creating a session.
-const DEFAULT_VOICE = 'Aoede';
+// Default voice — Leda. Roshan auditioned the Gemini Live voice
+// catalog in AI Studio and picked her: female, friendly, slightly
+// higher pitch — fits Mia's "warm but professional analyst" persona
+// better than the lower-key Aoede default.
+// Other prebuilt voices Google ships: Aoede, Puck, Charon, Kore,
+// Fenrir, Orus, Zephyr.
+const DEFAULT_VOICE = 'Leda';
 
 // PCM-encoder AudioWorklet definition. We inject this as a Blob URL
 // so we don't need a separate bundled file shipped from disk. The

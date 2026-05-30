@@ -615,10 +615,9 @@ function renderSettings() {
             <div class="mia-setting-row"><span>Routing</span><span class="mia-setting-val">${fbHint}</span></div>
             <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Auto-fallback</span><span class="mia-setting-val">${s.fallbackEnabled ? 'on' : 'off'}</span></div>
-            <div class="mia-setting-row"><span>Voice mode</span><span class="mia-setting-val">${s.voiceLive ? 'Premium (Gemini Live)' : 'Standard (browser)'}</span></div>
+            <div class="mia-setting-row"><span>Voice</span><span class="mia-setting-val">${s.voiceLive ? 'Gemini Live (auto-fallback to browser TTS)' : 'Browser TTS only'}</span></div>
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
             <button class="mia-save-btn" id="mia-toggle-fallback">${s.fallbackEnabled ? 'Disable' : 'Enable'} auto-fallback</button>
-            <button class="mia-save-btn" id="mia-toggle-voice-live">${s.voiceLive ? 'Disable' : 'Enable'} premium voice (Gemini Live)</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
@@ -627,7 +626,6 @@ function renderSettings() {
     document.getElementById('mia-back').addEventListener('click', renderChat);
     document.getElementById('mia-resetup').addEventListener('click', () => { clearSettings(); renderRoot(); });
     document.getElementById('mia-toggle-fallback').addEventListener('click', () => { saveSettings({ fallbackEnabled: !s.fallbackEnabled }); renderSettings(); });
-    document.getElementById('mia-toggle-voice-live').addEventListener('click', () => { saveSettings({ voiceLive: !s.voiceLive }); renderSettings(); });
     document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ geminiKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });
     document.getElementById('mia-clear-models').addEventListener('click', async () => { try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); } });
 }

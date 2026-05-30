@@ -16,11 +16,14 @@ const DEFAULT = {
     cfKey: '',
     cfAccountId: '',
     thinkingMode: false,
-    // Voice mode: when true, use Gemini Live API (native neural voice,
-    // unlimited free RPD) instead of Web Speech (browser TTS/STT).
-    // Off by default because Live needs a stable WebSocket and a slightly
-    // beefier mic pipeline; Web Speech is the safer "just works" baseline.
-    voiceLive: false,
+    // Voice mode: Gemini Live API (native neural voice) is the primary
+    // voice path. Web Speech is the auto-fallback if Live fails (no
+    // mic permission, model unavailable, reconnect cap exceeded). Live
+    // has unlimited RPD/RPM on free tier so there's no quota reason
+    // to default-off — Roshan flipped this to true once we confirmed
+    // the dashboard limits. Setting still exists in storage so a future
+    // power-user "force browser TTS" toggle has somewhere to land.
+    voiceLive: true,
 };
 
 function migrateLegacy() {
@@ -51,16 +54,40 @@ function migrateLegacy() {
 
 let migrated = false;
 
+// One-time bump applied to existing settings stores. Each numbered step
+// runs at most once per browser; the highest-applied number is recorded
+// so we don't replay them. Used to retroactively change defaults after
+// the schema is already widely-deployed.
+const CURRENT_MIGRATION_STEP = 1;
+function applyOneTimeMigrations(parsed) {
+    const applied = Number(parsed._migrationStep || 0);
+    let changed = false;
+    // Step 1: flip voiceLive default true. Earlier ship had it false;
+    // once we confirmed Live API has unlimited free quota we made it
+    // primary. Existing users whose stored value is false-by-default
+    // (not because they explicitly disabled it) get the upgrade.
+    if (applied < 1) {
+        if (parsed.voiceLive === false) parsed.voiceLive = true;
+        changed = true;
+    }
+    if (changed) {
+        parsed._migrationStep = CURRENT_MIGRATION_STEP;
+        try { localStorage.setItem(KEY, JSON.stringify(parsed)); } catch (_) {}
+    }
+    return parsed;
+}
+
 export function loadSettings() {
     if (!migrated) { try { migrateLegacy(); } catch (_) {} migrated = true; }
     try {
         const raw = localStorage.getItem(KEY);
         if (!raw) return { ...DEFAULT };
-        const parsed = JSON.parse(raw);
+        let parsed = JSON.parse(raw);
         // Defensive: never let deprecated backends leak through.
         if (parsed.backend === 'webllm' || parsed.backend === 'groq') {
             parsed.backend = parsed.geminiKey ? 'gemini' : (parsed.cfKey ? 'cloudflare' : '');
         }
+        parsed = applyOneTimeMigrations(parsed);
         return { ...DEFAULT, ...parsed };
     } catch (_) {
         return { ...DEFAULT };
