@@ -130,7 +130,7 @@ function toStooqSymbol(symbol) {
     return `${s}.us`; // default: treat as US ticker
 }
 
-async function fetchStockPrice(symbol) {
+async function fetchStockPriceFromStooq(symbol) {
     const stooqSym = toStooqSymbol(symbol);
     // Stooq's CSV "last quote" endpoint. f=sd2t2ohlcv → symbol, date, time,
     // open, high, low, close, volume. We only need 'close' (which is the
@@ -139,19 +139,48 @@ async function fetchStockPrice(symbol) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    // CSV format: header line, then one data line.
-    // Symbol,Date,Time,Open,High,Low,Close,Volume
-    // aapl.us,2026-05-29,16:00:00,213.50,215.20,212.80,214.05,40123456
     const lines = text.trim().split('\n');
     if (lines.length < 2) throw new Error('empty stooq response');
     const cols = lines[1].split(',');
     if (cols.length < 7) throw new Error('unexpected stooq response shape');
     const close = parseFloat(cols[6]);
     if (!Number.isFinite(close) || close <= 0) {
-        // Stooq returns 'N/D' literally for symbols it doesn't carry.
+        // Stooq returns 'N/D' literally for symbols it doesn't carry —
+        // surfaces here as NaN. Throw so the caller can try Yahoo.
         throw new Error(`stooq has no data for ${symbol}`);
     }
     return close;
+}
+
+async function fetchStockPriceFromYahoo(symbol) {
+    // Yahoo's v7/finance/quote endpoint — lightweight last-trade lookup.
+    // Same one hotpicks uses for batch quotes. Goes through fetchWithProxy
+    // because Yahoo's chart/quote endpoints don't send CORS headers.
+    // Lazy-import to keep the portfolio module dependency-light at boot.
+    const { fetchWithProxy } = await import('../data.js');
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbol}`;
+    const res = await fetchWithProxy(url);
+    const json = await res.json();
+    const row = json?.quoteResponse?.result?.[0];
+    const price = row?.regularMarketPrice;
+    if (!Number.isFinite(price) || price <= 0) {
+        throw new Error(`yahoo has no live price for ${symbol}`);
+    }
+    return price;
+}
+
+async function fetchStockPrice(symbol) {
+    // Stooq first (fast, CORS-friendly, no proxy hop). Falls through to
+    // Yahoo when Stooq has no data — Yahoo covers more low-volume
+    // tickers and most international exchanges, but is slower since it
+    // routes through the worker / CORS proxy chain. Throwing only after
+    // BOTH fail means Mia / portfolio panel only sees an error when no
+    // free source has the price.
+    try {
+        return await fetchStockPriceFromStooq(symbol);
+    } catch (_) {
+        return await fetchStockPriceFromYahoo(symbol);
+    }
 }
 
 function subscribeStock(symbol, cb) {
