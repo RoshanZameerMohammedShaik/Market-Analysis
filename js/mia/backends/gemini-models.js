@@ -20,32 +20,53 @@
 // fully exhausted. That preserves quality-vs-speed routing while
 // maximizing total free quota across both tiers.
 
-// Each entry below is a real, currently-available Gemini text model on
-// the free-tier API as of mid-2026. We aggressively include the
-// 'latest' aliases (gemini-flash-latest, gemini-pro-latest) because
-// Google rotates generation IDs every ~6 months and the aliases
-// always resolve to the current stable. Specific generation IDs are
-// kept too — they have INDEPENDENT quotas from the alias, so calling
-// both effectively doubles per-day capacity.
+// Each entry below is a real, currently-available Gemini-or-Gemma model
+// on the free-tier API as of mid-2026. Sourced from Roshan's actual
+// AI Studio rate-limit dashboard (so quotas reflect his exact tier).
 //
-// Models that 404 (Google retired) get auto-marked cooling for 1h by
-// the chain walker and skipped. So this list can include older IDs
-// safely; they'll just get pruned at runtime if they're gone.
+// Big wins discovered from the dashboard:
+//   - gemini-3.1-flash-lite: 500 RPD free (much more than 2.5)
+//   - gemma-4-26b / gemma-4-31b: 1500 RPD EACH (open-weight Google
+//     models hosted via the same Gemini API; quality close to
+//     Gemini 3 Flash per arena.ai benchmarks)
+//   - 'latest' aliases auto-target current generation
+//
+// We aggressively include all working IDs because each model has its
+// OWN independent daily quota — even though the API key is shared,
+// Google tracks RPD per model. So one key can effectively burn
+// ~3000+ RPD/day across the rotation before any single model
+// exhausts. Models that 404 get auto-marked cooling for 1h by the
+// chain walker and quietly skipped.
 export const GEMINI_MODELS = [
     // ── Newest / highest-quality reasoning ────────────────────────
-    // gemini-pro-latest auto-points to the current best Pro tier.
     { id: 'gemini-pro-latest',               tier: 'reasoning', label: 'Gemini Pro (latest)' },
+    { id: 'gemini-3.5-flash',                tier: 'reasoning', label: 'Gemini 3.5 Flash' },
+    { id: 'gemini-3-flash',                  tier: 'reasoning', label: 'Gemini 3 Flash' },
     { id: 'gemini-2.5-pro',                  tier: 'reasoning', label: 'Gemini 2.5 Pro' },
     { id: 'gemini-2.5-flash',                tier: 'reasoning', label: 'Gemini 2.5 Flash' },
     { id: 'gemini-2.0-flash',                tier: 'reasoning', label: 'Gemini 2.0 Flash' },
 
     // ── Fast / lightweight (preferred for prose / quick chat) ─────
-    // gemini-flash-latest = always-current Flash, ~250-1500 RPD free.
     { id: 'gemini-flash-latest',             tier: 'fast',      label: 'Gemini Flash (latest)' },
+    { id: 'gemini-3.1-flash-lite',           tier: 'fast',      label: 'Gemini 3.1 Flash-Lite' }, // 500 RPD!
     { id: 'gemini-2.5-flash-lite',           tier: 'fast',      label: 'Gemini 2.5 Flash-Lite' },
     { id: 'gemini-2.0-flash-lite',           tier: 'fast',      label: 'Gemini 2.0 Flash-Lite' },
-    { id: 'gemini-1.5-flash-8b',             tier: 'fast',      label: 'Gemini 1.5 Flash-8B' },
     { id: 'gemini-flash-lite-latest',        tier: 'fast',      label: 'Gemini Flash-Lite (latest)' },
+    { id: 'gemini-1.5-flash-8b',             tier: 'fast',      label: 'Gemini 1.5 Flash-8B' },
+
+    // ── Gemma open-weight models — 1500 RPD EACH ─────────────────
+    // Tier them as 'fast' since they're sized like Flash-class. Quality
+    // is roughly Gemini 3 Flash per arena.ai. The 1500 RPD ceiling is
+    // ~50× larger than 2.5 Flash, so these effectively become the
+    // primary fallback when Gemini's tighter buckets exhaust.
+    // (Dashboard labels: 'Gemma 4 26B' / 'Gemma 4 31B'. Actual API IDs
+    //  may use the -it instruction-tuned suffix or the 'latest' alias —
+    //  unknown which form is currently live, so we try both forms and
+    //  let 404 auto-skip the dead one.)
+    { id: 'gemma-4-26b-it',                  tier: 'fast',      label: 'Gemma 4 26B' },
+    { id: 'gemma-4-31b-it',                  tier: 'fast',      label: 'Gemma 4 31B' },
+    { id: 'gemma-3-27b-it',                  tier: 'fast',      label: 'Gemma 3 27B' },
+    { id: 'gemma-2-27b-it',                  tier: 'fast',      label: 'Gemma 2 27B' },
 ];
 
 // Convenience: short, user-friendly name for the model status pill.
