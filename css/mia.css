@@ -8,6 +8,10 @@
        Portfolio panel is open in front of it. Below modals (z:1100)
        so trade/instantiate dialogs can still cover it cleanly. */
     z-index: 700;
+    /* Slight fade transition for the auto-hide on Mia-panel-open. */
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+                background 0.4s ease, box-shadow 0.4s ease,
+                opacity 0.22s ease;
     width: 60px; height: 60px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
@@ -18,7 +22,16 @@
     box-shadow: 0 12px 36px var(--brand-grad-shadow), 0 0 0 0 var(--brand-grad-shadow);
     overflow: visible;
     animation: mia-launcher-breath 3.6s ease-in-out infinite, mia-launcher-pulse 4s ease-in-out infinite;
-    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s ease, box-shadow 0.4s ease;
+}
+/* Hide the launcher while Mia's own panel is open — there's no point
+   in clicking the launcher to "open Mia" when she's already open in
+   front of you, and the launcher visually competes with the panel
+   header. Stays visible when only Portfolio is open (so user can
+   still tap to launch Mia from there). */
+body.side-panel-mia-open .mia-launcher {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.85);
 }
 .mia-launcher::before {
     content: '';
