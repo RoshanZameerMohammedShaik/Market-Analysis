@@ -458,7 +458,18 @@ async function doSend() {
         const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
-        updated.push({ role: 'assistant', content: flagged || '(empty reply)' });
+        // If the LLM returned literally nothing (empty stream — Gemini
+        // sometimes does this on filter trips, weird quota states, or
+        // truncated responses), surface a real "try again" instead of
+        // saving a "(empty reply)" placeholder that poisons subsequent
+        // turns. Logged in the console so we can see the empty-stream
+        // case from F12 → Console.
+        if (!flagged) {
+            console.warn('[mia] LLM returned an empty reply for user message:', lastUserMsg);
+            updated.push({ role: 'assistant', content: 'Hmm, I drew a blank on that one — could you ask again?' });
+        } else {
+            updated.push({ role: 'assistant', content: flagged });
+        }
         saveHistory(updated);
         renderThread(updated);
     } catch (e) {

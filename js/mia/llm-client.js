@@ -80,57 +80,42 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
             return true;
         });
 
-        // Pre-flight: if EVERY tier in order is cooling, the cooldown map
-        // might be stale (server gave us a long retry-After hint that's
-        // actually expired, or quota was for a different model family
-        // and got mis-attributed). Pick the tier with the LEAST time
-        // remaining and try it as a probe — if it succeeds, clear the
-        // stale entry; if it 429s, the timestamp gets updated to a
-        // fresh value. This prevents a stale cooldown from locking the
-        // user out indefinitely with no way to recover except waiting.
+        // Stale cooldown rescue: if every tier appears cooling, clear
+        // them all and try fresh. The cooldown map can get stuck when:
+        //   - Google returns a long retry-After hint (e.g. 30 min) that
+        //     overstates the real cooldown.
+        //   - A 429 was attributed to one tier but actually came from
+        //     a different quota bucket.
+        //   - User's quota actually reset but our timestamps didn't tick.
+        // Better to make a real call and learn the truth than refuse the
+        // user with no recourse. If the call genuinely 429s, markCooling
+        // re-records with the fresh server hint; if it works, the user
+        // gets a reply and the stale entry stays cleared.
         const allCooling = order.every(t => isCooling(gemini.getModelForTier(t)));
-        let probeOrder = order;
         if (allCooling) {
-            probeOrder = [...order].sort((a, b) =>
-                msUntilHealthy(gemini.getModelForTier(a)) - msUntilHealthy(gemini.getModelForTier(b))
-            );
+            for (const t of order) clearCooldown(gemini.getModelForTier(t));
+            console.log('[mia] All Gemini tiers showed cooling; cleared stale cooldown map and trying fresh.');
         }
 
         let lastErr = null;
-        for (let i = 0; i < probeOrder.length; i++) {
-            const tier = probeOrder[i];
+        for (let i = 0; i < order.length; i++) {
+            const tier = order[i];
             const model = gemini.getModelForTier(tier);
-            // Skip if this tier is currently cooling — pre-flight check.
-            // EXCEPT during an all-cooling probe (allCooling=true), where
-            // we deliberately ignore the cooldown to test if it's stale.
-            if (!allCooling && isCooling(model)) {
+            // Skip pre-flight cooling tiers (only fires when SOME tier is
+            // healthy and we'd rather try that one first).
+            if (isCooling(model)) {
                 lastErr = new Error(`Skipping ${model}: in cooldown.`);
                 lastErr.status = 429;
                 lastErr.tierCooling = true;
                 continue;
             }
-            // For probe attempts, temporarily clear the cooldown on this
-            // model so api-gemini.js doesn't immediately throw the
-            // pre-flight cooldown error itself. If the call succeeds we
-            // leave it cleared (real recovery); if it 429s the
-            // markCooling inside api-gemini.js will re-set it.
-            if (allCooling && i === 0) {
-                clearCooldown(model);
-            }
-            // Track whether we've already streamed output on this attempt.
-            // The user sees deltas as they arrive — once even one delta has
-            // been yielded, we can't do an invisible swap mid-reply.
             let yieldedAnyDelta = false;
             try {
-                // Always show "thinking…" — never announce "falling back".
+                // Always show "thinking…" — never announce fallback.
                 if (onProgress) {
                     onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
                 }
                 if (tier === 'default' && !s.thinkingMode) {
-                    // Use the intent-classified router for the default
-                    // path so prose vs tool-heavy queries pick the right
-                    // sub-model. Router will internally call Flash for
-                    // tool intents and Flash-Lite for prose.
                     for await (const delta of routedStream({ system, systemNoTools, messages, key: s.geminiKey, signal, onProgress })) {
                         yieldedAnyDelta = true;
                         yield delta;
@@ -141,32 +126,21 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
                         yield delta;
                     }
                 }
-                return; // success
+                // Diagnostic: if the call completed without any deltas,
+                // log it so we can see when an empty stream is the cause
+                // of "thinking… then nothing." Doesn't change behavior.
+                if (!yieldedAnyDelta) {
+                    console.warn('[mia] Tier returned zero deltas (empty stream):', tier, model);
+                }
+                return; // success path
             } catch (err) {
                 lastErr = err;
                 const isCooldown = err?.tierCooling || err?.status === 429;
-                if (isCooldown && !yieldedAnyDelta) {
-                    // Pre-stream 429 → silent fall-through to next tier.
-                    // User has seen nothing yet; tier swap is invisible.
-                    continue;
-                }
-                if (isCooldown && yieldedAnyDelta) {
-                    // Mid-stream 429 → can't swap invisibly. Bubble the
-                    // error so mia.js's catch preserves the partial reply
-                    // with a soft cut-off note. The cooldown was already
-                    // recorded by api-gemini.js, so the user's NEXT turn
-                    // will silently skip this tier.
-                    throw err;
-                }
-                // Non-cooldown errors (auth, 5xx, network) → bubble out
-                // so cross-provider fallback (Cloudflare) can run.
+                if (isCooldown && !yieldedAnyDelta) continue;
+                if (isCooldown && yieldedAnyDelta) throw err;
                 throw err;
             }
         }
-        // Both Gemini tiers cooling at pre-flight → throw the last error
-        // so the outer try in stream() can fall over to Cloudflare.
-        // Cloudflare run is also invisible; user only sees an error if
-        // EVERYTHING is exhausted.
         throw lastErr || new Error('All Gemini tiers cooling.');
     }
 
