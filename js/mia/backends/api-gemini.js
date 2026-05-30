@@ -20,6 +20,9 @@
 import { markCooling, isCooling, msUntilHealthy } from './tier-cooldown.js';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Default tier mappings retained for callers (router, llm-client) that
+// still ask for 'default' / 'thinking'. The fuller model rotation lives
+// in gemini-models.js; this map just keeps backward-compat labels alive.
 const MODEL_DEFAULT = 'gemini-2.5-flash-lite';
 const MODEL_THINKING = 'gemini-2.5-flash';
 
@@ -169,8 +172,11 @@ async function postOnce({ model, system, messages, key, signal }) {
     return res;
 }
 
-export async function* stream({ system, messages, key, signal, tier = 'default' }) {
-    const model = modelFor(tier);
+export async function* stream({ system, messages, key, signal, tier = 'default', model: modelOverride = null }) {
+    // Caller can pass an explicit model id (newer multi-model rotation
+    // path) OR a coarse tier label ('default' / 'thinking', legacy two-
+    // model path). When both are set, modelOverride wins.
+    const model = modelOverride || modelFor(tier);
     if (!key) throw new Error('Gemini API key required. Paste your AI Studio key in Mia settings.');
 
     // Pre-flight: if this tier is currently cooling from a recent 429,

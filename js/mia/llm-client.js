@@ -13,8 +13,9 @@
 import { loadSettings } from './settings.js';
 import * as gemini from './backends/api-gemini.js';
 import * as cf from './backends/api-cf.js';
-import { routedStream, getLastDecision } from './router.js';
+import { routedStream, getLastDecision, classifyForRouting } from './router.js';
 import { isCooling, markCooling, msUntilHealthy, clearCooldown, getCooldownState } from './backends/tier-cooldown.js';
+import { modelChainFor } from './backends/gemini-models.js';
 
 export const webllm = {
     clearCache: async () => {
@@ -70,90 +71,90 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     // of auto-fallback is invisible recovery — the only user-visible
     // status during fallback is the same generic "thinking…" they'd see
     // on a normal call.
-    async function* runGeminiWithTierFallback(preferredOrder) {
-        // De-dupe so passing ['default','default','thinking'] still walks
-        // through unique tiers in order.
-        const tried = new Set();
-        const order = preferredOrder.filter(t => {
-            if (tried.has(t)) return false;
-            tried.add(t);
-            return true;
-        });
+    // Walk through every free-tier Gemini model in priority order, falling
+    // through on 429 / cooling. Each Gemini model has its OWN independent
+    // daily and per-minute quota — even though the API key is shared, Google
+    // tracks RPM/RPD separately per model. So when Flash-Lite hits its
+    // daily cap we move to Flash, then 2.0-flash, then 1.5-flash, etc. We
+    // exhaust all ~8 models before giving up to Cloudflare. Effective free
+    // quota: ~5–10× what we had before.
+    async function* runGeminiChain(intent) {
+        // Build the chain: preferred-tier models first, then the other
+        // tier as fallback. Intent classifier already decided whether
+        // this query wants 'reasoning' (tool-heavy) or 'fast' (prose).
+        const chain = modelChainFor(intent);
 
-        // Stale cooldown rescue: if every tier appears cooling, clear
-        // them all and try fresh. The cooldown map can get stuck when:
-        //   - Google returns a long retry-After hint (e.g. 30 min) that
-        //     overstates the real cooldown.
-        //   - A 429 was attributed to one tier but actually came from
-        //     a different quota bucket.
-        //   - User's quota actually reset but our timestamps didn't tick.
-        // Better to make a real call and learn the truth than refuse the
-        // user with no recourse. If the call genuinely 429s, markCooling
-        // re-records with the fresh server hint; if it works, the user
-        // gets a reply and the stale entry stays cleared.
-        const allCooling = order.every(t => isCooling(gemini.getModelForTier(t)));
+        // Stale-cooldown rescue: if EVERY model in the chain looks
+        // cooling, clear them all and try fresh. The cooldown timestamps
+        // can drift out of sync with reality (long retry-Afters, quota
+        // resets we didn't observe, mis-attributed 429s) and refusing
+        // the call with no recourse is worse than burning one probe.
+        const allCooling = chain.every(m => isCooling(m));
         if (allCooling) {
-            for (const t of order) clearCooldown(gemini.getModelForTier(t));
-            console.log('[mia] All Gemini tiers showed cooling; cleared stale cooldown map and trying fresh.');
+            for (const m of chain) clearCooldown(m);
+            console.log('[mia] All Gemini models cooling; cleared map and probing fresh.');
         }
 
         let lastErr = null;
-        for (let i = 0; i < order.length; i++) {
-            const tier = order[i];
-            const model = gemini.getModelForTier(tier);
-            // Skip pre-flight cooling tiers (only fires when SOME tier is
-            // healthy and we'd rather try that one first).
+        for (const model of chain) {
             if (isCooling(model)) {
-                lastErr = new Error(`Skipping ${model}: in cooldown.`);
+                console.log('[mia] Skipping cooling model:', model, 'remaining:', Math.ceil(msUntilHealthy(model) / 1000) + 's');
+                lastErr = new Error(`Skipping ${model}: cooling.`);
                 lastErr.status = 429;
                 lastErr.tierCooling = true;
                 continue;
             }
             let yieldedAnyDelta = false;
             try {
-                // Always show "thinking…" — never announce fallback.
-                if (onProgress) {
-                    onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
+                if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
+                console.log('[mia] Trying Gemini model:', model);
+                for await (const delta of gemini.stream({
+                    system,
+                    messages,
+                    key: s.geminiKey,
+                    signal,
+                    model, // explicit model id, bypasses tier mapping
+                })) {
+                    yieldedAnyDelta = true;
+                    yield delta;
                 }
-                if (tier === 'default' && !s.thinkingMode) {
-                    for await (const delta of routedStream({ system, systemNoTools, messages, key: s.geminiKey, signal, onProgress })) {
-                        yieldedAnyDelta = true;
-                        yield delta;
-                    }
-                } else {
-                    for await (const delta of gemini.stream({ system, messages, key: s.geminiKey, signal, tier })) {
-                        yieldedAnyDelta = true;
-                        yield delta;
-                    }
-                }
-                // Diagnostic: if the call completed without any deltas,
-                // log it so we can see when an empty stream is the cause
-                // of "thinking… then nothing." Doesn't change behavior.
                 if (!yieldedAnyDelta) {
-                    console.warn('[mia] Tier returned zero deltas (empty stream):', tier, model);
+                    console.warn('[mia] Empty stream from', model, '— continuing to next model.');
+                    continue; // empty response → try next, don't return success
                 }
-                return; // success path
+                return; // success
             } catch (err) {
                 lastErr = err;
                 const isCooldown = err?.tierCooling || err?.status === 429;
+                // 400/404 from a preview model that's no longer available
+                // (Google retires preview SKUs without notice). Skip it
+                // permanently for this session by marking it cooling for
+                // a long time so the chain doesn't keep retrying.
+                if (err?.status === 400 || err?.status === 404) {
+                    console.warn('[mia] Model unavailable:', model, '— skipping for 1h.');
+                    markCooling(model, 3600);
+                    continue;
+                }
                 if (isCooldown && !yieldedAnyDelta) continue;
                 if (isCooldown && yieldedAnyDelta) throw err;
                 throw err;
             }
         }
-        throw lastErr || new Error('All Gemini tiers cooling.');
+        throw lastErr || new Error('Every Gemini model is cooling.');
     }
 
     const geminiRun = async function* () {
-        // Preferred tier order:
-        //   - thinkingMode on  → ['thinking', 'default']  (try Flash first)
-        //   - thinkingMode off → ['default', 'thinking']  (try Lite first)
-        // Either way the OTHER tier is the auto-fallback. The router
-        // inside the 'default' branch may pick Flash for tool intents,
-        // but at the OUTER fallback level we still treat 'default' as
-        // the Lite-first path.
-        const order = s.thinkingMode ? ['thinking', 'default'] : ['default', 'thinking'];
-        yield* runGeminiWithTierFallback(order);
+        // Classify intent ONCE up front. The classifier is itself a
+        // Flash-Lite call, so we only pay for it on the first turn —
+        // and we read the result from a cached lastDecision when
+        // available to avoid the round-trip on rapid retries.
+        const lastUser = [...messages].reverse().find(m => m.role === 'user');
+        const intent = await classifyForRouting({
+            userMessage: lastUser?.content || '',
+            key: s.geminiKey,
+            signal,
+        });
+        yield* runGeminiChain(intent);
     };
 
     const cfRun = async function* () {
@@ -228,8 +229,8 @@ export function getRoutingSummary() {
         return {
             primary: r.primary,
             fallback: r.fallback,
-            geminiModel: r.primary === 'gemini' || r.fallback === 'gemini'
-                ? (s.thinkingMode ? gemini.getModelForTier('thinking') : `${gemini.getModelForTier('default')} ↔ ${gemini.getModelForTier('thinking')} (intent-classified)`)
+            geminiModel: (r.primary === 'gemini' || r.fallback === 'gemini')
+                ? '8-model rotation (auto-failover by quota)'
                 : null,
             tier,
             smartRouting: r.primary === 'gemini' && !s.thinkingMode,

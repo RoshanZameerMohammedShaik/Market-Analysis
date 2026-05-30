@@ -15,6 +15,17 @@ let lastDecision = null;
 
 export function getLastDecision() { return lastDecision; }
 
+// Public helper used by llm-client's multi-model rotation. Same
+// classifier as routedStream uses internally, but exposed so the
+// outer rotation can decide which model chain (reasoning-first vs
+// fast-first) to walk. Intent here maps to model-tier preference,
+// not to which prompt to use.
+export async function classifyForRouting({ userMessage, key, signal }) {
+    const intent = await classifyIntent({ userMessage, key, signal });
+    lastDecision = { intent, ts: Date.now() };
+    return intent;
+}
+
 /**
  * Stream Mia output with intent-classified routing.
  *
