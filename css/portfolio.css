@@ -20,9 +20,21 @@
     background: var(--bg-hover);
     transform: translateY(-1px);
 }
+/* Inline icon — sits BETWEEN the 'o' and 'r' of "Portfolio" so the
+   candle animation reads as part of the word, not a separate icon
+   beside it. Letter-spacing inside the label is overridden to nothing
+   so the icon hugs the surrounding letters tightly. */
 .portfolio-launcher-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 14px; height: 18px;
+    width: 14px; height: 14px;
+    vertical-align: -2px;
+    margin: 0 1px;
+}
+.portfolio-letter {
+    /* Tighten kerning around the inline icon so it reads as one word.
+       Also drop the inherited letter-spacing of the label which was
+       leaving an awkward gap between the icon and the 'r'. */
+    letter-spacing: 0;
 }
 /* Two-candle ambient mark on the Portfolio button. Replaces the
    bars+trend SVG that moved up into the header next to MARKET
@@ -31,13 +43,13 @@
 .portfolio-icon-candles {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    height: 18px;
+    gap: 2px;
+    height: 14px;
     width: 14px;
 }
 .portfolio-icon-candles .cl-bar {
     position: relative;
-    width: 4px;
+    width: 3.5px;
     height: 100%;
     display: inline-block;
 }

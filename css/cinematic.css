@@ -216,7 +216,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 
 .app-title-wrap {
-    display: flex; align-items: center; gap: 14px;
+    /* gap kept tiny so the portfolio mark sits flush to the 'R' in
+       ANALYZER. The mark's own margin-left adds the final 2px of
+       breathing room. */
+    display: flex; align-items: center; gap: 0;
 }
 /* MARKET ANALYZER — glowing light flows INSIDE the letters from M → R.
    Technique: the title is filled (not outlined). A moving gradient is
@@ -235,59 +238,80 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* Header portfolio mark — sized to match the MARKET ANALYZER text and
-   sits tight to the 'R' in ANALYZER. Roshan swapped the old candle row
-   here with the bars+trend SVG that used to live on the Portfolio
-   button; this version is bigger and animated more actively. */
+/* Header portfolio mark — three growing candles (small/medium/tall)
+   with a rising arrow that traces along their tops. Roshan asked for
+   "an arrow going upwards, as the arrow goes from bottom to top 3
+   candles should grow along the arrow's height". The arrow draws from
+   bottom-left to top-right, and each candle grows up to meet it in
+   sequence. The whole staircase reads as a "trend up" mark beside
+   MARKET ANALYZER. */
 .app-title-portfolio {
     display: inline-flex;
     align-items: center;
-    height: 32px;
-    margin-left: 4px;
+    height: 30px;
+    margin-left: 2px;
 }
 .app-title-portfolio-svg {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     overflow: visible;
 }
-.app-title-pf-bar {
+.app-title-pf-candle {
     fill: rgba(var(--accent-rgb), 0.92);
-    transform-origin: bottom center;
+    /* Anchor each candle's growth at its bottom edge so scaleY=0 means
+       "no candle visible" and scaleY=1 means "full height". transform-
+       box=fill-box keeps the origin at the rect's own bottom even
+       inside an SVG with viewBox transforms. */
+    transform-origin: center bottom;
     transform-box: fill-box;
-    animation: app-title-pf-bar-pulse 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    transform: scaleY(0);
+    animation: app-title-pf-candle-grow 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
 }
-.app-title-pf-bar.bar-1 { animation-delay: 0.0s; }
-.app-title-pf-bar.bar-2 { animation-delay: 0.18s; }
-.app-title-pf-bar.bar-3 { animation-delay: 0.36s; }
-.app-title-pf-trend {
+.app-title-pf-candle.candle-1 { animation-delay: 0.00s; }
+.app-title-pf-candle.candle-2 { animation-delay: 0.32s; }
+.app-title-pf-candle.candle-3 { animation-delay: 0.64s; }
+.app-title-pf-arrow {
     stroke: var(--green);
-    stroke-dasharray: 18;
-    stroke-dashoffset: 18;
-    animation: app-title-pf-draw 2.6s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+    /* Path length approx 18px (two diagonals of ~9px each); 20 covers
+       it with a small buffer so the line fully retracts on reset. */
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+    filter: drop-shadow(0 0 2px rgba(var(--accent-rgb), 0.45));
 }
-.app-title-pf-dot {
-    fill: var(--green);
-    transform-origin: 17px 4px;
-    transform-box: view-box;
-    animation: app-title-pf-dot-pulse 2.6s ease-in-out infinite;
-    animation-delay: 1.2s;
+.app-title-pf-arrowhead {
+    stroke: var(--green);
+    stroke-dasharray: 8;
+    stroke-dashoffset: 8;
+    animation: app-title-pf-arrowhead-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+    filter: drop-shadow(0 0 2px rgba(var(--accent-rgb), 0.45));
 }
-@keyframes app-title-pf-bar-pulse {
-    0%, 100% { transform: scaleY(0.78); opacity: 0.7; }
-    50%      { transform: scaleY(1.08); opacity: 1; }
+@keyframes app-title-pf-candle-grow {
+    0%,  10%  { transform: scaleY(0);    opacity: 0.4; }
+    35%, 70%  { transform: scaleY(1);    opacity: 1; }
+    90%       { transform: scaleY(0.95); opacity: 0.85; }
+    100%      { transform: scaleY(0);    opacity: 0.4; }
 }
-@keyframes app-title-pf-draw {
-    0%   { stroke-dashoffset: 18; opacity: 0.55; }
-    55%  { stroke-dashoffset: 0;  opacity: 1; }
-    85%  { stroke-dashoffset: 0;  opacity: 1; }
-    100% { stroke-dashoffset: 18; opacity: 0.55; }
+@keyframes app-title-pf-arrow-draw {
+    0%        { stroke-dashoffset: 20; opacity: 0.5; }
+    25%       { stroke-dashoffset: 20; opacity: 0.5; }
+    65%       { stroke-dashoffset: 0;  opacity: 1; }
+    85%       { stroke-dashoffset: 0;  opacity: 1; }
+    100%      { stroke-dashoffset: 20; opacity: 0.5; }
 }
-@keyframes app-title-pf-dot-pulse {
-    0%, 100% { transform: scale(1);    opacity: 0.85; }
-    50%      { transform: scale(1.45); opacity: 1; }
+@keyframes app-title-pf-arrowhead-draw {
+    0%, 55%   { stroke-dashoffset: 8; opacity: 0; }
+    70%       { stroke-dashoffset: 0; opacity: 1; }
+    85%       { stroke-dashoffset: 0; opacity: 1; }
+    100%      { stroke-dashoffset: 8; opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .app-title-pf-bar, .app-title-pf-trend, .app-title-pf-dot { animation: none; stroke-dashoffset: 0; }
+    .app-title-pf-candle, .app-title-pf-arrow, .app-title-pf-arrowhead {
+        animation: none;
+        transform: scaleY(1);
+        stroke-dashoffset: 0;
+        opacity: 1;
+    }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
