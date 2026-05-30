@@ -5,6 +5,7 @@
 // is closer to exhaustion. Pulses red as remaining drops below 20%.
 
 import { getUsage, getRoutingSummary, getModelStatus } from './llm-client.js';
+import { clearCooldown } from './backends/tier-cooldown.js';
 import { loadSettings } from './settings.js';
 
 // Re-render the meter whenever a tier moves in/out of cooldown so the
@@ -15,6 +16,17 @@ function ensureCoolingListener(container) {
     if (coolingListener) return;
     coolingListener = () => renderUsageMeter(container);
     document.addEventListener('ma:gemini-tier-cooldown-changed', coolingListener);
+    // Also wire the manual-clear handler once via delegation. Survives
+    // re-renders because the listener is on the container, not the
+    // individual badges (which get rebuilt on each render).
+    container.addEventListener('click', (e) => {
+        const clearBtn = e.target.closest('.mia-cooldown-clear');
+        if (!clearBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const model = clearBtn.dataset.model;
+        if (model) clearCooldown(model);
+    });
 }
 
 function fmtCoolingTime(secondsRemaining) {
@@ -54,10 +66,13 @@ export function renderUsageMeter(container) {
 
     // If any Gemini tier is cooling, surface that visibly. Multiple tiers
     // cooling at once = the rare "rate-limited everywhere" state where
-    // we'd be falling over to Cloudflare.
+    // we'd be falling over to Cloudflare. Each badge has a tiny × that
+    // clears the cooldown manually — useful when a stale entry is
+    // blocking the user (e.g., server gave a generous retry-After but
+    // capacity actually freed up earlier).
     const coolingBadges = modelStatus.cooling.map(c => {
         const short = modelShortName(c.model);
-        return `<span class="mia-cooldown-badge" title="${c.model} — quota reached, auto-recovering in ${fmtCoolingTime(c.secondsRemaining)}">${short}: cooling ${fmtCoolingTime(c.secondsRemaining)}</span>`;
+        return `<span class="mia-cooldown-badge" data-model="${c.model}" title="${c.model} — quota reached, auto-recovering in ${fmtCoolingTime(c.secondsRemaining)}. Click × to clear and try anyway.">${short}: cooling ${fmtCoolingTime(c.secondsRemaining)}<button class="mia-cooldown-clear" data-model="${c.model}" type="button" aria-label="Clear cooldown for ${c.model}">×</button></span>`;
     }).join('');
     // Active tier indicator — which model the most recent reply came
     // from. Helps the user understand "wait, is it on Lite or Flash?"

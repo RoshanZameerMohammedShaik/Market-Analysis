@@ -14,7 +14,7 @@ import { loadSettings } from './settings.js';
 import * as gemini from './backends/api-gemini.js';
 import * as cf from './backends/api-cf.js';
 import { routedStream, getLastDecision } from './router.js';
-import { isCooling, markCooling } from './backends/tier-cooldown.js';
+import { isCooling, markCooling, msUntilHealthy, clearCooldown } from './backends/tier-cooldown.js';
 
 export const webllm = {
     clearCache: async () => {
@@ -80,16 +80,42 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
             return true;
         });
 
+        // Pre-flight: if EVERY tier in order is cooling, the cooldown map
+        // might be stale (server gave us a long retry-After hint that's
+        // actually expired, or quota was for a different model family
+        // and got mis-attributed). Pick the tier with the LEAST time
+        // remaining and try it as a probe — if it succeeds, clear the
+        // stale entry; if it 429s, the timestamp gets updated to a
+        // fresh value. This prevents a stale cooldown from locking the
+        // user out indefinitely with no way to recover except waiting.
+        const allCooling = order.every(t => isCooling(gemini.getModelForTier(t)));
+        let probeOrder = order;
+        if (allCooling) {
+            probeOrder = [...order].sort((a, b) =>
+                msUntilHealthy(gemini.getModelForTier(a)) - msUntilHealthy(gemini.getModelForTier(b))
+            );
+        }
+
         let lastErr = null;
-        for (let i = 0; i < order.length; i++) {
-            const tier = order[i];
+        for (let i = 0; i < probeOrder.length; i++) {
+            const tier = probeOrder[i];
             const model = gemini.getModelForTier(tier);
             // Skip if this tier is currently cooling — pre-flight check.
-            if (isCooling(model)) {
+            // EXCEPT during an all-cooling probe (allCooling=true), where
+            // we deliberately ignore the cooldown to test if it's stale.
+            if (!allCooling && isCooling(model)) {
                 lastErr = new Error(`Skipping ${model}: in cooldown.`);
                 lastErr.status = 429;
                 lastErr.tierCooling = true;
                 continue;
+            }
+            // For probe attempts, temporarily clear the cooldown on this
+            // model so api-gemini.js doesn't immediately throw the
+            // pre-flight cooldown error itself. If the call succeeds we
+            // leave it cleared (real recovery); if it 429s the
+            // markCooling inside api-gemini.js will re-set it.
+            if (allCooling && i === 0) {
+                clearCooldown(model);
             }
             // Track whether we've already streamed output on this attempt.
             // The user sees deltas as they arrive — once even one delta has
