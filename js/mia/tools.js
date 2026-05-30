@@ -254,7 +254,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_top_losers: {
-        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day, SCOPED to our ~530-symbol universe (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid NSE / HKEX / TYO / LSE / DAX / ASX names). side="down" worst performers, "up" best, "movers" biggest absolute. Optional region filter. RESULT INCLUDES a coverage object — when answering, ALWAYS qualify the scope ("worst in our tracked universe is X — we don\'t cover micro-caps or OTC, so a Google search may surface a different name"). For a true market-wide answer use web_search instead.',
+        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day, SCOPED to our ~530-symbol universe (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid NSE / HKEX / TYO / LSE / DAX / ASX names). side="down" worst performers, "up" best, "movers" biggest absolute. Optional region filter. SUPERLATIVE-QUESTION RULE: when the user asks "worst/best/biggest" market-wide, always pair THIS call with a web_search call for the same query — report both the in-universe leader AND the market-wide leader. Don\'t ask the user which they want; do both automatically.',
         args: '{"side":"down","limit":10,"region":"NYSE"}',
         run: ({ side, limit, region } = {}) => readTopLosers({ side, limit, region }),
         kind: 'read',
