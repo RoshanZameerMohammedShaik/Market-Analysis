@@ -135,12 +135,14 @@ async function postOnce({ model, system, messages, key, signal }) {
         // an answer based on hallucinated data.
         stopSequences: ['\nRESULT:', 'RESULT (from'],
     };
+    console.log('[mia/gemini] POST', model, '— request shape:', { msgs: messages.length, sysChars: system.length });
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal,
     });
+    console.log('[mia/gemini] response received:', model, 'status', res.status);
     if (!res.ok) {
         const respBody = await res.text().catch(() => '');
         // Gemini surfaces retry hints two ways: standard Retry-After header
@@ -226,9 +228,15 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
+    let chunkCount = 0;
+    let yieldCount = 0;
     while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+            console.log('[mia/gemini] stream ended:', model, 'chunks:', chunkCount, 'deltas yielded:', yieldCount);
+            break;
+        }
+        chunkCount++;
         buf += decoder.decode(value, { stream: true });
         let idx;
         while ((idx = buf.indexOf('\n')) !== -1) {
@@ -259,7 +267,12 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
                 // Gemini wraps content in candidates[0].content.parts[*].text
                 const parts = json.candidates?.[0]?.content?.parts || [];
                 for (const p of parts) {
-                    if (p.text) yield p.text;
+                    if (p.text) { yieldCount++; yield p.text; }
+                }
+                // Log finishReason if present — explains zero-text returns.
+                const finish = json.candidates?.[0]?.finishReason;
+                if (finish && finish !== 'STOP') {
+                    console.warn('[mia/gemini] non-STOP finishReason:', finish, 'safetyRatings:', json.candidates?.[0]?.safetyRatings);
                 }
             } catch (e) {
                 if (e?.midStream) throw e;
