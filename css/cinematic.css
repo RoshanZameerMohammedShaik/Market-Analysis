@@ -250,13 +250,15 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     align-items: center;
     height: 30px;
     /* Aggressive negative margin-left tucks the mark right up against
-       the 'R' in ANALYZER. Roshan kept asking to bring it closer; -4px
-       eats into the title's trailing kerning whitespace so the leftmost
-       candle visually butts the letter without overlapping the glyph.
-       margin-top: -6px lifts the composition so the arrow apex aligns
-       with the cap-height of MARKET ANALYZER. */
-    margin-left: -4px;
-    margin-top: -6px;
+       the 'R' in ANALYZER. -7px eats further into the title's trailing
+       kerning so the leftmost candle visually kisses the letter.
+       margin-top relaxed from -6 → -3px per Roshan's "bring it down 2-3
+       pixels" — keeps the staircase in the title's vertical band but
+       shifts the arrow's apex down off the cap-height so the whole
+       composition reads as anchored to the baseline rather than
+       hovering above the text. */
+    margin-left: -7px;
+    margin-top: -3px;
 }
 .app-title-portfolio-svg {
     /* 26×28 viewBox now (was 22×28) — added a 4th candle in front,
