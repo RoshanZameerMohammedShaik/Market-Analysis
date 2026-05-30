@@ -254,7 +254,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_top_losers: {
-        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day, SCOPED to our ~530-symbol universe (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid NSE / HKEX / TYO / LSE / DAX / ASX names). side="down" worst performers, "up" best, "movers" biggest absolute. Optional region filter. SUPERLATIVE-QUESTION RULE: when the user asks "worst/best/biggest" market-wide, always pair THIS call with a web_search call for the same query — report both the in-universe leader AND the market-wide leader. Don\'t ask the user which they want; do both automatically.',
+        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day, SCOPED to our ~530-symbol universe (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid NSE / HKEX / TYO / LSE / DAX / ASX names). side="down" worst performers, "up" best, "movers" biggest absolute. Optional region filter. Use this when the user is asking specifically about the engine\'s scope ("worst tracked stock today", "what did the model call?"). For market-fact questions ("worst stock IN THE WORLD today") use web_search instead — DON\'T call this tool just to pad the answer.',
         args: '{"side":"down","limit":10,"region":"NYSE"}',
         run: ({ side, limit, region } = {}) => readTopLosers({ side, limit, region }),
         kind: 'read',
