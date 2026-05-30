@@ -241,10 +241,29 @@ export async function openLiveSession(opts = {}) {
 
             ws.addEventListener('open', sendSetup);
 
-            ws.addEventListener('message', (ev) => {
+            ws.addEventListener('message', async (ev) => {
+                // Live API frames arrive as Blobs (browser default for
+                // binaryType='blob') OR ArrayBuffers (we set arraybuffer
+                // for raw audio out) — both must be decoded to UTF-8
+                // before JSON.parse. Plain strings are also possible.
+                // Earlier we passed `ev.data` straight to JSON.parse,
+                // which threw "Unexpected token 'o', '[object ArrayBuffer]'"
+                // on the very setupComplete frame and timed out the
+                // openOnce handshake.
+                let text;
+                if (typeof ev.data === 'string') {
+                    text = ev.data;
+                } else if (ev.data instanceof ArrayBuffer) {
+                    text = new TextDecoder('utf-8').decode(ev.data);
+                } else if (ev.data instanceof Blob) {
+                    text = await ev.data.text();
+                } else {
+                    console.warn('[mia/live] unknown frame type:', typeof ev.data);
+                    return;
+                }
                 let msg;
-                try { msg = JSON.parse(ev.data); }
-                catch (e) { console.warn('[mia/live] parse error:', e); return; }
+                try { msg = JSON.parse(text); }
+                catch (e) { console.warn('[mia/live] parse error:', e, 'preview:', text.slice(0, 200)); return; }
 
                 // Setup ack — flip the gate and resolve openOnce.
                 if (msg.setupComplete && !setupAcked) {
