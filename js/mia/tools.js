@@ -15,7 +15,7 @@ import {
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
-    readLedgerHistory, readLiveCalibration, findSimilarSetups,
+    readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
 } from './ui-bridge.js';
 import { compute } from './math-tool.js';
 import {
@@ -251,6 +251,12 @@ const TOOLS = {
         desc: 'current empirical hit rates from the live ledger, broken down by horizon (1/3/5/10/20 days), signal (BUY/SELL/NEUTRAL), and region',
         args: '{}',
         run: () => readLiveCalibration(),
+        kind: 'read',
+    },
+    get_top_losers: {
+        desc: 'biggest 1-day movers from the live ledger\'s most-recent resolved trading day. side="down" returns worst performers (most-negative pctMove), "up" returns best performers, "movers" returns biggest absolute moves either direction. Optional region filter (NYSE / NSE / HKEX / TYO / LSE / XETRA / ASX / CRYPTO). Use this for "what\'s down today" / "biggest losers" / "biggest gainers" questions instead of web-searching news articles.',
+        args: '{"side":"down","limit":10,"region":"NYSE"}',
+        run: ({ side, limit, region } = {}) => readTopLosers({ side, limit, region }),
         kind: 'read',
     },
     compute: {

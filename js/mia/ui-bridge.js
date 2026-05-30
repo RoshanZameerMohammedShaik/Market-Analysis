@@ -396,6 +396,67 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     };
 }
 
+// Top losers / movers from today's ledger. Looks at rows whose 1d horizon
+// has resolved and ranks by largest negative pctMove (or absolute pctMove
+// if the user wants "biggest movers either way"). Powered by the same
+// ledger the engine writes — no scraping news sites for "top losers"
+// articles, just the actual outcomes our cron recorded.
+export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) {
+    const rows = await loadLedger();
+    if (!rows.length) {
+        return { available: false, note: 'Ledger not seeded yet — needs at least one cron run.' };
+    }
+    // Pick the most recent date that has any resolved 1d horizons. Today's
+    // crons may not have resolved yet (resolve cron runs at 22:00 UTC), so
+    // we walk back from latest to find the freshest resolved set.
+    const dates = [...new Set(rows.map(r => r.date))].sort().reverse();
+    let chosenDate = null;
+    let scoped = [];
+    for (const d of dates) {
+        const dayRows = rows.filter(r => r.date === d && r.horizons?.['1'] && Number.isFinite(r.horizons['1'].pctMove));
+        if (dayRows.length >= 5) { chosenDate = d; scoped = dayRows; break; }
+    }
+    if (!chosenDate) {
+        return { available: false, note: 'No resolved 1d horizons in the ledger yet — wait for the next outcome-resolution cron.' };
+    }
+    if (region) {
+        const reg = String(region).toUpperCase();
+        scoped = scoped.filter(r => String(r.region || '').toUpperCase() === reg);
+        if (!scoped.length) {
+            return { available: false, note: `No resolved rows for region ${reg} on ${chosenDate}.`, asOfDate: chosenDate };
+        }
+    }
+    const sideLower = String(side || 'down').toLowerCase();
+    let ranked;
+    if (sideLower === 'up') {
+        ranked = scoped.slice().sort((a, b) => b.horizons['1'].pctMove - a.horizons['1'].pctMove);
+    } else if (sideLower === 'movers') {
+        ranked = scoped.slice().sort((a, b) => Math.abs(b.horizons['1'].pctMove) - Math.abs(a.horizons['1'].pctMove));
+    } else {
+        // 'down' = worst performers, most-negative pctMove first
+        ranked = scoped.slice().sort((a, b) => a.horizons['1'].pctMove - b.horizons['1'].pctMove);
+    }
+    const lim = Math.max(1, Math.min(50, Number(limit) || 10));
+    const top = ranked.slice(0, lim).map(r => ({
+        symbol: r.symbol,
+        region: r.region,
+        signal: r.signal,
+        confidence: r.confidence,
+        entryPrice: r.entry,
+        actualClose: r.horizons['1'].actualClose,
+        pctMove1d: r.horizons['1'].pctMove,
+        directionMatch: r.horizons['1'].directionMatch,
+    }));
+    return {
+        available: true,
+        asOfDate: chosenDate,
+        side: sideLower,
+        region: region || 'all',
+        candidatesConsidered: scoped.length,
+        results: top,
+    };
+}
+
 /**
  * Find ledger rows whose feature vector is closest to a target setup,
  * then summarize how those past setups played out at each horizon.
