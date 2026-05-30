@@ -139,7 +139,7 @@ const VOICE_OVERLAY_HTML = `
 <div class="mia-voice-overlay" id="mia-voice-overlay" aria-hidden="true">
     <div class="mia-voice-stage">
         <div class="mia-voice-head">
-            <span class="mia-voice-head-title">Voice mode</span>
+            <span class="mia-voice-head-title">Converse</span>
             <div class="mia-voice-head-actions">
                 <button class="mia-voice-min" id="mia-voice-min" title="Minimize — keep listening while you use the app" aria-label="Minimize">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12 L19 12"/></svg>
@@ -150,7 +150,7 @@ const VOICE_OVERLAY_HTML = `
             </div>
         </div>
         <button class="mia-voice-orb" id="mia-voice-orb" type="button" aria-label="Tap to interrupt" data-state="idle">
-            <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="320" height="320"></canvas>
+            <canvas class="mia-voice-canvas" id="mia-voice-canvas" width="380" height="380"></canvas>
             <span class="mia-voice-orb-mark" aria-hidden="true">
                 <svg viewBox="0 0 32 24" width="60" height="44" xmlns="http://www.w3.org/2000/svg">
                     <path class="mia-voice-orb-ecg-trace" d="M2 14 L6 14 Q8 14 9 12 T11 14 L14 6 L17 16 L20 6 L23 14 Q25 14 26 12 T28 14 L32 14" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.0" stroke-linecap="round" stroke-linejoin="round"/>
@@ -158,7 +158,10 @@ const VOICE_OVERLAY_HTML = `
                 </svg>
             </span>
         </button>
-        <div class="mia-voice-status" id="mia-voice-status">Mia</div>
+        <div class="mia-voice-identity">
+            <div class="mia-voice-status" id="mia-voice-status">Mia</div>
+            <div class="mia-voice-subtitle">Market Intelligence Analyst</div>
+        </div>
         <div class="mia-voice-transcript" id="mia-voice-transcript"></div>
     </div>
 </div>`;
@@ -310,6 +313,71 @@ function wireOverlayEvents() {
             }
         }
     }, true); // capture phase so we beat the chat-toggle handler
+    wireLauncherHoldToVoice();
+}
+
+// Long-press on the Mia launcher opens voice mode directly. Mirrors
+// the send-button hold-to-clear-chat pattern: short tap = toggle chat
+// panel (existing behavior), long press (700ms) = jump straight into
+// voice mode. Cancels the click so the chat panel doesn't open
+// behind/in front of the voice overlay.
+function wireLauncherHoldToVoice() {
+    const launcher = document.getElementById('mia-launcher');
+    if (!launcher || launcher.dataset.holdToVoiceWired === '1') return;
+    launcher.dataset.holdToVoiceWired = '1';
+
+    const HOLD_MS = 700;
+    let holdTimer = null;
+    let armed = false;
+    let pressed = false;
+
+    const begin = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        // Don't trigger hold while a voice session is already running —
+        // the tap-to-restore path handles that.
+        if (session.open) return;
+        if (!isVoiceSupported() || !isConfigured()) return;
+        pressed = true;
+        armed = false;
+        launcher.classList.add('mia-launcher-arming');
+        holdTimer = setTimeout(() => {
+            if (!pressed) return;
+            armed = true;
+            launcher.classList.remove('mia-launcher-arming');
+            launcher.classList.add('mia-launcher-fired');
+            setTimeout(() => launcher.classList.remove('mia-launcher-fired'), 500);
+            try { openVoice(); } catch (_) {}
+        }, HOLD_MS);
+    };
+    const cleanup = () => {
+        pressed = false;
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        launcher.classList.remove('mia-launcher-arming');
+    };
+    const end = (e) => {
+        if (armed) {
+            // We fired voice — swallow the click so togglePanel doesn't
+            // also open the chat panel underneath.
+            e?.preventDefault?.();
+            e?.stopImmediatePropagation?.();
+        }
+        cleanup();
+    };
+
+    launcher.addEventListener('mousedown', begin);
+    launcher.addEventListener('touchstart', begin, { passive: true });
+    launcher.addEventListener('mouseup', end);
+    launcher.addEventListener('touchend', end);
+    launcher.addEventListener('mouseleave', cleanup);
+    launcher.addEventListener('touchcancel', cleanup);
+    // If voice fired, also swallow the synthesized click that follows.
+    launcher.addEventListener('click', (e) => {
+        if (armed) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            armed = false;
+        }
+    }, true);
 }
 
 async function openVoice() {

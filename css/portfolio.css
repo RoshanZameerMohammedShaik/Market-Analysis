@@ -22,7 +22,45 @@
 }
 .portfolio-launcher-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 18px; height: 18px;
+    width: 14px; height: 18px;
+}
+/* Two-candle ambient mark on the Portfolio button. Replaces the
+   bars+trend SVG that moved up into the header next to MARKET
+   ANALYZER. Sits tight to the label so it reads as ambient market
+   motion next to the 'o' in Portfolio. */
+.portfolio-icon-candles {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 18px;
+    width: 14px;
+}
+.portfolio-icon-candles .cl-bar {
+    position: relative;
+    width: 4px;
+    height: 100%;
+    display: inline-block;
+}
+.portfolio-icon-candles .cl-bar.up   { color: var(--green); }
+.portfolio-icon-candles .cl-bar.down { color: var(--red); }
+.portfolio-icon-candles .cl-body {
+    position: absolute;
+    left: 0; right: 0;
+    border-radius: 1.5px;
+    background: currentColor;
+    animation: portfolio-icon-candle 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.portfolio-icon-candles .cl-bar:nth-child(1) .cl-body { animation-delay: 0.00s; }
+.portfolio-icon-candles .cl-bar:nth-child(2) .cl-body { animation-delay: 0.30s; }
+@keyframes portfolio-icon-candle {
+    0%   { top: 55%; bottom: 30%; opacity: 0.55; }
+    25%  { top: 22%; bottom: 18%; opacity: 0.95; }
+    50%  { top: 8%;  bottom: 8%;  opacity: 1; }
+    75%  { top: 30%; bottom: 22%; opacity: 0.85; }
+    100% { top: 55%; bottom: 30%; opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .portfolio-icon-candles .cl-body { animation: none; top: 25%; bottom: 25%; }
 }
 .portfolio-launcher-label { letter-spacing: 0.4px; }
 body.side-panel-portfolio-open .portfolio-launcher {

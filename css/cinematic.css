@@ -235,51 +235,59 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* Candle row beside the title. Reuses the .cl-bar / .cl-wick / .cl-body
-   shape from the candle-loader skeleton but with its own size + slightly
-   different timing so it reads as ambient market motion, not "loading". */
-.app-title-candles {
+/* Header portfolio mark — sized to match the MARKET ANALYZER text and
+   sits tight to the 'R' in ANALYZER. Roshan swapped the old candle row
+   here with the bars+trend SVG that used to live on the Portfolio
+   button; this version is bigger and animated more actively. */
+.app-title-portfolio {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 28px;
-    margin-left: 6px;
+    height: 32px;
+    margin-left: 4px;
 }
-.app-title-candles .cl-bar {
-    position: relative;
-    width: 5px;
-    height: 100%;
-    display: inline-block;
+.app-title-portfolio-svg {
+    width: 32px;
+    height: 32px;
+    overflow: visible;
 }
-.app-title-candles .cl-bar.up   { color: var(--green); }
-.app-title-candles .cl-bar.down { color: var(--red); }
-/* Wicks intentionally hidden in the header — Roshan asked for clean
-   bodies only. Keeping the markup so the JS contract for cl-bar/wick/
-   body stays uniform with the loader; just don't paint them here. */
-.app-title-candles .cl-wick { display: none; }
-.app-title-candles .cl-body {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-radius: 1.5px;
-    background: currentColor;
-    animation: app-title-candle 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+.app-title-pf-bar {
+    fill: rgba(var(--accent-rgb), 0.92);
+    transform-origin: bottom center;
+    transform-box: fill-box;
+    animation: app-title-pf-bar-pulse 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
-.app-title-candles .cl-bar:nth-child(1) .cl-body { animation-delay: 0.00s; }
-.app-title-candles .cl-bar:nth-child(2) .cl-body { animation-delay: 0.20s; }
-.app-title-candles .cl-bar:nth-child(3) .cl-body { animation-delay: 0.40s; }
-.app-title-candles .cl-bar:nth-child(4) .cl-body { animation-delay: 0.60s; }
-.app-title-candles .cl-bar:nth-child(5) .cl-body { animation-delay: 0.80s; }
-@keyframes app-title-candle {
-    0%   { top: 55%; bottom: 30%; opacity: 0.55; }
-    25%  { top: 22%; bottom: 18%; opacity: 0.95; }
-    50%  { top: 35%; bottom: 50%; opacity: 0.95; }
-    75%  { top: 18%; bottom: 60%; opacity: 0.95; }
-    100% { top: 55%; bottom: 30%; opacity: 0.55; }
+.app-title-pf-bar.bar-1 { animation-delay: 0.0s; }
+.app-title-pf-bar.bar-2 { animation-delay: 0.18s; }
+.app-title-pf-bar.bar-3 { animation-delay: 0.36s; }
+.app-title-pf-trend {
+    stroke: var(--green);
+    stroke-dasharray: 18;
+    stroke-dashoffset: 18;
+    animation: app-title-pf-draw 2.6s cubic-bezier(0.7, 0, 0.3, 1) infinite;
 }
-
+.app-title-pf-dot {
+    fill: var(--green);
+    transform-origin: 17px 4px;
+    transform-box: view-box;
+    animation: app-title-pf-dot-pulse 2.6s ease-in-out infinite;
+    animation-delay: 1.2s;
+}
+@keyframes app-title-pf-bar-pulse {
+    0%, 100% { transform: scaleY(0.78); opacity: 0.7; }
+    50%      { transform: scaleY(1.08); opacity: 1; }
+}
+@keyframes app-title-pf-draw {
+    0%   { stroke-dashoffset: 18; opacity: 0.55; }
+    55%  { stroke-dashoffset: 0;  opacity: 1; }
+    85%  { stroke-dashoffset: 0;  opacity: 1; }
+    100% { stroke-dashoffset: 18; opacity: 0.55; }
+}
+@keyframes app-title-pf-dot-pulse {
+    0%, 100% { transform: scale(1);    opacity: 0.85; }
+    50%      { transform: scale(1.45); opacity: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-    .app-title-candles .cl-body { animation: none; top: 25%; bottom: 25%; }
+    .app-title-pf-bar, .app-title-pf-trend, .app-title-pf-dot { animation: none; stroke-dashoffset: 0; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {

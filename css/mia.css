@@ -45,7 +45,26 @@ body.side-panel-mia-open .mia-launcher {
 }
 .mia-launcher:hover { transform: scale(1.08); }
 .mia-launcher:active { transform: scale(0.96); }
-.mia-launcher-logo { width: 40px; height: 30px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+/* Hold-to-voice arming feedback. Ramps up over the hold duration to
+   tell the user "keep holding, voice is about to fire". Lifts on
+   release before the threshold without any extra wiring — the JS
+   removes the class. */
+.mia-launcher-arming {
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.55), 0 0 22px rgba(var(--accent-rgb), 0.65);
+    animation: mia-launcher-arming 0.7s ease-out forwards;
+}
+.mia-launcher-fired {
+    animation: mia-launcher-fired 0.5s ease-out;
+}
+@keyframes mia-launcher-arming {
+    0%   { transform: scale(1.04); }
+    100% { transform: scale(1.16); }
+}
+@keyframes mia-launcher-fired {
+    0%   { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.85), 0 0 30px rgba(var(--accent-rgb), 1); }
+    100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+}
+.mia-launcher-logo { width: 48px; height: 36px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
 @keyframes mia-launcher-breath {
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.04); }
@@ -330,7 +349,7 @@ body.side-panel-mia-open .mia-launcher {
     box-shadow: 0 0 8px var(--brand-grad-shadow);
 }
 
-.mia-foot { padding: 12px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; gap: 8px; align-items: flex-end; }
+.mia-foot { padding: 12px; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; gap: 8px; align-items: center; }
 .mia-foot textarea { flex: 1; resize: none; padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; font-family: inherit; outline: none; transition: all 0.15s; min-height: 44px; }
 .mia-foot textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12); }
 
@@ -586,8 +605,11 @@ body.side-panel-mia-open .mia-launcher {
 
 .mia-voice-orb {
     position: relative;
-    width: min(120px, 36vw); height: min(120px, 36vw);
-    max-width: 140px; max-height: 140px;
+    /* Bigger orb so it carries the panel visually rather than feeling
+       like a small accent above the captions. Roshan asked for "a
+       little bigger" — went from 120px / 140px cap to 180px / 220px. */
+    width: min(180px, 48vw); height: min(180px, 48vw);
+    max-width: 220px; max-height: 220px;
     flex-shrink: 0;
     border: none;
     background: transparent;
@@ -658,6 +680,12 @@ body.side-panel-mia-open .mia-launcher {
     100% { transform: scale(1); }
 }
 
+.mia-voice-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
 .mia-voice-status {
     color: rgba(255,255,255,0.95);
     font-size: 1.4rem;
@@ -667,30 +695,47 @@ body.side-panel-mia-open .mia-launcher {
     text-shadow: 0 1px 4px rgba(0,0,0,0.5);
     min-height: 1.4em;
 }
+.mia-voice-subtitle {
+    color: rgba(255,255,255,0.62);
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.6px;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+}
 /* Shimmer: ChatGPT-style left-to-right light sweep over the text while
    a tool is running. Implemented as a moving linear-gradient clipped to
    the text — so only the glyphs catch the highlight, no rectangle bg.
    Drops the text-shadow during shimmer so the gradient reads cleanly. */
 .shimmer {
+    /* Wider gradient + softer endpoints so the highlight glides
+       across the text without a hard "wave" edge. The earlier 220%
+       size with stark 0.55→1.0→0.55 stops produced visible flicker
+       at the wave fronts; a longer 280% gradient with extended
+       plateau makes the sweep feel smooth and continuous. */
     background-image: linear-gradient(
-        90deg,
-        rgba(255, 255, 255, 0.55) 0%,
-        rgba(255, 255, 255, 0.55) 35%,
+        100deg,
+        rgba(255, 255, 255, 0.65) 0%,
+        rgba(255, 255, 255, 0.65) 38%,
         rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.55) 65%,
-        rgba(255, 255, 255, 0.55) 100%
+        rgba(255, 255, 255, 0.65) 62%,
+        rgba(255, 255, 255, 0.65) 100%
     );
-    background-size: 220% 100%;
+    background-size: 280% 100%;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
     text-shadow: none !important;
-    animation: ma-shimmer-sweep 1.6s linear infinite;
+    /* ease-in-out + slower duration smooths out the visible flicker
+       Roshan reported. Linear timing made the wave snap back at the
+       cycle boundary; ease eliminates that visible reset. */
+    animation: ma-shimmer-sweep 2.4s ease-in-out infinite;
+    will-change: background-position;
 }
 @keyframes ma-shimmer-sweep {
-    0%   { background-position: 100% 0; }
-    100% { background-position: -100% 0; }
+    0%   { background-position: 110% 0; }
+    100% { background-position: -110% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .shimmer { animation: none; background-position: 50% 0; }
