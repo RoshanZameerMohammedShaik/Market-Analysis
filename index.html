@@ -14,20 +14,22 @@
             <div class="app-title-wrap">
                 <h1 class="app-title app-title-static">MARKET ANALYZER</h1>
                 <span class="app-title-portfolio" aria-hidden="true">
-                    <svg class="app-title-portfolio-svg" viewBox="0 0 28 28" xmlns="http://www.w3.org/2000/svg">
-                        <!-- 3 candles growing left to right: short, medium, tall.
-                             Bottoms anchored at y=24; tops at y=14, y=9, y=3.
-                             CSS scaleY animates each candle UP from its bottom
-                             so they grow into place as the arrow climbs. -->
-                        <rect class="app-title-pf-candle candle-1" x="2"  y="14" width="4" height="10" rx="1"/>
-                        <rect class="app-title-pf-candle candle-2" x="9"  y="9"  width="4" height="15" rx="1"/>
-                        <rect class="app-title-pf-candle candle-3" x="16" y="3"  width="4" height="21" rx="1"/>
-                        <!-- Arrow traces the candle tops: (4,12) → (11,7) → (18,1)
-                             The path goes slightly above each candle so the arrow
-                             reads as "leading the trend" rather than touching it.
-                             Arrowhead points up-right at the tip. -->
-                        <path class="app-title-pf-arrow" d="M4 12 L11 7 L18 1" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path class="app-title-pf-arrowhead" d="M14.5 1 L18 1 L18 4.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg class="app-title-portfolio-svg" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Tight viewBox (22 wide) shifts the whole composition
+                             left so it sits flush against the 'R' in ANALYZER
+                             without empty SVG padding pushing it away. -->
+                        <!-- 3 candles: short, medium, tall. Bottoms at y=24,
+                             tops at y=15 / y=10 / y=4. 1px lower than before
+                             to make room for the arrow's gap above. -->
+                        <rect class="app-title-pf-candle candle-1" x="0"  y="15" width="4" height="9"  rx="1"/>
+                        <rect class="app-title-pf-candle candle-2" x="7"  y="10" width="4" height="14" rx="1"/>
+                        <rect class="app-title-pf-candle candle-3" x="14" y="4"  width="4" height="20" rx="1"/>
+                        <!-- Arrow stays ~3px above each candle top so the gap
+                             reads as "trend leading the price action" rather
+                             than the arrow sitting on top of the candles.
+                             Path: (2,12) above c1, (9,7) above c2, (16,1) above c3. -->
+                        <path class="app-title-pf-arrow" d="M2 12 L9 7 L16 1" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path class="app-title-pf-arrowhead" d="M12.5 1 L16 1 L16 4.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
             </div>
@@ -72,7 +74,7 @@
                         <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
                     </div>
                     <button class="portfolio-launcher" id="portfolio-launcher" type="button" title="Open practice portfolio">
-                        <span class="portfolio-launcher-label">P<span class="portfolio-letter portfolio-letter-o">o</span><span class="portfolio-launcher-icon" id="portfolio-launcher-icon" aria-hidden="true"></span><span class="portfolio-letter portfolio-letter-r">r</span>tfolio</span>
+                        <span class="portfolio-launcher-label">Portfolio<span class="portfolio-launcher-icon" id="portfolio-launcher-icon" aria-hidden="true"></span></span>
                     </button>
                 </div>
                 <div class="search-container">

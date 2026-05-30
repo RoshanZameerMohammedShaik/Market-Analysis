@@ -249,10 +249,17 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     display: inline-flex;
     align-items: center;
     height: 30px;
-    margin-left: 2px;
+    /* Zero margin so the SVG sits flush against the 'R' in ANALYZER.
+       The SVG's viewBox starts at x=0 with no internal padding, so
+       the leftmost candle aligns directly with the right edge of the
+       title text. */
+    margin-left: 0;
 }
 .app-title-portfolio-svg {
-    width: 30px;
+    /* 22×28 viewBox (was 28×28). Narrower box trims dead space on the
+       left so the staircase reads as flush to the title rather than
+       floating in a square. */
+    width: 24px;
     height: 30px;
     overflow: visible;
 }
@@ -272,10 +279,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-pf-candle.candle-3 { animation-delay: 0.64s; }
 .app-title-pf-arrow {
     stroke: var(--green);
-    /* Path length approx 18px (two diagonals of ~9px each); 20 covers
-       it with a small buffer so the line fully retracts on reset. */
-    stroke-dasharray: 20;
-    stroke-dashoffset: 20;
+    /* Path length: 2*sqrt(7^2+5^2)+sqrt(7^2+6^2) ≈ 17.8. 19 covers it
+       with a small buffer so the line fully retracts on reset. */
+    stroke-dasharray: 19;
+    stroke-dashoffset: 19;
     animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
     filter: drop-shadow(0 0 2px rgba(var(--accent-rgb), 0.45));
 }
@@ -293,11 +300,11 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     100%      { transform: scaleY(0);    opacity: 0.4; }
 }
 @keyframes app-title-pf-arrow-draw {
-    0%        { stroke-dashoffset: 20; opacity: 0.5; }
-    25%       { stroke-dashoffset: 20; opacity: 0.5; }
+    0%        { stroke-dashoffset: 19; opacity: 0.5; }
+    25%       { stroke-dashoffset: 19; opacity: 0.5; }
     65%       { stroke-dashoffset: 0;  opacity: 1; }
     85%       { stroke-dashoffset: 0;  opacity: 1; }
-    100%      { stroke-dashoffset: 20; opacity: 0.5; }
+    100%      { stroke-dashoffset: 19; opacity: 0.5; }
 }
 @keyframes app-title-pf-arrowhead-draw {
     0%, 55%   { stroke-dashoffset: 8; opacity: 0; }
