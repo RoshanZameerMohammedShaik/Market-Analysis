@@ -21,9 +21,23 @@ Classify by underlying INTENT, not surface phrasing. Casual address or tonal flo
 /**
  * Returns 'tool' | 'prose'.
  * Falls back to 'tool' on any error so reliability beats cost.
+ *
+ * Also: skips the API call entirely when Flash-Lite is currently in
+ * cooldown. The classifier ALWAYS uses Flash-Lite (it's the cheapest
+ * model), but if that model is exhausted we'd 429 here on every turn
+ * and waste a request slot. When in doubt return 'tool' — that just
+ * means the chain walker prefers reasoning-tier models, which is the
+ * safer default.
  */
 export async function classifyIntent({ userMessage, key, signal }) {
     if (!userMessage || !key) return 'tool';
+
+    // Skip the round-trip when Flash-Lite is cooling. Cheaper than the
+    // 429 we'd get; safer than waiting for the timeout to discover it.
+    try {
+        const { isCooling } = await import('./backends/tier-cooldown.js');
+        if (isCooling(CLASSIFY_MODEL)) return 'tool';
+    } catch (_) { /* import error → fall through and try anyway */ }
 
     const context = state.currentSymbol
         ? `(user has ${state.currentSymbol} loaded on screen)`
@@ -44,7 +58,19 @@ export async function classifyIntent({ userMessage, key, signal }) {
             }),
             signal: signal || AbortSignal.timeout(5000),
         });
-        if (!res.ok) return 'tool';
+        if (!res.ok) {
+            // Mark Flash-Lite as cooling so subsequent classifier calls
+            // skip the round-trip until the window expires. Same map
+            // the rest of the chain reads, so the chain walker also
+            // benefits.
+            if (res.status === 429) {
+                try {
+                    const { markCooling } = await import('./backends/tier-cooldown.js');
+                    markCooling(CLASSIFY_MODEL);
+                } catch (_) {}
+            }
+            return 'tool';
+        }
         const j = await res.json();
         const content = (j.candidates?.[0]?.content?.parts?.[0]?.text || '').trim().toUpperCase();
         if (content.startsWith('P')) return 'prose';

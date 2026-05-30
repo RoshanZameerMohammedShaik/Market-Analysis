@@ -31,12 +31,13 @@ const MODEL_THINKING = 'gemini-2.5-flash';
 export { isCooling, msUntilHealthy } from './tier-cooldown.js';
 export { getCooldownState } from './tier-cooldown.js';
 
-// Silent retry on transient errors. 429 = our quota; 503 = Gemini-side
-// overload (very common, usually clears in <2s). Both retried with the
-// same backoff schedule before surfacing. The schedule is bypassed in
-// favor of Gemini's own retryDelay hint when available.
+// Silent retry on transient errors. 5xx = Gemini-side overload (very
+// common, usually clears in <2s). 429 is NOT retried here — quota
+// exhaustion means "use a different model", which is the chain
+// walker's job in llm-client.js. Retrying 429 in-place would burn
+// RPM on an already-exhausted model and never recover.
 const RETRY_DELAYS_MS = [800, 1500, 3000, 6000];
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
+const RETRYABLE_STATUSES = new Set([500, 502, 503, 504]);
 
 // Best-effort per-minute usage tracking. Gemini doesn't return per-call
 // rate-limit headers (Groq does), so we approximate by counting our own
