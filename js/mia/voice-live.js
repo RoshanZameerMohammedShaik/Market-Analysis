@@ -53,11 +53,22 @@ const DEFAULT_VOICE = 'Leda';
 // route through the text path; voice is for conversation, not RAG.
 function compactPromptForLive(fullPrompt) {
     if (!fullPrompt) return 'You are Mia, a warm and numerate market intelligence analyst. Be concise.';
-    // If the prompt starts with "You are Mia" identity blocks (BASE
-    // prompt), grab the first ~600 chars which cover identity + tone.
-    // That's plenty for voice personality. Drop everything after.
-    const compact = fullPrompt.slice(0, 600).trim();
-    return compact + '\n\nKeep replies short and conversational. This is voice mode.';
+    // Voice prompt: identity + tone from the BASE prompt's opening, plus
+    // a non-negotiable grounding rule. The full ~20K-char text-mode
+    // prompt 1007s the Live setup; this compact version sticks to ~1.2K
+    // and front-loads the rules that prevent hallucination.
+    const identityHead = fullPrompt.slice(0, 600).trim();
+    const groundingRule = `
+
+VOICE GROUNDING — NON-NEGOTIABLE:
+- You have tools (functions). You MUST call them for any factual claim about prices, signals, news, calibration, ledger data, hot picks, or what is on screen.
+- Never state a price, percentage, or signal you have not just received from a tool result. If you don't have it, call the tool — don't guess and don't apologize for guessing.
+- If a tool fails or returns no data, SAY SO. Don't fabricate a fallback number.
+- If the user asks you to "load X", "switch to X", "show me X", "analyze X" — you MUST call select_symbol (or analyze_symbol) BEFORE saying you've done it. Never claim a UI action you didn't take.
+- For "the current price of X", use get_current_signal (when X is loaded) or analyze_symbol (when not).
+- For news / current events / things outside the engine: call web_search.
+- Speak like a human: short sentences, conversational rhythm, but every number you say must trace back to a tool you just called.`;
+    return identityHead + groundingRule + '\n\nKeep replies brief and conversational — this is voice mode.';
 }
 
 // PCM-encoder AudioWorklet definition. We inject this as a Blob URL
@@ -238,8 +249,14 @@ export async function openLiveSession(opts = {}) {
                 // Native tool calling. Pass FunctionDeclarations and the
                 // model picks/executes tools mid-conversation. We dispatch
                 // toolCall messages to runTool() in the message handler.
+                // toolConfig.functionCallingConfig.mode=AUTO is the default
+                // but we set it explicitly so a server-side default change
+                // can't silently disable Mia's tool use.
                 if (functionDeclarations && functionDeclarations.length) {
                     setupBody.tools = [{ functionDeclarations }];
+                    setupBody.toolConfig = {
+                        functionCallingConfig: { mode: 'AUTO' },
+                    };
                 }
                 const setupMsg = { setup: setupBody };
                 console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)', 'tools:', functionDeclarations?.length || 0);
@@ -304,9 +321,14 @@ export async function openLiveSession(opts = {}) {
                             const pcm = base64ToInt16(p.inlineData.data);
                             try { onAudioOut?.(pcm); } catch (_) {}
                         }
-                        if (p.text) {
-                            try { onTextOut?.(p.text); } catch (_) {}
-                        }
+                        // Skip modelTurn.text on AUDIO modality. The model
+                        // sometimes attaches the full reply text in one
+                        // shot here, which made captions render the whole
+                        // sentence first and then "stream" via the
+                        // separate outputTranscription deltas — looked
+                        // like the caption was repeating itself. The
+                        // streaming outputTranscription is what we want
+                        // to show the user; ignore the bulk text path.
                     }
                     if (c.outputTranscription?.text) {
                         try { onTextOut?.(c.outputTranscription.text); } catch (_) {}
@@ -573,8 +595,13 @@ export async function startMicCapture({ onPCMChunk }) {
     // ctx.destination either (we don't want to play the user's mic
     // back through the speakers, that's just feedback).
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.5;
+    // Larger FFT + heavier smoothing on the mic path. The orb was
+    // reading raw 256-bin energy with light smoothing, which produced
+    // visible flicker as individual frames jumped between speech-band
+    // peaks. 512 bins narrows each band, smoothing 0.85 averages
+    // adjacent frames so the orb breathes instead of strobing.
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.85;
     source.connect(analyser);
     return {
         stop() {
@@ -610,11 +637,11 @@ export function createAudioOutputQueue() {
     // Insert an AnalyserNode between sources and destination so callers
     // can read the actual RMS of what's playing — that's how the orb
     // gets to pulse with Leda's voice instead of a synthetic sine.
-    // smoothingTimeConstant kept low (0.4) so the orb feels responsive
-    // to plosives and consonant attacks rather than averaging them out.
+    // smoothing 0.8 + fftSize 512 keeps the orb tracking the cadence
+    // of speech without strobing on individual phoneme attacks.
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.4;
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.8;
     analyser.connect(ctx.destination);
 
     return {

@@ -425,14 +425,26 @@ async function startLiveVoice() {
             onTurnComplete: (info) => {
                 if (info?.interrupted) {
                     audioOut.clear();
+                    // Interrupted = user spoke over Mia. Persist whatever
+                    // we got and reset captions immediately; the audio
+                    // queue is already cleared above so there's no risk
+                    // of cutting off speech.
+                    persistLiveTurn();
+                    setOrbState('listening');
+                    setStatus('Listening…');
+                    return;
                 }
-                // Persist this turn's user + Mia text to the chat history
-                // so closing voice mode and looking at the chat panel shows
-                // the full conversation. Guarded so we only save once per
-                // turn even if the API fires multiple completion events.
-                persistLiveTurn();
-                setOrbState('listening');
-                setStatus('Listening…');
+                // Generation finished but the audio queue may still be
+                // playing many seconds of buffered speech. Persisting +
+                // resetting captions here cut Mia's transcription off
+                // mid-sentence. Wait for the playback to actually drain
+                // before archiving the caption + flipping to listening.
+                waitForLivePlaybackDrain().then(() => {
+                    if (!session.open || !session.liveMode) return;
+                    persistLiveTurn();
+                    setOrbState('listening');
+                    setStatus('Listening…');
+                });
             },
             onToolCall: async ({ id, name, args }) => {
                 // Mia's native tool dispatch. Live decided from voice
@@ -822,6 +834,25 @@ function makeArchiveLine(text, role) {
     div.dataset.role = role;
     div.textContent = text;
     return div;
+}
+
+// Resolves once the Live audio output queue has drained (i.e., the
+// last scheduled buffer has finished playing). Polled cheaply via the
+// queue's isPlaying() probe. Cap at 30s so a stuck queue can't hold
+// the listening state hostage forever.
+function waitForLivePlaybackDrain() {
+    const audioOut = session.liveAudioOut;
+    if (!audioOut?.isPlaying) return Promise.resolve();
+    return new Promise(resolve => {
+        const start = Date.now();
+        const tick = () => {
+            if (!session.liveMode || !session.liveAudioOut) return resolve();
+            if (!audioOut.isPlaying()) return resolve();
+            if (Date.now() - start > 30000) return resolve();
+            setTimeout(tick, 120);
+        };
+        tick();
+    });
 }
 
 // Mia-speaking transcript: each utterance becomes a sentence span we
@@ -1403,7 +1434,11 @@ function updateAmplitude(now) {
         else raw = syntheticSpeechAmplitude(now);
     } else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
     else raw = 0.20 + 0.05 * Math.sin(now * 0.003); // idle breath
-    session.smoothedAmp = session.smoothedAmp * 0.78 + raw * 0.22;
+    // EMA smoothing — heavier on Live mode (real RMS) since we already
+    // smoothed at the analyser level. Web Speech path uses synthetic amp
+    // and benefits from a brisker response so the orb feels alive.
+    const k = session.liveMode ? 0.86 : 0.78;
+    session.smoothedAmp = session.smoothedAmp * k + raw * (1 - k);
 }
 
 function stopCanvasLoop() {
