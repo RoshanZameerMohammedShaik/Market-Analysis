@@ -18,7 +18,7 @@ import {
     heldSymbols, totalDepositedUSD,
 } from '../portfolio/state.js';
 import { COMMON_CURRENCIES, getRateToUSD, fromUSDCached, warmCommonRates } from '../portfolio/fx.js';
-import { subscribe } from '../portfolio/pricing.js';
+import { subscribe, refreshStockPrices, isCryptoSymbol } from '../portfolio/pricing.js';
 import { sell as tradeSell, unrealizedPnL } from '../portfolio/trade.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';
 
@@ -109,6 +109,11 @@ export function openPortfolioPanel() {
     // Re-render so the user sees the latest state (in case it changed
     // while the panel was closed via Mia tool / chart-header trade).
     renderPanel();
+    // Auto-refresh stock prices on open. Stocks don't tick continuously
+    // (no free realtime data), so we fetch a snapshot every time the
+    // panel becomes visible. Crypto positions keep ticking via their
+    // existing Binance WS subscriptions — this only touches stocks.
+    refreshStockSnapshot();
 }
 
 export function closePortfolioPanel() {
@@ -170,6 +175,7 @@ function renderPanel() {
             </div>
         </div>
         <div class="portfolio-actions">
+            <button class="portfolio-action-btn" id="portfolio-refresh" title="Refresh stock prices (crypto ticks live automatically)">↻ Refresh</button>
             <button class="portfolio-action-btn" id="portfolio-add-funds">Add Funds</button>
             <button class="portfolio-action-btn" id="portfolio-export">Export</button>
             <button class="portfolio-action-btn" id="portfolio-import-2">Import</button>
@@ -186,6 +192,7 @@ function renderPanel() {
             <div class="portfolio-pl-host" id="portfolio-pl-host"></div>
         </details>`;
 
+    document.getElementById('portfolio-refresh').addEventListener('click', onRefreshClick);
     document.getElementById('portfolio-add-funds').addEventListener('click', openAddFundsModal);
     document.getElementById('portfolio-export').addEventListener('click', doExport);
     document.getElementById('portfolio-import-2').addEventListener('click', openImportPrompt);
@@ -421,6 +428,47 @@ function updateTotals() {
 }
 
 // ── click handlers ────────────────────────────────────────────────────
+
+// Manual refresh — fires when user clicks the ↻ Refresh button. Spins the
+// button while fetching so the user has feedback that something's
+// happening. Crypto positions don't need this (Binance WS streams them
+// live); refreshStockPrices internally only touches stock subs.
+function onRefreshClick() {
+    const btn = document.getElementById('portfolio-refresh');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = '↻ Refreshing…';
+    refreshStockSnapshot()
+        .then((summary) => {
+            if (!summary) return;
+            const { refreshed, failed } = summary;
+            if (refreshed === 0 && failed === 0) {
+                toast('No stock positions to refresh.', '');
+            } else if (failed === 0) {
+                toast(`Refreshed ${refreshed} stock${refreshed === 1 ? '' : 's'}.`, 'pos');
+            } else {
+                toast(`Refreshed ${refreshed}; ${failed} failed.`, 'neg');
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = orig;
+        });
+}
+
+// Internal: trigger the stock-price refresh and surface the result. Used
+// both by openPortfolioPanel (auto-refresh on panel open) and by the
+// manual ↻ button. Returns the summary so callers can react.
+async function refreshStockSnapshot() {
+    try {
+        const summary = await refreshStockPrices();
+        return summary;
+    } catch (e) {
+        console.warn('[portfolio] stock refresh failed:', e);
+        return null;
+    }
+}
 
 function onHoldingsClick(e) {
     const sellBtn = e.target.closest('.portfolio-sell-btn');

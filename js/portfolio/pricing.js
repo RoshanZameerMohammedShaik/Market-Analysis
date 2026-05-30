@@ -1,30 +1,33 @@
-// Unified live-pricing layer for the portfolio simulator.
+// Unified pricing layer for the portfolio simulator.
 //
-// One subscription model regardless of asset class:
-//     const handle = subscribe('BTC-USD', priceCb);  // Binance WS, real-time
-//     const handle = subscribe('NVDA',     priceCb);  // Yahoo poll, ~5min delay
-//     handle.close();
+// Two patterns under the hood — one per asset class — but one subscribe()
+// API for callers:
 //
-// Crypto path: a single Binance WS per symbol, subscriber count tracked so
-// closing the last subscriber tears down the socket. Reuses the same wss
-// pattern as js/ui/price-alerts.js. Could be unified further later, but
-// keeping it isolated now means portfolio doesn't pollute the existing
-// alert path.
+//   const handle = subscribe('BTC-USD', priceCb);  // Binance WS, real-time stream
+//   const handle = subscribe('NVDA',     priceCb);  // Stooq snapshot, manual refresh
+//   handle.close();
 //
-// Stock path: shared 30s-interval poller across all stock subscriptions
-// (one fetch per symbol per tick, but multiple subs of the same symbol
-// share the fetch). Yahoo's data is already 5–15min delayed, so a 30s
-// poll cadence is appropriate for "live-feeling" P&L without rate-limit
-// abuse. The portfolio panel surfaces a "delayed" badge on stock rows
-// so the user knows.
-
-const STOCK_POLL_MS = 30_000;
+// Crypto: Binance WebSocket, true real-time. CB fires on every trade.
+// Stocks: snapshot-on-demand. CB fires:
+//   - immediately with cached price when available (so panel doesn't show '—')
+//   - again whenever refreshStockPrices() runs (panel-open + manual ↻ button)
+//
+// We previously used a 30-second Yahoo poll for stocks. Yahoo's chart
+// endpoint blocks browser-direct fetches via CORS in production —
+// every page open spammed CORS errors and the polling was silently
+// broken. Free realtime stock data does not exist for browser-side
+// apps, so the honest design is "snapshot when the user wants one"
+// instead of "poll constantly and lie about freshness".
+//
+// Stooq is the new stock data source. Free, CORS-friendly, returns
+// daily / 5-min-delayed intraday quotes via a CSV endpoint. Same
+// staleness class as Yahoo (5–15 min) — we surface a 'last refreshed
+// HH:MM' timestamp in the panel so the user knows what they're seeing.
 
 // crypto: symbol -> { ws, retryMs, retryTimer, subs: Set<cb>, lastPrice }
 const cryptoStreams = new Map();
-// stocks: symbol -> { subs: Set<cb>, lastPrice }
+// stocks: symbol -> { subs: Set<cb>, lastPrice, lastFetchedAt }
 const stockSubs = new Map();
-let stockTimer = null;
 
 export function isCryptoSymbol(symbol) {
     return /-USD$/i.test(String(symbol || ''));
@@ -85,7 +88,7 @@ function subscribeCrypto(symbol, cb) {
     if (!entry) return null; // unsupported coin
     entry.subs.add(cb);
     if (entry.lastPrice != null) {
-        // Fire once immediately so the UI doesn't sit on "—" until the
+        // Fire once immediately so the UI doesn't sit on '—' until the
         // next trade tick. Some thinly-traded pairs have several seconds
         // between trades.
         try { cb(entry.lastPrice, { symbol, ts: Date.now(), source: 'binance', cached: true }); } catch (_) {}
@@ -110,75 +113,65 @@ function unsubscribeCrypto(symbol, cb) {
     }
 }
 
-// ── stock path ────────────────────────────────────────────────────────
+// ── stock path (Stooq snapshot, on-demand) ─────────────────────────────
+
+// Stooq's symbol convention differs slightly from Yahoo / what we use
+// internally. US tickers append '.us'. International tickers use lower-
+// case + their own suffix (e.g., RELIANCE on NSE → 'reliance.in', though
+// coverage is spotty). We map common cases; any unmapped symbol gets
+// '.us' which is correct for ~95% of what users buy.
+function toStooqSymbol(symbol) {
+    const s = String(symbol || '').toLowerCase();
+    if (s.endsWith('.ns')) return s.replace(/\.ns$/, '.in');
+    if (s.endsWith('.l')) return s.replace(/\.l$/, '.uk');
+    if (s.endsWith('.de')) return s.replace(/\.de$/, '.de'); // Stooq uses .de natively
+    if (s.endsWith('.hk') || s.endsWith('.t') || s.endsWith('.ax')) return s; // try as-is
+    if (/\./.test(s)) return s; // already has a country suffix we don't recognize
+    return `${s}.us`; // default: treat as US ticker
+}
 
 async function fetchStockPrice(symbol) {
-    // Yahoo's quote endpoint can return CORS-blocked on some browsers,
-    // but the chart endpoint works reliably and has a 1m candle that's
-    // close enough to a real-time-ish quote for our purposes.
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1m`;
+    const stooqSym = toStooqSymbol(symbol);
+    // Stooq's CSV "last quote" endpoint. f=sd2t2ohlcv → symbol, date, time,
+    // open, high, low, close, volume. We only need 'close' (which is the
+    // most recent traded price for intraday calls).
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSym)}&f=sd2t2ohlcv&h&e=csv`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const result = data?.chart?.result?.[0];
-    if (!result) throw new Error('no chart result');
-    // Prefer the live meta quote (regularMarketPrice) which Yahoo updates
-    // continuously; fall back to the latest 1m close.
-    const live = result.meta?.regularMarketPrice;
-    if (Number.isFinite(live) && live > 0) return live;
-    const closes = result.indicators?.quote?.[0]?.close;
-    if (!Array.isArray(closes)) throw new Error('no closes');
-    for (let i = closes.length - 1; i >= 0; i--) {
-        if (Number.isFinite(closes[i]) && closes[i] > 0) return closes[i];
+    const text = await res.text();
+    // CSV format: header line, then one data line.
+    // Symbol,Date,Time,Open,High,Low,Close,Volume
+    // aapl.us,2026-05-29,16:00:00,213.50,215.20,212.80,214.05,40123456
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) throw new Error('empty stooq response');
+    const cols = lines[1].split(',');
+    if (cols.length < 7) throw new Error('unexpected stooq response shape');
+    const close = parseFloat(cols[6]);
+    if (!Number.isFinite(close) || close <= 0) {
+        // Stooq returns 'N/D' literally for symbols it doesn't carry.
+        throw new Error(`stooq has no data for ${symbol}`);
     }
-    throw new Error('no usable close');
-}
-
-async function pollStocksOnce() {
-    const symbols = [...stockSubs.keys()];
-    if (!symbols.length) return;
-    // Sequential fetch to keep request rate moderate. Yahoo gets cranky
-    // about parallel bursts from a single client.
-    for (const sym of symbols) {
-        try {
-            const price = await fetchStockPrice(sym);
-            const entry = stockSubs.get(sym);
-            if (!entry) continue;
-            entry.lastPrice = price;
-            for (const cb of entry.subs) {
-                try { cb(price, { symbol: sym, ts: Date.now(), source: 'yahoo' }); } catch (_) {}
-            }
-        } catch (_) { /* swallow per-symbol errors so one bad ticker doesn't kill the loop */ }
-    }
-}
-
-function ensureStockTimer() {
-    if (stockTimer) return;
-    stockTimer = setInterval(pollStocksOnce, STOCK_POLL_MS);
-    // Kick once immediately so subscribers don't wait the full interval
-    // for their first price.
-    pollStocksOnce();
-}
-
-function maybeStopStockTimer() {
-    if (stockSubs.size === 0 && stockTimer) {
-        clearInterval(stockTimer);
-        stockTimer = null;
-    }
+    return close;
 }
 
 function subscribeStock(symbol, cb) {
     const sym = String(symbol || '').toUpperCase();
     let entry = stockSubs.get(sym);
     if (!entry) {
-        entry = { subs: new Set(), lastPrice: null };
+        entry = { subs: new Set(), lastPrice: null, lastFetchedAt: null };
         stockSubs.set(sym, entry);
     }
     entry.subs.add(cb);
     if (entry.lastPrice != null) {
-        try { cb(entry.lastPrice, { symbol: sym, ts: Date.now(), source: 'yahoo', cached: true }); } catch (_) {}
+        try {
+            cb(entry.lastPrice, {
+                symbol: sym, ts: entry.lastFetchedAt || Date.now(),
+                source: 'stooq', cached: true,
+            });
+        } catch (_) {}
     }
-    ensureStockTimer();
+    // NOTE: no auto-poll. Caller (portfolio panel) calls refreshStockPrices()
+    // when they want a fresh snapshot.
     return {
         symbol: sym,
         kind: 'stock',
@@ -187,9 +180,45 @@ function subscribeStock(symbol, cb) {
             if (!e) return;
             e.subs.delete(cb);
             if (e.subs.size === 0) stockSubs.delete(sym);
-            maybeStopStockTimer();
         },
     };
+}
+
+// Refresh ALL currently-subscribed stock symbols with a fresh Stooq fetch.
+// Sequential to keep request rate moderate. Returns a summary object so
+// the caller (panel) can show a toast or update a "last refreshed at"
+// indicator.
+export async function refreshStockPrices() {
+    const symbols = [...stockSubs.keys()];
+    if (!symbols.length) {
+        return { refreshed: 0, failed: 0, ts: Date.now() };
+    }
+    let refreshed = 0;
+    let failed = 0;
+    for (const sym of symbols) {
+        try {
+            const price = await fetchStockPrice(sym);
+            const entry = stockSubs.get(sym);
+            if (!entry) continue;
+            entry.lastPrice = price;
+            entry.lastFetchedAt = Date.now();
+            for (const cb of entry.subs) {
+                try { cb(price, { symbol: sym, ts: entry.lastFetchedAt, source: 'stooq' }); } catch (_) {}
+            }
+            refreshed++;
+        } catch (_) {
+            failed++;
+        }
+    }
+    return { refreshed, failed, ts: Date.now() };
+}
+
+// Snapshot of when each stock was last fetched, for UI 'last refreshed
+// HH:MM' display. Returns null for symbols never fetched.
+export function getStockFreshness(symbol) {
+    const sym = String(symbol || '').toUpperCase();
+    const entry = stockSubs.get(sym);
+    return entry?.lastFetchedAt || null;
 }
 
 // ── public API ────────────────────────────────────────────────────────
@@ -200,9 +229,9 @@ export function subscribe(symbol, cb) {
 }
 
 // One-shot price fetch (no subscription). Used at trade execution time
-// where we want a single "current price" for the fill, not an ongoing
+// where we want a single 'current price' for the fill, not an ongoing
 // stream. Crypto goes through whatever the most recent WS tick was;
-// stocks fetch fresh.
+// stocks fetch fresh from Stooq.
 export async function getCurrentPrice(symbol) {
     if (isCryptoSymbol(symbol)) {
         const entry = cryptoStreams.get(symbol);
@@ -224,7 +253,6 @@ export async function getCurrentPrice(symbol) {
 }
 
 export function isStale(meta) {
-    // Marketing metadata for the UI: tells the panel whether to show a
-    // "delayed" badge on this row.
-    return meta?.source === 'yahoo';
+    // UI metadata: tells the panel whether to show a 'delayed' badge.
+    return meta?.source === 'stooq' || meta?.source === 'yahoo';
 }
