@@ -99,8 +99,22 @@ function base64ToInt16(b64) {
     return new Int16Array(buf);
 }
 
+// Reconnect tuning. Google enforces ~15min session caps on Live API; on
+// goAway we reconnect immediately (server scheduled this, our quota is
+// healthy). On unexpected close we back off so a hard outage doesn't
+// hammer the endpoint. Cap total reconnect attempts so a permanently-
+// broken model id doesn't drain the user's TPM forever.
+const RECONNECT_BACKOFF_MS = [500, 1500, 3500, 7000, 15000];
+const MAX_RECONNECT_ATTEMPTS = 8;
+// Track recent attempts in a sliding window; "too many" within this
+// window means something's actually broken and we should give up.
+const RECONNECT_WINDOW_MS = 5 * 60 * 1000;
+
 /**
- * Open a Gemini Live session.
+ * Open a Gemini Live session with auto-reconnect on goAway / unexpected
+ * close. The session handle stays valid across reconnects — sendAudio /
+ * sendText calls always route to the current WebSocket. Caller doesn't
+ * see the reconnects unless they hit the attempt cap.
  *
  * @param {Object} opts
  * @param {string} opts.apiKey      Gemini API key.
@@ -111,167 +125,276 @@ function base64ToInt16(b64) {
  * @param {function} opts.onTextIn  Receives transcripts of user's mic input (for captions).
  * @param {function} opts.onAudioOut Receives 24kHz Int16 PCM chunks for playback.
  * @param {function} opts.onTurnComplete Fires when model finishes a response.
- * @param {function} opts.onClose   Called on socket close (clean or errored).
- * @param {function} opts.onError   Called on protocol/auth errors before close.
+ * @param {function} opts.onClose   Called only when the FINAL reconnect attempt fails (caller should fall back).
+ * @param {function} opts.onError   Called on protocol/auth errors that won't recover via reconnect.
  * @returns {Object} session handle with sendText / sendAudio / close.
  */
-export async function openLiveSession({
-    apiKey,
-    model = LIVE_MODELS['native-audio'],
-    systemPrompt = '',
-    voiceName = DEFAULT_VOICE,
-    onTextOut = null,
-    onTextIn = null,
-    onAudioOut = null,
-    onTurnComplete = null,
-    onClose = null,
-    onError = null,
-} = {}) {
+export async function openLiveSession(opts = {}) {
+    const {
+        apiKey,
+        model = LIVE_MODELS['native-audio'],
+        systemPrompt = '',
+        voiceName = DEFAULT_VOICE,
+        onTextOut = null,
+        onTextIn = null,
+        onAudioOut = null,
+        onTurnComplete = null,
+        onClose = null,
+        onError = null,
+    } = opts;
     if (!apiKey) throw new Error('Gemini API key required for Live session.');
 
-    const ws = new WebSocket(`${WS_URL}?key=${encodeURIComponent(apiKey)}`);
-    ws.binaryType = 'arraybuffer';
-
-    let setupAcked = false;
-    let closed = false;
-
-    const sendJson = (obj) => {
-        if (ws.readyState !== WebSocket.OPEN) return;
-        ws.send(JSON.stringify(obj));
+    // Mutable state shared by every WebSocket the wrapper opens. Only
+    // `userClosed` is set by the caller's close(); everything else is
+    // managed internally as connections come and go.
+    const state = {
+        currentWs: null,
+        userClosed: false,
+        reconnectAttempts: 0,
+        recentAttempts: [], // timestamps for sliding-window tracking
+        // Buffered audio chunks the caller wants to send while we're
+        // mid-reconnect. We replay them once the new socket is ready
+        // so a goAway during continuous mic capture doesn't drop a
+        // word the user just said.
+        pendingAudio: [],
     };
 
-    // Promise that resolves when we receive setupComplete, so callers
-    // can wait before sending content. Times out at 10s.
-    const setupReady = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-            if (!setupAcked) reject(new Error('Live setup timed out — server did not ack.'));
-        }, 10_000);
-        ws.addEventListener('open', () => {
-            // Send the setup message immediately on open.
-            sendJson({
-                setup: {
-                    model: `models/${model}`,
-                    generationConfig: {
-                        responseModalities: ['AUDIO'],
-                        speechConfig: {
-                            voiceConfig: { prebuiltVoiceConfig: { voiceName } },
-                            languageCode: 'en-US',
+    // Open one WebSocket connection. Returns a Promise that resolves
+    // once setupComplete is acknowledged, or rejects on failure. The
+    // resolved value is the WebSocket itself (so we can send through it).
+    function openOnce() {
+        return new Promise((resolve, reject) => {
+            const ws = new WebSocket(`${WS_URL}?key=${encodeURIComponent(apiKey)}`);
+            ws.binaryType = 'arraybuffer';
+            let setupAcked = false;
+
+            const sendSetup = () => {
+                ws.send(JSON.stringify({
+                    setup: {
+                        model: `models/${model}`,
+                        generationConfig: {
+                            responseModalities: ['AUDIO'],
+                            speechConfig: {
+                                voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+                                languageCode: 'en-US',
+                            },
+                        },
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        inputAudioTranscription: {},
+                        outputAudioTranscription: {},
+                        realtimeInputConfig: {
+                            automaticActivityDetection: {
+                                disabled: false,
+                                startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+                                endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+                            },
+                            activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
                         },
                     },
-                    systemInstruction: { parts: [{ text: systemPrompt }] },
-                    // Transcribe both sides so we can render captions in the panel.
-                    inputAudioTranscription: {},
-                    outputAudioTranscription: {},
-                    realtimeInputConfig: {
-                        automaticActivityDetection: {
-                            disabled: false,
-                            startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-                            endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-                        },
-                        activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
-                    },
-                },
+                }));
+            };
+
+            const setupTimeout = setTimeout(() => {
+                if (!setupAcked) {
+                    try { ws.close(); } catch (_) {}
+                    reject(new Error('Live setup timed out — server did not ack.'));
+                }
+            }, 10_000);
+
+            ws.addEventListener('open', sendSetup);
+
+            ws.addEventListener('message', (ev) => {
+                let msg;
+                try { msg = JSON.parse(ev.data); }
+                catch (e) { console.warn('[mia/live] parse error:', e); return; }
+
+                // Setup ack — flip the gate and resolve openOnce.
+                if (msg.setupComplete && !setupAcked) {
+                    setupAcked = true;
+                    clearTimeout(setupTimeout);
+                    resolve(ws);
+                    return;
+                }
+
+                // Server is asking us to disconnect (session length cap,
+                // typically). Don't surface to user; the close handler
+                // below will trigger the auto-reconnect path.
+                if (msg.goAway) {
+                    console.log('[mia/live] Server goAway received; will reconnect transparently.');
+                    return;
+                }
+
+                // Normal content path.
+                if (msg.serverContent) {
+                    const c = msg.serverContent;
+                    const parts = c.modelTurn?.parts || [];
+                    for (const p of parts) {
+                        if (p.inlineData?.data && p.inlineData.mimeType?.startsWith('audio/')) {
+                            const pcm = base64ToInt16(p.inlineData.data);
+                            try { onAudioOut?.(pcm); } catch (_) {}
+                        }
+                        if (p.text) {
+                            try { onTextOut?.(p.text); } catch (_) {}
+                        }
+                    }
+                    if (c.outputTranscription?.text) {
+                        try { onTextOut?.(c.outputTranscription.text); } catch (_) {}
+                    }
+                    if (c.inputTranscription?.text) {
+                        try { onTextIn?.(c.inputTranscription.text); } catch (_) {}
+                    }
+                    if (c.turnComplete || c.generationComplete) {
+                        try { onTurnComplete?.(); } catch (_) {}
+                    }
+                    if (c.interrupted) {
+                        try { onTurnComplete?.({ interrupted: true }); } catch (_) {}
+                    }
+                }
+            });
+
+            ws.addEventListener('error', (e) => {
+                console.warn('[mia/live] WebSocket error:', e);
+                if (!setupAcked) {
+                    clearTimeout(setupTimeout);
+                    reject(new Error('Live WebSocket error during setup.'));
+                }
+                // Post-setup errors fall through to the close handler
+                // (which decides whether to reconnect).
+            });
+
+            ws.addEventListener('close', (ev) => {
+                clearTimeout(setupTimeout);
+                if (!setupAcked) {
+                    // Connection died before we even got setupComplete.
+                    // Reject so the openOnce caller can retry / fail.
+                    reject(new Error(`Live WS closed before setup (code ${ev.code}).`));
+                    return;
+                }
+                // Post-setup close — kick off auto-reconnect unless the
+                // user explicitly called our close(), or unless this WS
+                // is no longer the "current" one (a stale callback from
+                // an already-replaced socket).
+                if (state.userClosed) return;
+                if (state.currentWs !== ws) return;
+                handleUnexpectedClose(ev);
             });
         });
-        const ackHandler = (ev) => {
-            try {
-                const msg = JSON.parse(ev.data);
-                if (msg.setupComplete) {
-                    setupAcked = true;
-                    clearTimeout(timeout);
-                    ws.removeEventListener('message', ackHandler);
-                    resolve();
-                }
-            } catch (_) {}
-        };
-        ws.addEventListener('message', ackHandler);
-    });
+    }
 
-    ws.addEventListener('message', (ev) => {
-        try {
-            const msg = JSON.parse(ev.data);
-            if (msg.serverContent) {
-                const c = msg.serverContent;
-                // Output audio chunks → decode and forward to playback.
-                const parts = c.modelTurn?.parts || [];
-                for (const p of parts) {
-                    if (p.inlineData?.data && p.inlineData.mimeType?.startsWith('audio/')) {
-                        const pcm = base64ToInt16(p.inlineData.data);
-                        try { onAudioOut?.(pcm); } catch (_) {}
-                    }
-                    if (p.text) {
-                        try { onTextOut?.(p.text); } catch (_) {}
-                    }
-                }
-                // Captions / transcripts.
-                if (c.outputTranscription?.text) {
-                    try { onTextOut?.(c.outputTranscription.text); } catch (_) {}
-                }
-                if (c.inputTranscription?.text) {
-                    try { onTextIn?.(c.inputTranscription.text); } catch (_) {}
-                }
-                if (c.turnComplete || c.generationComplete) {
-                    try { onTurnComplete?.(); } catch (_) {}
-                }
-                if (c.interrupted) {
-                    // User started talking mid-reply (server detected). The
-                    // playback side should stop the current audio queue so
-                    // we don't keep speaking over the user.
-                    try { onTurnComplete?.({ interrupted: true }); } catch (_) {}
-                }
-            }
-            if (msg.goAway) {
-                console.warn('[mia/live] Server signaled goAway:', msg.goAway);
-            }
-        } catch (e) {
-            console.warn('[mia/live] Failed to parse server message:', e);
+    // Track an attempt timestamp; prune anything outside the sliding
+    // window. Returns true if we're still under the cap.
+    function recordAttemptAndCheck() {
+        const now = Date.now();
+        state.recentAttempts = state.recentAttempts.filter(t => now - t < RECONNECT_WINDOW_MS);
+        state.recentAttempts.push(now);
+        return state.recentAttempts.length <= MAX_RECONNECT_ATTEMPTS;
+    }
+
+    async function handleUnexpectedClose(ev) {
+        if (state.userClosed) return;
+        const withinCap = recordAttemptAndCheck();
+        if (!withinCap) {
+            // Too many reconnects in the window — something's actually
+            // broken (model retired, bad key, persistent network issue).
+            // Stop trying and tell the caller so they can fall back to
+            // Web Speech.
+            console.warn('[mia/live] Reconnect cap hit; giving up. recent attempts:', state.recentAttempts.length);
+            try { onClose?.(ev); } catch (_) {}
+            try { onError?.(new Error('Live API: too many reconnects in 5 minutes; falling back.')); } catch (_) {}
+            return;
         }
-    });
+        const delay = RECONNECT_BACKOFF_MS[Math.min(state.reconnectAttempts, RECONNECT_BACKOFF_MS.length - 1)];
+        state.reconnectAttempts++;
+        console.log(`[mia/live] Reconnecting in ${delay}ms (attempt ${state.reconnectAttempts})…`);
+        await new Promise(r => setTimeout(r, delay));
+        if (state.userClosed) return;
+        try {
+            const newWs = await openOnce();
+            state.currentWs = newWs;
+            state.reconnectAttempts = 0; // success → reset backoff
+            // Replay any buffered audio that piled up while we were
+            // disconnected. Drops oldest if buffer got large to avoid
+            // sending stale audio that the model can't usefully respond to.
+            if (state.pendingAudio.length > 0) {
+                const recent = state.pendingAudio.slice(-20); // ~2 seconds at 100ms chunks
+                state.pendingAudio = [];
+                for (const chunk of recent) {
+                    try {
+                        newWs.send(JSON.stringify({
+                            realtimeInput: {
+                                audio: {
+                                    mimeType: 'audio/pcm;rate=16000',
+                                    data: int16ToBase64(chunk),
+                                },
+                            },
+                        }));
+                    } catch (_) {}
+                }
+            }
+            console.log('[mia/live] Reconnected.');
+        } catch (err) {
+            console.warn('[mia/live] Reconnect attempt failed:', err);
+            // Schedule another attempt; the cap check will eventually
+            // stop us if this keeps failing.
+            handleUnexpectedClose(ev);
+        }
+    }
 
-    ws.addEventListener('error', (e) => {
-        try { onError?.(e); } catch (_) {}
-    });
-    ws.addEventListener('close', (e) => {
-        closed = true;
-        try { onClose?.(e); } catch (_) {}
-    });
+    // Initial connection. If this rejects, surface to the caller —
+    // they'd want to fall back to Web Speech rather than retry blindly
+    // (a bad key / wrong model id is best caught loudly on first open).
+    state.currentWs = await openOnce();
 
-    // Wait for setup ack before returning the handle so the caller doesn't
-    // have to know about the protocol. Throws if setup fails / times out.
-    await setupReady;
-
+    // Public handle. All sends route through state.currentWs which the
+    // reconnect logic keeps current. If a send arrives during the gap
+    // between an unexpected close and a successful reconnect, audio
+    // gets buffered for replay and text gets dropped (text turns are
+    // discrete and replaying them would double-prompt the model).
     return {
-        // Send a turn of text input (instead of streaming mic audio).
         sendText(text) {
-            sendJson({
+            const ws = state.currentWs;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({
                 clientContent: {
                     turns: [{ role: 'user', parts: [{ text }] }],
                     turnComplete: true,
                 },
-            });
+            }));
         },
-        // Send a chunk of 16 kHz Int16Array PCM mic audio. Caller can
-        // pipe a stream of these directly from the AudioWorklet output.
         sendAudio(int16Pcm) {
-            if (closed || ws.readyState !== WebSocket.OPEN) return;
-            sendJson({
+            const ws = state.currentWs;
+            if (state.userClosed) return;
+            // Mid-reconnect: buffer so we don't lose words the user
+            // is speaking right now.
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                state.pendingAudio.push(int16Pcm);
+                // Cap the buffer at ~5 seconds (50 chunks of 100ms)
+                // so a long outage doesn't grow it unboundedly.
+                if (state.pendingAudio.length > 50) state.pendingAudio.shift();
+                return;
+            }
+            ws.send(JSON.stringify({
                 realtimeInput: {
                     audio: {
                         mimeType: 'audio/pcm;rate=16000',
                         data: int16ToBase64(int16Pcm),
                     },
                 },
-            });
+            }));
         },
-        // Tell the server we've stopped speaking (when we manage VAD ourselves).
         sendAudioStreamEnd() {
-            sendJson({ realtimeInput: { audioStreamEnd: true } });
+            const ws = state.currentWs;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
         },
         close() {
-            closed = true;
-            try { ws.close(); } catch (_) {}
+            state.userClosed = true;
+            try { state.currentWs?.close(); } catch (_) {}
+            state.currentWs = null;
         },
-        get readyState() { return ws.readyState; },
+        get readyState() {
+            return state.currentWs?.readyState ?? WebSocket.CLOSED;
+        },
     };
 }
 
