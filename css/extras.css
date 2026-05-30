@@ -296,24 +296,27 @@ html[data-dev="1"] body { padding-top: 22px; }
     z-index: 1;
 }
 .chart-ph-candles .candle-loader {
-    height: 110px;
-    gap: 10px;
+    height: 64px;
+    gap: 6px;
     margin: 0;
 }
 .chart-ph-candles .candle-loader .cl-bar {
-    width: 14px;
+    width: 8px;
 }
+/* Hide wicks on the empty-chart hero — Roshan wanted clean bodies
+   only, no lines inside the candles. The skeleton-loader keeps its
+   wicks since that's the analysis-loading context where they help
+   sell the "market data" look. */
 .chart-ph-candles .candle-loader .cl-wick {
-    width: 2px;
-    opacity: 0.6;
+    display: none;
 }
 .chart-ph-candles .candle-loader .cl-body {
-    border-radius: 2.5px;
+    border-radius: 2px;
     /* Slower, more graceful loop than the in-panel loader (1.6s).
        This is decorative ambience on a quiet placeholder, not a
        "we're working on something" indicator that needs urgency. */
     animation-duration: 2.4s;
-    filter: drop-shadow(0 0 4px currentColor);
+    filter: drop-shadow(0 0 3px currentColor);
 }
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
