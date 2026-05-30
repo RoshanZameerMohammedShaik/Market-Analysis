@@ -150,19 +150,25 @@ body {
 .header-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
 .header-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Settings gear icon — slow rotation on hover, stops on rest. Click
-   opens the menu below. */
+/* Settings gear icon — spins ONCE when the menu opens and ONCE again
+   when the menu closes. No continuous rotation while open (Roshan's
+   feedback: the constant spin felt like an unread-notification badge,
+   not a settings affordance). Implementation:
+   - `transform: rotate(0deg)` when collapsed → menu closes triggers
+     the back-rotation transition
+   - `transform: rotate(360deg)` when expanded → menu opens triggers
+     the forward-rotation transition
+   The 0.7s transition is the spin duration; the gear holds steady
+   afterward in either direction. Hover gives a tiny preview rotation
+   so the icon still feels interactive at rest. */
 .settings-gear {
-    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    transform: rotate(0deg);
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .header-btn:hover .settings-gear { transform: rotate(60deg); }
-.header-btn[aria-expanded="true"] .settings-gear { transform: rotate(120deg); }
-@keyframes header-settings-spin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-}
-.header-btn[aria-expanded="true"] .settings-gear {
-    animation: header-settings-spin 8s linear infinite;
+.header-btn[aria-expanded="true"] .settings-gear,
+.header-btn[aria-expanded="true"]:hover .settings-gear {
+    transform: rotate(360deg);
 }
 
 /* Dropdown menu that slides down from under the gear button. */
@@ -194,31 +200,47 @@ body {
 .header-menu-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 12px;
+    padding: 10px 12px;
     background: transparent;
     border: none;
     border-radius: 8px;
     color: var(--text-primary);
-    font-size: 0.86rem;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
     text-align: left;
-    transition: background 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease;
     width: 100%;
 }
-.header-menu-item:hover { background: var(--bg-hover); }
+.header-menu-item:hover {
+    background: var(--bg-hover);
+}
+.header-menu-item:hover .header-menu-icon {
+    color: var(--accent);
+}
 .header-menu-icon {
     width: 22px;
     height: 22px;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
-    font-weight: 700;
     color: var(--text-secondary);
+    transition: color 0.15s ease;
 }
-.header-menu-label { flex: 1; }
+.header-menu-label {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.header-menu-meta {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.2px;
+    margin-left: 8px;
+}
 .theme-toggle {
     width: 36px; height: 36px;
     border: 1px solid var(--border);

@@ -14,7 +14,7 @@
             <div class="app-title-wrap">
                 <h1 class="app-title app-title-static">MARKET ANALYZER</h1>
                 <span class="app-title-portfolio" aria-hidden="true">
-                    <svg class="app-title-portfolio-svg" viewBox="0 0 26 28" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="app-title-portfolio-svg" viewBox="-1 -4 28 32" xmlns="http://www.w3.org/2000/svg">
                         <!-- 4 candles: tiny, small, medium, tall. Bottoms all
                              at y=24. Tops at y=19 / y=15 / y=10 / y=4 — a
                              stair-step that the arrow above climbs cleanly. -->
@@ -22,11 +22,16 @@
                         <rect class="app-title-pf-candle candle-2" x="6"   y="15" width="3.5" height="9"  rx="0.8"/>
                         <rect class="app-title-pf-candle candle-3" x="12"  y="10" width="3.5" height="14" rx="0.8"/>
                         <rect class="app-title-pf-candle candle-4" x="18"  y="4"  width="3.5" height="20" rx="0.8"/>
-                        <!-- Arrow rides ~3px above each candle top so it reads
-                             as "trend leading the price action". Climbs over
-                             all 4 candles before the up-right arrowhead. -->
-                        <path class="app-title-pf-arrow" d="M1.75 16 L7.75 12 L13.75 7 L19.75 1" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path class="app-title-pf-arrowhead" d="M16.25 1 L19.75 1 L19.75 4.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <!-- Curved arrow that arches above ALL 4 candle tops
+                             with a clear gap. Single quadratic Bezier from
+                             (1, 17) — 2px above c1's top — sweeping up to
+                             (21, -2) — 6px above c4's top — with control
+                             point (8, 0) pulling the curve outward and up
+                             so it never grazes c2 (top y=15) or c3 (top
+                             y=10). Visible as a leading-trend arc above
+                             the staircase, not a flat ceiling. -->
+                        <path class="app-title-pf-arrow" d="M1 17 Q8 0 21 -2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path class="app-title-pf-arrowhead" d="M17.5 -1 L21 -2 L21 1.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
             </div>
@@ -41,17 +46,34 @@
             </svg>
         </button>
         <div class="header-settings-menu" id="header-settings-menu" role="menu" aria-hidden="true">
-            <button class="header-menu-item" id="about-btn" type="button" role="menuitem">
-                <span class="header-menu-icon" aria-hidden="true">ⓘ</span>
-                <span class="header-menu-label">About</span>
-            </button>
             <button class="header-menu-item" id="currency-toggle" type="button" role="menuitem">
-                <span class="header-menu-icon" aria-hidden="true">$→₹</span>
-                <span class="header-menu-label">Toggle currency</span>
+                <span class="header-menu-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M3 12h18 M12 3a14 14 0 0 1 0 18 M12 3a14 14 0 0 0 0 18"/>
+                    </svg>
+                </span>
+                <span class="header-menu-label">Currency</span>
+                <span class="header-menu-meta" id="currency-toggle-meta">USD ↔ INR</span>
             </button>
             <button class="header-menu-item" id="theme-toggle" type="button" role="menuitem">
-                <span class="header-menu-icon" aria-hidden="true">🌙</span>
-                <span class="header-menu-label">Switch theme</span>
+                <span class="header-menu-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+                    </svg>
+                </span>
+                <span class="header-menu-label">Theme</span>
+                <span class="header-menu-meta" id="theme-toggle-meta">Dark ↔ Light</span>
+            </button>
+            <button class="header-menu-item" id="about-btn" type="button" role="menuitem">
+                <span class="header-menu-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M12 8h.01 M11 12h1v5h1"/>
+                    </svg>
+                </span>
+                <span class="header-menu-label">About</span>
+                <span class="header-menu-meta">How it works</span>
             </button>
         </div>
     </div>

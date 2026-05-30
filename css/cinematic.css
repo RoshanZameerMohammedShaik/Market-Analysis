@@ -289,10 +289,10 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-pf-candle.candle-3 { animation-delay: 0.64s; }
 .app-title-pf-arrow {
     stroke: var(--green);
-    /* Path length: 3 diagonal segments of ~7.5 units each ≈ 23. Use 25
-       so the dash fully retracts at the start of each loop. */
-    stroke-dasharray: 25;
-    stroke-dashoffset: 25;
+    /* Path length for the curved Q-bezier: chord ~27.6 units, curve
+       adds ~15% so ~32. Use 35 so dash fully retracts at loop start. */
+    stroke-dasharray: 35;
+    stroke-dashoffset: 35;
     animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
     /* Stronger glow stack so the green arrow visibly leads the trend
        and pulls the eye up the staircase. Two tints (accent magenta +
@@ -319,11 +319,11 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     100%      { transform: scaleY(0);    opacity: 0.4; }
 }
 @keyframes app-title-pf-arrow-draw {
-    0%        { stroke-dashoffset: 25; opacity: 0.5; }
-    25%       { stroke-dashoffset: 25; opacity: 0.5; }
+    0%        { stroke-dashoffset: 35; opacity: 0.5; }
+    25%       { stroke-dashoffset: 35; opacity: 0.5; }
     65%       { stroke-dashoffset: 0;  opacity: 1; }
     85%       { stroke-dashoffset: 0;  opacity: 1; }
-    100%      { stroke-dashoffset: 25; opacity: 0.5; }
+    100%      { stroke-dashoffset: 35; opacity: 0.5; }
 }
 @keyframes app-title-pf-arrowhead-draw {
     0%, 55%   { stroke-dashoffset: 8; opacity: 0; }
