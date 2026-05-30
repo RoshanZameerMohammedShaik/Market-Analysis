@@ -102,3 +102,21 @@ export function clearCooldown(model) {
     writeMap(map);
     document.dispatchEvent(new CustomEvent('ma:gemini-tier-cooldown-changed'));
 }
+
+// Console-callable rescue handle. If the user is locked out by stale
+// cooldown state and can't see a badge to click ×, they can run:
+//     window.__miaResetCooldowns()
+// from F12 → Console. Returns the cleared model list so it's obvious
+// what got reset. Available globally because it's an emergency tool;
+// you don't want to dig through module imports during a brownout.
+if (typeof window !== 'undefined') {
+    window.__miaResetCooldowns = () => {
+        const map = readMap();
+        const cleared = Object.keys(map);
+        for (const k of cleared) delete map[k];
+        writeMap(map);
+        document.dispatchEvent(new CustomEvent('ma:gemini-tier-cooldown-changed'));
+        console.log('[mia] Reset cooldown map. Cleared:', cleared.length ? cleared : '(nothing was cooling)');
+        return cleared;
+    };
+}
