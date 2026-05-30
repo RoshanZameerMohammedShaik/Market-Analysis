@@ -722,6 +722,47 @@ body.side-panel-mia-open .mia-launcher {
 .mia-voice-tx-pending {
     color: rgba(255,255,255,0.45);
 }
+/* Live API caption layout — one growing row per speaker per turn,
+   completed turns archived above as static rows. Captions flow as
+   normal sentences (left to right, soft wrap) instead of stacking
+   one fragment per row. */
+.mia-voice-tx-archive {
+    margin-bottom: 12px;
+    opacity: 0.62;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    padding-bottom: 8px;
+}
+.mia-voice-tx-live {
+    margin-top: 4px;
+}
+.mia-voice-tx-line {
+    line-height: 1.55;
+    margin-bottom: 6px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+.mia-voice-tx-line.empty { display: none; }
+.mia-voice-tx-line.mia-voice-tx-user {
+    color: rgba(255,255,255,0.78);
+    font-style: italic;
+}
+.mia-voice-tx-line.mia-voice-tx-user::before {
+    content: 'You: ';
+    color: rgba(255,255,255,0.5);
+    font-style: normal;
+    font-weight: 600;
+    margin-right: 4px;
+}
+.mia-voice-tx-line.mia-voice-tx-mia {
+    color: rgba(255,255,255,0.96);
+    font-weight: 500;
+}
+.mia-voice-tx-line.mia-voice-tx-mia::before {
+    content: 'Mia: ';
+    color: rgba(var(--accent-rgb), 0.95);
+    font-weight: 700;
+    margin-right: 4px;
+}
 
 /* Voice mode reuses .mia-panel as its host, so the launcher offset
    rules that used to dodge a second panel are gone. The launcher

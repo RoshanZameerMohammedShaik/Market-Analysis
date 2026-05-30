@@ -151,7 +151,9 @@ const RECONNECT_WINDOW_MS = 5 * 60 * 1000;
  * @param {function} opts.onTurnComplete Fires when model finishes a response.
  * @param {function} opts.onClose   Called only when the FINAL reconnect attempt fails (caller should fall back).
  * @param {function} opts.onError   Called on protocol/auth errors that won't recover via reconnect.
- * @returns {Object} session handle with sendText / sendAudio / close.
+ * @param {Array}    opts.functionDeclarations Optional Gemini FunctionDeclaration array; when present, model can natively call tools mid-conversation.
+ * @param {function} opts.onToolCall  Receives { id, name, args } per requested tool call. Caller invokes the tool and replies via session.sendToolResponse(id, result).
+ * @returns {Object} session handle with sendText / sendAudio / sendToolResponse / close.
  */
 export async function openLiveSession(opts = {}) {
     const {
@@ -165,6 +167,8 @@ export async function openLiveSession(opts = {}) {
         onTurnComplete = null,
         onClose = null,
         onError = null,
+        functionDeclarations = null,
+        onToolCall = null,
     } = opts;
     if (!apiKey) throw new Error('Gemini API key required for Live session.');
 
@@ -221,14 +225,24 @@ export async function openLiveSession(opts = {}) {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName } },
                     };
                 }
-                const setupMsg = {
-                    setup: {
-                        model: `models/${modelId}`,
-                        generationConfig,
-                        systemInstruction: { parts: [{ text: compactPrompt }] },
-                    },
+                const setupBody = {
+                    model: `models/${modelId}`,
+                    generationConfig,
+                    systemInstruction: { parts: [{ text: compactPrompt }] },
+                    // Server-side STT/TTS captions. Without these, onTextIn /
+                    // onTextOut never fire and the user can't see what they
+                    // said or what Mia is saying.
+                    inputAudioTranscription: {},
+                    outputAudioTranscription: {},
                 };
-                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)');
+                // Native tool calling. Pass FunctionDeclarations and the
+                // model picks/executes tools mid-conversation. We dispatch
+                // toolCall messages to runTool() in the message handler.
+                if (functionDeclarations && functionDeclarations.length) {
+                    setupBody.tools = [{ functionDeclarations }];
+                }
+                const setupMsg = { setup: setupBody };
+                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length, 'voiceRequest:', voiceName || '(default)', 'tools:', functionDeclarations?.length || 0);
                 ws.send(JSON.stringify(setupMsg));
             };
 
@@ -306,6 +320,28 @@ export async function openLiveSession(opts = {}) {
                     if (c.interrupted) {
                         try { onTurnComplete?.({ interrupted: true }); } catch (_) {}
                     }
+                }
+
+                // Native tool-call request from the model. The model has
+                // decided (from the user's voice) to call one of our
+                // FunctionDeclarations. We dispatch to onToolCall, the
+                // caller runs the tool, and replies via sendToolResponse.
+                // Reference: ai.google.dev/api/live#bidigeneratecontenttoolcall
+                if (msg.toolCall?.functionCalls?.length) {
+                    for (const fc of msg.toolCall.functionCalls) {
+                        try {
+                            onToolCall?.({ id: fc.id, name: fc.name, args: fc.args || {} });
+                        } catch (e) {
+                            console.warn('[mia/live] onToolCall handler threw:', e);
+                        }
+                    }
+                }
+
+                // Some models also send toolCallCancellation if a long-running
+                // tool was preempted by user interrupt. We just log it; tools
+                // here are short-lived so cancellation is best-effort.
+                if (msg.toolCallCancellation) {
+                    console.log('[mia/live] toolCallCancellation:', msg.toolCallCancellation);
                 }
             });
 
@@ -463,6 +499,30 @@ export async function openLiveSession(opts = {}) {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
         },
+        // Reply to a toolCall with the tool's result (or an error string).
+        // Live API expects a FunctionResponse keyed back to the original
+        // call id so it can stitch the result into the conversation.
+        // Reference: ai.google.dev/api/live#bidigeneratecontenttoolresponse
+        sendToolResponse(id, result) {
+            const ws = state.currentWs;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            // Live wants `response` as a structured object; wrap primitives
+            // and errors so the model gets something parseable.
+            const responseObj = (result && typeof result === 'object' && !Array.isArray(result))
+                ? result
+                : { value: result };
+            ws.send(JSON.stringify({
+                toolResponse: {
+                    functionResponses: [{
+                        id,
+                        // The model passes a function name back when emitting
+                        // toolCall — Live uses the id to match. Echoing the
+                        // name field is harmless and matches Google's example.
+                        response: responseObj,
+                    }],
+                },
+            }));
+        },
         close() {
             state.userClosed = true;
             try { state.currentWs?.close(); } catch (_) {}
@@ -507,14 +567,31 @@ export async function startMicCapture({ onPCMChunk }) {
         try { onPCMChunk?.(ev.data); } catch (_) {}
     };
     source.connect(node);
-    // The worklet doesn't need to feed audio to the speakers — we only
-    // want the PCM data. So we don't connect node → ctx.destination.
+    // Also branch to an analyser so the orb can read mic amplitude
+    // while listening. The analyser is purely measurement — it doesn't
+    // touch the PCM the worklet ships up to the WS, and doesn't need
+    // ctx.destination either (we don't want to play the user's mic
+    // back through the speakers, that's just feedback).
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.5;
+    source.connect(analyser);
     return {
         stop() {
             try { node.disconnect(); } catch (_) {}
             try { source.disconnect(); } catch (_) {}
+            try { analyser.disconnect(); } catch (_) {}
             try { stream.getTracks().forEach(t => t.stop()); } catch (_) {}
             try { ctx.close(); } catch (_) {}
+        },
+        getAmplitude() {
+            const buf = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(buf);
+            let sum = 0, count = 0;
+            const lo = Math.floor(buf.length * 0.05);
+            const hi = Math.floor(buf.length * 0.55);
+            for (let i = lo; i < hi; i++) { sum += buf[i]; count++; }
+            return count ? sum / count / 255 : 0;
         },
     };
 }
@@ -530,6 +607,15 @@ export function createAudioOutputQueue() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
     let nextStartTime = ctx.currentTime;
     const sources = new Set();
+    // Insert an AnalyserNode between sources and destination so callers
+    // can read the actual RMS of what's playing — that's how the orb
+    // gets to pulse with Leda's voice instead of a synthetic sine.
+    // smoothingTimeConstant kept low (0.4) so the orb feels responsive
+    // to plosives and consonant attacks rather than averaging them out.
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.4;
+    analyser.connect(ctx.destination);
 
     return {
         push(int16Pcm) {
@@ -543,7 +629,7 @@ export function createAudioOutputQueue() {
             buffer.copyToChannel(float, 0);
             const src = ctx.createBufferSource();
             src.buffer = buffer;
-            src.connect(ctx.destination);
+            src.connect(analyser);
             const start = Math.max(nextStartTime, ctx.currentTime);
             src.start(start);
             nextStartTime = start + buffer.duration;
@@ -558,8 +644,29 @@ export function createAudioOutputQueue() {
             sources.clear();
             nextStartTime = ctx.currentTime;
         },
+        // Returns 0..1 amplitude reading from the playback path. Cheap
+        // — the orb's render loop calls this once per frame at 60fps.
+        getAmplitude() {
+            const buf = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(buf);
+            // Average the speech band (skip very-low room rumble + very-high
+            // hiss). Same heuristic as the mic readMicAmplitude path so the
+            // orb's reactivity feels consistent across listen/speak modes.
+            let sum = 0, count = 0;
+            const lo = Math.floor(buf.length * 0.05);
+            const hi = Math.floor(buf.length * 0.55);
+            for (let i = lo; i < hi; i++) { sum += buf[i]; count++; }
+            return count ? sum / count / 255 : 0;
+        },
+        // Returns true while there are still scheduled buffers playing —
+        // caller can use this to know when Leda has stopped speaking
+        // (vs. just paused between chunks during a long reply).
+        isPlaying() {
+            return nextStartTime > ctx.currentTime;
+        },
         close() {
             this.clear();
+            try { analyser.disconnect(); } catch (_) {}
             try { ctx.close(); } catch (_) {}
         },
     };

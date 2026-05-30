@@ -37,6 +37,8 @@ import { renderThread, actionVerbFor } from './mia.js';
 import { openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { isConfigured, loadSettings } from './settings.js';
 import { openLiveSession, startMicCapture, createAudioOutputQueue, VOICE_LIVE_MODELS } from './voice-live.js';
+import { runTool } from './tools.js';
+import { TOOL_DECLARATIONS } from './tool-schemas.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const TTS_AVAILABLE = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
@@ -196,6 +198,14 @@ const session = {
     liveMic: null,
     liveAudioOut: null,
     interimTranscript: '',
+    // Live-mode per-turn buffers. The Live API streams transcription
+    // text in tiny fragments (often single words or syllables). We
+    // accumulate them into running strings and flush to the visible
+    // captions + chat history on turnComplete. Without these, the UI
+    // got one DOM block per fragment → "word below word" stacking.
+    liveUserUtterance: '',     // current turn's user-spoken text
+    liveMiaUtterance: '',      // current turn's Mia-spoken text
+    liveTurnPersisted: false,  // guard so a single turn only saves once
 };
 
 export function initVoice() {
@@ -366,23 +376,44 @@ async function startLiveVoice() {
         audioOut = createAudioOutputQueue();
         session.liveAudioOut = audioOut;
 
+        // Reset per-turn buffers up front so any state from a prior
+        // session (after reconnect) doesn't bleed into this one's
+        // first transcription chunks.
+        session.liveUserUtterance = '';
+        session.liveMiaUtterance = '';
+        session.liveTurnPersisted = false;
+
         const systemPrompt = buildSystemPrompt() + '\n\n' + buildContextBlock(window.__miaLatestSignal || null);
         liveSess = await openLiveSession({
             apiKey: settings.geminiKey,
             systemPrompt,
+            // Native tool calling — Mia gets the same registry voice mode
+            // had no access to before. Gemini Live decides from speech
+            // intent which tool to invoke; onToolCall dispatches it.
+            functionDeclarations: TOOL_DECLARATIONS,
             onTextOut: (text) => {
-                // Append to transcript so captions stay in sync.
-                if (text && text.trim()) {
-                    appendTranscript(text);
-                    if (session.minimized) setLauncherCaption(text, 'mia');
-                }
+                // Mia caption — append to the running utterance, not a new
+                // div per fragment. Live streams these in word/syllable
+                // chunks; one DOM block per chunk made the captions stack
+                // vertically (word-below-word). Now we maintain a single
+                // rolling block for the current Mia utterance and let it
+                // grow inline, exactly like normal sentence captions.
+                if (!text) return;
+                const fragment = String(text);
+                session.liveMiaUtterance += fragment;
+                renderLiveMiaCaption(session.liveMiaUtterance);
+                if (session.minimized) setLauncherCaption(session.liveMiaUtterance, 'mia');
+                // A new Mia turn started — reset persistence flag so
+                // turnComplete knows there's something to save.
+                session.liveTurnPersisted = false;
             },
             onTextIn: (text) => {
-                // User's spoken transcript — show it as it comes in.
-                if (text && text.trim()) {
-                    setTranscript(text);
-                    if (session.minimized) setLauncherCaption(text, 'user');
-                }
+                // User caption — same buffering: append, then render once
+                // so the user's spoken text grows in place, not stacked.
+                if (!text) return;
+                session.liveUserUtterance += String(text);
+                renderLiveUserCaption(session.liveUserUtterance);
+                if (session.minimized) setLauncherCaption(session.liveUserUtterance, 'user');
             },
             onAudioOut: (pcm) => {
                 if (session.state !== 'speaking') {
@@ -390,16 +421,39 @@ async function startLiveVoice() {
                     setStatus('Mia is speaking…');
                 }
                 audioOut.push(pcm);
-                // Boundary clock for the orb amplitude — incoming audio
-                // chunks act like word boundaries.
-                session.lastBoundaryTs = performance.now();
             },
             onTurnComplete: (info) => {
                 if (info?.interrupted) {
                     audioOut.clear();
                 }
+                // Persist this turn's user + Mia text to the chat history
+                // so closing voice mode and looking at the chat panel shows
+                // the full conversation. Guarded so we only save once per
+                // turn even if the API fires multiple completion events.
+                persistLiveTurn();
                 setOrbState('listening');
                 setStatus('Listening…');
+            },
+            onToolCall: async ({ id, name, args }) => {
+                // Mia's native tool dispatch. Live decided from voice
+                // intent that a tool was needed; we run it, send the
+                // result back as a toolResponse, and Mia weaves it into
+                // her spoken reply.
+                pulseOrb();
+                const verb = actionVerbFor(name);
+                const cap = verb.charAt(0).toUpperCase() + verb.slice(1) + '…';
+                setStatus(cap, { shimmer: true });
+                if (session.minimized) setLauncherCaption(cap, 'mia', { shimmer: true });
+                try {
+                    const out = await runTool(name, args || {});
+                    const payload = out.error
+                        ? { error: out.error }
+                        : (out.result ?? { ok: true });
+                    liveSess?.sendToolResponse(id, payload);
+                } catch (e) {
+                    console.warn('[mia/live] tool', name, 'threw:', e);
+                    liveSess?.sendToolResponse(id, { error: e.message || String(e) });
+                }
             },
             onClose: () => {
                 console.log('[mia/live] WebSocket closed.');
@@ -665,6 +719,109 @@ function setTranscript(msg) {
     // Mirror to launcher caption while minimized so the user sees their
     // spoken text floating next to the orb without reopening the panel.
     if (session.minimized) setLauncherCaption(msg, 'user');
+}
+
+// Live-mode caption renderers. Live streams transcriptions as small
+// fragments (word/syllable chunks). We keep ONE growing element per
+// speaker per turn and overwrite its text — so the caption flows like
+// a sentence (left to right, wrapping naturally) instead of stacking
+// vertically (one line per fragment, which is what was happening
+// when each fragment created a new div via appendTranscript).
+//
+// User and Mia captions live as separate spans so they can have
+// distinct styling (user = lighter/right-aligned, Mia = bold/left).
+// On turn boundary they get archived as static rows and a new pair
+// of growing spans is created for the next turn.
+function ensureLiveTranscriptScaffold() {
+    const el = document.getElementById('mia-voice-transcript');
+    if (!el) return null;
+    if (el.dataset.mode !== 'live') {
+        el.innerHTML = '';
+        el.dataset.mode = 'live';
+    }
+    let live = el.querySelector('.mia-voice-tx-live');
+    if (!live) {
+        live = document.createElement('div');
+        live.className = 'mia-voice-tx-live';
+        live.innerHTML = `
+            <div class="mia-voice-tx-line mia-voice-tx-user" data-role="user"></div>
+            <div class="mia-voice-tx-line mia-voice-tx-mia" data-role="mia"></div>
+        `;
+        el.appendChild(live);
+    }
+    return el;
+}
+
+function renderLiveUserCaption(text) {
+    const el = ensureLiveTranscriptScaffold();
+    if (!el) return;
+    const userLine = el.querySelector('.mia-voice-tx-live .mia-voice-tx-user');
+    if (userLine) {
+        userLine.textContent = text;
+        userLine.classList.toggle('empty', !text.trim());
+    }
+    el.scrollTop = el.scrollHeight;
+}
+
+function renderLiveMiaCaption(text) {
+    const el = ensureLiveTranscriptScaffold();
+    if (!el) return;
+    const miaLine = el.querySelector('.mia-voice-tx-live .mia-voice-tx-mia');
+    if (miaLine) {
+        miaLine.textContent = text;
+        miaLine.classList.toggle('empty', !text.trim());
+    }
+    el.scrollTop = el.scrollHeight;
+}
+
+// On turnComplete: archive the current live captions as a static
+// "history" row above and reset the live spans for the next turn.
+// Also persists user + Mia text into Mia's chat history so the
+// thread reflects the conversation when the user returns to chat.
+function persistLiveTurn() {
+    if (session.liveTurnPersisted) return;
+    const userText = String(session.liveUserUtterance || '').trim();
+    const miaText = String(session.liveMiaUtterance || '').trim();
+    if (!userText && !miaText) return;
+    session.liveTurnPersisted = true;
+
+    // Archive in the in-panel transcript — keep the visual record
+    // visible above the now-empty live row.
+    const el = document.getElementById('mia-voice-transcript');
+    if (el) {
+        const live = el.querySelector('.mia-voice-tx-live');
+        if (live) {
+            const archive = document.createElement('div');
+            archive.className = 'mia-voice-tx-archive';
+            if (userText) archive.appendChild(makeArchiveLine(userText, 'user'));
+            if (miaText) archive.appendChild(makeArchiveLine(miaText, 'mia'));
+            el.insertBefore(archive, live);
+        }
+    }
+
+    // Persist into Mia's chat history so the chat panel shows the
+    // voice-mode conversation. Re-load fresh — another tab or the
+    // chat panel itself may have appended in parallel.
+    const updated = loadHistory();
+    if (userText) updated.push({ role: 'user', content: userText });
+    if (miaText) updated.push({ role: 'assistant', content: miaText });
+    saveHistory(updated);
+    session.history = updated;
+    syncChatThread();
+
+    // Reset for the next turn.
+    session.liveUserUtterance = '';
+    session.liveMiaUtterance = '';
+    renderLiveUserCaption('');
+    renderLiveMiaCaption('');
+}
+
+function makeArchiveLine(text, role) {
+    const div = document.createElement('div');
+    div.className = `mia-voice-tx-line mia-voice-tx-${role}`;
+    div.dataset.role = role;
+    div.textContent = text;
+    return div;
 }
 
 // Mia-speaking transcript: each utterance becomes a sentence span we
@@ -1232,9 +1389,19 @@ function startCanvasLoop() {
 
 function updateAmplitude(now) {
     let raw = 0;
-    if (session.state === 'listening') raw = readMicAmplitude();
-    else if (session.state === 'speaking') raw = syntheticSpeechAmplitude(now);
-    else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
+    if (session.state === 'listening') {
+        // Live mode mic exposes its own analyser via the capture handle;
+        // Web Speech path uses the standalone session.analyser. Both
+        // return 0..1 RMS in the speech band.
+        if (session.liveMode && session.liveMic?.getAmplitude) raw = session.liveMic.getAmplitude();
+        else raw = readMicAmplitude();
+    } else if (session.state === 'speaking') {
+        // Live mode reads RMS from the actual playback path so the orb
+        // pulses with what Leda is saying RIGHT NOW. Web Speech path
+        // can't read TTS audio so it falls back to a synthetic carrier.
+        if (session.liveMode && session.liveAudioOut?.getAmplitude) raw = session.liveAudioOut.getAmplitude();
+        else raw = syntheticSpeechAmplitude(now);
+    } else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
     else raw = 0.20 + 0.05 * Math.sin(now * 0.003); // idle breath
     session.smoothedAmp = session.smoothedAmp * 0.78 + raw * 0.22;
 }
