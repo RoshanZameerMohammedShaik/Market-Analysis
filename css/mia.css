@@ -708,34 +708,39 @@ body.side-panel-mia-open .mia-launcher {
    the text — so only the glyphs catch the highlight, no rectangle bg.
    Drops the text-shadow during shimmer so the gradient reads cleanly. */
 .shimmer {
-    /* Wider gradient + softer endpoints so the highlight glides
-       across the text without a hard "wave" edge. The earlier 220%
-       size with stark 0.55→1.0→0.55 stops produced visible flicker
-       at the wave fronts; a longer 280% gradient with extended
-       plateau makes the sweep feel smooth and continuous. */
+    /* PERFECTLY SEAMLESS shimmer. Earlier attempts flickered on the
+       2nd loop because the animation moved the gradient from 110% to
+       -110% (a 220% travel) over a 280% gradient — the start frame and
+       end frame showed DIFFERENT positions inside the gradient, so the
+       cycle wrap exposed a visible jump.
+       Fix: make the travel distance equal exactly one full period of
+       the gradient (300%) and use linear timing. Start frame and
+       end frame are then geometrically identical (since the gradient
+       repeats every 300%), and the wrap is invisible. */
     background-image: linear-gradient(
         100deg,
         rgba(255, 255, 255, 0.65) 0%,
-        rgba(255, 255, 255, 0.65) 38%,
+        rgba(255, 255, 255, 0.65) 35%,
         rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.65) 62%,
+        rgba(255, 255, 255, 0.65) 65%,
         rgba(255, 255, 255, 0.65) 100%
     );
-    background-size: 280% 100%;
+    background-size: 300% 100%;
+    background-repeat: repeat-x;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
     text-shadow: none !important;
-    /* ease-in-out + slower duration smooths out the visible flicker
-       Roshan reported. Linear timing made the wave snap back at the
-       cycle boundary; ease eliminates that visible reset. */
-    animation: ma-shimmer-sweep 2.4s ease-in-out infinite;
+    animation: ma-shimmer-sweep 2.4s linear infinite;
     will-change: background-position;
 }
 @keyframes ma-shimmer-sweep {
-    0%   { background-position: 110% 0; }
-    100% { background-position: -110% 0; }
+    /* Move exactly one gradient-period (300%). Start and end frames
+       are identical positions inside the repeating gradient, so the
+       loop wrap is mathematically invisible. */
+    0%   { background-position: 0% 0; }
+    100% { background-position: -300% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .shimmer { animation: none; background-position: 50% 0; }
