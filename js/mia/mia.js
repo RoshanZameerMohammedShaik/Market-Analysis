@@ -508,14 +508,14 @@ async function doSend() {
             // they need to actually fix.
             let userMsg;
             if (aborted) {
-                // 'aborted' here means an AbortController fired, which can
-                // be: user clicked stop, panel closed mid-turn, watchdog
-                // killed a hang, or some race condition we haven't traced
-                // yet. Don't accuse the user — say something neutral. Log
-                // the actual error to the console so we can see WHICH
-                // abort path fired.
+                // Abort fired but no partial output landed. We don't know
+                // WHO aborted (manual stop, panel close, watchdog, race) —
+                // but the user sees the symptom either way. Surface the
+                // raw error message so they (and I) can actually diagnose
+                // instead of staring at a polite '_Stopped by you._' lie.
                 console.warn('[mia] Turn aborted:', e?.message || '(no message)', e);
-                userMsg = '_Stopped — try sending again._';
+                const detail = e?.message ? ` — ${e.message}` : '';
+                userMsg = `_Turn was interrupted${detail}. Check the browser console for [mia] entries and try again._`;
             } else if (e?.status === 401 || e?.status === 403 || /API key/i.test(e?.message || '')) {
                 userMsg = `Sorry — ${e.message}`;
             } else if (e?.status === 429 || e?.tierCooling) {
