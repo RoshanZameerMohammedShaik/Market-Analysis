@@ -4,14 +4,42 @@
 // the tightest of (requests-per-minute, tokens-per-minute) — whichever
 // is closer to exhaustion. Pulses red as remaining drops below 20%.
 
-import { getUsage, getRoutingSummary } from './llm-client.js';
+import { getUsage, getRoutingSummary, getModelStatus } from './llm-client.js';
 import { loadSettings } from './settings.js';
+
+// Re-render the meter whenever a tier moves in/out of cooldown so the
+// user sees fallback decisions surface in real time. Idempotent: re-
+// listens cleanly across renderChat calls.
+let coolingListener = null;
+function ensureCoolingListener(container) {
+    if (coolingListener) return;
+    coolingListener = () => renderUsageMeter(container);
+    document.addEventListener('ma:gemini-tier-cooldown-changed', coolingListener);
+}
+
+function fmtCoolingTime(secondsRemaining) {
+    if (secondsRemaining < 60) return `${secondsRemaining}s`;
+    const mins = Math.floor(secondsRemaining / 60);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    const rmin = mins % 60;
+    return rmin ? `${hours}h${rmin}m` : `${hours}h`;
+}
+
+function modelShortName(model) {
+    if (!model) return '';
+    if (model.includes('flash-lite')) return 'Flash-Lite';
+    if (model.includes('flash')) return 'Flash';
+    return model;
+}
 
 export function renderUsageMeter(container) {
     if (!container) return;
+    ensureCoolingListener(container);
     const s = loadSettings();
     const usage = getUsage();
     const routing = getRoutingSummary();
+    const modelStatus = getModelStatus();
 
     if (!s.backend) {
         container.innerHTML = `<div class="mia-usage idle">
@@ -24,6 +52,19 @@ export function renderUsageMeter(container) {
     const provLabel = s.backend === 'cloudflare' ? 'Cloudflare' : 'Gemini';
     const fallbackTag = routing.fallback ? ` → ${routing.fallback} (auto-fallback)` : '';
 
+    // If any Gemini tier is cooling, surface that visibly. Multiple tiers
+    // cooling at once = the rare "rate-limited everywhere" state where
+    // we'd be falling over to Cloudflare.
+    const coolingBadges = modelStatus.cooling.map(c => {
+        const short = modelShortName(c.model);
+        return `<span class="mia-cooldown-badge" title="${c.model} — quota reached, auto-recovering in ${fmtCoolingTime(c.secondsRemaining)}">${short}: cooling ${fmtCoolingTime(c.secondsRemaining)}</span>`;
+    }).join('');
+    // Active tier indicator — which model the most recent reply came
+    // from. Helps the user understand "wait, is it on Lite or Flash?"
+    const activeTag = modelStatus.activeModel
+        ? ` • on <strong>${modelShortName(modelStatus.activeModel)}</strong>`
+        : '';
+
     // Pre-first-message: show a placeholder bar so the user knows it
     // exists. Once the first response comes back with rate headers, it
     // populates with real numbers.
@@ -32,8 +73,9 @@ export function renderUsageMeter(container) {
         const placeholderBar = Array.from({ length: segments }, () => `<i class="off"></i>`).join('');
         container.innerHTML = `<div class="mia-usage idle" title="Per-minute usage shows after the first message">
             <span class="mia-usage-dot"></span>
-            <span class="mia-usage-text">${provLabel}${fallbackTag} • limits show after first reply</span>
+            <span class="mia-usage-text">${provLabel}${fallbackTag}${activeTag} • limits show after first reply</span>
             <span class="mia-usage-bar">${placeholderBar}</span>
+            ${coolingBadges}
         </div>`;
         return;
     }
@@ -57,7 +99,8 @@ export function renderUsageMeter(container) {
         : ' — Cloudflare daily free quota. Resets at UTC midnight.';
     container.innerHTML = `<div class="mia-usage ${tone}" title="${allAxes}${tipSuffix}">
         <span class="mia-usage-dot"></span>
-        <span class="mia-usage-text">${provLabel}${fallbackTag} • ${pct}% ${tightest.label} left</span>
+        <span class="mia-usage-text">${provLabel}${fallbackTag}${activeTag} • ${pct}% ${tightest.label} left</span>
         <span class="mia-usage-bar">${bar}</span>
+        ${coolingBadges}
     </div>`;
 }

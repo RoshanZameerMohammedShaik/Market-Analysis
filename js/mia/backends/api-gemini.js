@@ -17,9 +17,16 @@
 // containing {"error":{...}} — we throw a typed error so mia.js preserves
 // the partial reply instead of wiping it.
 
+import { markCooling, isCooling, msUntilHealthy } from './tier-cooldown.js';
+
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODEL_DEFAULT = 'gemini-2.5-flash-lite';
 const MODEL_THINKING = 'gemini-2.5-flash';
+
+// Re-export so other modules (llm-client, status pill) can read state
+// without adding a second import line everywhere.
+export { isCooling, msUntilHealthy } from './tier-cooldown.js';
+export { getCooldownState } from './tier-cooldown.js';
 
 // Silent retry on transient errors. 429 = our quota; 503 = Gemini-side
 // overload (very common, usually clears in <2s). Both retried with the
@@ -163,6 +170,21 @@ async function postOnce({ model, system, messages, key, signal }) {
 export async function* stream({ system, messages, key, signal, tier = 'default' }) {
     const model = modelFor(tier);
     if (!key) throw new Error('Gemini API key required. Paste your AI Studio key in Mia settings.');
+
+    // Pre-flight: if this tier is currently cooling from a recent 429,
+    // throw a typed error immediately so the orchestrator (llm-client)
+    // can fall back to the alternate Gemini tier without burning a
+    // request-and-retry cycle that we know will fail.
+    if (isCooling(model)) {
+        const remaining = Math.ceil(msUntilHealthy(model) / 1000);
+        const err = new Error(`Gemini ${model} is in cooldown for ~${remaining}s.`);
+        err.status = 429;
+        err.tierCooling = true;
+        err.coolingModel = model;
+        err.retryAfterSec = remaining;
+        throw err;
+    }
+
     let res;
 
     // Initial post with retry on 429 (our quota) and 5xx (Gemini overload).
@@ -180,7 +202,16 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
             lastErr = err;
             const retryable = RETRYABLE_STATUSES.has(err?.status);
             const moreAttempts = attempt < RETRY_DELAYS_MS.length;
-            if (!retryable || !moreAttempts || signal?.aborted) throw err;
+            if (!retryable || !moreAttempts || signal?.aborted) {
+                // Terminal 429 → record this tier as cooling so future
+                // calls skip it and try the alternate tier directly.
+                if (err?.status === 429) {
+                    markCooling(model, err.retryAfterSec);
+                    err.tierCooling = true;
+                    err.coolingModel = model;
+                }
+                throw err;
+            }
             const scheduleMs = RETRY_DELAYS_MS[attempt];
             const hintMs = err?.retryAfterSec ? Math.min(30, err.retryAfterSec) * 1000 : 0;
             const waitMs = Math.max(scheduleMs, hintMs);
@@ -214,6 +245,15 @@ export async function* stream({ system, messages, key, signal, tier = 'default' 
                     const e = new Error(msg);
                     e.status = status;
                     e.midStream = true;
+                    if (status === 429) {
+                        // Mid-stream quota exhaustion — mark the tier as
+                        // cooling so the next call skips it. retryAfter
+                        // hint isn't usually present in mid-stream errors,
+                        // so we let markCooling default to 60s.
+                        markCooling(model);
+                        e.tierCooling = true;
+                        e.coolingModel = model;
+                    }
                     throw e;
                 }
                 // Gemini wraps content in candidates[0].content.parts[*].text

@@ -187,7 +187,6 @@ function renderChat() {
                 <div><div class="mia-name">Mia</div><div class="mia-role">Market Intelligence Analyst</div></div>
             </div>
             <div class="mia-head-actions">
-                <button class="mia-icon-btn" id="mia-thinking-btn" title="Toggle thinking mode">🧠⁺</button>
                 <button class="mia-icon-btn" id="mia-settings-btn" title="Settings">⚙️</button>
                 <button class="mia-icon-btn" id="mia-close-btn" title="Close">✕</button>
             </div>
@@ -207,13 +206,11 @@ function renderChat() {
     `;
     document.getElementById('mia-close-btn').addEventListener('click', togglePanel);
     document.getElementById('mia-settings-btn').addEventListener('click', renderSettings);
-    document.getElementById('mia-thinking-btn').addEventListener('click', toggleThinking);
     wireActionButton();
     document.getElementById('mia-input').addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onPrimaryAction(); }
         if (e.key === 'K' && e.shiftKey && (e.ctrlKey || e.metaKey)) { e.preventDefault(); performClear(); }
     });
-    refreshThinkingBadge();
     renderUsageMeter(document.getElementById('mia-usage-wrap'));
     renderThread(loadHistory());
     attachVoiceButton();
@@ -301,14 +298,13 @@ function onPrimaryAction() {
     if (btn.dataset.state === 'streaming') { try { activeAbort?.abort(); } catch (_) {} return; }
     void doSend();
 }
-function toggleThinking() { const s = loadSettings(); saveSettings({ thinkingMode: !s.thinkingMode }); refreshThinkingBadge(); }
-function refreshThinkingBadge() {
-    const s = loadSettings();
-    const btn = document.getElementById('mia-thinking-btn');
-    if (!btn) return;
-    btn.classList.toggle('active', !!s.thinkingMode);
-    btn.title = s.thinkingMode ? 'Thinking mode ON — deeper, slower' : 'Thinking mode OFF — faster, lighter';
-}
+// Note: the manual "thinking mode" toggle was removed in favor of auto
+// tier-fallback (Flash-Lite ↔ Flash). The intent classifier picks the
+// right tier per query and the cooldown map auto-falls-back when one
+// tier is rate-limited. settings.thinkingMode still exists in storage
+// as an internal escape hatch — if a future power-user toggle is needed,
+// re-add the button bound to a setter and the existing routing logic
+// will respect it.
 export function renderThread(history) {
     const thread = document.getElementById('mia-thread');
     if (!thread) return;
