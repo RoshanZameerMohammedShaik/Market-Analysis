@@ -1,26 +1,31 @@
-// FX rates from Yahoo Finance. We store the rate from a given currency
-// TO USD — so a user with EUR sees rate=1.08-ish (1 EUR ≈ $1.08).
-// Cached for 90s in localStorage so converting "show me my P&L in INR
-// every render" doesn't burn through Yahoo's rate limit.
+// FX rates from Frankfurter (frankfurter.app). Free, no key, CORS-enabled,
+// daily-refreshed European Central Bank reference rates. Sufficient
+// accuracy for practice trading; FX moves slowly enough that ECB daily
+// rates are within a fraction of a percent of intraday.
 //
-// Yahoo's FX symbol convention is XXXYYY=X meaning "1 XXX in YYY". So:
-//   USDEUR=X  → how many EUR in 1 USD       (USD→EUR direction)
-//   EURUSD=X  → how many USD in 1 EUR       (EUR→USD direction)
-// We always want "amount of USD per 1 unit of LOCAL", i.e., LOCAL→USD.
-// For LOCAL = EUR, we fetch EURUSD=X. General form: `${LOCAL}USD=X`.
+// We originally used Yahoo's chart endpoint but Yahoo blocks browser-
+// direct fetches via CORS in production — every page open spammed
+// CORS errors and silently broke the FX cache. Frankfurter is the
+// drop-in replacement.
 //
-// Special-case USD→USD (rate = 1, no fetch).
+// Stored convention: rate = number of USD that 1 unit of `currency`
+// is worth. EUR rate ~ 1.08 means 1 EUR = $1.08.
+//
+// Cached for 6 hours in localStorage. Daily-refresh source means
+// hammering it more frequently buys nothing.
 
 const CACHE_KEY = 'ma-fx-cache-v1';
-const CACHE_MS = 90_000; // 90 seconds — FX moves slowly enough that this is fine for practice trading
+const CACHE_MS = 6 * 60 * 60 * 1000; // 6 hours — Frankfurter refreshes once a day
 
-// Common currencies the dropdown will offer. Not exhaustive — Yahoo
-// supports far more. Computed structurally on the fly: any 3-letter
-// code passed in will get a fetch attempt.
+// Common currencies the dropdown will offer. Limited to what Frankfurter
+// supports (ECB-published rates) — we dropped AED/SAR/CNY-from-the-old-
+// Yahoo-list because Frankfurter doesn't carry them. Any 3-letter code
+// passed in will still get a fetch attempt, but the dropdown surfaces
+// only the ones we know work.
 export const COMMON_CURRENCIES = [
     'USD', 'EUR', 'GBP', 'JPY', 'INR', 'CAD', 'AUD',
     'CHF', 'CNY', 'HKD', 'SGD', 'KRW', 'BRL', 'MXN', 'NZD',
-    'SEK', 'NOK', 'DKK', 'ZAR', 'TRY', 'AED', 'SAR',
+    'SEK', 'NOK', 'DKK', 'ZAR', 'TRY',
 ];
 
 function loadCache() {
@@ -35,7 +40,12 @@ function saveCache(c) {
 
 // Returns the number of USD that 1 unit of `currency` is worth.
 // USD always returns 1 immediately. Throws on fetch failure (caller can
-// fall back to the cached value or block the user from instantiating).
+// fall back to the cached value).
+//
+// Frankfurter API: GET https://api.frankfurter.app/latest?from=EUR&to=USD
+// Response: { amount: 1, base: "EUR", date: "2026-05-29", rates: { USD: 1.0823 } }
+// We always query "from=<currency>&to=USD" so the response's rates.USD
+// is exactly the rate we want.
 export async function getRateToUSD(currency) {
     const cur = String(currency || 'USD').toUpperCase();
     if (cur === 'USD') return 1;
@@ -44,34 +54,26 @@ export async function getRateToUSD(currency) {
     const hit = cache[cur];
     if (hit && (Date.now() - hit.t) < CACHE_MS) return hit.rate;
 
-    // Yahoo's chart endpoint is the same one the rest of the app uses for
-    // candles. range=1d / interval=1m gives us the most recent intraday
-    // close, which for FX pairs is updated continuously during FX market
-    // hours (roughly 24×5).
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cur}USD=X?range=1d&interval=5m`;
-    const res = await fetch(url);
+    const url = `https://api.frankfurter.app/latest?from=${encodeURIComponent(cur)}&to=USD`;
+    let res;
+    try {
+        res = await fetch(url);
+    } catch (e) {
+        // Network error — return stale cache if we have one rather than
+        // throwing. Practice-trading display can keep showing yesterday's
+        // rate; the alternative (blocking the panel) is worse UX.
+        if (hit) return hit.rate;
+        throw e;
+    }
     if (!res.ok) {
-        // If we have an old-but-non-zero cache value, return it rather than
-        // blocking the user. FX rates change slowly enough that a 6-hour-old
-        // rate is still useful for a practice-trading sim.
         if (hit) return hit.rate;
         throw new Error(`FX fetch failed: ${res.status}`);
     }
     const data = await res.json();
-    const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
-    if (!Array.isArray(closes)) {
+    const rate = data?.rates?.USD;
+    if (!Number.isFinite(rate) || rate <= 0) {
         if (hit) return hit.rate;
-        throw new Error('FX response shape unexpected.');
-    }
-    // Take the most recent non-null close. Yahoo sometimes pads the tail
-    // with nulls when the interval hasn't closed yet.
-    let rate = null;
-    for (let i = closes.length - 1; i >= 0; i--) {
-        if (closes[i] != null && Number.isFinite(closes[i]) && closes[i] > 0) { rate = closes[i]; break; }
-    }
-    if (rate == null) {
-        if (hit) return hit.rate;
-        throw new Error('FX response had no usable close.');
+        throw new Error(`FX response had no usable rate for ${cur}→USD.`);
     }
     cache[cur] = { rate, t: Date.now() };
     saveCache(cache);
