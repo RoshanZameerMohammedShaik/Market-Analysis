@@ -75,10 +75,19 @@ function makeSentenceChunker() {
     };
 }
 
+// Strip emoji + pictographs before sending to TTS. Web Speech API's
+// browser voices verbalize emojis as their Unicode names ("smiling
+// face with smiling eyes", "thumbs up sign") which sounds robotic and
+// breaks immersion. The visible chat bubble keeps the emoji — only
+// the audio stream gets stripped. Uses the Unicode property escape
+// for "Extended Pictographic" which covers emojis + pictographs +
+// keycaps + flags + symbols. Also strips zero-width joiners and
+// variation selectors that compose emoji sequences.
+const EMOJI_REGEX = /\p{Extended_Pictographic}|‍|️|[\u{1F1E6}-\u{1F1FF}]/gu;
+
 // Strip stuff that doesn't read well aloud: markdown bold/italic, code
 // fences, list bullets, our own §§MIA_UNVERIFIED:...§§ sentinel, link
-// brackets, bare URLs, and the agent's TOOL: scaffolding (in case any
-// leaks into the streaming buffer before scrubToolNames runs).
+// brackets, bare URLs, the agent's TOOL: scaffolding, and emoji.
 function speakable(text) {
     return String(text || '')
         .replace(/§§MIA_UNVERIFIED:[^§]*§§/g, '')
@@ -92,6 +101,8 @@ function speakable(text) {
         .replace(/^[\s\-\*\+]+/gm, '')
         .replace(/^\d+\.\s+/gm, '')
         .replace(/[#>]/g, '')
+        // Strip emoji so the TTS doesn't read them as Unicode names.
+        .replace(EMOJI_REGEX, '')
         // Read currency cleanly: "$1,234" → "1234 dollars" sounds weird;
         // we'll let the engine read the digits naturally and just kill
         // the $ glyph (so "1,234" reads as "one thousand two hundred...").
