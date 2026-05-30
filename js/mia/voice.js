@@ -35,7 +35,8 @@ import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory } from './memory.js';
 import { renderThread, actionVerbFor } from './mia.js';
 import { openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
-import { isConfigured } from './settings.js';
+import { isConfigured, loadSettings } from './settings.js';
+import { openLiveSession, startMicCapture, createAudioOutputQueue, VOICE_LIVE_MODELS } from './voice-live.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const TTS_AVAILABLE = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
@@ -187,6 +188,13 @@ const session = {
     lastBoundaryTs: 0,
     lastSpokenChunkLen: 0,
     finalTranscript: '',
+    // Live API mode (Gemini native voice). Populated when settings.voiceLive
+    // is on; null otherwise. liveSession is the WebSocket handle, liveMic
+    // is the AudioWorklet capture handle, liveAudioOut is the playback queue.
+    liveMode: false,
+    liveSession: null,
+    liveMic: null,
+    liveAudioOut: null,
     interimTranscript: '',
 };
 
@@ -323,16 +331,127 @@ async function openVoice() {
 
     setupCanvas();
     startCanvasLoop();
-    // Slight delay so the open animation can settle before we ask for the
-    // mic — feels less jumpy and keeps the orb visible while the permission
-    // prompt fires.
-    setTimeout(() => startListening(), 350);
+
+    // Branch: Live API (neural voice) or classic Web Speech path.
+    // Settings flag opts the user in; default off so existing users get
+    // the same experience they had before.
+    const settings = loadSettings();
+    session.liveMode = !!settings.voiceLive && !!settings.geminiKey;
+    if (session.liveMode) {
+        // Slight delay before starting the WebSocket so the panel
+        // animation finishes — keeps the orb in view while we boot
+        // the connection (which can take ~500ms-1s).
+        setTimeout(() => startLiveVoice(), 350);
+    } else {
+        // Slight delay so the open animation can settle before we ask
+        // for the mic — feels less jumpy and keeps the orb visible
+        // while the permission prompt fires.
+        setTimeout(() => startListening(), 350);
+    }
+}
+
+// ── Gemini Live API voice path ────────────────────────────────────
+// Bidirectional WebSocket: server hears the mic raw, sends audio
+// chunks back which we play through an AudioContext queue. No browser
+// TTS, no browser STT. Falls back to Web Speech if any step fails so
+// the user gets a working voice mode either way.
+async function startLiveVoice() {
+    const settings = loadSettings();
+    setOrbState('thinking');
+    setStatus('Connecting…', { shimmer: true });
+    let liveSess = null;
+    let mic = null;
+    let audioOut = null;
+    try {
+        audioOut = createAudioOutputQueue();
+        session.liveAudioOut = audioOut;
+
+        const systemPrompt = buildSystemPrompt() + '\n\n' + buildContextBlock(window.__miaLatestSignal || null);
+        liveSess = await openLiveSession({
+            apiKey: settings.geminiKey,
+            systemPrompt,
+            onTextOut: (text) => {
+                // Append to transcript so captions stay in sync.
+                if (text && text.trim()) {
+                    appendTranscript(text);
+                    if (session.minimized) setLauncherCaption(text, 'mia');
+                }
+            },
+            onTextIn: (text) => {
+                // User's spoken transcript — show it as it comes in.
+                if (text && text.trim()) {
+                    setTranscript(text);
+                    if (session.minimized) setLauncherCaption(text, 'user');
+                }
+            },
+            onAudioOut: (pcm) => {
+                if (session.state !== 'speaking') {
+                    setOrbState('speaking');
+                    setStatus('Mia is speaking…');
+                }
+                audioOut.push(pcm);
+                // Boundary clock for the orb amplitude — incoming audio
+                // chunks act like word boundaries.
+                session.lastBoundaryTs = performance.now();
+            },
+            onTurnComplete: (info) => {
+                if (info?.interrupted) {
+                    audioOut.clear();
+                }
+                setOrbState('listening');
+                setStatus('Listening…');
+            },
+            onClose: () => {
+                console.log('[mia/live] WebSocket closed.');
+            },
+            onError: (e) => {
+                console.warn('[mia/live] error:', e);
+            },
+        });
+        session.liveSession = liveSess;
+
+        // Start mic capture and pipe each PCM chunk straight to the WS.
+        mic = await startMicCapture({
+            onPCMChunk: (pcm) => {
+                liveSess.sendAudio(pcm);
+            },
+        });
+        session.liveMic = mic;
+        setOrbState('listening');
+        setStatus('Listening…');
+    } catch (err) {
+        console.warn('[mia/live] Failed to start; falling back to Web Speech:', err);
+        // Tear down anything we partially built.
+        try { mic?.stop(); } catch (_) {}
+        try { liveSess?.close(); } catch (_) {}
+        try { audioOut?.close(); } catch (_) {}
+        session.liveSession = null;
+        session.liveMic = null;
+        session.liveAudioOut = null;
+        session.liveMode = false;
+        // Fall through to the classic path.
+        setStatus('Live unavailable — switching to standard voice…');
+        setTimeout(() => startListening(), 600);
+    }
+}
+
+function stopLiveVoice() {
+    try { session.liveMic?.stop(); } catch (_) {}
+    try { session.liveSession?.close(); } catch (_) {}
+    try { session.liveAudioOut?.close(); } catch (_) {}
+    session.liveMic = null;
+    session.liveSession = null;
+    session.liveAudioOut = null;
+    session.liveMode = false;
 }
 
 function closeVoice() {
     session.open = false;
     session.minimized = false;
     session.autoLoop = false;
+    // Tear down both Live and Web Speech paths — whichever was active.
+    // Idempotent if either wasn't running.
+    stopLiveVoice();
     stopListening();
     stopSpeaking();
     abortAgent();

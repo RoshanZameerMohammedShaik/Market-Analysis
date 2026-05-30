@@ -16,6 +16,11 @@ const DEFAULT = {
     cfKey: '',
     cfAccountId: '',
     thinkingMode: false,
+    // Voice mode: when true, use Gemini Live API (native neural voice,
+    // unlimited free RPD) instead of Web Speech (browser TTS/STT).
+    // Off by default because Live needs a stable WebSocket and a slightly
+    // beefier mic pipeline; Web Speech is the safer "just works" baseline.
+    voiceLive: false,
 };
 
 function migrateLegacy() {
