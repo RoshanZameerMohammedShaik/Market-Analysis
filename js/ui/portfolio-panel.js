@@ -138,7 +138,7 @@ function renderPanel() {
             </details>`;
         document.getElementById('portfolio-instantiate-btn').addEventListener('click', openInstantiateModal);
         document.getElementById('portfolio-import-btn').addEventListener('click', openImportPrompt);
-        movePLCalculatorIntoPanel();
+        renderInlinePLCalc();
         return;
     }
 
@@ -191,7 +191,7 @@ function renderPanel() {
     document.getElementById('portfolio-import-2').addEventListener('click', openImportPrompt);
     document.getElementById('portfolio-reset').addEventListener('click', confirmReset);
     document.getElementById('portfolio-holdings').addEventListener('click', onHoldingsClick);
-    movePLCalculatorIntoPanel();
+    renderInlinePLCalc();
 
     // After full re-render, paint live prices into rows from whatever
     // ticks we already have cached so the UI doesn't sit on '—'.
@@ -200,21 +200,113 @@ function renderPanel() {
     }
 }
 
-// Relocate the P&L calculator aside (originally rendered in the main
-// app grid as a sidebar) into the portfolio panel. We physically move
-// the same DOM node — DON'T clone — so all the listeners pl.js
-// attached at init still work, and so the moved aside doesn't double-
-// exist (which would cause duplicate IDs and break getElementById).
-//
-// Called every render. The first call moves it; subsequent calls
-// short-circuit because the node is already in the right host.
-function movePLCalculatorIntoPanel() {
+// Render an inline P&L calculator inside the portfolio panel. We
+// originally tried physically MOVING the existing #pl-sidebar aside
+// here, but that aside was a fixed-position floating sheet from
+// pl-toggle.css with !important rules and a translateX(110%) hide
+// transform that survived the relocation; the calc was technically
+// inside the panel but offset 110% off-screen. Renderpanel also wipes
+// the body innerHTML on every state change which would re-destroy the
+// relocation. So this is a clean inline implementation using its own
+// IDs — same math, no DOM acrobatics.
+function renderInlinePLCalc() {
     const host = document.getElementById('portfolio-pl-host');
-    const calc = document.getElementById('pl-sidebar');
-    if (!host || !calc) return;
-    if (host.contains(calc)) return; // already moved
-    host.appendChild(calc);
-    calc.classList.add('pl-sidebar-in-portfolio');
+    if (!host) return;
+    host.innerHTML = `
+        <div class="pp-calc">
+            <label class="pp-calc-field">
+                <span>Investment ($)</span>
+                <input type="number" id="pp-calc-investment" inputmode="decimal" step="any" min="0" placeholder="1000">
+            </label>
+            <label class="pp-calc-field">
+                <span>Purchase price</span>
+                <input type="number" id="pp-calc-buy" inputmode="decimal" step="any" min="0" placeholder="200">
+            </label>
+            <label class="pp-calc-field">
+                <span>Target / current</span>
+                <input type="number" id="pp-calc-current" inputmode="decimal" step="any" min="0" placeholder="250">
+            </label>
+            <div class="pp-calc-actions">
+                <button class="pp-calc-fill-btn" id="pp-calc-fill" type="button" title="Fill purchase + target with the live price of the loaded symbol">Use live price</button>
+                <button class="pp-calc-go" id="pp-calc-go" type="button">Calculate</button>
+            </div>
+            <div class="pp-calc-error" id="pp-calc-error"></div>
+            <div class="pp-calc-result" id="pp-calc-result" data-type=""></div>
+        </div>`;
+    document.getElementById('pp-calc-go').addEventListener('click', runInlinePLCalc);
+    document.getElementById('pp-calc-fill').addEventListener('click', fillFromLivePrice);
+    // Allow Enter key to trigger calculation, matching the original calc's UX.
+    host.querySelectorAll('input').forEach(inp => {
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') runInlinePLCalc(); });
+    });
+}
+
+function fillFromLivePrice() {
+    // Pull the currently-loaded symbol's price from app state. Same source
+    // the rest of the app uses; no extra fetch.
+    import('./state.js').then(({ state }) => {
+        const errEl = document.getElementById('pp-calc-error');
+        const price = Number(state.currentPrice);
+        if (!Number.isFinite(price) || price <= 0) {
+            if (errEl) {
+                errEl.textContent = 'Load a symbol first to use its live price.';
+                errEl.classList.add('show');
+                setTimeout(() => errEl.classList.remove('show'), 2500);
+            }
+            return;
+        }
+        const buy = document.getElementById('pp-calc-buy');
+        const cur = document.getElementById('pp-calc-current');
+        if (!buy.value) buy.value = price.toFixed(2);
+        if (!cur.value) cur.value = price.toFixed(2);
+    });
+}
+
+function runInlinePLCalc() {
+    const errEl = document.getElementById('pp-calc-error');
+    const resEl = document.getElementById('pp-calc-result');
+    if (!errEl || !resEl) return;
+    errEl.classList.remove('show');
+    resEl.classList.remove('show');
+    resEl.dataset.type = '';
+
+    const investment = parseFloat(document.getElementById('pp-calc-investment').value);
+    const buyPrice = parseFloat(document.getElementById('pp-calc-buy').value);
+    const currentPrice = parseFloat(document.getElementById('pp-calc-current').value);
+
+    if ([investment, buyPrice, currentPrice].some(v => Number.isNaN(v) || v < 0)) {
+        errEl.textContent = 'Enter valid positive numbers for all three fields.';
+        errEl.classList.add('show');
+        return;
+    }
+    if (buyPrice === 0) {
+        errEl.textContent = 'Purchase price cannot be zero.';
+        errEl.classList.add('show');
+        return;
+    }
+
+    const shares = investment / buyPrice;
+    const currentValue = shares * currentPrice;
+    const plDollar = currentValue - investment;
+    const plPct = ((currentPrice - buyPrice) / buyPrice) * 100;
+    const type = plDollar > 0 ? 'profit' : plDollar < 0 ? 'loss' : 'neutral';
+    const icon = type === 'profit' ? '📈' : type === 'loss' ? '📉' : '➖';
+    const label = type === 'profit' ? 'Profit' : type === 'loss' ? 'Loss' : 'Break Even';
+    const sign = plDollar >= 0 ? '+' : '−';
+
+    resEl.dataset.type = type;
+    resEl.innerHTML = `
+        <div class="pp-calc-result-head">
+            <span class="pp-calc-result-icon">${icon}</span>
+            <span class="pp-calc-result-label">${label}</span>
+        </div>
+        <div class="pp-calc-result-amount">${sign}$${Math.abs(plDollar).toFixed(2)}</div>
+        <div class="pp-calc-result-pct">${plPct >= 0 ? '+' : ''}${plPct.toFixed(2)}%</div>
+        <div class="pp-calc-result-detail">
+            <span>Shares: ${shares.toFixed(4)}</span>
+            <span>Value: $${currentValue.toFixed(2)}</span>
+        </div>`;
+    requestAnimationFrame(() => resEl.classList.add('show'));
 }
 
 function renderHoldings(p, cur) {
