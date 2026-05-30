@@ -10,15 +10,31 @@ import { fetchWithProxy } from './data.js';
 const HF_API_URL = 'https://api-inference.huggingface.co/models/ProsusAI/finbert';
 const RECENCY_HALF_LIFE_HOURS = 48;
 
-// HuggingFace's free inference endpoint has been gating browser-direct
-// requests (403, throttling, or DNS-level blocks depending on region).
-// Once a call fails this session, we stop trying so the console isn't
-// spammed with the same error on every analysis. Keyword fallback
-// handles all sentiment in that case — quality drops a bit but the
-// engine keeps working without 30+ seconds of failed retries.
-let hfBlocked = false;
+// HuggingFace's free inference endpoint gates browser-direct requests
+// inconsistently (403/429/DNS-block depending on region/time). We don't
+// want to permanently disable FinBERT for the whole session on a
+// transient failure, but we also don't want to spam retries every
+// analysis. Compromise: cool-down only AFTER 2 failures within a
+// 5-minute window. After the cool-down expires (10 min), the next
+// analysis tries again. Keyword fallback covers the cool-down period.
+const HF_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const HF_COOLDOWN_MS = 10 * 60 * 1000;
+const HF_FAILURE_THRESHOLD = 2;
+let hfFailureTimestamps = [];
+let hfCooldownUntil = 0;
+
+function recordHfFailure() {
+    const now = Date.now();
+    hfFailureTimestamps = hfFailureTimestamps.filter(ts => now - ts < HF_FAILURE_WINDOW_MS);
+    hfFailureTimestamps.push(now);
+    if (hfFailureTimestamps.length >= HF_FAILURE_THRESHOLD) {
+        hfCooldownUntil = now + HF_COOLDOWN_MS;
+        hfFailureTimestamps = [];
+    }
+}
+
 async function analyzeWithFinBERT(texts) {
-    if (hfBlocked) return null;
+    if (Date.now() < hfCooldownUntil) return null;
     try {
         const res = await fetch(HF_API_URL, {
             method: 'POST',
@@ -27,15 +43,16 @@ async function analyzeWithFinBERT(texts) {
             signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) {
-            // 503 = HF model warming up (will succeed on retry)
-            // 401/403/429 = gated; don't bother retrying this session.
-            if ([401, 403, 429].includes(res.status)) hfBlocked = true;
+            // 503 = HF model warming up — record one failure but it
+            // typically succeeds on the very next call.
+            // 401/403/429 = harder gating; same recording, but two of
+            // these in 5 min triggers the 10-min cool-down.
+            if ([401, 403, 429, 503].includes(res.status)) recordHfFailure();
             return null;
         }
         return await res.json();
     } catch (_) {
-        // DNS failure / network block = treat as gated for the session.
-        hfBlocked = true;
+        recordHfFailure();
         return null;
     }
 }

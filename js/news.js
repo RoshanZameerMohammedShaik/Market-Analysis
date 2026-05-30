@@ -47,14 +47,29 @@ function filterRelevantNews(items, symbol, name) {
     });
 }
 
-// Google News RSS is CORS-blocked and the free CORS proxies have been
-// rate-limiting / 503-ing it heavily. Once a call fails this session
-// we stop hitting Google News so each analysis doesn't spam the
-// console with 403/503 fallback chains. Yahoo News still runs and
-// usually returns enough to feed the sentiment layer.
-let googleNewsBlocked = false;
+// Google News RSS is CORS-blocked at origin and the free CORS proxies
+// rate-limit it. We use a windowed cool-down rather than a permanent
+// session kill so a single proxy 503 doesn't permanently halve the
+// news corpus — after 2 failures inside 5 min, sit out for 10 min,
+// then try again. Yahoo News still feeds sentiment during cool-down.
+const GN_FAILURE_WINDOW_MS = 5 * 60 * 1000;
+const GN_COOLDOWN_MS = 10 * 60 * 1000;
+const GN_FAILURE_THRESHOLD = 2;
+let gnFailureTimestamps = [];
+let gnCooldownUntil = 0;
+
+function recordGoogleNewsFailure() {
+    const now = Date.now();
+    gnFailureTimestamps = gnFailureTimestamps.filter(ts => now - ts < GN_FAILURE_WINDOW_MS);
+    gnFailureTimestamps.push(now);
+    if (gnFailureTimestamps.length >= GN_FAILURE_THRESHOLD) {
+        gnCooldownUntil = now + GN_COOLDOWN_MS;
+        gnFailureTimestamps = [];
+    }
+}
+
 async function fetchGoogleNews(query, locale = { gl: 'US', hl: 'en-US' }) {
-    if (googleNewsBlocked) return [];
+    if (Date.now() < gnCooldownUntil) return [];
     try {
         const ceid = `${locale.gl}:${locale.hl.split('-')[0] || 'en'}`;
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${locale.hl}&gl=${locale.gl}&ceid=${ceid}`;
@@ -62,9 +77,7 @@ async function fetchGoogleNews(query, locale = { gl: 'US', hl: 'en-US' }) {
         const text = await res.text();
         return parseRSS(text);
     } catch (e) {
-        // Likely CORS/rate-limit. Mark as blocked for the rest of the
-        // session and let Yahoo carry the news layer alone.
-        googleNewsBlocked = true;
+        recordGoogleNewsFailure();
         return [];
     }
 }

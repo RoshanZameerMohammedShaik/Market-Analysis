@@ -92,9 +92,14 @@ function createTextResponse(text, originalRes) {
 // ─── STOCK DATA ───────────────────────────────────────────────────────────────
 
 export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
+    // Raw symbol — fetchWithProxy encodes the URL exactly once at the
+    // proxy layer (see regime.js comment). Pre-encoding here would
+    // double-encode any '^' / ':' / non-ASCII characters and Yahoo
+    // would 404. ASCII tickers are unaffected (encodeURIComponent is
+    // idempotent for them), but the bug pattern is still wrong.
     const urls = [
-        `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
-        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includePrePost=false`,
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}&includePrePost=false`,
+        `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}&includePrePost=false`,
     ];
 
     let json = null;

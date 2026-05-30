@@ -26,7 +26,8 @@ export async function fetchOptionsPositioning(symbol) {
     if (cached && Date.now() - cached.ts < TTL_MS) return cached.data;
 
     try {
-        const url = `https://query1.finance.yahoo.com/v7/finance/options/${encodeURIComponent(key)}`;
+        // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+        const url = `https://query1.finance.yahoo.com/v7/finance/options/${key}`;
         const res = await fetchWithProxy(url);
         const json = await res.json();
         const result = json?.optionChain?.result?.[0];

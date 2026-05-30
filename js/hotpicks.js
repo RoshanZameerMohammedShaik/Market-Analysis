@@ -192,7 +192,12 @@ async function yahooBatchQuotes(symbols, onProgress) {
     for (let i = 0; i < symbols.length; i += CHUNK) {
         const chunk = symbols.slice(i, i + CHUNK);
         if (onProgress) onProgress(`Quote pre-fetch — ${i + chunk.length}/${symbols.length}…`);
-        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunk.map(encodeURIComponent).join(',')}`;
+        // Raw symbols — fetchWithProxy encodes the whole URL once at the
+        // proxy layer. Pre-encoding each symbol then joining with comma
+        // is the same shape since encodeURIComponent of ASCII tickers is
+        // idempotent, but it would double-encode any future symbol with
+        // ^ / : / non-ASCII chars. Keep the join with raw commas.
+        const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${chunk.join(',')}`;
         try {
             const res = await fetchWithProxy(url);
             const json = await res.json();

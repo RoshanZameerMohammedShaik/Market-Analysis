@@ -19,7 +19,8 @@ export async function getEarningsReactionHistory(symbol, candles) {
     if (c && Date.now() - c.ts < TTL_MS) return c.value;
 
     try {
-        const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(key)}?modules=earningsHistory`;
+        // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+        const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${key}?modules=earningsHistory`;
         const res = await fetchWithProxy(url);
         const json = await res.json();
         const items = json?.quoteSummary?.result?.[0]?.earningsHistory?.history || [];

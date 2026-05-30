@@ -51,8 +51,12 @@ export async function fetchCryptoFearGreed() {
 
 export async function fetchVIX() {
     try {
-        // Use Yahoo Finance for VIX data
-        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/%5EVIX?range=5d&interval=1d';
+        // Use Yahoo Finance for VIX data. Pass raw '^VIX' — fetchWithProxy
+        // encodes the whole URL once when routing through the worker /
+        // CORS proxy. Pre-encoding to %5E here would get encoded again
+        // to %255E and Yahoo would 404. (Same bug we fixed in regime.js
+        // and yields.js.)
+        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/^VIX?range=5d&interval=1d';
         const res = await fetchWithProxy(url);
         const json = await res.json();
 
@@ -90,7 +94,8 @@ export async function fetchVIX() {
 export async function fetchMarketBreadth() {
     try {
         // Use S&P 500 as market proxy
-        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=1mo&interval=1d';
+        // Raw '^GSPC' (see ^VIX comment above for the double-encoding gotcha).
+        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/^GSPC?range=1mo&interval=1d';
         const res = await fetchWithProxy(url);
         const json = await res.json();
 

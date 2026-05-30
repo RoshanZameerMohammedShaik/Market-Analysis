@@ -33,7 +33,10 @@ async function fetchYield10Y() {
         // ^TNX = 10Y Treasury yield index (price IS the yield × 100, e.g.
         // 4.25% → 42.5). We want raw bps deltas so absolute level scaling
         // doesn't matter — just the change.
-        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/%5ETNX?range=1mo&interval=1d';
+        // Raw '^TNX' — fetchWithProxy encodes the URL once at the proxy
+        // layer. Pre-encoding to %5ETNX would get encoded again to
+        // %255ETNX (Yahoo 404). Same bug we fixed in regime.js + market.js.
+        const url = 'https://query2.finance.yahoo.com/v8/finance/chart/^TNX?range=1mo&interval=1d';
         const res = await fetchWithProxy(url);
         const json = await res.json();
         const closes = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(c => c !== null) || [];

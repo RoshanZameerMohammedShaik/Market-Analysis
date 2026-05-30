@@ -12,7 +12,10 @@ export async function getEarningsProximity(symbol) {
     const c = cache.get(symbol);
     if (c && Date.now() - c.ts < TTL_MS) return c;
     try {
-        const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=earnings,calendarEvents`;
+        // Pass raw symbol — fetchWithProxy encodes the URL exactly once
+        // when routing through the worker / CORS proxy. Pre-encoding here
+        // would double-encode any non-ASCII or special-char ticker.
+        const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=earnings,calendarEvents`;
         const res = await fetchWithProxy(url);
         const j = await res.json();
         const earnings = j?.quoteSummary?.result?.[0]?.calendarEvents?.earnings?.earningsDate;

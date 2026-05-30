@@ -54,7 +54,8 @@ async function fetchViaWorker(symbol) {
 
 async function fetchDirectYahoo(symbol) {
     // Best-effort fallback for if Yahoo ever relaxes the crumb wall.
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=defaultKeyStatistics`;
+    // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics`;
     try {
         const res = await fetchWithProxy(url);
         const json = await res.json();

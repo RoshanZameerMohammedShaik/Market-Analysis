@@ -20,12 +20,27 @@
 const CACHE = new Map();
 const TTL_MS = 30 * 60 * 1000;
 
+// Reddit search.json — direct fetch tries first (fastest path when CORS
+// is permissive), then falls back to fetchWithProxy if direct rejects.
+// Reddit's CORS posture varies by region and time of day; the proxy
+// fallback keeps social-velocity functional in restricted networks.
 async function fetchRedditMentions(symbol) {
     const sub = 'wallstreetbets+stocks+pennystocks+stockmarket';
     const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?q=${encodeURIComponent(symbol)}&restrict_sr=1&sort=new&limit=100`;
     try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return null;
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) {
+            const json = await res.json();
+            const posts = (json?.data?.children || []).map(c => c.data).filter(Boolean);
+            return posts;
+        }
+    } catch (_) { /* fall through to proxy */ }
+    // Direct failed (CORS / network). Try the proxy chain. Lazy-import
+    // to avoid a hard dependency cycle in case fetchWithProxy ever
+    // imports something from this module's tree.
+    try {
+        const { fetchWithProxy } = await import('./data.js');
+        const res = await fetchWithProxy(url);
         const json = await res.json();
         const posts = (json?.data?.children || []).map(c => c.data).filter(Boolean);
         return posts;
