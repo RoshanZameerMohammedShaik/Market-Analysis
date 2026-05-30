@@ -586,8 +586,8 @@ body.side-panel-mia-open .mia-launcher {
 
 .mia-voice-orb {
     position: relative;
-    width: min(240px, 64vw); height: min(240px, 64vw);
-    max-width: 270px; max-height: 270px;
+    width: min(200px, 56vw); height: min(200px, 56vw);
+    max-width: 220px; max-height: 220px;
     flex-shrink: 0;
     border: none;
     background: transparent;
