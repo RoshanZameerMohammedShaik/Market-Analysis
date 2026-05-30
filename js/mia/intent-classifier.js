@@ -20,20 +20,75 @@ Classify by underlying INTENT, not surface phrasing. Casual address or tonal flo
 
 /**
  * Returns 'tool' | 'prose'.
- * Falls back to 'tool' on any error so reliability beats cost.
+ *
+ * Strategy: try a free local heuristic first. The classifier API call
+ * is itself a Flash-Lite request — burning one of those JUST to decide
+ * which API to call next was a major source of quota waste. The
+ * heuristic catches the obvious cases (greetings, short prose, missing
+ * any data signal) without a network round-trip. Only when the message
+ * is genuinely ambiguous do we fall back to the API call.
  *
  * Also: skips the API call entirely when Flash-Lite is currently in
- * cooldown. The classifier ALWAYS uses Flash-Lite (it's the cheapest
- * model), but if that model is exhausted we'd 429 here on every turn
- * and waste a request slot. When in doubt return 'tool' — that just
- * means the chain walker prefers reasoning-tier models, which is the
- * safer default.
+ * cooldown. When in doubt return 'tool' — that just means the chain
+ * walker prefers reasoning-tier models, which is the safer default.
  */
+export function heuristicClassify(userMessage) {
+    const raw = String(userMessage || '').trim();
+    if (!raw) return 'prose';
+    const text = raw.toLowerCase();
+
+    // Educational questions about indicators / concepts come FIRST,
+    // before the ticker check — because indicator acronyms like RSI,
+    // MACD, ADX, ATR look like tickers but are concepts the LLM can
+    // explain from general knowledge. System prompt prevents Mia from
+    // inventing numbers, so prose-route is safe here.
+    const educational = /^(what (is|are|does|do|means)|explain|define|tell me about|how does|how do|why is)\b.*\b(rsi|macd|bollinger|stochastic|moving average|ema|sma|adx|atr|fibonacci|candlestick|support|resistance|breakout|trend|volatility|oscillator|indicator|signal|confidence|calibration|backtest|sentiment|finbert)\b/i;
+    if (educational.test(text)) {
+        return 'prose';
+    }
+
+    // Detect anything that smells like a ticker / data request.
+    // Excludes common indicator acronyms that are NOT tickers, so
+    // "RSI" doesn't get mis-flagged. Real tickers in the universe
+    // (NVDA, BTC, AAPL) are 1-5 caps + optional .NS/.HK/-USD suffix.
+    const INDICATOR_ACRONYMS = /^(RSI|MACD|ADX|ATR|EMA|SMA|VWAP|BB|MFI|OBV|CCI|VIX|GDP|CPI|PCE|FOMC|ETF|IPO|EPS|PE|PEG|ROE|ROI|TPS|RPM|RPD|TPM|API|LLM|UI|UX|CSS|JS|HTML|CEO|CFO|SEC|FDA|FED|USD|EUR|GBP|JPY|INR|CAD|AUD|CHF|CNY|HKD)$/;
+    const tickerCandidates = (raw.match(/\b[A-Z]{2,5}(?:[.-][A-Z]{1,3})?\b/g) || [])
+        .filter(t => !INDICATOR_ACRONYMS.test(t));
+    const looksLikeTicker = tickerCandidates.length > 0;
+    const looksLikeCrypto = /\b(btc|eth|sol|ada|doge|xrp|bnb|matic|dot|ltc|avax|link|atom|near|arb|op|sui|sei|pepe|shib|ton|trx|wld|tia|ldo)\b/i.test(raw);
+    const hasDataKeyword = /[$₹€£]\d|\d+%|ticker|stock|crypto|price|signal|buy|sell|prediction|portfolio|chart|news|earnings|forecast|target|hot picks|spiker|loser|gainer|recommend/i.test(text);
+    const hasDataSignal = looksLikeTicker || looksLikeCrypto || hasDataKeyword;
+
+    // Short messages (≤ 4 words, ≤ 30 chars) without any data signal
+    // are virtually always prose. "hi", "thanks", "are you there",
+    // "what's up", "lol that's crazy" — none need a tool call to
+    // answer. Saves an API call per casual turn.
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length <= 4 && text.length <= 30 && !hasDataSignal) {
+        return 'prose';
+    }
+
+    // Greeting / acknowledgement patterns — pure prose.
+    const greetings = /^(hi+|hey+|hello|yo|sup|hola|namaste|hiya|howdy|good (morning|evening|afternoon|night)|bye|cya|ttyl|thanks?|thx|ty|cool|nice|ok|okay|got it|sure|yes|yep|nope|no|haha+|lol+|lmao+|how are you|how's it going|what's up|wassup|sup)\b/i;
+    if (greetings.test(text) && !hasDataSignal) {
+        return 'prose';
+    }
+
+    // Anything else — too uncertain to call. Fall through to API.
+    return null; // null = "ask the API"
+}
+
 export async function classifyIntent({ userMessage, key, signal }) {
     if (!userMessage || !key) return 'tool';
 
-    // Skip the round-trip when Flash-Lite is cooling. Cheaper than the
-    // 429 we'd get; safer than waiting for the timeout to discover it.
+    // 1. Free local heuristic. Catches greetings, short prose, basic
+    //    educational questions. Returns 'prose' or null (= ambiguous).
+    const heuristic = heuristicClassify(userMessage);
+    if (heuristic === 'prose') return 'prose';
+    // null falls through to API call below.
+
+    // 2. Skip the round-trip when Flash-Lite is cooling. Cheaper than
+    //    the 429 we'd get; safer than waiting for the timeout.
     try {
         const { isCooling } = await import('./backends/tier-cooldown.js');
         if (isCooling(CLASSIFY_MODEL)) return 'tool';

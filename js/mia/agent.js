@@ -8,7 +8,14 @@
 import { stream as llmStream } from './llm-client.js';
 import { runTool, toolPromptSection, toolPromptSectionCompact, listTools } from './tools.js';
 
-const MAX_TOOL_CALLS = 8;
+// Hard cap on tool-call iterations per user message. Each iteration is
+// a separate Gemini API call (the LLM emits TOOL: → we run the tool →
+// we re-prompt with the result → repeat). On free-tier quota a single
+// turn that fans out to 8 tool calls = 8 RPD burned. 3 is enough for
+// 95% of real Mia answers (load symbol → read signal → maybe news);
+// the rare case that genuinely needs more gets a "stopping early"
+// note instead of silently consuming a quarter of the daily budget.
+const MAX_TOOL_CALLS = 3;
 const INTRA_TURN_PACE_MS = 350;
 
 // Matches a TOOL: invocation anywhere in the buffer. Models sometimes emit it
