@@ -249,11 +249,15 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     display: inline-flex;
     align-items: center;
     height: 30px;
-    /* Zero margin so the SVG sits flush against the 'R' in ANALYZER.
-       The SVG's viewBox starts at x=0 with no internal padding, so
-       the leftmost candle aligns directly with the right edge of the
-       title text. */
-    margin-left: 0;
+    /* Negative margin-left tucks the mark UNDER the title's trailing
+       whitespace — the rendered glyph for 'R' has a tiny advance gap
+       that we can eat into with -2px so the candles read as touching
+       the letter, not floating away from it.
+       margin-top: -6px lifts the whole composition up so the arrow
+       arc sits closer to the cap-height of MARKET ANALYZER rather
+       than the baseline. */
+    margin-left: -2px;
+    margin-top: -6px;
 }
 .app-title-portfolio-svg {
     /* 22×28 viewBox (was 28×28). Narrower box trims dead space on the
