@@ -45,6 +45,21 @@ const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativel
 // Fenrir, Orus, Zephyr.
 const DEFAULT_VOICE = 'Leda';
 
+// Live API setup messages have implicit size limits the preview models
+// don't document — but our full ~20K-char Mia system prompt (with the
+// tool registry, math rules, calibration grounding, etc.) returns 1007
+// 'Invalid frame payload' on every Live model we tried. We compact down
+// to identity + voice persona only. Tools / data lookups can still
+// route through the text path; voice is for conversation, not RAG.
+function compactPromptForLive(fullPrompt) {
+    if (!fullPrompt) return 'You are Mia, a warm and numerate market intelligence analyst. Be concise.';
+    // If the prompt starts with "You are Mia" identity blocks (BASE
+    // prompt), grab the first ~600 chars which cover identity + tone.
+    // That's plenty for voice personality. Drop everything after.
+    const compact = fullPrompt.slice(0, 600).trim();
+    return compact + '\n\nKeep replies short and conversational. This is voice mode.';
+}
+
 // PCM-encoder AudioWorklet definition. We inject this as a Blob URL
 // so we don't need a separate bundled file shipped from disk. The
 // worklet downsamples mic audio (whatever the device's native rate is,
@@ -197,18 +212,27 @@ export async function openLiveSession(opts = {}) {
             // realtimeInputConfig, and speechConfig.voiceConfig fall back
             // to server defaults if omitted, which is fine for now.
             const sendSetup = () => {
-                console.log('[mia/live] Sending setup for model:', modelId);
+                // Live preview models choke on huge system prompts —
+                // we observed 1007 'Invalid frame payload' rejections
+                // with our full ~20K-char Mia system prompt. Trim to a
+                // condensed identity-only version for Live; the model
+                // can still call Mia's tools via text mode for any
+                // hard data lookup. Tools and prompt rules ride the
+                // text path, not the voice path.
+                const compactPrompt = compactPromptForLive(systemPrompt);
+                console.log('[mia/live] Sending setup for model:', modelId, 'promptChars:', compactPrompt.length);
                 const setupMsg = {
                     config: {
                         model: `models/${modelId}`,
                         responseModalities: ['AUDIO'],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        systemInstruction: { parts: [{ text: compactPrompt }] },
                     },
                 };
-                // Voice selection ONLY if the runtime supports it. Some
-                // Live preview models accept speechConfig, others 1008.
-                // We add it conservatively — if it causes trouble for a
-                // model, the chain will fall through to the next one.
+                // Voice selection — speechConfig is documented but some
+                // preview models reject it with 1007. We add it ONLY if
+                // the caller explicitly named a voice. If the model 1007s
+                // on this, the chain falls through and the next model
+                // gets tried (some support speechConfig, some don't).
                 if (voiceName) {
                     setupMsg.config.speechConfig = {
                         voiceConfig: { prebuiltVoiceConfig: { voiceName } },
