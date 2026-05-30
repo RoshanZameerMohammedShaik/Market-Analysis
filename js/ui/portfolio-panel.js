@@ -57,9 +57,12 @@ export function initPortfolioPanel() {
         rebindLiveSubs();
         renderPanel();
     });
-    // Warm common FX rates in the background so the dropdown renders
-    // converted figures without a flash. Best-effort; ignores failures.
-    warmCommonRates().catch(() => {});
+    // FX rate pre-warming used to run unconditionally here, fetching 20
+    // currencies the user might never look at. Now we defer the warm
+    // until the user actually opens the Instantiate modal — that's when
+    // the dropdown is the hot UI path. No portfolio = no FX calls, no
+    // stock snapshots, no portfolio math. The bare empty-state panel
+    // renders fine without any of that.
     renderPanel();
 }
 
@@ -109,11 +112,13 @@ export function openPortfolioPanel() {
     // Re-render so the user sees the latest state (in case it changed
     // while the panel was closed via Mia tool / chart-header trade).
     renderPanel();
-    // Auto-refresh stock prices on open. Stocks don't tick continuously
-    // (no free realtime data), so we fetch a snapshot every time the
-    // panel becomes visible. Crypto positions keep ticking via their
-    // existing Binance WS subscriptions — this only touches stocks.
-    refreshStockSnapshot();
+    // Auto-refresh stock prices on open ONLY if the user actually has
+    // a portfolio with positions. No portfolio = nothing to refresh =
+    // no fetch. Stocks don't tick continuously (no free realtime
+    // data); crypto positions keep ticking via their Binance WS subs.
+    if (isInstantiated() && heldSymbols().length > 0) {
+        refreshStockSnapshot();
+    }
 }
 
 export function closePortfolioPanel() {
@@ -494,6 +499,12 @@ function onHoldingsClick(e) {
 // ── modals ────────────────────────────────────────────────────────────
 
 function openInstantiateModal() {
+    // Warm FX rates in the background while the user is typing in the
+    // modal — by the time they pick a non-USD currency, the rate is
+    // already cached and the FX hint renders without a flash. Best-
+    // effort; failures are silent (the explicit fetch on Load will
+    // surface a real error if needed).
+    warmCommonRates().catch(() => {});
     const html = `
         <div class="portfolio-modal-backdrop" id="portfolio-modal-backdrop">
             <div class="portfolio-modal" role="dialog" aria-label="Instantiate portfolio">
