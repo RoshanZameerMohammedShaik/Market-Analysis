@@ -12,6 +12,7 @@ import { loadSettings } from './settings.js';
 // user sees fallback decisions surface in real time. Idempotent: re-
 // listens cleanly across renderChat calls.
 let coolingListener = null;
+let countdownTimer = null;
 function ensureCoolingListener(container) {
     if (coolingListener) return;
     coolingListener = () => renderUsageMeter(container);
@@ -27,6 +28,45 @@ function ensureCoolingListener(container) {
         const model = clearBtn.dataset.model;
         if (model) clearCooldown(model);
     });
+}
+
+// Tick down the countdown text every second so users see the cooldown
+// shrinking in real time instead of frozen at "cooling 14m" until some
+// other event triggers a re-render. We patch only the text node — no
+// full re-render, no flicker, no ResizeObserver thrash. The badges have
+// a data-model attribute so we can find them; the secondsRemaining
+// comes from getModelStatus() each tick (re-reads from localStorage
+// via getCooldownState).
+function ensureCountdownTicker(container) {
+    if (countdownTimer) return;
+    countdownTimer = setInterval(() => {
+        const badges = container.querySelectorAll('.mia-cooldown-badge[data-model]');
+        if (!badges.length) return; // nothing to tick — leave it alone
+        const status = getModelStatus();
+        const liveByModel = Object.fromEntries(status.cooling.map(c => [c.model, c.secondsRemaining]));
+        let anyChanged = false;
+        for (const badge of badges) {
+            const model = badge.dataset.model;
+            const remaining = liveByModel[model];
+            if (remaining == null) {
+                // Cooldown expired since last render — re-render to drop
+                // the badge entirely (and update the active-model line).
+                anyChanged = true;
+                break;
+            }
+            // Replace just the text content of the badge while preserving
+            // the × button at the end. The badge layout is: short ":"
+            // cooling Xm × — we can rebuild the leading text node.
+            const short = modelShortName(model);
+            const expected = `${short}: cooling ${fmtCoolingTime(remaining)}`;
+            // First text node holds the status string. Rebuild it.
+            const firstText = [...badge.childNodes].find(n => n.nodeType === Node.TEXT_NODE);
+            if (firstText && firstText.textContent !== expected) {
+                firstText.textContent = expected;
+            }
+        }
+        if (anyChanged) renderUsageMeter(container);
+    }, 1000);
 }
 
 function fmtCoolingTime(secondsRemaining) {
@@ -48,6 +88,7 @@ function modelShortName(model) {
 export function renderUsageMeter(container) {
     if (!container) return;
     ensureCoolingListener(container);
+    ensureCountdownTicker(container);
     const s = loadSettings();
     const usage = getUsage();
     const routing = getRoutingSummary();
