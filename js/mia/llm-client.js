@@ -58,9 +58,18 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
 
     // Try tier in order: if it's cooling, skip to the next; if a 429/cooling
-    // error arises during the call, mark cooling and try the alternate
-    // tier inline. This is the auto-Lite↔Flash fallback that subsumes
-    // the manual thinking-mode toggle.
+    // error arises BEFORE any output has streamed, mark cooling and try the
+    // alternate tier inline (invisible to the user). If a 429 arises AFTER
+    // output has already streamed, we can't recover invisibly — the partial
+    // text is on screen already. In that case we let the error bubble up
+    // so the catch in mia.js shows the partial reply with a soft cut-off
+    // note. The cooldown is recorded either way so the NEXT turn skips
+    // the bad tier silently.
+    //
+    // Also: never tell the user "falling back to Flash". The whole point
+    // of auto-fallback is invisible recovery — the only user-visible
+    // status during fallback is the same generic "thinking…" they'd see
+    // on a normal call.
     async function* runGeminiWithTierFallback(preferredOrder) {
         // De-dupe so passing ['default','default','thinking'] still walks
         // through unique tiers in order.
@@ -82,34 +91,56 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
                 lastErr.tierCooling = true;
                 continue;
             }
+            // Track whether we've already streamed output on this attempt.
+            // The user sees deltas as they arrive — once even one delta has
+            // been yielded, we can't do an invisible swap mid-reply.
+            let yieldedAnyDelta = false;
             try {
+                // Always show "thinking…" — never announce "falling back".
                 if (onProgress) {
-                    onProgress({ phase: 'thinking', percent: 100, friendly: i === 0 ? 'thinking…' : `falling back to ${model.includes('lite') ? 'Flash-Lite' : 'Flash'}…` });
+                    onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
                 }
                 if (tier === 'default' && !s.thinkingMode) {
                     // Use the intent-classified router for the default
                     // path so prose vs tool-heavy queries pick the right
                     // sub-model. Router will internally call Flash for
                     // tool intents and Flash-Lite for prose.
-                    for await (const delta of routedStream({ system, systemNoTools, messages, key: s.geminiKey, signal, onProgress })) yield delta;
+                    for await (const delta of routedStream({ system, systemNoTools, messages, key: s.geminiKey, signal, onProgress })) {
+                        yieldedAnyDelta = true;
+                        yield delta;
+                    }
                 } else {
-                    for await (const delta of gemini.stream({ system, messages, key: s.geminiKey, signal, tier })) yield delta;
+                    for await (const delta of gemini.stream({ system, messages, key: s.geminiKey, signal, tier })) {
+                        yieldedAnyDelta = true;
+                        yield delta;
+                    }
                 }
                 return; // success
             } catch (err) {
                 lastErr = err;
-                // If error indicates the tier is cooling (either pre-flight
-                // or 429 hit during the call), continue to the next tier.
-                if (err?.tierCooling || err?.status === 429) {
+                const isCooldown = err?.tierCooling || err?.status === 429;
+                if (isCooldown && !yieldedAnyDelta) {
+                    // Pre-stream 429 → silent fall-through to next tier.
+                    // User has seen nothing yet; tier swap is invisible.
                     continue;
                 }
-                // Non-cooldown errors (auth, 5xx, network) → bubble to the
-                // outer catch so cross-provider fallback (Cloudflare) can run.
+                if (isCooldown && yieldedAnyDelta) {
+                    // Mid-stream 429 → can't swap invisibly. Bubble the
+                    // error so mia.js's catch preserves the partial reply
+                    // with a soft cut-off note. The cooldown was already
+                    // recorded by api-gemini.js, so the user's NEXT turn
+                    // will silently skip this tier.
+                    throw err;
+                }
+                // Non-cooldown errors (auth, 5xx, network) → bubble out
+                // so cross-provider fallback (Cloudflare) can run.
                 throw err;
             }
         }
-        // Both Gemini tiers exhausted/cooling → throw the last error so the
-        // outer try in stream() can fall over to Cloudflare.
+        // Both Gemini tiers cooling at pre-flight → throw the last error
+        // so the outer try in stream() can fall over to Cloudflare.
+        // Cloudflare run is also invisible; user only sees an error if
+        // EVERYTHING is exhausted.
         throw lastErr || new Error('All Gemini tiers cooling.');
     }
 
@@ -138,7 +169,9 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
         return;
     } catch (err) {
         if (!fallback || !shouldFailover(err) || signal?.aborted) throw err;
-        if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: `falling back to ${fallback}…` });
+        // Don't announce "falling back to cloudflare" — invisible recovery
+        // is the whole point. User just sees "thinking…" continue.
+        if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
         if (fallback === 'gemini') {
             yield* geminiRun();
         } else {

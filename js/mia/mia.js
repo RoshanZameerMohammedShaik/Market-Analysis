@@ -476,12 +476,37 @@ async function doSend() {
             const ctxText = buildContextBlock(currentSignal);
             const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
             const flaggedPartial = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
+            // Never expose "rate-limited" wording to the user — auto-tier
+            // fallback handles quota internally. By the time we land
+            // here with a partial reply, the next tier was either
+            // cooling too or also hit; we swallow the specifics and
+            // tell the user "ask again to continue" which works in
+            // both cases.
             const note = aborted
                 ? '_(stopped early by you)_'
-                : `_(reply cut off — ${e?.status === 429 ? 'rate-limited; ask again to continue' : 'connection issue'})_`;
+                : '_(reply cut off — ask again to continue)_';
             updated.push({ role: 'assistant', content: flaggedPartial + '\n\n' + note });
         } else {
-            updated.push({ role: 'assistant', content: aborted ? '_Stopped by you._' : `Sorry — I hit an error: ${e.message}` });
+            // No partial output. The user-visible message also avoids
+            // mentioning "rate limit" specifically — they just see
+            // "had trouble; try again" unless it's an auth/key error
+            // they need to actually fix.
+            let userMsg;
+            if (aborted) {
+                userMsg = '_Stopped by you._';
+            } else if (e?.status === 401 || e?.status === 403 || /API key/i.test(e?.message || '')) {
+                userMsg = `Sorry — ${e.message}`;
+            } else if (e?.status === 429 || e?.tierCooling) {
+                // Hit ALL fallbacks and they're all cooling. This is the
+                // only case where the user genuinely needs to know quota
+                // was exhausted, but we say it gently without exposing
+                // which tier. Cooldown badge in the usage meter shows
+                // the technical detail.
+                userMsg = "I'm rate-limited across all backends right now — give me a minute and try again.";
+            } else {
+                userMsg = `Sorry — I had trouble with that. Try asking again.`;
+            }
+            updated.push({ role: 'assistant', content: userMsg });
         }
         saveHistory(updated);
         renderThread(updated);
