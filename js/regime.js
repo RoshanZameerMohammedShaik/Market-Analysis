@@ -8,7 +8,12 @@ let cache = null; // { regime, components, ts }
 const TTL_MS = 10 * 60 * 1000;
 
 async function fetchClose(symbol, range = '5d') {
-    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`;
+    // Don't pre-encode the symbol here. fetchWithProxy → tryProxy will
+    // encodeURIComponent the entire URL when it appends the proxy
+    // prefix, and ^GSPC / ^VIX have a literal '^' that gets encoded
+    // there. If we encode '^' to '%5E' first, the proxy layer turns
+    // it into '%255E' (double-encoded) and Yahoo 404s.
+    const url = `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=1d`;
     const res = await fetchWithProxy(url);
     const json = await res.json();
     const r = json?.chart?.result?.[0];
@@ -22,8 +27,8 @@ export async function getMacroRegime() {
     const out = { regime: 'neutral', components: {}, ts: Date.now() };
     try {
         const [vix, sp, dxy] = await Promise.allSettled([
-            fetchClose('%5EVIX', '1mo'),
-            fetchClose('%5EGSPC', '1mo'),
+            fetchClose('^VIX', '1mo'),
+            fetchClose('^GSPC', '1mo'),
             fetchClose('DX-Y.NYB', '1mo'),
         ]);
 

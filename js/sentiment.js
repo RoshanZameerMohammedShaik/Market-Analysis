@@ -10,7 +10,15 @@ import { fetchWithProxy } from './data.js';
 const HF_API_URL = 'https://api-inference.huggingface.co/models/ProsusAI/finbert';
 const RECENCY_HALF_LIFE_HOURS = 48;
 
+// HuggingFace's free inference endpoint has been gating browser-direct
+// requests (403, throttling, or DNS-level blocks depending on region).
+// Once a call fails this session, we stop trying so the console isn't
+// spammed with the same error on every analysis. Keyword fallback
+// handles all sentiment in that case — quality drops a bit but the
+// engine keeps working without 30+ seconds of failed retries.
+let hfBlocked = false;
 async function analyzeWithFinBERT(texts) {
+    if (hfBlocked) return null;
     try {
         const res = await fetch(HF_API_URL, {
             method: 'POST',
@@ -18,9 +26,16 @@ async function analyzeWithFinBERT(texts) {
             body: JSON.stringify({ inputs: texts }),
             signal: AbortSignal.timeout(15000),
         });
-        if (!res.ok) return null;
+        if (!res.ok) {
+            // 503 = HF model warming up (will succeed on retry)
+            // 401/403/429 = gated; don't bother retrying this session.
+            if ([401, 403, 429].includes(res.status)) hfBlocked = true;
+            return null;
+        }
         return await res.json();
     } catch (_) {
+        // DNS failure / network block = treat as gated for the session.
+        hfBlocked = true;
         return null;
     }
 }

@@ -47,7 +47,14 @@ function filterRelevantNews(items, symbol, name) {
     });
 }
 
+// Google News RSS is CORS-blocked and the free CORS proxies have been
+// rate-limiting / 503-ing it heavily. Once a call fails this session
+// we stop hitting Google News so each analysis doesn't spam the
+// console with 403/503 fallback chains. Yahoo News still runs and
+// usually returns enough to feed the sentiment layer.
+let googleNewsBlocked = false;
 async function fetchGoogleNews(query, locale = { gl: 'US', hl: 'en-US' }) {
+    if (googleNewsBlocked) return [];
     try {
         const ceid = `${locale.gl}:${locale.hl.split('-')[0] || 'en'}`;
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${locale.hl}&gl=${locale.gl}&ceid=${ceid}`;
@@ -55,6 +62,9 @@ async function fetchGoogleNews(query, locale = { gl: 'US', hl: 'en-US' }) {
         const text = await res.text();
         return parseRSS(text);
     } catch (e) {
+        // Likely CORS/rate-limit. Mark as blocked for the rest of the
+        // session and let Yahoo carry the news layer alone.
+        googleNewsBlocked = true;
         return [];
     }
 }
