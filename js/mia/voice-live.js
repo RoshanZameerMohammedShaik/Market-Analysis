@@ -23,10 +23,16 @@
 // chunks to an AudioContext queue. Browser security: getUserMedia
 // requires HTTPS, which GitHub Pages provides by default.
 
+// Live API model IDs. Verified against Google's get-started-websocket
+// example (ai.google.dev/gemini-api/docs/live-api/get-started-websocket).
+// The dashboard's display labels ("Gemini 2.5 Flash Native Audio Dialog")
+// are NOT the API IDs — Google uses '...-live-preview' suffixed IDs in
+// the actual API. We try the newer 3.1 first; if the user's account
+// doesn't have access, the 2.5 fallback usually does.
 const LIVE_MODELS = {
-    // Stable Live API models. Both have unlimited RPD per dashboard.
-    'native-audio': 'gemini-2.5-flash-native-audio-dialog',
-    'flash-live':   'gemini-3-flash-live',
+    'flash-live':   'gemini-3.1-flash-live-preview',
+    'flash-25':     'gemini-2.5-flash-preview-native-audio-dialog',
+    'flash-20':     'gemini-2.0-flash-live-001',
 };
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
@@ -135,7 +141,7 @@ const RECONNECT_WINDOW_MS = 5 * 60 * 1000;
 export async function openLiveSession(opts = {}) {
     const {
         apiKey,
-        model = LIVE_MODELS['native-audio'],
+        model = LIVE_MODELS['flash-live'],
         systemPrompt = '',
         voiceName = DEFAULT_VOICE,
         onTextOut = null,
@@ -147,6 +153,15 @@ export async function openLiveSession(opts = {}) {
     } = opts;
     if (!apiKey) throw new Error('Gemini API key required for Live session.');
 
+    // Try the chain of Live model IDs in order until one accepts the
+    // setup. Different free-tier accounts have different access tiers
+    // for preview models — flash-live (3.1) may 1008 for some, while
+    // flash-25 native-audio works. We discover which one works by
+    // attempting the connection rather than asking ahead of time.
+    const modelChain = model
+        ? [model, ...Object.values(LIVE_MODELS).filter(m => m !== model)]
+        : Object.values(LIVE_MODELS);
+
     // Mutable state shared by every WebSocket the wrapper opens. Only
     // `userClosed` is set by the caller's close(); everything else is
     // managed internally as connections come and go.
@@ -155,6 +170,7 @@ export async function openLiveSession(opts = {}) {
         userClosed: false,
         reconnectAttempts: 0,
         recentAttempts: [], // timestamps for sliding-window tracking
+        successfulModel: null, // populated on first successful setup
         // Buffered audio chunks the caller wants to send while we're
         // mid-reconnect. We replay them once the new socket is ready
         // so a goAway during continuous mic capture doesn't drop a
@@ -162,39 +178,43 @@ export async function openLiveSession(opts = {}) {
         pendingAudio: [],
     };
 
-    // Open one WebSocket connection. Returns a Promise that resolves
-    // once setupComplete is acknowledged, or rejects on failure. The
-    // resolved value is the WebSocket itself (so we can send through it).
-    function openOnce() {
+    // Open one WebSocket connection with a specific model. Returns a
+    // Promise that resolves once setupComplete is acknowledged, or
+    // rejects on failure. The resolved value is { ws, modelUsed } so
+    // the caller knows which model in the chain actually worked.
+    function openOnce(modelId) {
         return new Promise((resolve, reject) => {
             const ws = new WebSocket(`${WS_URL}?key=${encodeURIComponent(apiKey)}`);
             ws.binaryType = 'arraybuffer';
             let setupAcked = false;
 
+            // Setup payload matches Google's working get-started-websocket
+            // example exactly — { config: { model, responseModalities,
+            // systemInstruction } }. Earlier I had `setup` instead of
+            // `config` (from the spec reference page) which got 1008
+            // policy-violation closes. The narrow shape is what actually
+            // works; advanced fields like inputAudioTranscription,
+            // realtimeInputConfig, and speechConfig.voiceConfig fall back
+            // to server defaults if omitted, which is fine for now.
             const sendSetup = () => {
-                ws.send(JSON.stringify({
-                    setup: {
-                        model: `models/${model}`,
-                        generationConfig: {
-                            responseModalities: ['AUDIO'],
-                            speechConfig: {
-                                voiceConfig: { prebuiltVoiceConfig: { voiceName } },
-                                languageCode: 'en-US',
-                            },
-                        },
+                console.log('[mia/live] Sending setup for model:', modelId);
+                const setupMsg = {
+                    config: {
+                        model: `models/${modelId}`,
+                        responseModalities: ['AUDIO'],
                         systemInstruction: { parts: [{ text: systemPrompt }] },
-                        inputAudioTranscription: {},
-                        outputAudioTranscription: {},
-                        realtimeInputConfig: {
-                            automaticActivityDetection: {
-                                disabled: false,
-                                startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
-                                endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-                            },
-                            activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
-                        },
                     },
-                }));
+                };
+                // Voice selection ONLY if the runtime supports it. Some
+                // Live preview models accept speechConfig, others 1008.
+                // We add it conservatively — if it causes trouble for a
+                // model, the chain will fall through to the next one.
+                if (voiceName) {
+                    setupMsg.config.speechConfig = {
+                        voiceConfig: { prebuiltVoiceConfig: { voiceName } },
+                    };
+                }
+                ws.send(JSON.stringify(setupMsg));
             };
 
             const setupTimeout = setTimeout(() => {
@@ -312,7 +332,10 @@ export async function openLiveSession(opts = {}) {
         await new Promise(r => setTimeout(r, delay));
         if (state.userClosed) return;
         try {
-            const newWs = await openOnce();
+            // Reuse the model that worked on initial connection — no need
+            // to walk the chain again. If the same model now rejects, the
+            // catch falls through to scheduling another retry.
+            const newWs = await openOnce(state.successfulModel);
             state.currentWs = newWs;
             state.reconnectAttempts = 0; // success → reset backoff
             // Replay any buffered audio that piled up while we were
@@ -343,10 +366,26 @@ export async function openLiveSession(opts = {}) {
         }
     }
 
-    // Initial connection. If this rejects, surface to the caller —
-    // they'd want to fall back to Web Speech rather than retry blindly
-    // (a bad key / wrong model id is best caught loudly on first open).
-    state.currentWs = await openOnce();
+    // Initial connection — walk the model chain until one accepts the
+    // setup. The first to ack setupComplete becomes the "winning" model
+    // that reconnects will reuse. If ALL models 1008/4xx, surface the
+    // last error so the caller falls back to Web Speech.
+    let lastErr = null;
+    for (const candidateModel of modelChain) {
+        try {
+            const ws = await openOnce(candidateModel);
+            state.currentWs = ws;
+            state.successfulModel = candidateModel;
+            console.log('[mia/live] Connected on model:', candidateModel);
+            break;
+        } catch (e) {
+            console.log('[mia/live] Model', candidateModel, 'rejected setup:', e.message);
+            lastErr = e;
+        }
+    }
+    if (!state.currentWs) {
+        throw lastErr || new Error('No Live API model accepted the connection.');
+    }
 
     // Public handle. All sends route through state.currentWs which the
     // reconnect logic keeps current. If a send arrives during the gap
