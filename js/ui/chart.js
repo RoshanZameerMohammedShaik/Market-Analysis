@@ -44,12 +44,18 @@ function toTradingViewSymbol(yahooSymbol) {
     return ex ? `${ex}:${ticker}` : s;
 }
 
-// Exchanges that the free TradingView embed paywalls (shows "this
-// symbol is only available on TradingView" upgrade prompt) — we render
-// our own candlestick chart for these using lightweight-charts (TV's
-// open-source library) fed by the same Yahoo OHLC data the analysis
-// engine uses. Free, full-featured, no upgrade nag.
-const PAYWALLED_TV_EXCHANGES = new Set(['NSE', 'BSE', 'HKEX', 'TSE', 'XETR']);
+// Free TradingView embed paywalls most non-US exchanges (NSE, BSE,
+// HKEX, TSE, ASX, TSX, LSE small caps, SSE, SZSE…) — symbol resolves
+// but the user sees an "only available on TradingView" upgrade prompt
+// instead of the chart. Rather than maintain a piecemeal allowlist
+// that breaks on the next user-reported gap, the rule is simple:
+// any Yahoo-suffixed ticker (i.e. non-US) goes through our local
+// candlestick chart powered by lightweight-charts + the same OHLC
+// data the analysis engine pulls. US tickers keep the full TV
+// widget for its richer feature set.
+function isNonUsTicker(yahooSymbol) {
+    return /\.[A-Z]{1,3}$/.test(String(yahooSymbol || ''));
+}
 
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
@@ -59,9 +65,8 @@ export function loadChart() {
     let symbol;
     let paywalled = false;
     if (state.mode === 'stock') {
+        paywalled = isNonUsTicker(state.currentSymbol);
         symbol = toTradingViewSymbol(state.currentSymbol);
-        const ex = symbol.includes(':') ? symbol.split(':')[0] : null;
-        paywalled = ex && PAYWALLED_TV_EXCHANGES.has(ex);
     } else {
         const sym = state.currentSymbol.toUpperCase();
         symbol = TV_CRYPTO_MAP[sym] || `BINANCE:${sym}USDT`;
