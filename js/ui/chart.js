@@ -17,13 +17,39 @@ const TV_CRYPTO_MAP = {
     XMR: 'BINANCE:XMRUSDT', HYPE: 'BINANCE:HYPEUSDT', TIA: 'BINANCE:TIAUSDT',
 };
 
+// TradingView wants exchange-prefixed symbols ("NSE:CORDSCABLE",
+// "BSE:CORDSCABLE", "LSE:AZN") whereas the rest of the app uses
+// Yahoo-style suffixes ("CORDSCABLE.NS", "AZN.L"). Translate so the
+// TV widget actually loads the chart for international tickers.
+// US tickers have no suffix and load as-is on TV.
+function toTradingViewSymbol(yahooSymbol) {
+    const s = String(yahooSymbol || '').toUpperCase();
+    const m = s.match(/^([^.]+)\.([A-Z]{1,3})$/);
+    if (!m) return s; // no suffix → US, pass through
+    const [, ticker, suffix] = m;
+    const map = {
+        NS: 'NSE',    // National Stock Exchange of India
+        BO: 'BSE',    // Bombay Stock Exchange
+        L:  'LSE',    // London Stock Exchange
+        DE: 'XETR',   // Deutsche Börse Xetra
+        HK: 'HKEX',   // Hong Kong
+        T:  'TSE',    // Tokyo
+        AX: 'ASX',    // Australia
+        TO: 'TSX',    // Toronto
+        SS: 'SSE',    // Shanghai
+        SZ: 'SZSE',   // Shenzhen
+    };
+    const ex = map[suffix];
+    return ex ? `${ex}:${ticker}` : s;
+}
+
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
     const container = document.getElementById('tradingview-widget');
     const chartHeader = document.getElementById('chart-header');
 
     let symbol;
-    if (state.mode === 'stock') symbol = state.currentSymbol;
+    if (state.mode === 'stock') symbol = toTradingViewSymbol(state.currentSymbol);
     else {
         const sym = state.currentSymbol.toUpperCase();
         symbol = TV_CRYPTO_MAP[sym] || `BINANCE:${sym}USDT`;
