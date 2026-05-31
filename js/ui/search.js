@@ -1,49 +1,16 @@
 import { searchStocks, searchCrypto } from '../data.js';
 import { state } from './state.js';
+import { fullLabelForCode, fullLabelForSymbol } from './exchanges.js';
 
 let searchTimeout = null;
 
-// Yahoo's exchange codes are cryptic (NMS / NGM / BTS / NYQ / etc).
-// Map them to the names a user actually recognizes. Anything we don't
-// know, we show as-is rather than fabricate a label.
-const EXCHANGE_NAMES = {
-    // United States
-    NMS: 'NASDAQ', NGM: 'NASDAQ', NCM: 'NASDAQ', NAS: 'NASDAQ',
-    NYQ: 'NYSE', NYS: 'NYSE',
-    PCX: 'NYSE Arca', ASE: 'NYSE American',
-    BTS: 'Cboe BZX', BATS: 'Cboe BZX',
-    OTC: 'OTC', PNK: 'OTC Pink', OBB: 'OTC Bulletin',
-    OQB: 'OTCQB', OQX: 'OTCQX',
-    // Europe
-    LSE: 'LSE', LSIN: 'LSE',
-    GER: 'Xetra', FRA: 'Frankfurt', STU: 'Stuttgart',
-    PAR: 'Euronext Paris', AMS: 'Euronext Amsterdam',
-    BRU: 'Euronext Brussels', LIS: 'Euronext Lisbon',
-    SWX: 'SIX Swiss', VTX: 'SIX Swiss',
-    MIL: 'Borsa Italiana', MCE: 'BME Spain',
-    CPH: 'Nasdaq Copenhagen', HEL: 'Nasdaq Helsinki', STO: 'Nasdaq Stockholm',
-    ISE: 'Euronext Dublin', OSL: 'Oslo',
-    // Asia / APAC
-    HKG: 'HKEX', HKEX: 'HKEX',
-    TYO: 'Tokyo', JPX: 'Tokyo',
-    SHH: 'Shanghai', SHZ: 'Shenzhen',
-    NSE: 'NSE India', BSE: 'BSE India',
-    KSC: 'KOSPI', KOE: 'KOSDAQ',
-    TPE: 'Taiwan',
-    SES: 'SGX Singapore',
-    ASX: 'ASX',
-    // Americas (non-US)
-    TOR: 'TSX', TSX: 'TSX', CNQ: 'CSE',
-    BUE: 'Buenos Aires', BVMF: 'B3 Brazil', SAO: 'B3 Brazil',
-    MEX: 'BMV Mexico',
-    // Crypto / FX
-    CCC: 'Crypto', CCY: 'Currency',
-};
-
-function prettyExchange(code) {
-    if (!code) return '';
-    const u = String(code).toUpperCase();
-    return EXCHANGE_NAMES[u] || u;
+// Resolve "NMS" / "NSE" / etc. → "NASDAQ — USA" / "NSE — India".
+// Falls back to suffix-based lookup if Yahoo didn't tag an
+// exchangeName for this row, then to the raw code as a last resort.
+function prettyExchange(code, symbol) {
+    return fullLabelForCode(code)
+        || fullLabelForSymbol(symbol)
+        || (code ? String(code).toUpperCase() : '');
 }
 
 export function initSearch(onSelect) {
@@ -84,7 +51,7 @@ async function performSearch(query, onSelect) {
         }
         results.innerHTML = items.map(item => {
             if (state.mode === 'stock') {
-                const exchange = prettyExchange(item.exchange);
+                const exchange = prettyExchange(item.exchange, item.symbol);
                 return `<div class="search-result-item" data-symbol="${item.symbol}">
                     <div><span class="result-symbol">${item.symbol}</span> <span class="result-name">${item.name}</span></div>
                     ${exchange ? `<span class="result-name">${exchange}</span>` : ''}

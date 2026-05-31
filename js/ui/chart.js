@@ -5,6 +5,7 @@ import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
 import { candleLoaderHTML } from './skeleton.js';
 import { fetchStockData } from '../data.js';
+import { fullLabelForSymbol, fullLabelForCode } from './exchanges.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -199,7 +200,16 @@ export function showChartPlaceholder() {
 export function updateChartHeader(data) {
     const symbolEl = document.getElementById('chart-symbol');
     const priceEl = document.getElementById('chart-price');
-    if (symbolEl) symbolEl.textContent = `${data.symbol} — ${data.name || ''}`;
+    if (symbolEl) {
+        // Resolve the exchange + country label. Prefer Yahoo's
+        // meta.exchangeName code (more specific — e.g. NMS = NASDAQ vs.
+        // NYQ = NYSE for US tickers); fall back to the suffix mapping
+        // for anything Yahoo didn't tag (rare).
+        const exLabel = fullLabelForCode(data.exchange) || fullLabelForSymbol(data.symbol);
+        const namePart = data.name ? ` — ${data.name}` : '';
+        const exPart = exLabel ? ` · ${exLabel}` : '';
+        symbolEl.textContent = `${data.symbol}${namePart}${exPart}`;
+    }
     attachTimeTravel();
     attachWatchButton(data.symbol);
     attachTradeButtons(data.symbol);
