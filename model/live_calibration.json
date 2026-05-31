@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-30T23:07:45Z",
+  "generatedAt": "2026-05-31T23:10:13Z",
   "byHorizon": {
     "1": {
       "SELL": {
@@ -229,6 +229,6 @@
       }
     }
   },
-  "totalRowsConsidered": 3051,
+  "totalRowsConsidered": 3081,
   "totalResolvedHorizons": 3514
 }
