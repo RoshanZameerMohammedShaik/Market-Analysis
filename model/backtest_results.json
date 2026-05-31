@@ -1,15 +1,15 @@
 {
   "method": "historical replay of signal pipeline",
   "overall": {
-    "total": 419191,
+    "total": 419190,
     "by_signal": {
       "BUY": {
-        "count": 91932,
+        "count": 91929,
         "hit_rate": 50.46,
         "avg_confidence": 53.2
       },
       "SELL": {
-        "count": 95384,
+        "count": 95390,
         "hit_rate": 49.73,
         "avg_confidence": 53.29
       },
@@ -17,7 +17,7 @@
         "count": 0
       },
       "NO_TRADE": {
-        "count": 231875,
+        "count": 231871,
         "avg_confidence": 45.39,
         "note": "abstained \u2014 not scored"
       }
@@ -25,13 +25,13 @@
     "calibration": [
       {
         "bucket": "50-60%",
-        "count": 171287,
+        "count": 171284,
         "predicted": 52.52,
         "actual": 50.04
       },
       {
         "bucket": "60-70%",
-        "count": 15970,
+        "count": 15976,
         "predicted": 60.94,
         "actual": 50.59
       },
@@ -46,9 +46,9 @@
       "mega": [
         {
           "bucket": "50-60%",
-          "count": 11447,
+          "count": 11444,
           "predicted": 52.51,
-          "actual": 49.91
+          "actual": 49.9
         },
         {
           "bucket": "60-70%",
@@ -66,7 +66,7 @@
       "large": [
         {
           "bucket": "50-60%",
-          "count": 119977,
+          "count": 119980,
           "predicted": 52.53,
           "actual": 50.06
         },
@@ -86,15 +86,15 @@
       "mid": [
         {
           "bucket": "50-60%",
-          "count": 23358,
+          "count": 23355,
           "predicted": 52.5,
           "actual": 50.1
         },
         {
           "bucket": "60-70%",
-          "count": 2337,
+          "count": 2341,
           "predicted": 60.91,
-          "actual": 50.19
+          "actual": 50.15
         },
         {
           "bucket": "70-80%",
@@ -106,9 +106,9 @@
       "small": [
         {
           "bucket": "50-60%",
-          "count": 7160,
+          "count": 7159,
           "predicted": 52.43,
-          "actual": 50.52
+          "actual": 50.57
         },
         {
           "bucket": "60-70%",
@@ -126,15 +126,15 @@
       "penny": [
         {
           "bucket": "50-60%",
-          "count": 9345,
+          "count": 9346,
           "predicted": 52.6,
-          "actual": 49.41
+          "actual": 49.4
         },
         {
           "bucket": "60-70%",
-          "count": 1571,
+          "count": 1573,
           "predicted": 61.09,
-          "actual": 56.21
+          "actual": 56.26
         },
         {
           "bucket": "70-80%",
@@ -147,29 +147,29 @@
     "calibration_recency_weighted": [
       {
         "bucket": "50-60%",
-        "count": 4228,
+        "count": 4139,
         "predicted": 52.52,
-        "actual": 48.52
+        "actual": 48.56
       },
       {
         "bucket": "60-70%",
-        "count": 394,
+        "count": 390,
         "predicted": 60.94,
-        "actual": 51.57
+        "actual": 51.68
       }
     ],
     "conformal": {
       "alpha": 0.3,
       "buckets": {
         "BUY-50-60": {
-          "n": 84400,
+          "n": 84396,
           "q70_pct": 2.037,
-          "mean_abs_return_pct": 4.542
+          "mean_abs_return_pct": 4.543
         },
         "BUY-60-70": {
-          "n": 7503,
-          "q70_pct": 2.653,
-          "mean_abs_return_pct": 72.22
+          "n": 7504,
+          "q70_pct": 2.655,
+          "mean_abs_return_pct": 72.211
         },
         "BUY-70-80": {
           "n": 29,
@@ -177,19 +177,19 @@
           "mean_abs_return_pct": 6.118
         },
         "BUY-any": {
-          "n": 91932,
+          "n": 91929,
           "q70_pct": 2.08,
-          "mean_abs_return_pct": 10.066
+          "mean_abs_return_pct": 10.067
         },
         "SELL-50-60": {
-          "n": 86887,
+          "n": 86888,
           "q70_pct": 1.999,
-          "mean_abs_return_pct": 5.595
+          "mean_abs_return_pct": 5.594
         },
         "SELL-60-70": {
-          "n": 8467,
-          "q70_pct": 2.395,
-          "mean_abs_return_pct": 6.125
+          "n": 8472,
+          "q70_pct": 2.394,
+          "mean_abs_return_pct": 6.123
         },
         "SELL-70-80": {
           "n": 30,
@@ -197,9 +197,9 @@
           "mean_abs_return_pct": 2.307
         },
         "SELL-any": {
-          "n": 95384,
+          "n": 95390,
           "q70_pct": 2.031,
-          "mean_abs_return_pct": 5.641
+          "mean_abs_return_pct": 5.64
         }
       },
       "method": "split-conformal residual quantile of |daily return %|"
@@ -274,8 +274,8 @@
         "hit_rate": 0.55
       },
       "SELL|L|N|L|mega": {
-        "n": 574,
-        "hit_rate": 0.505
+        "n": 573,
+        "hit_rate": 0.504
       },
       "BUY|H|P|A|mega": {
         "n": 265,
@@ -354,15 +354,15 @@
         "hit_rate": 0.4
       },
       "SELL|L|XD|B|mega": {
-        "n": 74,
-        "hit_rate": 0.541
+        "n": 72,
+        "hit_rate": 0.528
       },
       "BUY|OS|N|L|mega": {
         "n": 34,
         "hit_rate": 0.412
       },
       "SELL|L|N|M|large": {
-        "n": 16135,
+        "n": 16138,
         "hit_rate": 0.477
       },
       "BUY|L|P|L|large": {
@@ -378,7 +378,7 @@
         "hit_rate": 0.503
       },
       "SELL|L|N|L|large": {
-        "n": 4916,
+        "n": 4917,
         "hit_rate": 0.5
       },
       "SELL|L|N|B|large": {
@@ -394,7 +394,7 @@
         "hit_rate": 0.506
       },
       "BUY|M|P|M|large": {
-        "n": 18870,
+        "n": 18869,
         "hit_rate": 0.512
       },
       "BUY|H|P|M|large": {
@@ -442,7 +442,7 @@
         "hit_rate": 0.525
       },
       "SELL|L|P|M|large": {
-        "n": 1276,
+        "n": 1277,
         "hit_rate": 0.5
       },
       "SELL|L|XD|L|large": {
@@ -450,7 +450,7 @@
         "hit_rate": 0.471
       },
       "BUY|L|P|M|large": {
-        "n": 2947,
+        "n": 2946,
         "hit_rate": 0.488
       },
       "BUY|H|P|H|large": {
@@ -510,7 +510,7 @@
         "hit_rate": 0.508
       },
       "SELL|L|N|M|mid": {
-        "n": 3275,
+        "n": 3278,
         "hit_rate": 0.5
       },
       "BUY|L|XU|M|mid": {
@@ -562,8 +562,8 @@
         "hit_rate": 0.577
       },
       "SELL|L|N|B|mid": {
-        "n": 497,
-        "hit_rate": 0.519
+        "n": 496,
+        "hit_rate": 0.518
       },
       "BUY|L|P|B|mid": {
         "n": 116,
@@ -662,8 +662,8 @@
         "hit_rate": 0.525
       },
       "BUY|L|N|L|large": {
-        "n": 583,
-        "hit_rate": 0.571
+        "n": 584,
+        "hit_rate": 0.57
       },
       "BUY|OS|P|L|large": {
         "n": 340,
@@ -722,8 +722,8 @@
         "hit_rate": 0.485
       },
       "SELL|M|P|H|large": {
-        "n": 169,
-        "hit_rate": 0.426
+        "n": 168,
+        "hit_rate": 0.429
       },
       "SELL|OB|N|M|mid": {
         "n": 44,
@@ -762,8 +762,8 @@
         "hit_rate": 0.489
       },
       "SELL|L|XD|B|mid": {
-        "n": 135,
-        "hit_rate": 0.519
+        "n": 134,
+        "hit_rate": 0.515
       },
       "SELL|OB|N|A|mid": {
         "n": 47,
@@ -823,11 +823,11 @@
       },
       "SELL|M|XD|M|small": {
         "n": 211,
-        "hit_rate": 0.493
+        "hit_rate": 0.498
       },
       "SELL|L|N|M|small": {
-        "n": 1237,
-        "hit_rate": 0.526
+        "n": 1238,
+        "hit_rate": 0.527
       },
       "SELL|M|N|M|small": {
         "n": 957,
@@ -866,8 +866,8 @@
         "hit_rate": 0.57
       },
       "SELL|L|N|L|small": {
-        "n": 441,
-        "hit_rate": 0.512
+        "n": 440,
+        "hit_rate": 0.516
       },
       "SELL|OB|P|A|small": {
         "n": 62,
@@ -958,8 +958,8 @@
         "hit_rate": 0.667
       },
       "BUY|L|P|B|small": {
-        "n": 48,
-        "hit_rate": 0.542
+        "n": 47,
+        "hit_rate": 0.553
       },
       "BUY|OS|P|L|penny": {
         "n": 180,
@@ -1006,7 +1006,7 @@
         "hit_rate": 0.485
       },
       "SELL|L|N|M|penny": {
-        "n": 1655,
+        "n": 1658,
         "hit_rate": 0.582
       },
       "BUY|L|XU|M|penny": {
@@ -1022,7 +1022,7 @@
         "hit_rate": 0.536
       },
       "SELL|M|N|M|penny": {
-        "n": 1452,
+        "n": 1453,
         "hit_rate": 0.579
       },
       "BUY|M|XU|M|penny": {
@@ -1050,16 +1050,16 @@
         "hit_rate": 0.528
       },
       "BUY|L|P|B|penny": {
-        "n": 66,
-        "hit_rate": 0.485
+        "n": 65,
+        "hit_rate": 0.492
       },
       "BUY|L|P|L|penny": {
         "n": 161,
         "hit_rate": 0.472
       },
       "BUY|OS|P|B|penny": {
-        "n": 78,
-        "hit_rate": 0.372
+        "n": 77,
+        "hit_rate": 0.364
       },
       "BUY|H|P|M|penny": {
         "n": 752,
@@ -1134,8 +1134,8 @@
         "hit_rate": 0.863
       },
       "BUY|OS|P|M|penny": {
-        "n": 363,
-        "hit_rate": 0.278
+        "n": 364,
+        "hit_rate": 0.277
       },
       "SELL|OB|F|M|penny": {
         "n": 198,
@@ -1143,7 +1143,7 @@
       }
     },
     "pnl": {
-      "trades": 187316,
+      "trades": 187319,
       "total_return": -100.0,
       "sharpe": 0.02,
       "max_drawdown": -100.0
@@ -1205,7 +1205,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 7,
+          "count": 6,
           "predicted": 52.68,
           "actual": 50.61
         }
@@ -1326,7 +1326,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.92,
           "actual": 46.5
         }
@@ -1476,7 +1476,7 @@
           },
           "BUY-60-70": {
             "n": 23,
-            "q70_pct": 2.454,
+            "q70_pct": 2.455,
             "mean_abs_return_pct": 2.26
           },
           "BUY-any": {
@@ -1731,7 +1731,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 52.58,
           "actual": 57.65
         },
@@ -1870,13 +1870,13 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.47,
           "actual": 44.55
         },
         {
           "bucket": "60-70%",
-          "count": 3,
+          "count": 2,
           "predicted": 60.96,
           "actual": 21.6
         }
@@ -2566,7 +2566,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.4,
           "actual": 54.07
         }
@@ -3463,7 +3463,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 17,
+          "count": 16,
           "predicted": 52.58,
           "actual": 44.84
         }
@@ -3895,7 +3895,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.27,
           "actual": 60.59
         },
@@ -4048,7 +4048,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.44,
           "actual": 44.47
         },
@@ -4375,7 +4375,7 @@
           },
           "SELL-any": {
             "n": 309,
-            "q70_pct": 2.65,
+            "q70_pct": 2.651,
             "mean_abs_return_pct": 2.107
           }
         },
@@ -4743,7 +4743,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 8,
+          "count": 7,
           "predicted": 52.42,
           "actual": 60.07
         },
@@ -5025,7 +5025,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 14,
+          "count": 13,
           "predicted": 52.63,
           "actual": 41.19
         },
@@ -5162,7 +5162,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.18,
           "actual": 50.64
         },
@@ -5301,7 +5301,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.35,
           "actual": 43.53
         },
@@ -5700,7 +5700,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 14,
+          "count": 13,
           "predicted": 52.28,
           "actual": 43.05
         },
@@ -6109,7 +6109,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.47,
           "actual": 55.92
         },
@@ -6542,7 +6542,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 9,
+          "count": 8,
           "predicted": 52.57,
           "actual": 52.08
         },
@@ -6695,7 +6695,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.54,
           "actual": 67.68
         }
@@ -7216,7 +7216,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 9,
+          "count": 8,
           "predicted": 52.67,
           "actual": 60.96
         }
@@ -8454,7 +8454,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.46,
           "actual": 53.72
         },
@@ -8898,7 +8898,7 @@
           },
           "BUY-any": {
             "n": 265,
-            "q70_pct": 1.389,
+            "q70_pct": 1.39,
             "mean_abs_return_pct": 1.198
           },
           "SELL-50-60": {
@@ -9273,7 +9273,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 9,
+          "count": 8,
           "predicted": 52.35,
           "actual": 53.64
         }
@@ -9546,7 +9546,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.34,
           "actual": 37.14
         }
@@ -9934,7 +9934,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.71,
           "actual": 51.54
         }
@@ -10055,7 +10055,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 19,
+          "count": 18,
           "predicted": 52.57,
           "actual": 55.0
         },
@@ -10476,7 +10476,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.24,
           "actual": 50.34
         },
@@ -10631,7 +10631,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.31,
           "actual": 34.98
         },
@@ -10754,7 +10754,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.31,
           "actual": 63.26
         }
@@ -10784,7 +10784,7 @@
           },
           "SELL-60-70": {
             "n": 22,
-            "q70_pct": 1.924,
+            "q70_pct": 1.923,
             "mean_abs_return_pct": 1.429
           },
           "SELL-any": {
@@ -10875,7 +10875,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.33,
           "actual": 41.73
         }
@@ -10996,7 +10996,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.65,
           "actual": 42.48
         }
@@ -11127,7 +11127,7 @@
         "buckets": {
           "BUY-50-60": {
             "n": 235,
-            "q70_pct": 1.727,
+            "q70_pct": 1.726,
             "mean_abs_return_pct": 1.564
           },
           "BUY-60-70": {
@@ -11359,7 +11359,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 52.43,
           "actual": 53.33
         },
@@ -11500,7 +11500,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 18,
+          "count": 17,
           "predicted": 52.78,
           "actual": 38.87
         },
@@ -11905,7 +11905,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 8,
+          "count": 7,
           "predicted": 52.71,
           "actual": 72.21
         },
@@ -12037,7 +12037,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.91,
           "actual": 45.75
         }
@@ -12283,7 +12283,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 18,
+          "count": 17,
           "predicted": 52.84,
           "actual": 48.53
         },
@@ -12914,7 +12914,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.71,
           "actual": 40.08
         }
@@ -13035,7 +13035,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 14,
+          "count": 13,
           "predicted": 52.71,
           "actual": 52.25
         }
@@ -13699,7 +13699,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.41,
           "actual": 60.74
         },
@@ -14207,7 +14207,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.65,
           "actual": 62.33
         }
@@ -14397,7 +14397,7 @@
         "trades": 553,
         "total_return": -23.34,
         "sharpe": -0.42,
-        "max_drawdown": -43.37
+        "max_drawdown": -43.36
       }
     },
     "DHR": {
@@ -15101,7 +15101,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.71,
           "actual": 57.06
         },
@@ -15679,7 +15679,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.68,
           "actual": 55.9
         }
@@ -16490,7 +16490,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.43,
           "actual": 53.98
         },
@@ -16869,7 +16869,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.58,
           "actual": 42.5
         }
@@ -17385,7 +17385,7 @@
         },
         {
           "bucket": "60-70%",
-          "count": 3,
+          "count": 2,
           "predicted": 61.11,
           "actual": 41.15
         }
@@ -17889,7 +17889,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 53.01,
           "actual": 56.3
         }
@@ -18010,7 +18010,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.46,
           "actual": 57.71
         }
@@ -18030,7 +18030,7 @@
           },
           "BUY-any": {
             "n": 288,
-            "q70_pct": 1.661,
+            "q70_pct": 1.66,
             "mean_abs_return_pct": 1.479
           },
           "SELL-50-60": {
@@ -18252,7 +18252,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.53,
           "actual": 56.61
         }
@@ -18676,7 +18676,7 @@
           },
           "SELL-50-60": {
             "n": 231,
-            "q70_pct": 2.068,
+            "q70_pct": 2.067,
             "mean_abs_return_pct": 1.783
           },
           "SELL-60-70": {
@@ -19056,7 +19056,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.39,
           "actual": 51.75
         },
@@ -19316,12 +19316,6 @@
           "count": 12,
           "predicted": 52.81,
           "actual": 39.38
-        },
-        {
-          "bucket": "60-70%",
-          "count": 1,
-          "predicted": 60.77,
-          "actual": 6.11
         }
       ],
       "conformal": {
@@ -19380,7 +19374,7 @@
       },
       "pnl": {
         "trades": 541,
-        "total_return": 23.41,
+        "total_return": 23.42,
         "sharpe": 0.53,
         "max_drawdown": -16.56
       }
@@ -20207,7 +20201,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.28,
           "actual": 59.7
         },
@@ -20478,7 +20472,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.33,
           "actual": 34.25
         }
@@ -21633,9 +21627,9 @@
       "total": 1204,
       "by_signal": {
         "BUY": {
-          "count": 300,
-          "hit_rate": 55.67,
-          "avg_confidence": 53.49
+          "count": 299,
+          "hit_rate": 55.52,
+          "avg_confidence": 53.5
         },
         "SELL": {
           "count": 272,
@@ -21646,7 +21640,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 632,
+          "count": 633,
           "avg_confidence": 45.41,
           "note": "abstained \u2014 not scored"
         }
@@ -21654,9 +21648,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 531,
+          "count": 530,
           "predicted": 52.76,
-          "actual": 52.54
+          "actual": 52.45
         },
         {
           "bucket": "60-70%",
@@ -21669,9 +21663,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 531,
+            "count": 530,
             "predicted": 52.76,
-            "actual": 52.54
+            "actual": 52.45
           },
           {
             "bucket": "60-70%",
@@ -21699,9 +21693,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 277,
-            "q70_pct": 1.572,
-            "mean_abs_return_pct": 1.307
+            "n": 276,
+            "q70_pct": 1.569,
+            "mean_abs_return_pct": 1.305
           },
           "BUY-60-70": {
             "n": 23,
@@ -21709,14 +21703,14 @@
             "mean_abs_return_pct": 1.433
           },
           "BUY-any": {
-            "n": 300,
-            "q70_pct": 1.573,
-            "mean_abs_return_pct": 1.316
+            "n": 299,
+            "q70_pct": 1.572,
+            "mean_abs_return_pct": 1.315
           },
           "SELL-50-60": {
             "n": 254,
-            "q70_pct": 1.651,
-            "mean_abs_return_pct": 1.436
+            "q70_pct": 1.668,
+            "mean_abs_return_pct": 1.442
           },
           "SELL-60-70": {
             "n": 18,
@@ -21725,8 +21719,8 @@
           },
           "SELL-any": {
             "n": 272,
-            "q70_pct": 1.668,
-            "mean_abs_return_pct": 1.509
+            "q70_pct": 1.67,
+            "mean_abs_return_pct": 1.514
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -21758,10 +21752,10 @@
         }
       },
       "pnl": {
-        "trades": 572,
-        "total_return": 40.22,
-        "sharpe": 0.62,
-        "max_drawdown": -28.02
+        "trades": 571,
+        "total_return": 35.89,
+        "sharpe": 0.58,
+        "max_drawdown": -30.25
       }
     },
     "WMT": {
@@ -22247,7 +22241,7 @@
           },
           "SELL-50-60": {
             "n": 251,
-            "q70_pct": 0.889,
+            "q70_pct": 0.89,
             "mean_abs_return_pct": 0.739
           },
           "SELL-60-70": {
@@ -22283,7 +22277,7 @@
       },
       "pnl": {
         "trades": 508,
-        "total_return": 29.63,
+        "total_return": 29.64,
         "sharpe": 0.91,
         "max_drawdown": -15.14
       }
@@ -22608,7 +22602,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.6,
           "actual": 60.48
         }
@@ -22850,7 +22844,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 17,
+          "count": 16,
           "predicted": 52.7,
           "actual": 51.83
         }
@@ -23262,7 +23256,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.67,
           "actual": 53.94
         },
@@ -23394,7 +23388,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.45,
           "actual": 63.09
         }
@@ -23515,7 +23509,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.6,
           "actual": 47.92
         }
@@ -23892,7 +23886,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.78,
           "actual": 56.66
         }
@@ -24303,7 +24297,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.63,
           "actual": 39.02
         },
@@ -24456,7 +24450,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.66,
           "actual": 42.93
         },
@@ -24585,7 +24579,7 @@
         },
         {
           "bucket": "60-70%",
-          "count": 2,
+          "count": 1,
           "predicted": 60.88,
           "actual": 79.67
         }
@@ -24960,7 +24954,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.27,
           "actual": 51.66
         }
@@ -25081,7 +25075,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 9,
+          "count": 8,
           "predicted": 52.39,
           "actual": 52.08
         },
@@ -25289,15 +25283,15 @@
           "avg_confidence": 52.95
         },
         "SELL": {
-          "count": 302,
-          "hit_rate": 50.0,
+          "count": 301,
+          "hit_rate": 50.17,
           "avg_confidence": 53.26
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 652,
+          "count": 653,
           "avg_confidence": 45.26,
           "note": "abstained \u2014 not scored"
         }
@@ -25305,9 +25299,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 513,
+          "count": 512,
           "predicted": 52.54,
-          "actual": 50.1
+          "actual": 50.2
         },
         {
           "bucket": "60-70%",
@@ -25320,9 +25314,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 513,
+            "count": 512,
             "predicted": 52.54,
-            "actual": 50.1
+            "actual": 50.2
           },
           {
             "bucket": "60-70%",
@@ -25335,7 +25329,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.54,
           "actual": 39.56
         },
@@ -25365,9 +25359,9 @@
             "mean_abs_return_pct": 1.535
           },
           "SELL-50-60": {
-            "n": 280,
-            "q70_pct": 1.894,
-            "mean_abs_return_pct": 1.49
+            "n": 279,
+            "q70_pct": 1.906,
+            "mean_abs_return_pct": 1.494
           },
           "SELL-60-70": {
             "n": 22,
@@ -25375,9 +25369,9 @@
             "mean_abs_return_pct": 1.458
           },
           "SELL-any": {
-            "n": 302,
-            "q70_pct": 1.914,
-            "mean_abs_return_pct": 1.488
+            "n": 301,
+            "q70_pct": 1.922,
+            "mean_abs_return_pct": 1.491
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -25401,9 +25395,9 @@
         }
       },
       "pnl": {
-        "trades": 552,
-        "total_return": -18.92,
-        "sharpe": -0.14,
+        "trades": 551,
+        "total_return": -18.55,
+        "sharpe": -0.13,
         "max_drawdown": -33.88
       }
     },
@@ -25636,7 +25630,7 @@
           },
           "SELL-any": {
             "n": 272,
-            "q70_pct": 1.447,
+            "q70_pct": 1.446,
             "mean_abs_return_pct": 1.117
           }
         },
@@ -25857,7 +25851,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 14,
+          "count": 13,
           "predicted": 52.42,
           "actual": 32.52
         },
@@ -25984,7 +25978,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.42,
           "actual": 49.45
         }
@@ -27012,7 +27006,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.48,
           "actual": 39.37
         }
@@ -27254,7 +27248,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.59,
           "actual": 63.57
         },
@@ -27597,7 +27591,7 @@
       },
       "pnl": {
         "trades": 532,
-        "total_return": 31.19,
+        "total_return": 31.2,
         "sharpe": 0.65,
         "max_drawdown": -22.5
       }
@@ -27671,15 +27665,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.7,
           "actual": 75.31
-        },
-        {
-          "bucket": "60-70%",
-          "count": 1,
-          "predicted": 61.58,
-          "actual": 3.83
         }
       ],
       "conformal": {
@@ -27812,7 +27800,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 18,
+          "count": 17,
           "predicted": 52.55,
           "actual": 38.37
         },
@@ -27943,7 +27931,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.45,
           "actual": 54.55
         },
@@ -28033,7 +28021,7 @@
         },
         "NO_TRADE": {
           "count": 710,
-          "avg_confidence": 45.38,
+          "avg_confidence": 45.39,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -28191,7 +28179,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.67,
           "actual": 56.8
         }
@@ -28709,7 +28697,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.52,
           "actual": 55.59
         }
@@ -29596,15 +29584,15 @@
           "avg_confidence": 53.13
         },
         "SELL": {
-          "count": 265,
-          "hit_rate": 49.43,
-          "avg_confidence": 52.75
+          "count": 266,
+          "hit_rate": 49.25,
+          "avg_confidence": 52.74
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 700,
+          "count": 699,
           "avg_confidence": 45.18,
           "note": "abstained \u2014 not scored"
         }
@@ -29612,9 +29600,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 473,
-          "predicted": 52.43,
-          "actual": 50.11
+          "count": 474,
+          "predicted": 52.42,
+          "actual": 50.0
         },
         {
           "bucket": "60-70%",
@@ -29627,9 +29615,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 473,
-            "predicted": 52.43,
-            "actual": 50.11
+            "count": 474,
+            "predicted": 52.42,
+            "actual": 50.0
           },
           {
             "bucket": "60-70%",
@@ -29642,8 +29630,8 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
-          "predicted": 52.43,
+          "count": 11,
+          "predicted": 52.42,
           "actual": 47.42
         }
       ],
@@ -29666,8 +29654,8 @@
             "mean_abs_return_pct": 1.274
           },
           "SELL-50-60": {
-            "n": 254,
-            "q70_pct": 1.347,
+            "n": 255,
+            "q70_pct": 1.343,
             "mean_abs_return_pct": 1.187
           },
           "SELL-60-70": {
@@ -29676,7 +29664,7 @@
             "mean_abs_return_pct": 0.736
           },
           "SELL-any": {
-            "n": 265,
+            "n": 266,
             "q70_pct": 1.336,
             "mean_abs_return_pct": 1.168
           }
@@ -29702,9 +29690,9 @@
         }
       },
       "pnl": {
-        "trades": 504,
-        "total_return": -22.66,
-        "sharpe": -0.32,
+        "trades": 505,
+        "total_return": -23.52,
+        "sharpe": -0.34,
         "max_drawdown": -34.95
       }
     },
@@ -29884,7 +29872,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.54,
           "actual": 46.54
         },
@@ -30014,12 +30002,6 @@
           "count": 16,
           "predicted": 52.48,
           "actual": 50.12
-        },
-        {
-          "bucket": "60-70%",
-          "count": 1,
-          "predicted": 61.42,
-          "actual": 52.48
         }
       ],
       "conformal": {
@@ -30259,7 +30241,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.72,
           "actual": 51.6
         },
@@ -31001,7 +30983,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 12,
+          "count": 11,
           "predicted": 52.75,
           "actual": 48.77
         }
@@ -31243,7 +31225,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.53,
           "actual": 62.54
         }
@@ -31259,7 +31241,7 @@
           "BUY-60-70": {
             "n": 15,
             "q70_pct": 1.063,
-            "mean_abs_return_pct": 0.836
+            "mean_abs_return_pct": 0.837
           },
           "BUY-any": {
             "n": 257,
@@ -31517,7 +31499,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.86,
           "actual": 43.41
         },
@@ -31683,12 +31665,12 @@
           },
           "SELL-60-70": {
             "n": 17,
-            "q70_pct": 1.282,
+            "q70_pct": 1.281,
             "mean_abs_return_pct": 1.04
           },
           "SELL-any": {
             "n": 281,
-            "q70_pct": 1.132,
+            "q70_pct": 1.131,
             "mean_abs_return_pct": 0.862
           }
         },
@@ -31788,7 +31770,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.81,
           "actual": 46.95
         }
@@ -32625,9 +32607,9 @@
       "total": 1204,
       "by_signal": {
         "BUY": {
-          "count": 291,
-          "hit_rate": 46.39,
-          "avg_confidence": 52.72
+          "count": 290,
+          "hit_rate": 46.55,
+          "avg_confidence": 52.73
         },
         "SELL": {
           "count": 254,
@@ -32638,7 +32620,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 659,
+          "count": 660,
           "avg_confidence": 45.27,
           "note": "abstained \u2014 not scored"
         }
@@ -32646,9 +32628,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 508,
+          "count": 507,
           "predicted": 52.36,
-          "actual": 46.26
+          "actual": 46.35
         },
         {
           "bucket": "60-70%",
@@ -32661,9 +32643,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 508,
+            "count": 507,
             "predicted": 52.36,
-            "actual": 46.26
+            "actual": 46.35
           },
           {
             "bucket": "60-70%",
@@ -32691,9 +32673,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 273,
-            "q70_pct": 1.637,
-            "mean_abs_return_pct": 1.431
+            "n": 272,
+            "q70_pct": 1.65,
+            "mean_abs_return_pct": 1.436
           },
           "BUY-60-70": {
             "n": 18,
@@ -32701,9 +32683,9 @@
             "mean_abs_return_pct": 2.372
           },
           "BUY-any": {
-            "n": 291,
-            "q70_pct": 1.688,
-            "mean_abs_return_pct": 1.489
+            "n": 290,
+            "q70_pct": 1.698,
+            "mean_abs_return_pct": 1.494
           },
           "SELL-50-60": {
             "n": 235,
@@ -32725,8 +32707,8 @@
       },
       "pattern_hit_rates": {
         "BUY|M|P|M|large": {
-          "n": 107,
-          "hit_rate": 0.477
+          "n": 106,
+          "hit_rate": 0.481
         },
         "SELL|L|N|M|large": {
           "n": 74,
@@ -32742,10 +32724,10 @@
         }
       },
       "pnl": {
-        "trades": 545,
-        "total_return": -64.61,
+        "trades": 544,
+        "total_return": -64.59,
         "sharpe": -1.24,
-        "max_drawdown": -67.23
+        "max_drawdown": -67.21
       }
     },
     "DD": {
@@ -32803,7 +32785,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.37,
           "actual": 31.55
         }
@@ -32944,7 +32926,7 @@
           },
           "BUY-any": {
             "n": 266,
-            "q70_pct": 2.167,
+            "q70_pct": 2.166,
             "mean_abs_return_pct": 1.784
           },
           "SELL-50-60": {
@@ -33313,7 +33295,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 20,
+          "count": 19,
           "predicted": 52.67,
           "actual": 30.93
         }
@@ -33959,7 +33941,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.45,
           "actual": 39.16
         },
@@ -34095,7 +34077,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.53,
           "actual": 52.19
         },
@@ -34226,7 +34208,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.48,
           "actual": 32.4
         }
@@ -34347,7 +34329,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 18,
+          "count": 17,
           "predicted": 52.3,
           "actual": 43.15
         }
@@ -34595,7 +34577,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.44,
           "actual": 54.1
         }
@@ -34800,30 +34782,30 @@
       "total": 1204,
       "by_signal": {
         "BUY": {
-          "count": 257,
-          "hit_rate": 54.47,
+          "count": 258,
+          "hit_rate": 54.26,
           "avg_confidence": 53.09
         },
         "SELL": {
-          "count": 279,
-          "hit_rate": 50.18,
+          "count": 280,
+          "hit_rate": 50.0,
           "avg_confidence": 52.98
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 668,
-          "avg_confidence": 45.32,
+          "count": 666,
+          "avg_confidence": 45.31,
           "note": "abstained \u2014 not scored"
         }
       },
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 497,
-          "predicted": 52.41,
-          "actual": 52.92
+          "count": 499,
+          "predicted": 52.42,
+          "actual": 52.71
         },
         {
           "bucket": "60-70%",
@@ -34836,9 +34818,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 497,
-            "predicted": 52.41,
-            "actual": 52.92
+            "count": 499,
+            "predicted": 52.42,
+            "actual": 52.71
           },
           {
             "bucket": "60-70%",
@@ -34852,7 +34834,7 @@
         {
           "bucket": "50-60%",
           "count": 17,
-          "predicted": 52.41,
+          "predicted": 52.42,
           "actual": 51.38
         }
       ],
@@ -34860,7 +34842,7 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 241,
+            "n": 242,
             "q70_pct": 1.353,
             "mean_abs_return_pct": 1.179
           },
@@ -34870,14 +34852,14 @@
             "mean_abs_return_pct": 0.958
           },
           "BUY-any": {
-            "n": 257,
-            "q70_pct": 1.364,
+            "n": 258,
+            "q70_pct": 1.353,
             "mean_abs_return_pct": 1.165
           },
           "SELL-50-60": {
-            "n": 256,
-            "q70_pct": 1.49,
-            "mean_abs_return_pct": 1.14
+            "n": 257,
+            "q70_pct": 1.488,
+            "mean_abs_return_pct": 1.136
           },
           "SELL-60-70": {
             "n": 23,
@@ -34885,9 +34867,9 @@
             "mean_abs_return_pct": 1.227
           },
           "SELL-any": {
-            "n": 279,
-            "q70_pct": 1.477,
-            "mean_abs_return_pct": 1.147
+            "n": 280,
+            "q70_pct": 1.47,
+            "mean_abs_return_pct": 1.143
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -34911,9 +34893,9 @@
         }
       },
       "pnl": {
-        "trades": 536,
-        "total_return": 46.48,
-        "sharpe": 0.85,
+        "trades": 538,
+        "total_return": 44.61,
+        "sharpe": 0.83,
         "max_drawdown": -20.62
       }
     },
@@ -35099,7 +35081,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 14,
+          "count": 13,
           "predicted": 52.81,
           "actual": 66.84
         }
@@ -35484,13 +35466,13 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.63,
           "actual": 62.9
         },
         {
           "bucket": "60-70%",
-          "count": 2,
+          "count": 1,
           "predicted": 61.56,
           "actual": 62.23
         }
@@ -37349,7 +37331,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 17,
+          "count": 16,
           "predicted": 52.42,
           "actual": 56.52
         }
@@ -37484,7 +37466,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 11,
+          "count": 10,
           "predicted": 52.62,
           "actual": 41.34
         }
@@ -37748,7 +37730,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 17,
+          "count": 16,
           "predicted": 52.37,
           "actual": 60.66
         },
@@ -38607,7 +38589,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 52.18,
           "actual": 45.9
         }
@@ -38759,7 +38741,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 52.45,
           "actual": 28.04
         }
@@ -38903,7 +38885,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.39,
           "actual": 54.3
         },
@@ -39336,7 +39318,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 9,
+          "count": 8,
           "predicted": 52.48,
           "actual": 51.89
         },
@@ -39481,7 +39463,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.37,
           "actual": 42.81
         }
@@ -39751,7 +39733,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 10,
+          "count": 9,
           "predicted": 52.29,
           "actual": 46.81
         },
@@ -39892,7 +39874,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 14,
           "predicted": 52.35,
           "actual": 47.96
         }
@@ -40053,7 +40035,7 @@
           },
           "SELL-60-70": {
             "n": 22,
-            "q70_pct": 3.177,
+            "q70_pct": 3.178,
             "mean_abs_return_pct": 2.893
           },
           "SELL-any": {
@@ -40099,7 +40081,7 @@
         "BUY": {
           "count": 292,
           "hit_rate": 51.71,
-          "avg_confidence": 53.22
+          "avg_confidence": 53.24
         },
         "SELL": {
           "count": 276,
@@ -40118,15 +40100,15 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 511,
+          "count": 510,
           "predicted": 52.53,
-          "actual": 50.1
+          "actual": 50.2
         },
         {
           "bucket": "60-70%",
-          "count": 57,
-          "predicted": 60.95,
-          "actual": 54.39
+          "count": 58,
+          "predicted": 60.93,
+          "actual": 53.45
         }
       ],
       "calibration_by_tier": {
@@ -40147,15 +40129,15 @@
         "mid": [
           {
             "bucket": "50-60%",
-            "count": 406,
+            "count": 405,
             "predicted": 52.6,
-            "actual": 51.72
+            "actual": 51.85
           },
           {
             "bucket": "60-70%",
-            "count": 46,
-            "predicted": 60.96,
-            "actual": 58.7
+            "count": 47,
+            "predicted": 60.94,
+            "actual": 57.45
           }
         ]
       },
@@ -40171,14 +40153,14 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 267,
-            "q70_pct": 2.899,
-            "mean_abs_return_pct": 2.477
+            "n": 266,
+            "q70_pct": 2.892,
+            "mean_abs_return_pct": 2.473
           },
           "BUY-60-70": {
-            "n": 25,
-            "q70_pct": 2.995,
-            "mean_abs_return_pct": 3.006
+            "n": 26,
+            "q70_pct": 3.248,
+            "mean_abs_return_pct": 3.026
           },
           "BUY-any": {
             "n": 292,
@@ -40309,7 +40291,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 13,
+          "count": 12,
           "predicted": 52.53,
           "actual": 45.85
         }
@@ -40713,7 +40695,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 16,
+          "count": 15,
           "predicted": 52.57,
           "actual": 55.66
         }
@@ -41190,15 +41172,15 @@
           "avg_confidence": 53.42
         },
         "SELL": {
-          "count": 448,
-          "hit_rate": 52.01,
-          "avg_confidence": 53.46
+          "count": 447,
+          "hit_rate": 51.9,
+          "avg_confidence": 53.45
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 958,
+          "count": 959,
           "avg_confidence": 45.53,
           "note": "abstained \u2014 not scored"
         }
@@ -41206,9 +41188,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 740,
+          "count": 739,
           "predicted": 52.67,
-          "actual": 51.62
+          "actual": 51.56
         },
         {
           "bucket": "60-70%",
@@ -41221,9 +41203,9 @@
         "mega": [
           {
             "bucket": "50-60%",
-            "count": 740,
+            "count": 739,
             "predicted": 52.67,
-            "actual": 51.62
+            "actual": 51.56
           },
           {
             "bucket": "60-70%",
@@ -41239,12 +41221,6 @@
           "count": 20,
           "predicted": 52.67,
           "actual": 52.47
-        },
-        {
-          "bucket": "60-70%",
-          "count": 1,
-          "predicted": 60.77,
-          "actual": 55.55
         }
       ],
       "conformal": {
@@ -41266,9 +41242,9 @@
             "mean_abs_return_pct": 1.987
           },
           "SELL-50-60": {
-            "n": 405,
-            "q70_pct": 2.302,
-            "mean_abs_return_pct": 1.876
+            "n": 404,
+            "q70_pct": 2.295,
+            "mean_abs_return_pct": 1.867
           },
           "SELL-60-70": {
             "n": 43,
@@ -41276,9 +41252,9 @@
             "mean_abs_return_pct": 2.587
           },
           "SELL-any": {
-            "n": 448,
-            "q70_pct": 2.303,
-            "mean_abs_return_pct": 1.944
+            "n": 447,
+            "q70_pct": 2.296,
+            "mean_abs_return_pct": 1.936
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41306,9 +41282,9 @@
         }
       },
       "pnl": {
-        "trades": 818,
-        "total_return": 36.67,
-        "sharpe": 0.44,
+        "trades": 817,
+        "total_return": 29.62,
+        "sharpe": 0.4,
         "max_drawdown": -72.94
       }
     },
@@ -41321,15 +41297,15 @@
           "avg_confidence": 53.16
         },
         "SELL": {
-          "count": 355,
-          "hit_rate": 50.99,
-          "avg_confidence": 53.75
+          "count": 356,
+          "hit_rate": 50.84,
+          "avg_confidence": 53.76
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 1022,
+          "count": 1021,
           "avg_confidence": 45.68,
           "note": "abstained \u2014 not scored"
         }
@@ -41337,9 +41313,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 663,
+          "count": 664,
           "predicted": 52.44,
-          "actual": 49.77
+          "actual": 49.7
         },
         {
           "bucket": "60-70%",
@@ -41366,9 +41342,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 267,
-            "predicted": 52.58,
-            "actual": 46.07
+            "count": 268,
+            "predicted": 52.59,
+            "actual": 45.9
           },
           {
             "bucket": "60-70%",
@@ -41397,7 +41373,7 @@
           "bucket": "50-60%",
           "count": 24,
           "predicted": 52.44,
-          "actual": 46.44
+          "actual": 44.56
         },
         {
           "bucket": "60-70%",
@@ -41425,9 +41401,9 @@
             "mean_abs_return_pct": 3.468
           },
           "SELL-50-60": {
-            "n": 306,
+            "n": 307,
             "q70_pct": 4.176,
-            "mean_abs_return_pct": 3.492
+            "mean_abs_return_pct": 3.481
           },
           "SELL-60-70": {
             "n": 49,
@@ -41435,17 +41411,17 @@
             "mean_abs_return_pct": 2.817
           },
           "SELL-any": {
-            "n": 355,
-            "q70_pct": 4.152,
-            "mean_abs_return_pct": 3.399
+            "n": 356,
+            "q70_pct": 4.129,
+            "mean_abs_return_pct": 3.389
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pattern_hit_rates": {
         "SELL|L|N|M|large": {
-          "n": 32,
-          "hit_rate": 0.5
+          "n": 33,
+          "hit_rate": 0.485
         },
         "BUY|M|P|M|large": {
           "n": 55,
@@ -41473,7 +41449,7 @@
         }
       },
       "pnl": {
-        "trades": 754,
+        "trades": 755,
         "total_return": -64.46,
         "sharpe": -0.08,
         "max_drawdown": -78.22
@@ -41483,14 +41459,14 @@
       "total": 1776,
       "by_signal": {
         "BUY": {
-          "count": 393,
-          "hit_rate": 46.82,
-          "avg_confidence": 53.15
+          "count": 392,
+          "hit_rate": 46.94,
+          "avg_confidence": 53.16
         },
         "SELL": {
-          "count": 482,
-          "hit_rate": 50.21,
-          "avg_confidence": 53.44
+          "count": 483,
+          "hit_rate": 50.31,
+          "avg_confidence": 53.45
         },
         "NEUTRAL": {
           "count": 0
@@ -41506,7 +41482,7 @@
           "bucket": "50-60%",
           "count": 785,
           "predicted": 52.47,
-          "actual": 48.28
+          "actual": 48.41
         },
         {
           "bucket": "60-70%",
@@ -41525,9 +41501,9 @@
         "small": [
           {
             "bucket": "50-60%",
-            "count": 302,
-            "predicted": 52.56,
-            "actual": 48.68
+            "count": 303,
+            "predicted": 52.57,
+            "actual": 48.84
           },
           {
             "bucket": "60-70%",
@@ -41545,9 +41521,9 @@
         "penny": [
           {
             "bucket": "50-60%",
-            "count": 483,
+            "count": 482,
             "predicted": 52.41,
-            "actual": 48.03
+            "actual": 48.13
           },
           {
             "bucket": "60-70%",
@@ -41560,9 +41536,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 21,
+          "count": 22,
           "predicted": 52.47,
-          "actual": 42.55
+          "actual": 45.16
         },
         {
           "bucket": "60-70%",
@@ -41575,9 +41551,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 361,
-            "q70_pct": 3.111,
-            "mean_abs_return_pct": 2.668
+            "n": 360,
+            "q70_pct": 3.071,
+            "mean_abs_return_pct": 2.662
           },
           "BUY-60-70": {
             "n": 32,
@@ -41585,14 +41561,14 @@
             "mean_abs_return_pct": 2.571
           },
           "BUY-any": {
-            "n": 393,
-            "q70_pct": 3.023,
-            "mean_abs_return_pct": 2.661
+            "n": 392,
+            "q70_pct": 3.003,
+            "mean_abs_return_pct": 2.654
           },
           "SELL-50-60": {
-            "n": 424,
-            "q70_pct": 2.991,
-            "mean_abs_return_pct": 2.564
+            "n": 425,
+            "q70_pct": 2.989,
+            "mean_abs_return_pct": 2.557
           },
           "SELL-60-70": {
             "n": 57,
@@ -41605,9 +41581,9 @@
             "mean_abs_return_pct": 0.355
           },
           "SELL-any": {
-            "n": 482,
-            "q70_pct": 2.928,
-            "mean_abs_return_pct": 2.502
+            "n": 483,
+            "q70_pct": 2.924,
+            "mean_abs_return_pct": 2.497
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41634,8 +41610,8 @@
           "hit_rate": 0.446
         },
         "SELL|L|N|M|small": {
-          "n": 50,
-          "hit_rate": 0.44
+          "n": 51,
+          "hit_rate": 0.451
         },
         "SELL|M|N|M|penny": {
           "n": 106,
@@ -41644,8 +41620,8 @@
       },
       "pnl": {
         "trades": 875,
-        "total_return": -67.5,
-        "sharpe": -0.24,
+        "total_return": -65.48,
+        "sharpe": -0.21,
         "max_drawdown": -89.85
       }
     },
@@ -41658,15 +41634,15 @@
           "avg_confidence": 53.21
         },
         "SELL": {
-          "count": 441,
-          "hit_rate": 50.11,
-          "avg_confidence": 53.68
+          "count": 442,
+          "hit_rate": 50.0,
+          "avg_confidence": 53.67
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 976,
+          "count": 975,
           "avg_confidence": 45.61,
           "note": "abstained \u2014 not scored"
         }
@@ -41674,9 +41650,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 711,
-          "predicted": 52.58,
-          "actual": 46.13
+          "count": 712,
+          "predicted": 52.57,
+          "actual": 46.07
         },
         {
           "bucket": "60-70%",
@@ -41703,9 +41679,9 @@
         "penny": [
           {
             "bucket": "50-60%",
-            "count": 616,
-            "predicted": 52.59,
-            "actual": 45.62
+            "count": 617,
+            "predicted": 52.58,
+            "actual": 45.54
           },
           {
             "bucket": "60-70%",
@@ -41719,8 +41695,8 @@
         {
           "bucket": "50-60%",
           "count": 19,
-          "predicted": 52.58,
-          "actual": 41.14
+          "predicted": 52.57,
+          "actual": 39.05
         },
         {
           "bucket": "60-70%",
@@ -41748,9 +41724,9 @@
             "mean_abs_return_pct": 3.019
           },
           "SELL-50-60": {
-            "n": 384,
-            "q70_pct": 3.231,
-            "mean_abs_return_pct": 2.764
+            "n": 385,
+            "q70_pct": 3.221,
+            "mean_abs_return_pct": 2.758
           },
           "SELL-60-70": {
             "n": 57,
@@ -41758,9 +41734,9 @@
             "mean_abs_return_pct": 2.822
           },
           "SELL-any": {
-            "n": 441,
-            "q70_pct": 3.291,
-            "mean_abs_return_pct": 2.772
+            "n": 442,
+            "q70_pct": 3.29,
+            "mean_abs_return_pct": 2.766
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41771,8 +41747,8 @@
           "hit_rate": 0.509
         },
         "SELL|L|N|M|penny": {
-          "n": 136,
-          "hit_rate": 0.551
+          "n": 137,
+          "hit_rate": 0.547
         },
         "BUY|M|P|M|penny": {
           "n": 102,
@@ -41792,9 +41768,9 @@
         }
       },
       "pnl": {
-        "trades": 800,
-        "total_return": -63.22,
-        "sharpe": -0.17,
+        "trades": 801,
+        "total_return": -63.35,
+        "sharpe": -0.18,
         "max_drawdown": -73.64
       }
     },
@@ -41807,15 +41783,15 @@
           "avg_confidence": 53.61
         },
         "SELL": {
-          "count": 427,
-          "hit_rate": 53.4,
-          "avg_confidence": 53.5
+          "count": 428,
+          "hit_rate": 53.5,
+          "avg_confidence": 53.51
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 919,
+          "count": 918,
           "avg_confidence": 45.73,
           "note": "abstained \u2014 not scored"
         }
@@ -41823,9 +41799,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 748,
+          "count": 749,
           "predicted": 52.52,
-          "actual": 50.94
+          "actual": 51.0
         },
         {
           "bucket": "60-70%",
@@ -41838,9 +41814,9 @@
         "penny": [
           {
             "bucket": "50-60%",
-            "count": 748,
+            "count": 749,
             "predicted": 52.52,
-            "actual": 50.94
+            "actual": 51.0
           },
           {
             "bucket": "60-70%",
@@ -41853,9 +41829,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 18,
+          "count": 19,
           "predicted": 52.52,
-          "actual": 55.57
+          "actual": 57.87
         },
         {
           "bucket": "60-70%",
@@ -41883,9 +41859,9 @@
             "mean_abs_return_pct": 3.103
           },
           "SELL-50-60": {
-            "n": 375,
-            "q70_pct": 3.371,
-            "mean_abs_return_pct": 2.813
+            "n": 376,
+            "q70_pct": 3.357,
+            "mean_abs_return_pct": 2.805
           },
           "SELL-60-70": {
             "n": 52,
@@ -41893,9 +41869,9 @@
             "mean_abs_return_pct": 3.159
           },
           "SELL-any": {
-            "n": 427,
-            "q70_pct": 3.404,
-            "mean_abs_return_pct": 2.855
+            "n": 428,
+            "q70_pct": 3.4,
+            "mean_abs_return_pct": 2.848
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41922,8 +41898,8 @@
           "hit_rate": 0.541
         },
         "SELL|L|N|M|penny": {
-          "n": 142,
-          "hit_rate": 0.528
+          "n": 143,
+          "hit_rate": 0.531
         },
         "BUY|H|P|H|penny": {
           "n": 34,
@@ -41935,8 +41911,8 @@
         }
       },
       "pnl": {
-        "trades": 857,
-        "total_return": 287.39,
+        "trades": 858,
+        "total_return": 287.41,
         "sharpe": 0.92,
         "max_drawdown": -60.97
       }
@@ -41951,8 +41927,8 @@
         },
         "SELL": {
           "count": 380,
-          "hit_rate": 52.89,
-          "avg_confidence": 53.31
+          "hit_rate": 52.63,
+          "avg_confidence": 53.34
         },
         "NEUTRAL": {
           "count": 0
@@ -41966,15 +41942,15 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 716,
+          "count": 715,
           "predicted": 52.52,
-          "actual": 50.98
+          "actual": 50.91
         },
         {
           "bucket": "60-70%",
-          "count": 83,
-          "predicted": 60.75,
-          "actual": 54.22
+          "count": 84,
+          "predicted": 60.74,
+          "actual": 53.57
         }
       ],
       "calibration_by_tier": {
@@ -41995,15 +41971,15 @@
         "mid": [
           {
             "bucket": "50-60%",
-            "count": 322,
-            "predicted": 52.58,
-            "actual": 52.17
+            "count": 321,
+            "predicted": 52.59,
+            "actual": 52.02
           },
           {
             "bucket": "60-70%",
-            "count": 37,
-            "predicted": 60.54,
-            "actual": 54.05
+            "count": 38,
+            "predicted": 60.53,
+            "actual": 52.63
           }
         ]
       },
@@ -42016,9 +41992,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 3,
-          "predicted": 60.75,
-          "actual": 41.09
+          "count": 4,
+          "predicted": 60.74,
+          "actual": 31.14
         }
       ],
       "conformal": {
@@ -42040,27 +42016,27 @@
             "mean_abs_return_pct": 3.899
           },
           "SELL-50-60": {
-            "n": 345,
-            "q70_pct": 4.233,
-            "mean_abs_return_pct": 3.418
+            "n": 344,
+            "q70_pct": 4.225,
+            "mean_abs_return_pct": 3.413
           },
           "SELL-60-70": {
-            "n": 35,
-            "q70_pct": 4.54,
-            "mean_abs_return_pct": 3.832
+            "n": 36,
+            "q70_pct": 4.536,
+            "mean_abs_return_pct": 3.744
           },
           "SELL-any": {
             "n": 380,
-            "q70_pct": 4.244,
-            "mean_abs_return_pct": 3.457
+            "q70_pct": 4.236,
+            "mean_abs_return_pct": 3.445
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pattern_hit_rates": {
         "SELL|L|N|M|mid": {
-          "n": 67,
-          "hit_rate": 0.507
+          "n": 68,
+          "hit_rate": 0.5
         },
         "BUY|M|P|M|mid": {
           "n": 79,
@@ -42093,8 +42069,8 @@
       },
       "pnl": {
         "trades": 799,
-        "total_return": -14.68,
-        "sharpe": 0.35,
+        "total_return": -19.33,
+        "sharpe": 0.33,
         "max_drawdown": -80.39
       }
     },
@@ -42255,16 +42231,16 @@
           "avg_confidence": 53.22
         },
         "SELL": {
-          "count": 422,
-          "hit_rate": 47.16,
-          "avg_confidence": 53.5
+          "count": 423,
+          "hit_rate": 47.04,
+          "avg_confidence": 53.52
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 921,
-          "avg_confidence": 45.65,
+          "count": 920,
+          "avg_confidence": 45.66,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -42277,9 +42253,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 87,
-          "predicted": 60.67,
-          "actual": 51.72
+          "count": 88,
+          "predicted": 60.66,
+          "actual": 51.14
         },
         {
           "bucket": "70-80%",
@@ -42312,9 +42288,9 @@
           },
           {
             "bucket": "60-70%",
-            "count": 71,
-            "predicted": 60.62,
-            "actual": 50.7
+            "count": 72,
+            "predicted": 60.61,
+            "actual": 50.0
           },
           {
             "bucket": "70-80%",
@@ -42333,9 +42309,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 3,
-          "predicted": 60.67,
-          "actual": 45.58
+          "count": 4,
+          "predicted": 60.66,
+          "actual": 34.57
         }
       ],
       "conformal": {
@@ -42367,9 +42343,9 @@
             "mean_abs_return_pct": 3.304
           },
           "SELL-60-70": {
-            "n": 53,
-            "q70_pct": 3.331,
-            "mean_abs_return_pct": 3.173
+            "n": 54,
+            "q70_pct": 3.283,
+            "mean_abs_return_pct": 3.119
           },
           "SELL-70-80": {
             "n": 1,
@@ -42377,17 +42353,17 @@
             "mean_abs_return_pct": 2.008
           },
           "SELL-any": {
-            "n": 422,
+            "n": 423,
             "q70_pct": 3.924,
-            "mean_abs_return_pct": 3.284
+            "mean_abs_return_pct": 3.277
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pattern_hit_rates": {
         "SELL|L|N|M|mid": {
-          "n": 129,
-          "hit_rate": 0.512
+          "n": 130,
+          "hit_rate": 0.508
         },
         "BUY|M|P|M|mid": {
           "n": 127,
@@ -42415,14 +42391,14 @@
         }
       },
       "pnl": {
-        "trades": 855,
-        "total_return": -68.07,
+        "trades": 856,
+        "total_return": -68.16,
         "sharpe": -0.11,
         "max_drawdown": -95.39
       }
     },
     "MATIC-USD": {
-      "total": 1344,
+      "total": 1343,
       "by_signal": {
         "BUY": {
           "count": 304,
@@ -42438,7 +42414,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 725,
+          "count": 724,
           "avg_confidence": 45.68,
           "note": "abstained \u2014 not scored"
         }
@@ -42631,7 +42607,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 19,
+          "count": 18,
           "predicted": 52.33,
           "actual": 57.4
         },
@@ -42716,15 +42692,15 @@
           "avg_confidence": 53.42
         },
         "SELL": {
-          "count": 408,
-          "hit_rate": 46.32,
-          "avg_confidence": 53.44
+          "count": 409,
+          "hit_rate": 46.45,
+          "avg_confidence": 53.43
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 897,
+          "count": 896,
           "avg_confidence": 45.68,
           "note": "abstained \u2014 not scored"
         }
@@ -42732,9 +42708,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 770,
+          "count": 771,
           "predicted": 52.42,
-          "actual": 48.18
+          "actual": 48.25
         },
         {
           "bucket": "60-70%",
@@ -42761,9 +42737,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 558,
+            "count": 559,
             "predicted": 52.43,
-            "actual": 48.39
+            "actual": 48.48
           },
           {
             "bucket": "60-70%",
@@ -42776,9 +42752,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 21,
+          "count": 22,
           "predicted": 52.42,
-          "actual": 38.29
+          "actual": 41.08
         }
       ],
       "conformal": {
@@ -42800,9 +42776,9 @@
             "mean_abs_return_pct": 2.681
           },
           "SELL-50-60": {
-            "n": 356,
-            "q70_pct": 3.038,
-            "mean_abs_return_pct": 2.675
+            "n": 357,
+            "q70_pct": 3.036,
+            "mean_abs_return_pct": 2.667
           },
           "SELL-60-70": {
             "n": 52,
@@ -42810,9 +42786,9 @@
             "mean_abs_return_pct": 2.667
           },
           "SELL-any": {
-            "n": 408,
-            "q70_pct": 3.054,
-            "mean_abs_return_pct": 2.674
+            "n": 409,
+            "q70_pct": 3.051,
+            "mean_abs_return_pct": 2.667
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -42835,8 +42811,8 @@
           "hit_rate": 0.425
         },
         "SELL|L|N|M|large": {
-          "n": 87,
-          "hit_rate": 0.368
+          "n": 88,
+          "hit_rate": 0.375
         },
         "BUY|M|P|M|large": {
           "n": 126,
@@ -42856,8 +42832,8 @@
         }
       },
       "pnl": {
-        "trades": 879,
-        "total_return": -70.95,
+        "trades": 880,
+        "total_return": -70.86,
         "sharpe": -0.25,
         "max_drawdown": -87.14
       }
@@ -42995,9 +42971,9 @@
       "total": 1776,
       "by_signal": {
         "BUY": {
-          "count": 416,
-          "hit_rate": 49.52,
-          "avg_confidence": 53.32
+          "count": 415,
+          "hit_rate": 49.64,
+          "avg_confidence": 53.33
         },
         "SELL": {
           "count": 337,
@@ -43008,7 +42984,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 1023,
+          "count": 1024,
           "avg_confidence": 45.78,
           "note": "abstained \u2014 not scored"
         }
@@ -43016,9 +42992,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 663,
-          "predicted": 52.36,
-          "actual": 49.77
+          "count": 662,
+          "predicted": 52.37,
+          "actual": 49.85
         },
         {
           "bucket": "60-70%",
@@ -43045,9 +43021,9 @@
         "small": [
           {
             "bucket": "50-60%",
-            "count": 467,
+            "count": 466,
             "predicted": 52.38,
-            "actual": 49.89
+            "actual": 50.0
           },
           {
             "bucket": "60-70%",
@@ -43060,8 +43036,8 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 22,
-          "predicted": 52.36,
+          "count": 21,
+          "predicted": 52.37,
           "actual": 48.09
         },
         {
@@ -43075,9 +43051,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 365,
-            "q70_pct": 4.956,
-            "mean_abs_return_pct": 4.411
+            "n": 364,
+            "q70_pct": 4.961,
+            "mean_abs_return_pct": 4.416
           },
           "BUY-60-70": {
             "n": 51,
@@ -43085,9 +43061,9 @@
             "mean_abs_return_pct": 4.233
           },
           "BUY-any": {
-            "n": 416,
-            "q70_pct": 4.98,
-            "mean_abs_return_pct": 4.389
+            "n": 415,
+            "q70_pct": 4.994,
+            "mean_abs_return_pct": 4.393
           },
           "SELL-50-60": {
             "n": 298,
@@ -43134,14 +43110,14 @@
         }
       },
       "pnl": {
-        "trades": 753,
-        "total_return": -12.24,
+        "trades": 752,
+        "total_return": -9.96,
         "sharpe": 0.42,
         "max_drawdown": -83.43
       }
     },
     "UNI-USD": {
-      "total": 1368,
+      "total": 1367,
       "by_signal": {
         "BUY": {
           "count": 366,
@@ -43157,8 +43133,8 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 653,
-          "avg_confidence": 45.44,
+          "count": 652,
+          "avg_confidence": 45.43,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -43282,8 +43258,8 @@
       "total": 1776,
       "by_signal": {
         "BUY": {
-          "count": 373,
-          "hit_rate": 48.79,
+          "count": 372,
+          "hit_rate": 48.66,
           "avg_confidence": 53.62
         },
         "SELL": {
@@ -43295,17 +43271,17 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 943,
-          "avg_confidence": 45.73,
+          "count": 944,
+          "avg_confidence": 45.74,
           "note": "abstained \u2014 not scored"
         }
       },
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 733,
-          "predicted": 52.53,
-          "actual": 49.93
+          "count": 732,
+          "predicted": 52.52,
+          "actual": 49.86
         },
         {
           "bucket": "60-70%",
@@ -43318,9 +43294,9 @@
         "penny": [
           {
             "bucket": "50-60%",
-            "count": 733,
-            "predicted": 52.53,
-            "actual": 49.93
+            "count": 732,
+            "predicted": 52.52,
+            "actual": 49.86
           },
           {
             "bucket": "60-70%",
@@ -43333,8 +43309,8 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 24,
-          "predicted": 52.53,
+          "count": 23,
+          "predicted": 52.52,
           "actual": 39.96
         },
         {
@@ -43348,9 +43324,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 329,
-            "q70_pct": 3.046,
-            "mean_abs_return_pct": 2.768
+            "n": 328,
+            "q70_pct": 3.101,
+            "mean_abs_return_pct": 2.811
           },
           "BUY-60-70": {
             "n": 44,
@@ -43358,9 +43334,9 @@
             "mean_abs_return_pct": 3.392
           },
           "BUY-any": {
-            "n": 373,
-            "q70_pct": 3.137,
-            "mean_abs_return_pct": 2.842
+            "n": 372,
+            "q70_pct": 3.18,
+            "mean_abs_return_pct": 2.88
           },
           "SELL-50-60": {
             "n": 404,
@@ -43411,9 +43387,9 @@
         }
       },
       "pnl": {
-        "trades": 833,
-        "total_return": -0.43,
-        "sharpe": 0.32,
+        "trades": 832,
+        "total_return": -12.59,
+        "sharpe": 0.27,
         "max_drawdown": -69.04
       }
     },
@@ -43498,7 +43474,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 21,
+          "count": 20,
           "predicted": 52.5,
           "actual": 46.12
         },
@@ -43730,7 +43706,7 @@
       }
     },
     "OP-USD": {
-      "total": 1488,
+      "total": 1489,
       "by_signal": {
         "BUY": {
           "count": 330,
@@ -43738,9 +43714,9 @@
           "avg_confidence": 53.42
         },
         "SELL": {
-          "count": 362,
-          "hit_rate": 51.66,
-          "avg_confidence": 54.0
+          "count": 363,
+          "hit_rate": 51.79,
+          "avg_confidence": 54.01
         },
         "NEUTRAL": {
           "count": 0
@@ -43760,9 +43736,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 107,
-          "predicted": 60.76,
-          "actual": 47.66
+          "count": 108,
+          "predicted": 60.75,
+          "actual": 48.15
         }
       ],
       "calibration_by_tier": {
@@ -43789,9 +43765,9 @@
           },
           {
             "bucket": "60-70%",
-            "count": 52,
+            "count": 53,
             "predicted": 60.38,
-            "actual": 51.92
+            "actual": 52.83
           }
         ]
       },
@@ -43804,9 +43780,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 5,
-          "predicted": 60.76,
-          "actual": 48.13
+          "count": 6,
+          "predicted": 60.75,
+          "actual": 57.02
         }
       ],
       "conformal": {
@@ -43833,22 +43809,22 @@
             "mean_abs_return_pct": 3.791
           },
           "SELL-60-70": {
-            "n": 70,
-            "q70_pct": 3.022,
-            "mean_abs_return_pct": 2.75
+            "n": 71,
+            "q70_pct": 2.986,
+            "mean_abs_return_pct": 2.713
           },
           "SELL-any": {
-            "n": 362,
-            "q70_pct": 4.297,
-            "mean_abs_return_pct": 3.59
+            "n": 363,
+            "q70_pct": 4.295,
+            "mean_abs_return_pct": 3.58
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pattern_hit_rates": {
         "SELL|L|N|M|penny": {
-          "n": 44,
-          "hit_rate": 0.614
+          "n": 45,
+          "hit_rate": 0.622
         },
         "BUY|M|P|M|penny": {
           "n": 42,
@@ -43872,8 +43848,8 @@
         }
       },
       "pnl": {
-        "trades": 692,
-        "total_return": 23863.36,
+        "trades": 693,
+        "total_return": 23889.09,
         "sharpe": 0.6,
         "max_drawdown": -89.79
       }
@@ -43882,9 +43858,9 @@
       "total": 1776,
       "by_signal": {
         "BUY": {
-          "count": 438,
-          "hit_rate": 37.21,
-          "avg_confidence": 54.61
+          "count": 439,
+          "hit_rate": 37.13,
+          "avg_confidence": 54.6
         },
         "SELL": {
           "count": 609,
@@ -43895,17 +43871,17 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 729,
-          "avg_confidence": 46.02,
+          "count": 728,
+          "avg_confidence": 46.01,
           "note": "abstained \u2014 not scored"
         }
       },
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 705,
+          "count": 706,
           "predicted": 53.41,
-          "actual": 49.36
+          "actual": 49.29
         },
         {
           "bucket": "60-70%",
@@ -43938,9 +43914,9 @@
         "penny": [
           {
             "bucket": "50-60%",
-            "count": 674,
-            "predicted": 53.45,
-            "actual": 49.41
+            "count": 675,
+            "predicted": 53.44,
+            "actual": 49.33
           },
           {
             "bucket": "60-70%",
@@ -43961,11 +43937,11 @@
           "bucket": "50-60%",
           "count": 24,
           "predicted": 53.41,
-          "actual": 4.32
+          "actual": 4.24
         },
         {
           "bucket": "60-70%",
-          "count": 14,
+          "count": 13,
           "predicted": 61.94,
           "actual": 91.85
         }
@@ -43974,9 +43950,9 @@
         "alpha": 0.3,
         "buckets": {
           "BUY-50-60": {
-            "n": 377,
-            "q70_pct": 2.328,
-            "mean_abs_return_pct": 3.571
+            "n": 378,
+            "q70_pct": 2.323,
+            "mean_abs_return_pct": 3.561
           },
           "BUY-60-70": {
             "n": 60,
@@ -43989,9 +43965,9 @@
             "mean_abs_return_pct": 0.232
           },
           "BUY-any": {
-            "n": 438,
-            "q70_pct": 2.446,
-            "mean_abs_return_pct": 4.033
+            "n": 439,
+            "q70_pct": 2.443,
+            "mean_abs_return_pct": 4.024
           },
           "SELL-50-60": {
             "n": 328,
@@ -44029,8 +44005,8 @@
           "hit_rate": 0.642
         },
         "BUY|OS|P|M|penny": {
-          "n": 131,
-          "hit_rate": 0.198
+          "n": 132,
+          "hit_rate": 0.197
         },
         "BUY|M|P|M|penny": {
           "n": 65,
@@ -44046,7 +44022,7 @@
         }
       },
       "pnl": {
-        "trades": 1047,
+        "trades": 1048,
         "total_return": -57472.03,
         "sharpe": -0.49,
         "max_drawdown": -134.41
@@ -44061,16 +44037,16 @@
           "avg_confidence": 53.24
         },
         "SELL": {
-          "count": 413,
-          "hit_rate": 54.96,
-          "avg_confidence": 53.69
+          "count": 414,
+          "hit_rate": 55.07,
+          "avg_confidence": 53.71
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 981,
-          "avg_confidence": 45.68,
+          "count": 980,
+          "avg_confidence": 45.67,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -44083,9 +44059,9 @@
         },
         {
           "bucket": "60-70%",
-          "count": 112,
+          "count": 113,
           "predicted": 60.46,
-          "actual": 50.89
+          "actual": 51.33
         }
       ],
       "calibration_by_tier": {
@@ -44140,24 +44116,24 @@
           },
           {
             "bucket": "60-70%",
-            "count": 8,
-            "predicted": 60.25,
-            "actual": 25.0
+            "count": 9,
+            "predicted": 60.22,
+            "actual": 33.33
           }
         ]
       },
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 21,
+          "count": 20,
           "predicted": 52.33,
           "actual": 40.4
         },
         {
           "bucket": "60-70%",
-          "count": 4,
+          "count": 5,
           "predicted": 60.46,
-          "actual": 16.93
+          "actual": 32.13
         }
       ],
       "conformal": {
@@ -44184,14 +44160,14 @@
             "mean_abs_return_pct": 3.54
           },
           "SELL-60-70": {
-            "n": 67,
-            "q70_pct": 4.004,
-            "mean_abs_return_pct": 3.185
+            "n": 68,
+            "q70_pct": 3.993,
+            "mean_abs_return_pct": 3.133
           },
           "SELL-any": {
-            "n": 413,
-            "q70_pct": 3.99,
-            "mean_abs_return_pct": 3.483
+            "n": 414,
+            "q70_pct": 3.989,
+            "mean_abs_return_pct": 3.473
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -44219,10 +44195,10 @@
         }
       },
       "pnl": {
-        "trades": 795,
-        "total_return": 8.17,
-        "sharpe": 0.46,
-        "max_drawdown": -89.54
+        "trades": 796,
+        "total_return": 11.05,
+        "sharpe": 0.47,
+        "max_drawdown": -89.38
       }
     },
     "ATOM-USD": {
@@ -44234,15 +44210,15 @@
           "avg_confidence": 53.38
         },
         "SELL": {
-          "count": 418,
-          "hit_rate": 50.96,
+          "count": 417,
+          "hit_rate": 51.08,
           "avg_confidence": 53.43
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 954,
+          "count": 955,
           "avg_confidence": 45.6,
           "note": "abstained \u2014 not scored"
         }
@@ -44250,9 +44226,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 732,
+          "count": 731,
           "predicted": 52.47,
-          "actual": 48.5
+          "actual": 48.56
         },
         {
           "bucket": "60-70%",
@@ -44285,9 +44261,9 @@
         "mid": [
           {
             "bucket": "50-60%",
-            "count": 372,
-            "predicted": 52.31,
-            "actual": 51.08
+            "count": 371,
+            "predicted": 52.32,
+            "actual": 50.94
           },
           {
             "bucket": "60-70%",
@@ -44301,7 +44277,7 @@
             "bucket": "50-60%",
             "count": 247,
             "predicted": 52.61,
-            "actual": 44.53
+            "actual": 44.94
           },
           {
             "bucket": "60-70%",
@@ -44320,9 +44296,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 19,
+          "count": 18,
           "predicted": 52.47,
-          "actual": 38.08
+          "actual": 43.28
         }
       ],
       "conformal": {
@@ -44344,9 +44320,9 @@
             "mean_abs_return_pct": 3.724
           },
           "SELL-50-60": {
-            "n": 370,
-            "q70_pct": 3.388,
-            "mean_abs_return_pct": 2.862
+            "n": 369,
+            "q70_pct": 3.378,
+            "mean_abs_return_pct": 2.855
           },
           "SELL-60-70": {
             "n": 47,
@@ -44359,9 +44335,9 @@
             "mean_abs_return_pct": 3.919
           },
           "SELL-any": {
-            "n": 418,
-            "q70_pct": 3.406,
-            "mean_abs_return_pct": 2.958
+            "n": 417,
+            "q70_pct": 3.4,
+            "mean_abs_return_pct": 2.952
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -44401,9 +44377,9 @@
         }
       },
       "pnl": {
-        "trades": 822,
-        "total_return": -53.41,
-        "sharpe": 0.07,
+        "trades": 821,
+        "total_return": -55.13,
+        "sharpe": 0.05,
         "max_drawdown": -86.08
       }
     },
@@ -44417,7 +44393,7 @@
         },
         "SELL": {
           "count": 369,
-          "hit_rate": 50.41,
+          "hit_rate": 50.14,
           "avg_confidence": 53.38
         },
         "NEUTRAL": {
@@ -44434,7 +44410,7 @@
           "bucket": "50-60%",
           "count": 676,
           "predicted": 52.67,
-          "actual": 48.37
+          "actual": 48.22
         },
         {
           "bucket": "60-70%",
@@ -44447,9 +44423,9 @@
         "mega": [
           {
             "bucket": "50-60%",
-            "count": 403,
+            "count": 402,
             "predicted": 52.59,
-            "actual": 44.42
+            "actual": 44.28
           },
           {
             "bucket": "60-70%",
@@ -44461,9 +44437,9 @@
         "large": [
           {
             "bucket": "50-60%",
-            "count": 273,
-            "predicted": 52.78,
-            "actual": 54.21
+            "count": 274,
+            "predicted": 52.79,
+            "actual": 54.01
           },
           {
             "bucket": "60-70%",
@@ -44476,9 +44452,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 15,
+          "count": 16,
           "predicted": 52.67,
-          "actual": 44.01
+          "actual": 41.26
         }
       ],
       "conformal": {
@@ -44501,8 +44477,8 @@
           },
           "SELL-50-60": {
             "n": 333,
-            "q70_pct": 4.69,
-            "mean_abs_return_pct": 3.906
+            "q70_pct": 4.628,
+            "mean_abs_return_pct": 3.889
           },
           "SELL-60-70": {
             "n": 36,
@@ -44511,8 +44487,8 @@
           },
           "SELL-any": {
             "n": 369,
-            "q70_pct": 4.753,
-            "mean_abs_return_pct": 3.967
+            "q70_pct": 4.732,
+            "mean_abs_return_pct": 3.951
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -44539,8 +44515,8 @@
           "hit_rate": 0.444
         },
         "SELL|L|N|M|large": {
-          "n": 54,
-          "hit_rate": 0.463
+          "n": 55,
+          "hit_rate": 0.455
         },
         "BUY|M|P|M|large": {
           "n": 34,
@@ -44557,8 +44533,8 @@
       },
       "pnl": {
         "trades": 747,
-        "total_return": -62.81,
-        "sharpe": -0.0,
+        "total_return": -64.99,
+        "sharpe": -0.03,
         "max_drawdown": -78.35
       }
     },
@@ -44573,7 +44549,7 @@
         "SELL": {
           "count": 427,
           "hit_rate": 53.63,
-          "avg_confidence": 53.84
+          "avg_confidence": 53.86
         },
         "NEUTRAL": {
           "count": 0
@@ -44587,24 +44563,24 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 724,
+          "count": 723,
           "predicted": 52.72,
-          "actual": 52.9
+          "actual": 52.84
         },
         {
           "bucket": "60-70%",
-          "count": 114,
-          "predicted": 60.64,
-          "actual": 47.37
+          "count": 115,
+          "predicted": 60.63,
+          "actual": 47.83
         }
       ],
       "calibration_by_tier": {
         "mega": [
           {
             "bucket": "50-60%",
-            "count": 607,
-            "predicted": 52.7,
-            "actual": 54.37
+            "count": 606,
+            "predicted": 52.71,
+            "actual": 54.29
           },
           {
             "bucket": "60-70%",
@@ -44636,24 +44612,24 @@
           },
           {
             "bucket": "60-70%",
-            "count": 15,
-            "predicted": 60.87,
-            "actual": 53.33
+            "count": 16,
+            "predicted": 60.81,
+            "actual": 56.25
           }
         ]
       },
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 23,
+          "count": 22,
           "predicted": 52.72,
           "actual": 54.36
         },
         {
           "bucket": "60-70%",
-          "count": 5,
-          "predicted": 60.64,
-          "actual": 51.82
+          "count": 6,
+          "predicted": 60.63,
+          "actual": 59.69
         }
       ],
       "conformal": {
@@ -44675,19 +44651,19 @@
             "mean_abs_return_pct": 3.24
           },
           "SELL-50-60": {
-            "n": 363,
-            "q70_pct": 3.872,
-            "mean_abs_return_pct": 3.263
+            "n": 362,
+            "q70_pct": 3.865,
+            "mean_abs_return_pct": 3.261
           },
           "SELL-60-70": {
-            "n": 64,
-            "q70_pct": 3.839,
-            "mean_abs_return_pct": 3.406
+            "n": 65,
+            "q70_pct": 4.037,
+            "mean_abs_return_pct": 3.469
           },
           "SELL-any": {
             "n": 427,
             "q70_pct": 3.87,
-            "mean_abs_return_pct": 3.284
+            "mean_abs_return_pct": 3.292
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -44716,8 +44692,8 @@
       },
       "pnl": {
         "trades": 838,
-        "total_return": -19.55,
-        "sharpe": 0.28,
+        "total_return": -16.9,
+        "sharpe": 0.29,
         "max_drawdown": -89.84
       }
     },
@@ -44897,15 +44873,15 @@
           "avg_confidence": 53.52
         },
         "SELL": {
-          "count": 470,
-          "hit_rate": 51.91,
-          "avg_confidence": 53.52
+          "count": 469,
+          "hit_rate": 52.03,
+          "avg_confidence": 53.51
         },
         "NEUTRAL": {
           "count": 0
         },
         "NO_TRADE": {
-          "count": 849,
+          "count": 850,
           "avg_confidence": 45.78,
           "note": "abstained \u2014 not scored"
         }
@@ -44913,9 +44889,9 @@
       "calibration": [
         {
           "bucket": "50-60%",
-          "count": 798,
+          "count": 797,
           "predicted": 52.36,
-          "actual": 49.87
+          "actual": 49.94
         },
         {
           "bucket": "60-70%",
@@ -44928,9 +44904,9 @@
         "small": [
           {
             "bucket": "50-60%",
-            "count": 604,
-            "predicted": 52.39,
-            "actual": 48.84
+            "count": 603,
+            "predicted": 52.38,
+            "actual": 48.92
           },
           {
             "bucket": "60-70%",
@@ -44987,9 +44963,9 @@
             "mean_abs_return_pct": 4.768
           },
           "SELL-50-60": {
-            "n": 401,
-            "q70_pct": 6.034,
-            "mean_abs_return_pct": 4.96
+            "n": 400,
+            "q70_pct": 6.039,
+            "mean_abs_return_pct": 4.969
           },
           "SELL-60-70": {
             "n": 69,
@@ -44997,18 +44973,14 @@
             "mean_abs_return_pct": 4.072
           },
           "SELL-any": {
-            "n": 470,
-            "q70_pct": 5.931,
-            "mean_abs_return_pct": 4.83
+            "n": 469,
+            "q70_pct": 5.935,
+            "mean_abs_return_pct": 4.837
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pattern_hit_rates": {
-        "SELL|L|N|L|small": {
-          "n": 49,
-          "hit_rate": 0.469
-        },
         "BUY|M|P|M|small": {
           "n": 100,
           "hit_rate": 0.42
@@ -45025,20 +44997,24 @@
           "n": 97,
           "hit_rate": 0.474
         },
+        "SELL|L|N|L|small": {
+          "n": 48,
+          "hit_rate": 0.479
+        },
         "SELL|L|N|M|small": {
           "n": 109,
           "hit_rate": 0.56
         }
       },
       "pnl": {
-        "trades": 927,
-        "total_return": -98.81,
-        "sharpe": -0.59,
+        "trades": 926,
+        "total_return": -98.79,
+        "sharpe": -0.58,
         "max_drawdown": -99.56
       }
     },
     "IMX-USD": {
-      "total": 369,
+      "total": 368,
       "by_signal": {
         "BUY": {
           "count": 83,
@@ -45054,8 +45030,8 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 188,
-          "avg_confidence": 45.57,
+          "count": 187,
+          "avg_confidence": 45.58,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -45133,7 +45109,7 @@
       }
     },
     "GRT-USD": {
-      "total": 256,
+      "total": 255,
       "by_signal": {
         "BUY": {
           "count": 79,
@@ -45149,7 +45125,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 125,
+          "count": 124,
           "avg_confidence": 45.74,
           "note": "abstained \u2014 not scored"
         }
@@ -45237,7 +45213,7 @@
         },
         "SELL": {
           "count": 394,
-          "hit_rate": 52.03,
+          "hit_rate": 52.28,
           "avg_confidence": 53.19
         },
         "NEUTRAL": {
@@ -45254,7 +45230,7 @@
           "bucket": "50-60%",
           "count": 689,
           "predicted": 52.27,
-          "actual": 49.64
+          "actual": 49.78
         },
         {
           "bucket": "60-70%",
@@ -45311,7 +45287,7 @@
             "bucket": "50-60%",
             "count": 55,
             "predicted": 52.82,
-            "actual": 43.64
+            "actual": 45.45
           },
           {
             "bucket": "60-70%",
@@ -45324,9 +45300,9 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 26,
+          "count": 25,
           "predicted": 52.27,
-          "actual": 47.94
+          "actual": 51.75
         }
       ],
       "conformal": {
@@ -45350,7 +45326,7 @@
           "SELL-50-60": {
             "n": 350,
             "q70_pct": 3.657,
-            "mean_abs_return_pct": 3.071
+            "mean_abs_return_pct": 3.069
           },
           "SELL-60-70": {
             "n": 44,
@@ -45360,7 +45336,7 @@
           "SELL-any": {
             "n": 394,
             "q70_pct": 3.78,
-            "mean_abs_return_pct": 3.125
+            "mean_abs_return_pct": 3.124
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -45389,13 +45365,13 @@
       },
       "pnl": {
         "trades": 773,
-        "total_return": 97.72,
+        "total_return": 100.06,
         "sharpe": 0.67,
         "max_drawdown": -58.88
       }
     },
     "TIA-USD": {
-      "total": 1502,
+      "total": 1503,
       "by_signal": {
         "BUY": {
           "count": 384,
@@ -45411,7 +45387,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 635,
+          "count": 636,
           "avg_confidence": 46.07,
           "note": "abstained \u2014 not scored"
         }
@@ -45463,7 +45439,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 23,
+          "count": 22,
           "predicted": 52.93,
           "actual": 45.84
         },
@@ -45540,7 +45516,7 @@
       }
     },
     "STX-USD": {
-      "total": 1374,
+      "total": 1373,
       "by_signal": {
         "BUY": {
           "count": 349,
@@ -45556,7 +45532,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 728,
+          "count": 727,
           "avg_confidence": 45.58,
           "note": "abstained \u2014 not scored"
         }
@@ -45818,7 +45794,7 @@
       }
     },
     "SEI-USD": {
-      "total": 966,
+      "total": 967,
       "by_signal": {
         "BUY": {
           "count": 221,
@@ -45834,7 +45810,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 548,
+          "count": 549,
           "avg_confidence": 45.73,
           "note": "abstained \u2014 not scored"
         }
@@ -45872,7 +45848,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 21,
+          "count": 20,
           "predicted": 52.43,
           "actual": 41.87
         }
@@ -46046,7 +46022,7 @@
         },
         "NO_TRADE": {
           "count": 900,
-          "avg_confidence": 45.54,
+          "avg_confidence": 45.53,
           "note": "abstained \u2014 not scored"
         }
       },
@@ -46181,7 +46157,7 @@
       }
     },
     "WLD-USD": {
-      "total": 1485,
+      "total": 1486,
       "by_signal": {
         "BUY": {
           "count": 301,
@@ -46197,7 +46173,7 @@
           "count": 0
         },
         "NO_TRADE": {
-          "count": 842,
+          "count": 843,
           "avg_confidence": 45.53,
           "note": "abstained \u2014 not scored"
         }
@@ -46275,7 +46251,7 @@
       "calibration_recency_weighted": [
         {
           "bucket": "50-60%",
-          "count": 19,
+          "count": 18,
           "predicted": 52.27,
           "actual": 57.88
         },
@@ -46291,8 +46267,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 263,
-            "q70_pct": 4.501,
-            "mean_abs_return_pct": 4.929
+            "q70_pct": 4.614,
+            "mean_abs_return_pct": 4.988
           },
           "BUY-60-70": {
             "n": 37,
@@ -46306,8 +46282,8 @@
           },
           "BUY-any": {
             "n": 301,
-            "q70_pct": 4.66,
-            "mean_abs_return_pct": 4.893
+            "q70_pct": 4.681,
+            "mean_abs_return_pct": 4.946
           },
           "SELL-50-60": {
             "n": 298,
@@ -46356,7 +46332,7 @@
       },
       "pnl": {
         "trades": 643,
-        "total_return": -2235861.4,
+        "total_return": -2579154.61,
         "sharpe": -0.61,
         "max_drawdown": -409026.2
       }
@@ -46379,7 +46355,7 @@
         },
         "NO_TRADE": {
           "count": 882,
-          "avg_confidence": 45.73,
+          "avg_confidence": 45.72,
           "note": "abstained \u2014 not scored"
         }
       },
