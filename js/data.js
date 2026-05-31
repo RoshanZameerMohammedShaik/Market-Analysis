@@ -97,23 +97,48 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
     // double-encode any '^' / ':' / non-ASCII characters and Yahoo
     // would 404. ASCII tickers are unaffected (encodeURIComponent is
     // idempotent for them), but the bug pattern is still wrong.
-    const urls = [
-        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}&includePrePost=false`,
-        `https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}&includePrePost=false`,
-    ];
+    //
+    // Suffix retry chain: if the user (or some upstream caller) hands us
+    // a BARE Indian / international ticker (no .NS/.BO/.L/.HK/.T/.AX/.DE
+    // suffix), Yahoo's chart endpoint returns no data because it can't
+    // resolve the exchange. Most common case: Indian small-caps like
+    // CORDSCABLE that Yahoo's autocomplete misses. We try the bare form
+    // first (correct for US tickers), then fall through the major
+    // non-US exchanges in order of likelihood for a global app.
+    const hasSuffix = /\.[A-Z]{1,3}$/.test(symbol);
+    const candidates = hasSuffix
+        ? [symbol]
+        : [symbol, `${symbol}.NS`, `${symbol}.BO`, `${symbol}.L`, `${symbol}.HK`, `${symbol}.T`];
 
     let json = null;
-    for (const url of urls) {
-        try {
-            const res = await fetchWithProxy(url);
-            json = await res.json();
-            if (json.chart && json.chart.result && json.chart.result.length > 0) break;
-            json = null;
-        } catch (e) { continue; }
+    let resolvedSymbol = symbol;
+    outer:
+    for (const candidate of candidates) {
+        const urls = [
+            `https://query1.finance.yahoo.com/v8/finance/chart/${candidate}?range=${range}&interval=${interval}&includePrePost=false`,
+            `https://query2.finance.yahoo.com/v8/finance/chart/${candidate}?range=${range}&interval=${interval}&includePrePost=false`,
+        ];
+        for (const url of urls) {
+            try {
+                const res = await fetchWithProxy(url);
+                const j = await res.json();
+                if (j.chart && j.chart.result && j.chart.result.length > 0) {
+                    json = j;
+                    resolvedSymbol = candidate;
+                    break outer;
+                }
+            } catch (e) { continue; }
+        }
     }
 
     if (!json || !json.chart || !json.chart.result || json.chart.result.length === 0) {
         throw new Error(`No data found for: ${symbol}`);
+    }
+    // If we resolved via a suffix probe, expose the resolved symbol on
+    // the meta so downstream callers (chart, signal, ledger) record the
+    // correct exchange-tagged form.
+    if (resolvedSymbol !== symbol && json.chart.result[0]?.meta) {
+        json.chart.result[0].meta.symbol = resolvedSymbol;
     }
 
     const result = json.chart.result[0];
@@ -266,8 +291,21 @@ export async function searchStocks(query) {
             }
         } catch (e) { continue; }
     }
+    // Yahoo's autocomplete misses many Indian / global small-caps
+    // (CORDSCABLE, etc.) — when search returns nothing we offer the
+    // bare ticker plus exchange-suffixed candidates so the user can
+    // pick the right listing. fetchStockData also probes these
+    // suffixes transparently, but exposing them in the dropdown lets
+    // the user choose explicitly when both NSE and BSE are listed.
     const upper = query.toUpperCase();
-    return [{ symbol: upper, name: upper, exchange: '', type: 'EQUITY' }];
+    if (/\.[A-Z]{1,3}$/.test(upper)) {
+        return [{ symbol: upper, name: upper, exchange: '', type: 'EQUITY' }];
+    }
+    return [
+        { symbol: upper,         name: `${upper} (try as US ticker)`,    exchange: 'US',  type: 'EQUITY' },
+        { symbol: `${upper}.NS`, name: `${upper} (NSE India)`,           exchange: 'NSE', type: 'EQUITY' },
+        { symbol: `${upper}.BO`, name: `${upper} (BSE India)`,           exchange: 'BSE', type: 'EQUITY' },
+    ];
 }
 
 export async function searchCrypto(query) {
