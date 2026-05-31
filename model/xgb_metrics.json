@@ -2,64 +2,64 @@
   "method": "XGBoost + isotonic calibration",
   "splits": 5,
   "fold_accuracies": [
-    51.68,
-    51.68,
-    52.59,
-    51.14,
-    51.88
+    51.82,
+    51.64,
+    52.47,
+    51.01,
+    52.0
   ],
   "mean_accuracy": 51.79,
-  "std_accuracy": 0.47,
-  "mean_brier": 0.2493,
+  "std_accuracy": 0.48,
+  "mean_brier": 0.2494,
   "brier_random_baseline": 0.25,
   "calibration_curve": [
     {
+      "bucket": "0-10%",
+      "mean_predicted": 8.73,
+      "mean_actual": 0.0,
+      "count": 5
+    },
+    {
       "bucket": "10-20%",
-      "mean_predicted": 13.64,
-      "mean_actual": 21.15,
-      "count": 156
+      "mean_predicted": 15.78,
+      "mean_actual": 21.05,
+      "count": 114
     },
     {
       "bucket": "20-30%",
-      "mean_predicted": 23.37,
-      "mean_actual": 17.72,
-      "count": 728
+      "mean_predicted": 26.19,
+      "mean_actual": 25.81,
+      "count": 403
     },
     {
       "bucket": "30-40%",
-      "mean_predicted": 36.72,
-      "mean_actual": 39.49,
-      "count": 1623
+      "mean_predicted": 36.11,
+      "mean_actual": 34.61,
+      "count": 2057
     },
     {
       "bucket": "40-50%",
-      "mean_predicted": 47.33,
-      "mean_actual": 46.32,
-      "count": 34009
+      "mean_predicted": 47.55,
+      "mean_actual": 46.3,
+      "count": 34668
     },
     {
       "bucket": "50-60%",
-      "mean_predicted": 51.53,
-      "mean_actual": 48.97,
-      "count": 34895
+      "mean_predicted": 51.55,
+      "mean_actual": 49.11,
+      "count": 34161
     },
     {
       "bucket": "60-70%",
-      "mean_predicted": 64.86,
-      "mean_actual": 56.58,
-      "count": 76
+      "mean_predicted": 63.72,
+      "mean_actual": 52.83,
+      "count": 106
     },
     {
       "bucket": "70-80%",
-      "mean_predicted": 72.4,
-      "mean_actual": 43.75,
-      "count": 16
-    },
-    {
-      "bucket": "80-90%",
-      "mean_predicted": 85.0,
-      "mean_actual": 100.0,
-      "count": 1
+      "mean_predicted": 72.16,
+      "mean_actual": 56.1,
+      "count": 41
     }
   ]
 }
