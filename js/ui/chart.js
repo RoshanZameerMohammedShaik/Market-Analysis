@@ -4,6 +4,7 @@ import { attachWatchButton } from './watchlist.js';
 import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
 import { candleLoaderHTML } from './skeleton.js';
+import { fetchStockData } from '../data.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -43,20 +44,39 @@ function toTradingViewSymbol(yahooSymbol) {
     return ex ? `${ex}:${ticker}` : s;
 }
 
+// Exchanges that the free TradingView embed paywalls (shows "this
+// symbol is only available on TradingView" upgrade prompt) — we render
+// our own candlestick chart for these using lightweight-charts (TV's
+// open-source library) fed by the same Yahoo OHLC data the analysis
+// engine uses. Free, full-featured, no upgrade nag.
+const PAYWALLED_TV_EXCHANGES = new Set(['NSE', 'BSE', 'HKEX', 'TSE', 'XETR']);
+
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
     const container = document.getElementById('tradingview-widget');
     const chartHeader = document.getElementById('chart-header');
 
     let symbol;
-    if (state.mode === 'stock') symbol = toTradingViewSymbol(state.currentSymbol);
-    else {
+    let paywalled = false;
+    if (state.mode === 'stock') {
+        symbol = toTradingViewSymbol(state.currentSymbol);
+        const ex = symbol.includes(':') ? symbol.split(':')[0] : null;
+        paywalled = ex && PAYWALLED_TV_EXCHANGES.has(ex);
+    } else {
         const sym = state.currentSymbol.toUpperCase();
         symbol = TV_CRYPTO_MAP[sym] || `BINANCE:${sym}USDT`;
     }
 
-    const themeMap = { dark: 'dark', light: 'light', colourful: 'dark' };
     container.innerHTML = '';
+    chartHeader.classList.remove('hidden');
+
+    // Paywalled-exchange path: render our own chart from Yahoo data.
+    if (paywalled) {
+        renderLocalChart(state.currentSymbol, container);
+        return;
+    }
+
+    const themeMap = { dark: 'dark', light: 'light', colourful: 'dark' };
     const widgetDiv = document.createElement('div');
     widgetDiv.className = 'tradingview-widget-container';
     widgetDiv.innerHTML = '<div id="tv-chart"></div>';
@@ -75,7 +95,79 @@ export function loadChart() {
         support_host: 'https://www.tradingview.com',
     });
     widgetDiv.appendChild(script);
-    chartHeader.classList.remove('hidden');
+}
+
+// Lazy-load TradingView's lightweight-charts library from the CDN on
+// first use of the local-chart path. Cached on window so subsequent
+// charts don't re-download (~70KB gzipped).
+function loadLightweightCharts() {
+    if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
+    if (window.__lwcLoadPromise) return window.__lwcLoadPromise;
+    window.__lwcLoadPromise = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js';
+        s.async = true;
+        s.onload = () => resolve(window.LightweightCharts);
+        s.onerror = () => reject(new Error('Failed to load lightweight-charts'));
+        document.head.appendChild(s);
+    });
+    return window.__lwcLoadPromise;
+}
+
+async function renderLocalChart(symbol, container) {
+    container.innerHTML = `<div class="chart-placeholder">
+        <div class="chart-ph-icon chart-ph-candles">${candleLoaderHTML(4)}</div>
+        <div class="chart-ph-title">Loading ${symbol}…</div>
+    </div>`;
+    try {
+        const [LWC, data] = await Promise.all([
+            loadLightweightCharts(),
+            fetchStockData(symbol, '6mo', '1d'),
+        ]);
+        if (!data?.candles?.length) {
+            container.innerHTML = `<div class="error-message">No chart data for ${symbol}.</div>`;
+            return;
+        }
+        const isLight = state.theme === 'light';
+        const themeColors = isLight
+            ? { bg: '#ffffff', text: '#1f2937', grid: '#e5e7eb', border: '#d1d5db' }
+            : { bg: '#0b1020', text: '#e5e7eb', grid: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)' };
+
+        container.innerHTML = '<div id="tv-local-chart" style="width:100%;height:100%;"></div>';
+        const host = container.querySelector('#tv-local-chart');
+        const chart = LWC.createChart(host, {
+            layout: { background: { color: themeColors.bg }, textColor: themeColors.text },
+            grid: { vertLines: { color: themeColors.grid }, horzLines: { color: themeColors.grid } },
+            timeScale: { timeVisible: false, secondsVisible: false, borderColor: themeColors.border },
+            rightPriceScale: { borderColor: themeColors.border },
+            crosshair: { mode: 1 },
+            autoSize: true,
+        });
+        const candleSeries = chart.addCandlestickSeries({
+            upColor: '#22c55e', downColor: '#ef4444',
+            borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+            wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+        });
+        const volumeSeries = chart.addHistogramSeries({
+            priceFormat: { type: 'volume' },
+            priceScaleId: '',
+            scaleMargins: { top: 0.82, bottom: 0 },
+        });
+        candleSeries.setData(data.candles.map(c => ({
+            time: c.time, open: c.open, high: c.high, low: c.low, close: c.close,
+        })));
+        volumeSeries.setData(data.candles.map(c => ({
+            time: c.time, value: c.volume || 0,
+            color: c.close >= c.open ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)',
+        })));
+        chart.timeScale().fitContent();
+        // Auto-resize when the panel layout changes (e.g. Mia / Portfolio
+        // panels open and shift the main column width).
+        const ro = new ResizeObserver(() => chart.applyOptions({ autoSize: true }));
+        ro.observe(host);
+    } catch (e) {
+        container.innerHTML = `<div class="error-message">Couldn't load chart: ${e.message}</div>`;
+    }
 }
 
 export function showChartPlaceholder() {
