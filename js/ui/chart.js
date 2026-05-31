@@ -210,7 +210,11 @@ export function updateChartHeader(data) {
                 ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                 : 0;
             const looksReal = Number.isFinite(change) && Math.abs(change) <= 50;
-            const priceMarkup = fmtPriceTag(data.currentPrice);
+            // data.currency comes from Yahoo's meta.currency — INR for
+            // .NS/.BO, GBP for .L, HKD for .HK, JPY for .T, etc. Pass
+            // it as srcCurrency so the formatter doesn't FX-convert a
+            // ₹230 price as if it were $230.
+            const priceMarkup = fmtPriceTag(data.currentPrice, { srcCurrency: data.currency || 'USD' });
             if (looksReal) {
                 const changeClass = change >= 0 ? 'up' : 'down';
                 const arrow = change >= 0 ? '▲' : '▼';

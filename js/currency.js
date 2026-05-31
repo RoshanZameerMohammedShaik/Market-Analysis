@@ -94,25 +94,75 @@ export function getRate() {
     return loadCachedRate();
 }
 
+// Currency symbol per ISO code so non-USD-native tickers render with
+// the right glyph when displayed in their source currency. Add codes
+// here as new exchanges land in the universe.
+const CURRENCY_SYMBOLS = {
+    USD: '$', INR: '₹', GBP: '£', EUR: '€', JPY: '¥', HKD: 'HK$',
+    AUD: 'A$', CAD: 'C$', CHF: 'CHF ', SGD: 'S$', CNY: '¥', KRW: '₩',
+    GBp: 'p', // London penny stocks are sometimes quoted in pence
+};
+
+function symbolFor(code) {
+    return CURRENCY_SYMBOLS[code] || (code ? code + ' ' : '');
+}
+
 /**
- * Format a USD numeric value as currency text, in the active mode.
+ * Format a price value as currency text, in the active mode.
  * Returns e.g. "$298.87" or "₹24,870.91" depending on toggle state.
+ *
+ * srcCurrency = the native currency of the input number. Default 'USD'
+ * (most callers pass USD prices). For Yahoo non-US tickers, pass the
+ * symbol's actual currency from meta.currency (INR, GBP, JPY, etc.) —
+ * those prices are NOT in USD and must NOT be FX-converted.
+ *
+ * Display logic:
+ *   - INR-mode toggle + native USD → multiply by FX rate
+ *   - INR-mode toggle + native INR → render INR directly (no conversion)
+ *   - USD-mode toggle + native INR → divide by FX rate to show USD-equiv
+ *   - USD-mode toggle + native non-INR-non-USD (GBP/JPY/...) → show in native
+ *     since converting to USD without per-currency FX rates would be guessing
  */
-export function format(usd, opts = {}) {
-    if (usd == null || !Number.isFinite(Number(usd))) return '—';
-    const num = Number(usd);
+export function format(value, opts = {}) {
+    if (value == null || !Number.isFinite(Number(value))) return '—';
+    const num = Number(value);
     const mode = getMode();
-    if (mode === 'INR') {
-        const r = loadCachedRate();
-        if (r && r.usdToInr) {
-            const inr = num * r.usdToInr;
-            return '₹' + inr.toLocaleString('en-IN', {
-                minimumFractionDigits: opts.digits ?? (Math.abs(inr) < 1 ? 4 : 2),
-                maximumFractionDigits: opts.digits ?? (Math.abs(inr) < 1 ? 4 : 2),
-            });
-        }
-        // INR mode requested but no rate cached — fall through to USD with marker.
+    const src = (opts.srcCurrency || 'USD').toUpperCase();
+    const r = loadCachedRate();
+
+    // INR display, INR-native source: no conversion.
+    if (mode === 'INR' && src === 'INR') {
+        return '₹' + num.toLocaleString('en-IN', {
+            minimumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
+            maximumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
+        });
     }
+    // INR display, USD-native source: multiply by USD→INR rate.
+    if (mode === 'INR' && src === 'USD' && r?.usdToInr) {
+        const inr = num * r.usdToInr;
+        return '₹' + inr.toLocaleString('en-IN', {
+            minimumFractionDigits: opts.digits ?? (Math.abs(inr) < 1 ? 4 : 2),
+            maximumFractionDigits: opts.digits ?? (Math.abs(inr) < 1 ? 4 : 2),
+        });
+    }
+    // USD display, INR-native source: divide by USD→INR.
+    if (mode === 'USD' && src === 'INR' && r?.usdToInr) {
+        const usd = num / r.usdToInr;
+        return '$' + usd.toLocaleString('en-US', {
+            minimumFractionDigits: opts.digits ?? (Math.abs(usd) < 1 ? 4 : 2),
+            maximumFractionDigits: opts.digits ?? (Math.abs(usd) < 1 ? 4 : 2),
+        });
+    }
+    // Native non-USD-non-INR (GBP/JPY/HKD/...): always render in native.
+    // Converting these to USD/INR without a per-pair FX rate would
+    // fabricate numbers; better to show the truthful native price.
+    if (src !== 'USD' && src !== 'INR') {
+        return symbolFor(src) + num.toLocaleString('en-US', {
+            minimumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
+            maximumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
+        });
+    }
+    // Default: USD display, USD source.
     return '$' + num.toLocaleString('en-US', {
         minimumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
         maximumFractionDigits: opts.digits ?? (Math.abs(num) < 1 ? 4 : 2),
@@ -122,19 +172,24 @@ export function format(usd, opts = {}) {
 /**
  * Mark up an element so the MutationObserver-based rerender flips it on toggle.
  * Returns the markup. Used by render functions that produce HTML strings.
+ *
+ * srcCurrency on the tag is preserved as data-src so re-render on
+ * currency toggle keeps the original-currency assumption intact.
  */
-export function priceTag(usd, opts = {}) {
-    const n = Number(usd);
+export function priceTag(value, opts = {}) {
+    const n = Number(value);
     if (!Number.isFinite(n)) return '<span class="price" data-usd="">—</span>';
+    const src = (opts.srcCurrency || 'USD').toUpperCase();
     const txt = format(n, opts);
-    return `<span class="price" data-usd="${n}">${txt}</span>`;
+    return `<span class="price" data-usd="${n}" data-src="${src}">${txt}</span>`;
 }
 
 // Rerender every node previously tagged with data-usd. Cheap; runs only on toggle.
 function rerenderAll() {
     document.querySelectorAll('[data-usd]').forEach(el => {
-        const usd = parseFloat(el.getAttribute('data-usd'));
-        if (Number.isFinite(usd)) el.textContent = format(usd);
+        const value = parseFloat(el.getAttribute('data-usd'));
+        const src = el.getAttribute('data-src') || 'USD';
+        if (Number.isFinite(value)) el.textContent = format(value, { srcCurrency: src });
     });
 }
 

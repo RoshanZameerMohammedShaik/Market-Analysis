@@ -174,6 +174,12 @@ async function runAnalysis() {
         if (multiData.daily.currentPrice) resolvePending(state.currentSymbol, multiData.daily.currentPrice);
 
         const result = await computeFullConfidence(multiData, state.mode, symbolId, state.timeframe);
+        // Attach the symbol's native currency (from Yahoo's meta.currency)
+        // so renderSignal can format prices in their actual quote
+        // currency. Without this, INR-native tickers like CORDSCABLE.NS
+        // would have their already-INR prices FX-converted as if they
+        // were USD, producing nonsense (₹230 → ₹21,876).
+        result.currency = multiData?.daily?.currency || 'USD';
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
         setLatestSignal(result);
 

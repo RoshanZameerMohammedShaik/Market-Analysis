@@ -12,10 +12,13 @@ export const fmt = (n, digits = 2) => {
 };
 
 // Returns currency-aware formatted price text (no markup).
-export const fmtPrice = (usd) => fmtCurrency(usd);
+// `opts.srcCurrency` lets callers that fetched a non-USD-native price
+// (Indian / London / Tokyo / Hong Kong listings — Yahoo returns them
+// in native currency, not USD) skip the FX conversion. Default USD.
+export const fmtPrice = (value, opts) => fmtCurrency(value, opts);
 
 // Returns the markup that auto-flips when currency changes. Use this in HTML strings.
-export const fmtPriceTag = (usd, opts) => priceTag(usd, opts);
+export const fmtPriceTag = (value, opts) => priceTag(value, opts);
 
 export const fmtCompact = n => {
     if (n == null) return '—';
