@@ -306,7 +306,7 @@ export async function ping(key, tier = 'default') {
             const body = await res.text().catch(() => '');
             let parsed = null; try { parsed = JSON.parse(body); } catch (_) {}
             const msg = parsed?.error?.message || '';
-            if (res.status === 400 && /API key not valid/i.test(msg)) return { ok: false, msg: 'Key was rejected. Double-check the AIza… value.' };
+            if (res.status === 400 && /API key not valid/i.test(msg)) return { ok: false, msg: 'Key was rejected by Google. Double-check it was copied in full.' };
             if (res.status === 403) return { ok: false, msg: `Forbidden: ${msg.slice(0, 160)}` };
             return { ok: false, msg: `Test failed (${res.status}).` };
         }

@@ -110,11 +110,11 @@ function geminiFormHtml(s) {
         <ol class="mia-steps">
             <li><span class="mia-step-num">1</span> Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and sign in with your Google account.</li>
             <li><span class="mia-step-num">2</span> Click <strong>Create API Key</strong> (free tier — no card required).</li>
-            <li><span class="mia-step-num">3</span> Copy the <code>AIza…</code> value and paste below.</li>
+            <li><span class="mia-step-num">3</span> Copy the key value and paste below.</li>
         </ol>
         <label class="mia-field">
             Gemini API Key
-            <input type="password" id="mia-gemini-key" placeholder="AIza…" value="${escapeAttr(s.geminiKey)}" autocomplete="off" spellcheck="false">
+            <input type="password" id="mia-gemini-key" placeholder="Paste your Gemini API key" value="${escapeAttr(s.geminiKey)}" autocomplete="off" spellcheck="false">
         </label>
         <div class="mia-fallback-hint">
             Tip: paste a Cloudflare key too (next tab) and Mia auto-falls-back when Gemini rate-limits.
@@ -182,7 +182,12 @@ function wireForm(prov, formEl, panel, onConfigured) {
     formEl.querySelector('#mia-connect').addEventListener('click', async () => {
         if (prov === 'gemini') {
             const key = formEl.querySelector('#mia-gemini-key').value.trim();
-            if (!key.startsWith('AIza')) return setResult('fail', 'Gemini keys start with AIza. Double-check.');
+            // No prefix validation — Google has begun issuing Gemini keys
+            // with prefixes other than AIza (e.g. 'AQ...'). The api-gemini
+            // ping path is the real source of truth: a valid key works,
+            // an invalid key gets a clean rejection there. Trust the
+            // server, not a client-side substring check.
+            if (!key) return setResult('fail', 'Paste a key first.');
             saveSettings({ backend: 'gemini', geminiKey: key });
         } else {
             const key = formEl.querySelector('#mia-cf-key').value.trim();
