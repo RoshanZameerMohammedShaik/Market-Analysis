@@ -33,28 +33,18 @@
     .dev-back { color: var(--accent); text-decoration: none; font-size: 0.86rem; }
     .dev-back:hover { text-decoration: underline; }
 
-    /* Console viewer */
-    .dev-console { background: #0b1020; border: 1px solid var(--border-strong); border-radius: 10px; height: 60vh; min-height: 360px; display: flex; flex-direction: column; overflow: hidden; margin-top: 16px; }
-    .dev-console-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
-    .dev-console-toolbar input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; }
-    .dev-console-toolbar select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.8rem; }
-    .dev-console-toolbar button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-    .dev-console-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
-    .dev-console-body { flex: 1; overflow-y: auto; padding: 8px 10px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.5; }
-    .dev-log-row { display: flex; gap: 8px; padding: 3px 4px; border-radius: 4px; word-break: break-word; }
-    .dev-log-row:hover { background: rgba(255, 255, 255, 0.03); }
-    .dev-log-time { color: rgba(255, 255, 255, 0.4); flex-shrink: 0; min-width: 88px; font-size: 0.72rem; }
-    .dev-log-tag { color: var(--accent); font-weight: 700; flex-shrink: 0; min-width: 90px; font-size: 0.72rem; }
-    .dev-log-text { flex: 1; color: rgba(255, 255, 255, 0.85); white-space: pre-wrap; }
-    .dev-log-row[data-level="error"] .dev-log-text { color: #fca5a5; }
-    .dev-log-row[data-level="warn"]  .dev-log-text { color: #fcd34d; }
-    .dev-log-row[data-level="info"]  .dev-log-text { color: #93c5fd; }
-    .dev-log-row[data-level="debug"] .dev-log-text { color: rgba(255, 255, 255, 0.55); }
-    .dev-console-counts { font-size: 0.72rem; color: var(--text-muted); padding: 6px 10px; border-top: 1px solid var(--border); background: var(--bg-secondary); }
-    .dev-console-counts span { margin-right: 14px; }
-    .dev-console-counts .err { color: #fca5a5; }
-    .dev-console-counts .warn { color: #fcd34d; }
-    .dev-console-counts .net { color: #93c5fd; }
+    /* Single toggle button — color reflects current state. Off = green
+       (you can turn it ON), on = red (you can turn it OFF). */
+    .dev-btn-toggle { background: linear-gradient(135deg, #22c55e, #15803d); color: white; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); }
+    .dev-btn-toggle:hover { box-shadow: 0 6px 20px rgba(34, 197, 94, 0.55); }
+    .dev-btn-toggle[data-on="true"] { background: linear-gradient(135deg, #ef4444, #b91c1c); box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4); }
+    .dev-btn-toggle[data-on="true"]:hover { box-shadow: 0 6px 20px rgba(239, 68, 68, 0.55); }
+
+    /* Numbered step list for the How-to-use tile. */
+    .dev-steps { margin: 0; padding-left: 22px; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.7; }
+    .dev-steps li { margin-bottom: 6px; }
+    .dev-steps strong { color: var(--text-primary); }
+    .dev-steps code { background: rgba(255,255,255,0.06); padding: 1px 6px; border-radius: 4px; font-size: 0.82em; }
 </style>
 </head>
 <body>
@@ -65,37 +55,22 @@
 
     <div class="dev-tile">
         <h2>Mode toggle</h2>
-        <p>Dev mode persists in <code>localStorage</code>. While on, the app reveals extra diagnostics on the signal card and skips some user-friendly fallbacks.</p>
+        <p>Dev mode persists in <code>localStorage</code>. While on, the app reveals extra diagnostics on the signal card, the Debug App chip, and skips some user-friendly fallbacks.</p>
         <div class="dev-tile-actions">
-            <button class="dev-btn dev-btn-on" id="dev-toggle-on">✓ Turn ON</button>
-            <button class="dev-btn dev-btn-danger" id="dev-toggle-off">✕ Turn OFF</button>
+            <button class="dev-btn dev-btn-toggle" id="dev-toggle" data-on="false">Turn ON</button>
         </div>
     </div>
 
     <div class="dev-tile">
-        <h2>Debug App</h2>
-        <p><strong>To see the main app's logs in real time, open the app at <a href="../" class="dev-back">/</a> with dev mode ON</strong> — a floating debug chip appears in the bottom-left corner. Click it to open the same console UI you'd expect here. Each browser tab has its own log buffer, so the panel HAS to live on the page you're debugging — this <code>/dev</code> page can't see the main app's tab.</p>
-        <p style="margin-top: 8px;">The console below shows what's happening on <strong>this</strong> page (the Dev Hub itself) — useful only for debugging dev-mode bootstrap problems.</p>
-        <div class="dev-console" id="dev-console">
-            <div class="dev-console-toolbar">
-                <input id="dev-console-search" placeholder="filter (substring)…" autocomplete="off" spellcheck="false">
-                <select id="dev-console-level">
-                    <option value="">all levels</option>
-                    <option value="error">errors</option>
-                    <option value="warn">warnings</option>
-                    <option value="info">info</option>
-                    <option value="log">log</option>
-                    <option value="debug">debug</option>
-                </select>
-                <select id="dev-console-tag">
-                    <option value="">all sources</option>
-                </select>
-                <button id="dev-console-copy" title="Copy all to clipboard (already redacted)">Copy</button>
-                <button id="dev-console-clear" title="Clear the buffer">Clear</button>
-            </div>
-            <div class="dev-console-body" id="dev-console-body"></div>
-            <div class="dev-console-counts" id="dev-console-counts"></div>
-        </div>
+        <h2>How to use</h2>
+        <ol class="dev-steps">
+            <li>Click <strong>Turn ON</strong> above. The page button updates to show the new state.</li>
+            <li>Open the main app at <a href="../" class="dev-back">/</a>. A small <strong>🛠 chip</strong> appears in the bottom-left corner of the app.</li>
+            <li>Use the app normally. The chip silently captures every console message, uncaught error, promise rejection, and fetch failure — even ones that happen during page load.</li>
+            <li>The chip's count badge (<code>0E / 0W</code>) updates live; border turns red on errors, yellow on warnings, so you'll see when something goes wrong without watching it.</li>
+            <li>Click the chip to expand the panel. Search by substring, filter by level or source, copy the whole buffer (URLs and tokens auto-redacted), or clear to start fresh.</li>
+            <li>To turn dev mode off, come back here and click <strong>Turn OFF</strong>. Or visit <code>/dev/off</code> as a shortcut.</li>
+        </ol>
     </div>
 </div>
 
