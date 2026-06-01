@@ -22,8 +22,44 @@ function isYahooUrl(url) {
     return /^https?:\/\/(query1|query2)\.finance\.yahoo\.com\//i.test(url);
 }
 
+// Per-endpoint cool-down for Yahoo paths Yahoo started crumb-walling.
+// As of mid-2026, /v10/quoteSummary and /v7/options/ require an
+// auth cookie + crumb; our worker proxy can't satisfy that and Yahoo
+// returns 401. Once we see a 401 on a path family, we skip it for
+// 30 minutes — earnings / options data go missing, but the engine
+// keeps running on the rest of the signals instead of spamming
+// 60+ failing 401 round-trips per analysis batch.
+const YAHOO_CRUMB_WALLED = [/\/v10\/finance\/quoteSummary\//, /\/v7\/finance\/options\//];
+const yahooSkipUntil = new Map(); // endpoint regex source → ms timestamp
+const YAHOO_SKIP_MS = 30 * 60 * 1000;
+
+function shouldSkipYahooUrl(url) {
+    const now = Date.now();
+    for (const re of YAHOO_CRUMB_WALLED) {
+        if (re.test(url)) {
+            const until = yahooSkipUntil.get(re.source) || 0;
+            return until > now;
+        }
+    }
+    return false;
+}
+function recordYahooSkip(url) {
+    for (const re of YAHOO_CRUMB_WALLED) {
+        if (re.test(url)) {
+            yahooSkipUntil.set(re.source, Date.now() + YAHOO_SKIP_MS);
+            return;
+        }
+    }
+}
+
 export async function fetchWithProxy(url) {
     const yahoo = isYahooUrl(url);
+
+    // Short-circuit Yahoo paths that we've already learned are
+    // crumb-walled this session. Saves the round-trip-per-symbol.
+    if (yahoo && shouldSkipYahooUrl(url)) {
+        throw new Error('Yahoo endpoint crumb-walled (skipped).');
+    }
 
     // 1) Direct fetch — only for non-Yahoo URLs. Yahoo never sends CORS
     //    headers from the browser, so a direct attempt is guaranteed to
@@ -39,11 +75,12 @@ export async function fetchWithProxy(url) {
     }
 
     // 2) For Yahoo URLs, our Worker is the primary path.
+    let workerStatus = null;
     if (yahoo) {
         try {
             const res = await tryProxy(WORKER_PROXY, url);
             if (res) return res;
-        } catch (e) { /* fall through */ }
+        } catch (e) { workerStatus = e.status; /* fall through */ }
     }
 
     if (workingProxy !== null) {
@@ -63,12 +100,22 @@ export async function fetchWithProxy(url) {
             }
         } catch (e) { continue; }
     }
+    // If we exhausted EVERY proxy on a Yahoo crumb-walled path, mark
+    // that endpoint family as cooling so the next 60 batch items
+    // don't re-walk the same dead chain.
+    if (yahoo) recordYahooSkip(url);
     throw new Error(`Unable to reach data source. Please try again.`);
 }
 
 async function tryProxy(proxy, url) {
     const res = await fetch(proxy + encodeURIComponent(url), { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return null;
+    if (!res.ok) {
+        // Surface the status so callers can record specific failures
+        // (401 on Yahoo crumb-walled paths) rather than swallowing.
+        const err = new Error(`proxy returned ${res.status}`);
+        err.status = res.status;
+        throw err;
+    }
     const text = await res.text();
     if (!isValidResponse(text)) return null;
     return createTextResponse(text, res);
