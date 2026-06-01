@@ -743,7 +743,7 @@ body.side-panel-mia-open .mia-launcher {
     -webkit-text-fill-color: transparent !important;
     color: transparent !important;
     text-shadow: none !important;
-    animation: ma-shimmer-sweep 2.4s linear infinite;
+    animation: ma-shimmer-sweep 3.6s linear infinite;
     will-change: background-position;
 }
 @keyframes ma-shimmer-sweep {
