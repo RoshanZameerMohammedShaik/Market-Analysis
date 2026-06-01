@@ -19,6 +19,15 @@ import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } fro
 let currentSignal = null;
 let panelOpen = false;
 let activeAbort = null;
+// Tracks an in-flight LLM turn so we can resume the streaming UI when
+// the panel is closed mid-stream and reopened. closing the panel
+// preserves the DOM (it's hidden via the side-panel stack, not
+// unmounted) but reopen calls renderChat() which wipes innerHTML —
+// the in-flight stream then writes to a bubble that no longer exists,
+// and the user sees nothing until the call completes. By keeping the
+// renderer + last-known status text here, reopen can re-create a
+// streaming bubble and re-point the renderer at it.
+let activeStream = null; // { renderer, status }
 
 const CLEAR_HOLD_MS = 3000;
 const CLEAR_HOLD_DELAY_MS = 500;
@@ -176,6 +185,35 @@ function renderRoot() {
     const panel = document.getElementById('mia-panel');
     if (!isConfigured()) { renderWelcome(panel, () => renderChat()); return; }
     renderChat();
+    // If a stream is in flight (user closed the panel mid-thinking),
+    // re-attach the streaming bubble so the user sees it resume
+    // instead of waiting silently until the call completes.
+    if (activeStream?.renderer) resumeActiveStream();
+}
+
+// Re-creates the streaming bubble after a panel re-render and points
+// the in-flight PacedRenderer at the new bubble. Preserves whatever
+// the renderer already painted (renderer.shown) and the latest status
+// caption so reopen feels like the panel never left.
+function resumeActiveStream() {
+    const stream = activeStream;
+    if (!stream) return;
+    const newBubbleId = 'mia-stream-' + Date.now();
+    appendStreamingBubble(newBubbleId);
+    // Re-point the renderer's target to the new bubble. paint() reads
+    // bubbleId at call time, so swapping it here is sufficient — the
+    // next push() (or our explicit repaint below) lands in the new
+    // node. firstTokenSeen=true because we want paint() to overwrite
+    // with the accumulated text, not preserve the thinking indicator.
+    stream.renderer.bubbleId = newBubbleId;
+    if (stream.renderer.shown) {
+        stream.renderer.firstTokenSeen = true;
+        stream.renderer.paint();
+    }
+    // Restore the status caption ("Reading the news…", "thinking…", etc.).
+    const text = document.getElementById('mia-progress');
+    if (text && stream.status) text.textContent = stream.status;
+    setSendState('streaming');
 }
 
 function renderChat() {
@@ -434,6 +472,7 @@ async function doSend() {
     setSendState('streaming');
     activeAbort = new AbortController();
     const renderer = new PacedRenderer(bubbleId);
+    activeStream = { renderer, status: 'thinking…' };
     let acc = '';
     const toolResults = [];
 
@@ -541,6 +580,7 @@ async function doSend() {
     } finally {
         setSendState('idle');
         activeAbort = null;
+        activeStream = null;
         renderUsageMeter(document.getElementById('mia-usage-wrap'));
         document.getElementById('mia-input')?.focus();
     }
@@ -586,12 +626,14 @@ function updateProgress(msg) {
             if (bar) bar.hidden = false;
             if (fill) fill.style.width = pct + '%';
         } else { if (bar) bar.hidden = true; }
+        if (activeStream) activeStream.status = friendly;
         return;
     }
     if (typeof msg === 'string') {
         const cleaned = msg.replace(/\bcalling\s+([a-z_]+)/i, (_m, tn) => actionVerbFor(tn));
         if (text) text.textContent = cleaned;
         if (bar) bar.hidden = true;
+        if (activeStream) activeStream.status = cleaned;
     }
 }
 function setSendState(stateName) {
