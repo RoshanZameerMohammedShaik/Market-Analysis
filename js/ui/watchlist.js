@@ -49,6 +49,20 @@ export function isWatched(symbol) {
     return watchlist.has(String(symbol || '').toUpperCase());
 }
 
+// Snapshot of currently-watched symbols. Used by the prewarm path
+// on app load to pull chart + analysis data into cache before the
+// user clicks anything. Returns a copy so callers can iterate
+// without worrying about mutation mid-loop.
+export function getWatchlistSymbols() {
+    // Read fresh from localStorage in case another tab updated it.
+    try {
+        const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+        return raw.map(s => String(s).toUpperCase());
+    } catch (_) {
+        return [...watchlist];
+    }
+}
+
 export function toggleWatch(symbol) {
     const sym = String(symbol || '').toUpperCase();
     if (!sym) return false;

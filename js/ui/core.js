@@ -9,6 +9,7 @@ import { initPLToggle } from './pl-toggle.js';
 import { renderAccuracyStrip } from './accuracy.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from '../data.js';
 import { computeFullConfidence } from '../confidence.js';
+import { peek as peekCache, refresh as refreshCache, prewarmWatchlist } from '../analysis-cache.js';
 import { loadModel } from '../ai-model.js';
 import { loadCalibration, getCalibrationStatus } from '../calibration.js';
 import { logPrediction, resolvePending } from '../outcome-tracker.js';
@@ -123,15 +124,43 @@ function onSelectFromCard({ mode, symbol, coinId }) {
 
 async function runAnalysis() {
     const signalSection = document.getElementById('signal-section');
-    signalSection.innerHTML = `<div class="loading fade-in">
-        ${candleLoaderHTML(7)}
-        <span class="loading-text">Running full analysis: AI + Technicals + Sentiment + Market...</span>
-    </div>`;
+    const symbolId = state.mode === 'stock' ? state.currentSymbol : state.currentCoinId;
+    const symbolName = state.currentSymbol;
+    const tf = state.timeframe;
+    const mode = state.mode;
+
+    // Stale-while-revalidate: if we have a cached entry for this
+    // symbol+timeframe, render it INSTANTLY (chart + signal) so the
+    // user gets feedback at click time. Then check freshness — if
+    // older than 2 min, kick off a background re-analysis and
+    // re-render when it lands. Time-travel mode bypasses cache (it's
+    // a deterministic past-date replay, not a "current" view).
+    const cached = !state.timeTravelDate ? peekCache(symbolName, tf, mode) : null;
+    if (cached) {
+        try {
+            const cd = cached.data;
+            updateChartHeader(cd.daily);
+            const result = { ...cached.signal, currency: cd?.daily?.currency || 'USD' };
+            renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
+            setLatestSignal(result);
+        } catch (_) { /* fall through to fresh fetch */ }
+        if (cached.fresh) {
+            // Cache is <2min old — that's our freshness floor. Done.
+            document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis(true));
+            return;
+        }
+        // Stale: fall through to a fresh analysis below. The cards
+        // already on screen stay visible; we'll refresh them when
+        // the new pipeline finishes.
+    } else {
+        signalSection.innerHTML = `<div class="loading fade-in">
+            ${candleLoaderHTML(7)}
+            <span class="loading-text">Running full analysis: AI + Technicals + Sentiment + Market...</span>
+        </div>`;
+    }
 
     try {
         let multiData = null;
-        const symbolId = state.mode === 'stock' ? state.currentSymbol : state.currentCoinId;
-        const symbolName = state.currentSymbol;
 
         if (state.mode === 'stock') {
             multiData = await fetchStockMultiTimeframe(state.currentSymbol);
@@ -182,6 +211,16 @@ async function runAnalysis() {
         result.currency = multiData?.daily?.currency || 'USD';
         renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
         setLatestSignal(result);
+
+        // Store fresh result in the analysis cache for stale-while-
+        // revalidate. Skip on time-travel runs — those are deterministic
+        // past-date replays and shouldn't pollute the live cache.
+        if (!state.timeTravelDate) {
+            try {
+                const { _storeFresh } = await import('../analysis-cache.js');
+                _storeFresh?.(symbolName, state.timeframe, state.mode, multiData, result);
+            } catch (_) {}
+        }
 
         // Don't log time-travel predictions — they're hypothetical
         // "what would the engine have said back then?" calls, not real
