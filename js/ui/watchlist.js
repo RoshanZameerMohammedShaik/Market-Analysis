@@ -194,7 +194,11 @@ function refreshPanel(currentSignalsMap) {
                 </div>`;
         }
         const sigClass = (info.signal || 'NEUTRAL').toLowerCase();
-        const sigLabel = info.signal === 'NO_TRADE' ? 'NO TRADE' : info.signal;
+        // Same display translation as signal.js so the watchlist row
+        // matches the main card vocabulary.
+        const sigLabel = info.signal === 'NO_TRADE' ? 'AVOID'
+            : info.signal === 'NEUTRAL' ? "DON'T BUY"
+            : info.signal;
         return `
             <div class="watchlist-item" data-symbol="${sym}">
                 <div class="watchlist-row-main">

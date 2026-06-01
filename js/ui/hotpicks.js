@@ -122,10 +122,19 @@ export async function loadHotPicks(onPick) {
 
 function renderCards(grid, picks, withFooter) {
     const cardsHtml = picks.map(pick => {
+        // HOLD is reserved for owned-position framing (see prompt rules).
+        // Hot Picks shows BUY for engine BUYs, "DON'T BUY" for NEUTRAL,
+        // SELL for SELL, AVOID for NO_TRADE — same vocabulary as the
+        // main signal card and watchlist.
         const isBuy = pick.signal === 'BUY';
-        const arrow = isBuy ? '▲' : '◆';
-        const signalClass = isBuy ? 'buy' : 'neutral';
-        const signalLabel = isBuy ? 'BUY' : 'HOLD';
+        const isSell = pick.signal === 'SELL';
+        const isAvoid = pick.signal === 'NO_TRADE';
+        const arrow = isBuy ? '▲' : isSell ? '▼' : '◆';
+        const signalClass = isBuy ? 'buy' : isSell ? 'sell' : 'neutral';
+        const signalLabel = isBuy ? 'BUY'
+            : isSell ? 'SELL'
+            : isAvoid ? 'AVOID'
+            : "DON'T BUY";
         const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
         return `

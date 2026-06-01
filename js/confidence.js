@@ -71,13 +71,20 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const weightedScore = ai.score * weights.ai + technicalScore * weights.technical + sentiment.score * weights.sentiment + market.score * weights.market;
 
-    let finalSignal;
-    if (weightedScore > 56) finalSignal = 'BUY';
-    else if (weightedScore < 44) finalSignal = 'SELL';
-    else finalSignal = 'NEUTRAL';
-
+    // Tighter BUY/SELL bands. Earlier 56/44 thresholds let half-
+    // hearted calls slip through with calibrated confidence in the
+    // 38–50 range, which the user reads as "BUY at low conviction"
+    // — exactly what Roshan pushed back on. Now 60/40 with a hard
+    // 55%-confidence floor: anything weaker becomes NEUTRAL (which
+    // surfaces as "DON'T BUY" in the UI). Engine commits less
+    // often, but each commit is meaningful.
     const deviation = Math.abs(weightedScore - 50) / 50;
     let rawConfidence = Math.round(38 + deviation * 50);
+
+    let finalSignal;
+    if (weightedScore > 60 && rawConfidence >= 55) finalSignal = 'BUY';
+    else if (weightedScore < 40 && rawConfidence >= 55) finalSignal = 'SELL';
+    else finalSignal = 'NEUTRAL';
 
     const sourceScores = [technicalScore, sentiment.score, market.score];
     if (ai.available) sourceScores.push(ai.score);

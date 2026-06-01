@@ -28,7 +28,18 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
         : signal === 'SELL' ? 'down'
         : signal === 'NO_TRADE' ? 'abstain'
         : 'neutral';
-    const signalDisplay = signal === 'NO_TRADE' ? 'NO TRADE' : signal;
+    // User-facing label translation. The engine still uses BUY / SELL /
+    // NEUTRAL / NO_TRADE internally (so the live ledger, calibration
+    // tables, and 2,363 resolved-horizon dataset stay valid), but the
+    // UI surfaces them as decisive labels per Roshan's "say things
+    // with conviction" requirement:
+    //   BUY      → BUY     (clear bullish edge)
+    //   SELL     → SELL    (clear bearish edge)
+    //   NEUTRAL  → DON'T BUY  (no edge, sit out)
+    //   NO_TRADE → AVOID   (hard event-risk cap — earnings, gap, etc)
+    const signalDisplay = signal === 'NO_TRADE' ? 'AVOID'
+        : signal === 'NEUTRAL' ? "DON'T BUY"
+        : signal;
     const confidenceClass = confidence >= 65 ? 'high' : confidence >= 50 ? 'medium' : 'low';
 
     let priceTargetHTML = '';
