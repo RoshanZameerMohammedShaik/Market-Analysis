@@ -137,6 +137,7 @@ export async function analyzeNewsSentiment(newsItems) {
             title: item.title,
             date: item.date,
             source: item.source,
+            url: item.url || null,
             sentiment,
             recencyWeight: +weight.toFixed(2),
         });

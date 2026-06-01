@@ -92,7 +92,13 @@ function parseRSS(xml) {
         const title = item.querySelector('title')?.textContent || '';
         const pubDate = item.querySelector('pubDate')?.textContent || '';
         const source = item.querySelector('source')?.textContent || '';
-        if (title) items.push({ title: cleanTitle(title), date: pubDate ? new Date(pubDate) : new Date(), source });
+        const link = (item.querySelector('link')?.textContent || '').trim();
+        if (title) items.push({
+            title: cleanTitle(title),
+            date: pubDate ? new Date(pubDate) : new Date(),
+            source,
+            url: link || null,
+        });
     });
     return items;
 }
@@ -103,7 +109,10 @@ async function fetchYahooNews(symbol) {
         const res = await fetchWithProxy(url);
         const json = await res.json();
         return (json.news || []).map(n => ({
-            title: n.title, date: new Date(n.providerPublishTime * 1000), source: n.publisher || 'Yahoo Finance',
+            title: n.title,
+            date: new Date(n.providerPublishTime * 1000),
+            source: n.publisher || 'Yahoo Finance',
+            url: n.link || null,
         }));
     } catch (e) { return []; }
 }

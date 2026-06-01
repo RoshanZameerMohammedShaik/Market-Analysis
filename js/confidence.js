@@ -330,7 +330,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             sentiment: { score: sentiment.score, weight: weights.sentiment * 100 },
             market: { score: market.score, weight: weights.market * 100 },
         },
-        news: sentiment.items || news.map(n => ({ title: n.title, date: n.date, source: n.source, sentiment: { label: 'neutral', score: 0 } })),
+        news: sentiment.items || news.map(n => ({ title: n.title, date: n.date, source: n.source, url: n.url || null, sentiment: { label: 'neutral', score: 0 } })),
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,

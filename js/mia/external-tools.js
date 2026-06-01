@@ -21,6 +21,7 @@ export async function fetchNewsAndSentiment({ symbol, mode = 'stock', companyNam
         topHeadlines: news.slice(0, 6).map(n => ({
             title: n.title,
             source: n.source,
+            url: n.url || null,
             ageHours: n.date ? Math.round((Date.now() - new Date(n.date).getTime()) / 3_600_000) : null,
         })),
         sentiment: {
