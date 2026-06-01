@@ -3,7 +3,6 @@ import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
-import { candleLoaderHTML } from './skeleton.js';
 import { fetchStockData } from '../data.js';
 import { fullLabelForSymbol, fullLabelForCode, displayTicker } from './exchanges.js';
 
@@ -122,7 +121,6 @@ function loadLightweightCharts() {
 
 async function renderLocalChart(symbol, container) {
     container.innerHTML = `<div class="chart-placeholder">
-        <div class="chart-ph-icon chart-ph-candles">${candleLoaderHTML(7)}</div>
         <div class="chart-ph-title">Loading ${symbol}…</div>
     </div>`;
     try {
@@ -179,19 +177,14 @@ async function renderLocalChart(symbol, container) {
 export function showChartPlaceholder() {
     const container = document.getElementById('tradingview-widget');
     if (!container) return;
-    // Replace the M-shaped ECG mark with the same red/green candle
-    // animation we use in the analysis loader. Roshan asked to bring
-    // the original "MARKET ANALYZER" candle row back as the empty-chart
-    // hero. Reusing candleLoaderHTML() keeps a single source of truth
-    // for the candlestick markup; CSS gives the chart-ph variant its
-    // own size scale (it's the focal element here, not a tucked-in
-    // skeleton inside a panel).
+    // Roshan: text-only empty state, centered. The candle animation
+    // wasn't pulling its weight here — it competed with the title
+    // instead of supporting it. Just the title + subtitle now,
+    // anchored vertically and horizontally by .chart-placeholder's
+    // existing flex layout.
     container.innerHTML = `
         <div class="chart-placeholder">
             <div class="chart-ph-glow"></div>
-            <div class="chart-ph-icon chart-ph-candles">
-                ${candleLoaderHTML(7)}
-            </div>
             <div class="chart-ph-title">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
         </div>`;

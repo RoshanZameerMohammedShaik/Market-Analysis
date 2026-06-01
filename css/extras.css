@@ -285,40 +285,6 @@ html[data-dev="1"] body { padding-top: 22px; }
 .chart-ph-glow { position: absolute; inset: 0; background: radial-gradient(circle at 30% 50%, rgba(94, 177, 255, 0.18), transparent 60%), radial-gradient(circle at 70% 50%, rgba(63, 185, 80, 0.12), transparent 60%); animation: ph-glow 8s ease-in-out infinite alternate; pointer-events: none; }
 @keyframes ph-glow { from { opacity: 0.7; } to { opacity: 1; } }
 .chart-ph-icon { font-size: 3rem; opacity: 0.7; z-index: 1; }
-
-/* Empty-chart hero: red/green candle row that matches the analysis
-   loader animation. Reuses .candle-loader markup verbatim (single
-   source of truth) and scopes its own size + pacing under
-   .chart-ph-candles. The original loader (used inside the "Running
-   full analysis…" panel) stays untouched at its smaller 64px size. */
-.chart-ph-candles {
-    font-size: 0;
-    z-index: 1;
-}
-/* Match the portfolio-button candle styling exactly: thin bars, no
-   wicks, theme green/red, no extra glow. Just a slightly bigger
-   canvas so it reads as the chart-placeholder hero rather than a
-   button-sized mark. */
-/* Match the analysis-loader's size and look exactly — same height,
-   width, gap, animation timing — except WITHOUT wicks (Roshan: "no
-   thin lines inside the candles"). The body's cl-grow keyframes are
-   inherited from style.css so the rhythm is identical. */
-.chart-ph-candles .candle-loader {
-    height: 64px;
-    gap: 6px;
-    margin: 0;
-}
-.chart-ph-candles .candle-loader .cl-bar {
-    width: 8px;
-}
-.chart-ph-candles .candle-loader .cl-wick {
-    display: none;
-}
-.chart-ph-candles .candle-loader .cl-bar.up   { color: var(--green); }
-.chart-ph-candles .candle-loader .cl-bar.down { color: var(--red); }
-.chart-ph-candles .candle-loader .cl-body {
-    border-radius: 1.5px;
-}
 .chart-ph-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); z-index: 1; }
 .chart-ph-sub { font-size: 0.84rem; color: var(--text-secondary); z-index: 1; }
 
