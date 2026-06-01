@@ -7,6 +7,11 @@
     <meta name="description" content="Calibrated BUY/SELL signals with multi-timeframe technicals, FinBERT sentiment, market context, macro regime, sector-relative scoring, and Mia — your in-app Market Intelligence Analyst.">
     <link rel="stylesheet" href="css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+    <!-- Debug capture must run before any module loads so we catch
+         page-load errors, ES-module parse failures, and early console
+         output. Tiny IIFE that installs window.__debugBuffer and the
+         hooks; the /dev console reads from it. -->
+    <script src="js/debug-capture.js"></script>
 </head>
 <body>
     <header class="app-header">

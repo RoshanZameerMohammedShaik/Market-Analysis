@@ -1,12 +1,99 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en" data-theme="dark">
+<head>
 <meta charset="UTF-8">
-<title>Enabling dev mode…</title>
-<meta http-equiv="refresh" content="0; url=../">
-<script>
-// Tiny redirector: enable dev mode and bounce home.
-// Path-based UX: yoursite/dev → dev mode on, persists, redirects to /
-try { localStorage.setItem('ma-dev-mode', '1'); } catch (_) {}
-location.replace('../');
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Analyzer — Dev Hub</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠</text></svg>">
+<!-- Capture starts before anything else — same contract as the main
+     page, so the dev console mirrors the same buffer style. -->
+<script src="../js/debug-capture.js"></script>
+<style>
+    body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif; }
+    .dev-hub { max-width: 1100px; margin: 0 auto; }
+    .dev-hub h1 { font-size: 1.6rem; margin: 0 0 6px; }
+    .dev-hub .dev-sub { color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem; }
+    .dev-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+    .dev-tile h2 { font-size: 1.05rem; margin: 0 0 4px; }
+    .dev-tile p { color: var(--text-secondary); font-size: 0.86rem; margin: 0 0 12px; line-height: 1.5; }
+    .dev-tile .dev-tile-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .dev-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--brand-grad-2); color: white; border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: none; }
+    .dev-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px var(--brand-grad-shadow); }
+    .dev-btn-ghost { background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); }
+    .dev-btn-danger { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+    .dev-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(34, 197, 94, 0.15); color: var(--green); border-radius: 12px; font-size: 0.74rem; font-weight: 700; margin-left: 8px; }
+    .dev-status[data-on="false"] { background: rgba(239, 68, 68, 0.15); color: var(--red); }
+    .dev-back { color: var(--accent); text-decoration: none; font-size: 0.86rem; }
+    .dev-back:hover { text-decoration: underline; }
+
+    /* Console viewer */
+    .dev-console { background: #0b1020; border: 1px solid var(--border-strong); border-radius: 10px; height: 60vh; min-height: 360px; display: flex; flex-direction: column; overflow: hidden; margin-top: 16px; }
+    .dev-console-toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
+    .dev-console-toolbar input { flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; }
+    .dev-console-toolbar select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.8rem; }
+    .dev-console-toolbar button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .dev-console-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+    .dev-console-body { flex: 1; overflow-y: auto; padding: 8px 10px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.78rem; line-height: 1.5; }
+    .dev-log-row { display: flex; gap: 8px; padding: 3px 4px; border-radius: 4px; word-break: break-word; }
+    .dev-log-row:hover { background: rgba(255, 255, 255, 0.03); }
+    .dev-log-time { color: rgba(255, 255, 255, 0.4); flex-shrink: 0; min-width: 88px; font-size: 0.72rem; }
+    .dev-log-tag { color: var(--accent); font-weight: 700; flex-shrink: 0; min-width: 90px; font-size: 0.72rem; }
+    .dev-log-text { flex: 1; color: rgba(255, 255, 255, 0.85); white-space: pre-wrap; }
+    .dev-log-row[data-level="error"] .dev-log-text { color: #fca5a5; }
+    .dev-log-row[data-level="warn"]  .dev-log-text { color: #fcd34d; }
+    .dev-log-row[data-level="info"]  .dev-log-text { color: #93c5fd; }
+    .dev-log-row[data-level="debug"] .dev-log-text { color: rgba(255, 255, 255, 0.55); }
+    .dev-console-counts { font-size: 0.72rem; color: var(--text-muted); padding: 6px 10px; border-top: 1px solid var(--border); background: var(--bg-secondary); }
+    .dev-console-counts span { margin-right: 14px; }
+    .dev-console-counts .err { color: #fca5a5; }
+    .dev-console-counts .warn { color: #fcd34d; }
+    .dev-console-counts .net { color: #93c5fd; }
+</style>
+</head>
+<body>
+<div class="dev-hub">
+    <a class="dev-back" href="../">← Back to app</a>
+    <h1>🛠 Dev Hub <span class="dev-status" id="dev-status" data-on="false">off</span></h1>
+    <p class="dev-sub">Path-based dev mode. Visiting <code>/dev</code> turns it on for this browser; visiting <code>/dev/off</code> turns it off. Tools below are noise reduction, not security — anyone reading the source can flip them on.</p>
+
+    <div class="dev-tile">
+        <h2>Mode toggle</h2>
+        <p>Dev mode persists in <code>localStorage</code>. While on, the app reveals extra diagnostics on the signal card and skips some user-friendly fallbacks.</p>
+        <div class="dev-tile-actions">
+            <button class="dev-btn" id="dev-toggle-on">Turn ON</button>
+            <button class="dev-btn dev-btn-danger" id="dev-toggle-off">Turn OFF</button>
+        </div>
+    </div>
+
+    <div class="dev-tile">
+        <h2>Debug App</h2>
+        <p>Live view of every console message, uncaught error, promise rejection, and fetch failure across the whole app — captured from the moment the page loads. URLs and tokens are auto-redacted before they hit the buffer, so it's safe to copy or screenshot.</p>
+        <div class="dev-console" id="dev-console">
+            <div class="dev-console-toolbar">
+                <input id="dev-console-search" placeholder="filter (substring)…" autocomplete="off" spellcheck="false">
+                <select id="dev-console-level">
+                    <option value="">all levels</option>
+                    <option value="error">errors</option>
+                    <option value="warn">warnings</option>
+                    <option value="info">info</option>
+                    <option value="log">log</option>
+                    <option value="debug">debug</option>
+                </select>
+                <select id="dev-console-tag">
+                    <option value="">all sources</option>
+                </select>
+                <button id="dev-console-copy" title="Copy all to clipboard (already redacted)">Copy</button>
+                <button id="dev-console-clear" title="Clear the buffer">Clear</button>
+            </div>
+            <div class="dev-console-body" id="dev-console-body"></div>
+            <div class="dev-console-counts" id="dev-console-counts"></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import './dev-hub.js';
 </script>
-</head><body>Enabling dev mode… <a href="../">click here</a> if not redirected.</body></html>
+</body>
+</html>
