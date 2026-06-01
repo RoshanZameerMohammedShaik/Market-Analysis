@@ -7,6 +7,7 @@ import { initSpikers } from './ui/spikers.js';
 import { initScanner } from './ui/scanner.js';
 import { initWatchlist } from './ui/watchlist.js';
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
+import { initDebugPanel } from './ui/debug-panel.js';
 import { state } from './ui/state.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initScanner();
     initWatchlist();
     initPortfolioPanel();
+    // Floating Debug App panel — only mounts when dev mode is on.
+    // Reads from the always-on debug-capture buffer that's already
+    // running by the time we get here (loaded inline in <head>).
+    initDebugPanel();
     initSpikers({
         onPickSymbol: (sym) => {
             const input = document.getElementById('search-input');
