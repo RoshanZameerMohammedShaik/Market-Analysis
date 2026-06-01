@@ -106,9 +106,14 @@ export async function loadHotPicks(onPick) {
         const filtered = applyPennyFilter(picks);
 
         if (filtered.length === 0) {
+            // Strict "no high-conviction picks" empty state — Hot Picks
+            // now requires BUY/SELL with calibrated confidence >= 60.
+            // On slow / mixed-market days this can legitimately return
+            // zero, which is the correct behavior for a conviction-
+            // first product. Don't pad with NEUTRAL filler.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No strong BUY signals found ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now. Market may be uncertain.</p>
+                <p>No high-conviction picks ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — engine requires 60%+ confidence on a BUY/SELL setup. Sit it out, or check back later.</p>
             </div>`;
             return;
         }
@@ -137,13 +142,24 @@ function renderCards(grid, picks, withFooter) {
             : "DON'T BUY";
         const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
+        // Two distinct numbers on the card now:
+        //   - confidence (calibrated %) — how sure the engine is
+        //   - expectedPct (price-target high %) — predicted move size
+        // Roshan asked for the distinction explicitly. Confidence
+        // sits primary; expected move is the smaller secondary line.
+        const expectedHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
+            ? `<div class="hot-pick-expected" title="Predicted upside to high target">
+                  ${pick.expectedPct >= 0 ? '+' : ''}${Number(pick.expectedPct).toFixed(2)}% target
+               </div>`
+            : '';
         return `
         <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
             <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-            <div class="hot-pick-confidence ${signalClass}"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
+            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
+            ${expectedHTML}
             <div class="hot-pick-price">${fmtPriceTag(pick.price)}</div>
         </div>`;
     }).join('');

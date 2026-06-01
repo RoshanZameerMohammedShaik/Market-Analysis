@@ -1191,8 +1191,13 @@ body {
 .hot-pick-signal-badge.neutral { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
 .hot-pick-confidence { font-family: var(--num-font); font-weight: 800; font-size: 0.92rem; }
 .hot-pick-confidence.buy { color: var(--green); }
+.hot-pick-confidence.sell { color: var(--red); }
 .hot-pick-confidence.neutral { color: var(--yellow); }
 .hot-pick-arrow { display: inline-block; }
+/* Predicted-move % — secondary line under confidence so the user can
+   tell "60% sure" apart from "+4% expected". Smaller and muted so
+   confidence stays the headline number. */
+.hot-pick-expected { font-family: var(--num-font); font-size: 0.72rem; color: var(--text-muted); margin-top: -2px; }
 .hot-pick-price { font-family: var(--num-font); font-size: 0.82rem; color: var(--text-secondary); }
 .hp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .hp-skel { height: 130px; background: var(--bg-hover); border-radius: var(--radius-md); animation: skel-pulse 1.6s ease-in-out infinite; }

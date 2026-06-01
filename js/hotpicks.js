@@ -141,12 +141,16 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const meta = symbolMeta[symbol] || {};
                     const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
                     const blended = techScore * 0.60 + marketScore.score * 0.40;
-                    let signal;
-                    if (blended > 56) signal = 'BUY';
-                    else if (blended < 44) signal = 'SELL';
-                    else signal = 'NEUTRAL';
                     const deviation = Math.abs(blended - 50) / 50;
                     const confidence = Math.round(38 + deviation * 50);
+                    // Same thresholds as confidence.js — engine commits
+                    // only when score crosses 60/40 AND calibrated
+                    // confidence is at least 55. Anything weaker is
+                    // NEUTRAL (filtered out below by the 60-floor cut).
+                    let signal;
+                    if (blended > 60 && confidence >= 55) signal = 'BUY';
+                    else if (blended < 40 && confidence >= 55) signal = 'SELL';
+                    else signal = 'NEUTRAL';
                     const sparkline = data.candles.slice(-30).map(c => c.close);
                     return {
                         symbol: data.symbol,
@@ -154,6 +158,10 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                         price: data.currentPrice || meta.price,
                         signal,
                         confidence,
+                        // Predicted upside % surfaces on the card next
+                        // to confidence so the user can distinguish
+                        // "60% sure" from "predicted +4% move".
+                        expectedPct: prediction.priceTargets?.highPercent ?? null,
                         reasons: prediction.reasons,
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
@@ -177,14 +185,20 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     return finalPicks;
 }
 
+// Hot Picks = high-conviction commits only. Roshan's rule: minimum
+// 60% calibrated confidence, BUY or SELL only (no NEUTRAL/DON'T BUY
+// padding). On slow days this can return very few picks — that's
+// the correct behavior; "Hot" should mean hot. NEUTRAL and NO_TRADE
+// are filtered out entirely.
+const MIN_HOT_CONFIDENCE = 60;
 function rankPicks(results, maxPicks) {
-    // NO_TRADE intentionally excluded — hot picks should only surface
-    // names the engine has conviction on. The abstain gate already
-    // weeded out the low-conviction calls; we don't recover them here.
-    const buy = results.filter(r => r.signal === 'BUY').sort((a, b) => b.confidence - a.confidence);
-    const neutral = results.filter(r => r.signal === 'NEUTRAL').sort((a, b) => b.confidence - a.confidence);
-    const sell = results.filter(r => r.signal === 'SELL').sort((a, b) => b.confidence - a.confidence);
-    return [...buy, ...neutral, ...sell].slice(0, maxPicks);
+    const buy = results
+        .filter(r => r.signal === 'BUY' && r.confidence >= MIN_HOT_CONFIDENCE)
+        .sort((a, b) => b.confidence - a.confidence);
+    const sell = results
+        .filter(r => r.signal === 'SELL' && r.confidence >= MIN_HOT_CONFIDENCE)
+        .sort((a, b) => b.confidence - a.confidence);
+    return [...buy, ...sell].slice(0, maxPicks);
 }
 
 /**
@@ -319,15 +333,19 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             const prediction = generateMultiTimeframePrediction(multiData, timeframe);
             const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
             const blended = techScore * 0.60 + marketScore.score * 0.40;
-            let signal;
-            if (blended > 56) signal = 'BUY';
-            else if (blended < 44) signal = 'SELL';
-            else signal = 'NEUTRAL';
             const deviation = Math.abs(blended - 50) / 50;
             const confidence = Math.round(38 + deviation * 50);
+            // Same conviction thresholds as the stock path + main engine:
+            // 60/40 score AND >=55 confidence to commit.
+            let signal;
+            if (blended > 60 && confidence >= 55) signal = 'BUY';
+            else if (blended < 40 && confidence >= 55) signal = 'SELL';
+            else signal = 'NEUTRAL';
             results.push({
                 symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
-                signal, confidence, reasons: prediction.reasons,
+                signal, confidence,
+                expectedPct: prediction.priceTargets?.highPercent ?? null,
+                reasons: prediction.reasons,
                 change: coin.change24h || 0, _sparkline: sparklineData,
             });
             // Progressive update every ~10 coins so the UI can repaint.
