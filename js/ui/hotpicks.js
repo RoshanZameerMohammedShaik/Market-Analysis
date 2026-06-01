@@ -2,6 +2,7 @@ import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { state, nextHotPicksId } from './state.js';
 import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
+import { displayTicker } from './exchanges.js';
 
 // Phase 8: Hot Picks penny sub-tabs.
 // `pennyMode` is one of: null (no filter), 'p10' (<$10), 'p5' (<$5), 'p1' (<$1).
@@ -129,7 +130,7 @@ function renderCards(grid, picks, withFooter) {
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
         return `
         <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
-            <div class="hot-pick-symbol">${pick.symbol}</div>
+            <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>

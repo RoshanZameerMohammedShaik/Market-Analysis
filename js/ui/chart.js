@@ -5,7 +5,7 @@ import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
 import { candleLoaderHTML } from './skeleton.js';
 import { fetchStockData } from '../data.js';
-import { fullLabelForSymbol, fullLabelForCode } from './exchanges.js';
+import { fullLabelForSymbol, fullLabelForCode, displayTicker } from './exchanges.js';
 
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
@@ -201,6 +201,12 @@ export function updateChartHeader(data) {
     const symbolEl = document.getElementById('chart-symbol');
     const priceEl = document.getElementById('chart-price');
     if (symbolEl) {
+        // Display ticker WITHOUT Yahoo's '.NS'/'.HK'/'.T' suffix —
+        // those are Yahoo's internal disambiguation tags, not part of
+        // the real exchange ticker. The exchange label after the dot
+        // already tells the user which listing they're looking at, so
+        // showing both is redundant.
+        const ticker = displayTicker(data.symbol);
         // Resolve the exchange + country label. Prefer Yahoo's
         // meta.exchangeName code (more specific — e.g. NMS = NASDAQ vs.
         // NYQ = NYSE for US tickers); fall back to the suffix mapping
@@ -208,7 +214,7 @@ export function updateChartHeader(data) {
         const exLabel = fullLabelForCode(data.exchange) || fullLabelForSymbol(data.symbol);
         const namePart = data.name ? ` — ${data.name}` : '';
         const exPart = exLabel ? ` · ${exLabel}` : '';
-        symbolEl.textContent = `${data.symbol}${namePart}${exPart}`;
+        symbolEl.textContent = `${ticker}${namePart}${exPart}`;
     }
     attachTimeTravel();
     attachWatchButton(data.symbol);

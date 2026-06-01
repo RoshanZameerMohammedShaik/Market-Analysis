@@ -137,6 +137,24 @@ function suffixFromYahooSymbol(symbol) {
     return m ? m[1] : '';
 }
 
+/**
+ * Strip Yahoo's exchange suffix from a ticker for DISPLAY ONLY. The
+ * suffix isn't part of the real ticker on the exchange — it's Yahoo's
+ * internal disambiguation tag. e.g. "CORDSCABLE.NS" is just
+ * "CORDSCABLE" on NSE; "0700.HK" is just "0700" on HKEX. The exchange
+ * label already conveys which listing we're showing, so the suffix is
+ * redundant noise on screen. Only strip if the suffix is one we
+ * recognize as an exchange tag — leaves real "." characters in
+ * tickers (rare but possible) untouched.
+ */
+export function displayTicker(symbol) {
+    const s = String(symbol || '').toUpperCase();
+    const m = s.match(/^(.+)\.([A-Z]{1,3})$/);
+    if (!m) return s;
+    const [, base, suffix] = m;
+    return SUFFIX_INFO[suffix] ? base : s;
+}
+
 /** Lookup exchange info from a Yahoo ticker (e.g. "CORDSCABLE.NS"). */
 export function exchangeForSymbol(symbol) {
     return SUFFIX_INFO[suffixFromYahooSymbol(symbol)] || null;

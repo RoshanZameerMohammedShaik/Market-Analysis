@@ -4,6 +4,7 @@
 import { state } from './state.js';
 import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
 import { fmtPriceTag } from './format.js';
+import { displayTicker } from './exchanges.js';
 
 let cache = null; // { mode, ts, scoredAll: [...] } across buckets when feasible
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -107,7 +108,7 @@ async function runScan(bucket, onPickSymbol) {
                 ${results.map(r => `
                     <div class="sp-row" data-symbol="${r.symbol}">
                         <div class="sp-row-main">
-                            <div class="sp-row-sym">${r.symbol}</div>
+                            <div class="sp-row-sym">${displayTicker(r.symbol)}</div>
                             <div class="sp-row-name">${r.name || ''}</div>
                             <div class="sp-row-reason">${r.reason}</div>
                         </div>

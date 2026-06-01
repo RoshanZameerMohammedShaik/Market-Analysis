@@ -1,6 +1,6 @@
 import { searchStocks, searchCrypto } from '../data.js';
 import { state } from './state.js';
-import { fullLabelForCode, fullLabelForSymbol } from './exchanges.js';
+import { fullLabelForCode, fullLabelForSymbol, displayTicker } from './exchanges.js';
 
 let searchTimeout = null;
 
@@ -51,9 +51,15 @@ async function performSearch(query, onSelect) {
         }
         results.innerHTML = items.map(item => {
             if (state.mode === 'stock') {
+                // data-symbol stays as the FULL Yahoo ticker
+                // (CORDSCABLE.NS) — that's what fetchStockData /
+                // analyze use. The displayed ticker drops the suffix
+                // since the exchange chip on the right already covers
+                // disambiguation.
                 const exchange = prettyExchange(item.exchange, item.symbol);
+                const shown = displayTicker(item.symbol);
                 return `<div class="search-result-item" data-symbol="${item.symbol}">
-                    <div><span class="result-symbol">${item.symbol}</span> <span class="result-name">${item.name}</span></div>
+                    <div><span class="result-symbol">${shown}</span> <span class="result-name">${item.name}</span></div>
                     ${exchange ? `<span class="result-name">${exchange}</span>` : ''}
                 </div>`;
             }
