@@ -526,7 +526,13 @@ async function doSend() {
                 // the technical detail.
                 userMsg = "I'm rate-limited across all backends right now — give me a minute and try again.";
             } else {
-                userMsg = `Sorry — I had trouble with that. Try asking again.`;
+                // Catch-all. Surface the real error so the next person
+                // who hits this (often Roshan) doesn't have to dig
+                // through the console to find out what happened. Also
+                // log explicitly so a `[mia]` filter shows it.
+                console.warn('[mia] Turn failed:', e?.status, e?.message || '(no message)', e);
+                const detail = e?.message ? ` — ${e.message}` : '';
+                userMsg = `Sorry, I hit an error${detail}. Check the browser console for [mia] entries.`;
             }
             updated.push({ role: 'assistant', content: userMsg });
         }
