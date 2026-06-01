@@ -7,6 +7,8 @@
 //      regularly start gating; we keep them so non-Yahoo CORS-blocked
 //      sources still have a path).
 
+import { isCooling, recordFailure } from './breaker.js';
+
 const WORKER_PROXY = 'https://market-analysis-yahoo-proxy.roshanzameer7866.workers.dev/yahoo?u=';
 
 const CORS_PROXIES = [
@@ -23,33 +25,28 @@ function isYahooUrl(url) {
 }
 
 // Per-endpoint cool-down for Yahoo paths Yahoo started crumb-walling.
-// As of mid-2026, /v10/quoteSummary and /v7/options/ require an
-// auth cookie + crumb; our worker proxy can't satisfy that and Yahoo
-// returns 401. Once we see a 401 on a path family, we skip it for
-// 30 minutes — earnings / options data go missing, but the engine
-// keeps running on the rest of the signals instead of spamming
-// 60+ failing 401 round-trips per analysis batch.
-const YAHOO_CRUMB_WALLED = [/\/v10\/finance\/quoteSummary\//, /\/v7\/finance\/options\//];
-const yahooSkipUntil = new Map(); // endpoint regex source → ms timestamp
-const YAHOO_SKIP_MS = 30 * 60 * 1000;
+// /v10/quoteSummary and /v7/options/ require an auth cookie + crumb
+// our worker proxy can't satisfy; Yahoo returns 401. Each endpoint
+// family gets its own breaker (so a 401 on quoteSummary doesn't
+// silence options too — they're independent fault domains).
+const YAHOO_CRUMB_WALLED = [
+    { re: /\/v10\/finance\/quoteSummary\//, name: 'yahoo-quoteSummary' },
+    { re: /\/v7\/finance\/options\//, name: 'yahoo-options' },
+];
 
-function shouldSkipYahooUrl(url) {
-    const now = Date.now();
-    for (const re of YAHOO_CRUMB_WALLED) {
-        if (re.test(url)) {
-            const until = yahooSkipUntil.get(re.source) || 0;
-            return until > now;
-        }
+function yahooBreakerNameFor(url) {
+    for (const { re, name } of YAHOO_CRUMB_WALLED) {
+        if (re.test(url)) return name;
     }
-    return false;
+    return null;
+}
+function shouldSkipYahooUrl(url) {
+    const name = yahooBreakerNameFor(url);
+    return name ? isCooling(name) : false;
 }
 function recordYahooSkip(url) {
-    for (const re of YAHOO_CRUMB_WALLED) {
-        if (re.test(url)) {
-            yahooSkipUntil.set(re.source, Date.now() + YAHOO_SKIP_MS);
-            return;
-        }
-    }
+    const name = yahooBreakerNameFor(url);
+    if (name) recordFailure(name);
 }
 
 export async function fetchWithProxy(url) {

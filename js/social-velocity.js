@@ -17,45 +17,54 @@
 // Bounded ±3 pts (capped lower because pump signals decay fast and we don't
 // want to over-weight noise).
 
+import { isCooling, recordFailure, recordSuccess } from './breaker.js';
+
 const CACHE = new Map();
 const TTL_MS = 30 * 60 * 1000;
 
-// Reddit search.json — direct fetch tries first (fastest path when CORS
-// is permissive), then falls back to fetchWithProxy if direct rejects.
-// Reddit's CORS posture varies by region and time of day; the proxy
-// fallback keeps social-velocity functional in restricted networks.
+// Reddit search.json — direct fetch first (fastest when CORS is open),
+// fall back to proxy chain. Both paths share a single breaker so a
+// dead Reddit endpoint doesn't run a 4-proxy chain on every symbol.
 async function fetchRedditMentions(symbol) {
+    if (isCooling('reddit')) return null;
     const sub = 'wallstreetbets+stocks+pennystocks+stockmarket';
     const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?q=${encodeURIComponent(symbol)}&restrict_sr=1&sort=new&limit=100`;
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
         if (res.ok) {
             const json = await res.json();
-            const posts = (json?.data?.children || []).map(c => c.data).filter(Boolean);
-            return posts;
+            recordSuccess('reddit');
+            return (json?.data?.children || []).map(c => c.data).filter(Boolean);
         }
     } catch (_) { /* fall through to proxy */ }
-    // Direct failed (CORS / network). Try the proxy chain. Lazy-import
-    // to avoid a hard dependency cycle in case fetchWithProxy ever
-    // imports something from this module's tree.
     try {
         const { fetchWithProxy } = await import('./data.js');
         const res = await fetchWithProxy(url);
         const json = await res.json();
-        const posts = (json?.data?.children || []).map(c => c.data).filter(Boolean);
-        return posts;
-    } catch (_) { return null; }
+        recordSuccess('reddit');
+        return (json?.data?.children || []).map(c => c.data).filter(Boolean);
+    } catch (_) {
+        recordFailure('reddit');
+        return null;
+    }
 }
 
 async function fetchStockTwitsMessages(symbol) {
-    // StockTwits API is CORS-friendly. No auth.
+    if (isCooling('stocktwits')) return null;
     const url = `https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(symbol)}.json?limit=30`;
     try {
         const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return null;
+        if (!res.ok) {
+            recordFailure('stocktwits');
+            return null;
+        }
         const json = await res.json();
+        recordSuccess('stocktwits');
         return json?.messages || [];
-    } catch (_) { return null; }
+    } catch (_) {
+        recordFailure('stocktwits');
+        return null;
+    }
 }
 
 function agedMentions(items, getEpoch) {

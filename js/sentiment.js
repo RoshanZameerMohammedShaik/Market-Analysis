@@ -6,35 +6,16 @@
 // Tunes how fast yesterday's narrative fades vs. today's.
 
 import { fetchWithProxy } from './data.js';
+import { isCooling, recordFailure, recordSuccess } from './breaker.js';
 
 const HF_API_URL = 'https://api-inference.huggingface.co/models/ProsusAI/finbert';
 const RECENCY_HALF_LIFE_HOURS = 48;
 
-// HuggingFace's free inference endpoint gates browser-direct requests
-// inconsistently (403/429/DNS-block depending on region/time). We don't
-// want to permanently disable FinBERT for the whole session on a
-// transient failure, but we also don't want to spam retries every
-// analysis. Compromise: cool-down only AFTER 2 failures within a
-// 5-minute window. After the cool-down expires (10 min), the next
-// analysis tries again. Keyword fallback covers the cool-down period.
-const HF_FAILURE_WINDOW_MS = 5 * 60 * 1000;
-const HF_COOLDOWN_MS = 10 * 60 * 1000;
-const HF_FAILURE_THRESHOLD = 2;
-let hfFailureTimestamps = [];
-let hfCooldownUntil = 0;
-
-function recordHfFailure() {
-    const now = Date.now();
-    hfFailureTimestamps = hfFailureTimestamps.filter(ts => now - ts < HF_FAILURE_WINDOW_MS);
-    hfFailureTimestamps.push(now);
-    if (hfFailureTimestamps.length >= HF_FAILURE_THRESHOLD) {
-        hfCooldownUntil = now + HF_COOLDOWN_MS;
-        hfFailureTimestamps = [];
-    }
-}
-
+// HuggingFace inference is gated unpredictably (403/429/DNS-block).
+// Single shared breaker instance — first failure trips, 10-min cooldown,
+// then probes again. Keyword fallback fills the gap.
 async function analyzeWithFinBERT(texts) {
-    if (Date.now() < hfCooldownUntil) return null;
+    if (isCooling('hf-finbert')) return null;
     try {
         const res = await fetch(HF_API_URL, {
             method: 'POST',
@@ -43,16 +24,13 @@ async function analyzeWithFinBERT(texts) {
             signal: AbortSignal.timeout(15000),
         });
         if (!res.ok) {
-            // 503 = HF model warming up — record one failure but it
-            // typically succeeds on the very next call.
-            // 401/403/429 = harder gating; same recording, but two of
-            // these in 5 min triggers the 10-min cool-down.
-            if ([401, 403, 429, 503].includes(res.status)) recordHfFailure();
+            if ([401, 403, 429, 503].includes(res.status)) recordFailure('hf-finbert');
             return null;
         }
+        recordSuccess('hf-finbert');
         return await res.json();
     } catch (_) {
-        recordHfFailure();
+        recordFailure('hf-finbert');
         return null;
     }
 }

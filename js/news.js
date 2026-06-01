@@ -3,6 +3,7 @@
 
 import { fetchWithProxy } from './data.js';
 import { getMarket } from './markets.js';
+import { isCooling, recordFailure, recordSuccess } from './breaker.js';
 
 export async function fetchStockNews(symbol, companyName = '') {
     const results = [];
@@ -12,11 +13,18 @@ export async function fetchStockNews(symbol, companyName = '') {
         companyName ? `"${companyName}" stock price` : `${symbol} earnings price`,
     ];
 
-    const sources = await Promise.allSettled([
+    // First Google News query in parallel with Yahoo. If the first
+    // GN call trips the breaker (cooling), the second call is a no-op
+    // — saves a duplicate proxy-chain cascade per symbol-analysis.
+    const [first, yahoo] = await Promise.allSettled([
         fetchGoogleNews(queries[0], market.locale),
-        fetchGoogleNews(queries[1], market.locale),
         fetchYahooNews(symbol),
     ]);
+    const sources = [first, yahoo];
+    if (first.status === 'fulfilled' && first.value && first.value.length > 0) {
+        const second = await fetchGoogleNews(queries[1], market.locale).catch(() => []);
+        sources.push({ status: 'fulfilled', value: second });
+    }
 
     sources.forEach(s => { if (s.status === 'fulfilled' && s.value) results.push(...s.value); });
     const filtered = filterRelevantNews(results, symbol, companyName);
@@ -27,10 +35,12 @@ export async function fetchStockNews(symbol, companyName = '') {
 export async function fetchCryptoNews(coinNameOrSymbol) {
     const results = [];
     const queries = [`"${coinNameOrSymbol}" crypto price`, `"${coinNameOrSymbol}" cryptocurrency`];
-    const sources = await Promise.allSettled([
-        fetchGoogleNews(queries[0], { gl: 'US', hl: 'en-US' }),
-        fetchGoogleNews(queries[1], { gl: 'US', hl: 'en-US' }),
-    ]);
+    const first = await fetchGoogleNews(queries[0], { gl: 'US', hl: 'en-US' }).catch(() => []);
+    const sources = [{ status: 'fulfilled', value: first }];
+    if (first && first.length > 0) {
+        const second = await fetchGoogleNews(queries[1], { gl: 'US', hl: 'en-US' }).catch(() => []);
+        sources.push({ status: 'fulfilled', value: second });
+    }
     sources.forEach(s => { if (s.status === 'fulfilled' && s.value) results.push(...s.value); });
     const filtered = filterRelevantNews(results, coinNameOrSymbol, coinNameOrSymbol);
     const unique = deduplicateNews(filtered);
@@ -48,36 +58,19 @@ function filterRelevantNews(items, symbol, name) {
 }
 
 // Google News RSS is CORS-blocked at origin and the free CORS proxies
-// rate-limit it. We use a windowed cool-down rather than a permanent
-// session kill so a single proxy 503 doesn't permanently halve the
-// news corpus — after 2 failures inside 5 min, sit out for 10 min,
-// then try again. Yahoo News still feeds sentiment during cool-down.
-const GN_FAILURE_WINDOW_MS = 5 * 60 * 1000;
-const GN_COOLDOWN_MS = 10 * 60 * 1000;
-const GN_FAILURE_THRESHOLD = 2;
-let gnFailureTimestamps = [];
-let gnCooldownUntil = 0;
-
-function recordGoogleNewsFailure() {
-    const now = Date.now();
-    gnFailureTimestamps = gnFailureTimestamps.filter(ts => now - ts < GN_FAILURE_WINDOW_MS);
-    gnFailureTimestamps.push(now);
-    if (gnFailureTimestamps.length >= GN_FAILURE_THRESHOLD) {
-        gnCooldownUntil = now + GN_COOLDOWN_MS;
-        gnFailureTimestamps = [];
-    }
-}
-
+// rate-limit it. Shared breaker — first failure trips for 10 min,
+// then re-probes. Yahoo News covers the gap.
 async function fetchGoogleNews(query, locale = { gl: 'US', hl: 'en-US' }) {
-    if (Date.now() < gnCooldownUntil) return [];
+    if (isCooling('google-news')) return [];
     try {
         const ceid = `${locale.gl}:${locale.hl.split('-')[0] || 'en'}`;
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${locale.hl}&gl=${locale.gl}&ceid=${ceid}`;
         const res = await fetchWithProxy(rssUrl);
         const text = await res.text();
+        recordSuccess('google-news');
         return parseRSS(text);
     } catch (e) {
-        recordGoogleNewsFailure();
+        recordFailure('google-news');
         return [];
     }
 }
