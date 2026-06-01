@@ -83,16 +83,35 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="accordion-list">
                 ${reasons.map(r => {
                     const humanized = humanizeReason(r);
+                    // Try for a textbook explanation; fall back to the
+                    // raw reason if no rule matches. The engine's reason
+                    // strings are already specific ("Sector: Tech rising
+                    // 1.2%/5d — aligned"), so showing them verbatim is
+                    // far better than rendering an identical generic
+                    // placeholder ten times in a row.
                     const explanation = generateTechnicalExplanation(r, signal, state.currentSymbol);
+                    const body = explanation || (humanized !== r ? r : null);
                     const indicatorClass = /(bull|BUY|oversold|positive|upward)/i.test(r) ? 'positive'
                         : /(bear|SELL|overbought|negative|downward)/i.test(r) ? 'negative' : 'neutral';
+                    // If we have neither a textbook explanation nor
+                    // extra detail beyond the humanized title, render
+                    // a non-expandable row (no chevron) so we don't
+                    // tease an empty accordion body.
+                    if (!body) {
+                        return `<div class="accordion-item tech-accordion tech-accordion-flat">
+                            <div class="accordion-header">
+                                <span class="accordion-dot ${indicatorClass}"></span>
+                                <div class="accordion-header-content"><div class="accordion-title">${humanized}</div></div>
+                            </div>
+                        </div>`;
+                    }
                     return `<details class="accordion-item tech-accordion">
                         <summary class="accordion-header">
                             <span class="accordion-dot ${indicatorClass}"></span>
                             <div class="accordion-header-content"><div class="accordion-title">${humanized}</div></div>
                             <span class="accordion-chevron">▸</span>
                         </summary>
-                        <div class="accordion-body"><div class="accordion-explanation">${explanation}</div></div>
+                        <div class="accordion-body"><div class="accordion-explanation">${body}</div></div>
                     </details>`;
                 }).join('')}
             </div>

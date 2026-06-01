@@ -242,6 +242,20 @@ body {
     letter-spacing: 0.2px;
     margin-left: 6px;
 }
+/* Brief feedback pulse when a menu item is activated. The user clicks
+   → row pulses with the accent → menu closes. Tells the user "yes,
+   the click landed" before the menu animates away. */
+.header-menu-item.header-menu-fired {
+    animation: header-menu-fired 0.45s cubic-bezier(0.45, 0, 0.55, 1);
+}
+.header-menu-item.header-menu-fired .header-menu-icon {
+    color: var(--accent);
+}
+@keyframes header-menu-fired {
+    0%   { background: transparent; transform: scale(1); }
+    35%  { background: rgba(var(--accent-rgb), 0.22); transform: scale(1.02); }
+    100% { background: transparent; transform: scale(1); }
+}
 .theme-toggle {
     width: 36px; height: 36px;
     border: 1px solid var(--border);
@@ -1139,6 +1153,12 @@ body {
 .accordion-item[open] .accordion-chevron { transform: rotate(90deg); }
 .accordion-body { padding: 0 12px 10px 28px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
 .accordion-explanation { padding-top: 6px; border-top: 1px dashed var(--border); }
+/* Flat (non-expandable) variant for technical-indicator rows that
+   have no extra detail to surface beyond the title — saves the user
+   from clicking only to find "this indicator provides context"
+   placeholder text. Inherits the same row layout but without the
+   pointer cursor / chevron. */
+.tech-accordion-flat .accordion-header { cursor: default; padding: 6px 12px; }
 
 .signal-meta { font-size: 0.74rem; color: var(--text-muted); }
 .risk-disclaimer { margin-top: 14px; padding: 10px 12px; background: var(--bg-card); border-left: 2px solid var(--yellow); font-size: 0.74rem; color: var(--text-muted); border-radius: 4px; }

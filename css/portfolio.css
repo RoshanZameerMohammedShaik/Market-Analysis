@@ -131,16 +131,27 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 }
 
 .portfolio-panel {
-    position: fixed; top: 0; right: -440px; bottom: 0;
+    position: fixed; top: 0; right: 0; bottom: 0;
     width: min(420px, 96vw);
     background: var(--bg-card);
     border-left: 1px solid var(--border-strong);
     box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
     display: flex; flex-direction: column;
     z-index: 600;
-    transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    /* Translate fully off-screen when closed. Earlier the panel used
+       `right: -440px` which was hard-coded to a single px value — when
+       the user opened browser dev tools on the right (squeezing the
+       viewport), `width: min(420, 96vw)` could exceed 440px the panel
+       was pushed by, leaving a thin slice visible. translateX(100%) is
+       width-relative so it ALWAYS pushes the full panel off-screen
+       regardless of viewport size. */
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.portfolio-panel.open { right: var(--portfolio-stack-right, 0px); }
+.portfolio-panel.open {
+    transform: translateX(0);
+    right: var(--portfolio-stack-right, 0px);
+}
 
 .portfolio-panel-head {
     display: flex; align-items: center; justify-content: space-between;
@@ -290,6 +301,30 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
     color: var(--text-primary);
     grid-column: 1;
     grid-row: 1;
+    /* Now a button — strip native button styling and make it read as
+       a strong inline link. Hover surfaces the accent color so the
+       user knows it's clickable without us adding an icon. */
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    font-weight: 800;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+}
+.portfolio-holding-sym:hover {
+    color: var(--accent);
+    text-decoration-color: rgba(var(--accent-rgb), 0.6);
+}
+.portfolio-holding-sym:focus-visible {
+    outline: 2px solid rgba(var(--accent-rgb), 0.6);
+    outline-offset: 2px;
+    border-radius: 3px;
 }
 .portfolio-holding-units {
     font-family: var(--num-font);

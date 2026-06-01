@@ -291,10 +291,20 @@ function initSettingsMenu() {
         e.stopPropagation();
         setOpen(!menu.classList.contains('open'));
     });
-    // Close on item click — let the item's own handler run first via
-    // bubbling, then close the menu after a microtask so the action's
-    // re-render doesn't fight the close animation.
-    menu.addEventListener('click', () => {
+    // Item click: pulse the activated row briefly so the user gets
+    // visual confirmation before the menu closes. Then close on the
+    // next tick so the action's re-render doesn't fight the close
+    // animation.
+    menu.addEventListener('click', (e) => {
+        const item = e.target.closest('.header-menu-item');
+        if (item) {
+            item.classList.remove('header-menu-fired');
+            // Force a reflow so re-adding the class restarts the
+            // animation even on rapid double-clicks.
+            void item.offsetWidth;
+            item.classList.add('header-menu-fired');
+            setTimeout(() => item.classList.remove('header-menu-fired'), 500);
+        }
         setTimeout(() => setOpen(false), 0);
     });
     // Click anywhere outside the menu/button → close.
@@ -306,5 +316,21 @@ function initSettingsMenu() {
     // Escape key closes the menu.
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && menu.classList.contains('open')) setOpen(false);
+    });
+
+    // P&L Calculator shortcut — opens the Portfolio panel (where the
+    // calc lives) and focuses the first input so the user can start
+    // typing immediately.
+    document.getElementById('pl-shortcut')?.addEventListener('click', async () => {
+        const m = await import('./portfolio-panel.js');
+        m.openPortfolioPanel();
+        // Wait one frame for the panel to mount its body.
+        requestAnimationFrame(() => {
+            const inv = document.getElementById('pp-calc-investment');
+            if (inv) {
+                inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => inv.focus(), 280);
+            }
+        });
     });
 }

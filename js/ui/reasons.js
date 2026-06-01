@@ -49,6 +49,13 @@ export function generateNewsImpact(title, sentimentLabel, symbol) {
     return `Neutral news mention for ${sym}. No strong directional bias from this headline alone — monitor for follow-up developments.`;
 }
 
+// Plain-English context for a small set of textbook indicators.
+// Returns null when the reason doesn't match a known pattern — caller
+// should fall back to the raw reason text rather than a generic
+// placeholder, since the raw reason is already specific (e.g.
+// "[Sector] Tech sector rising 1.2% 5d — aligned" already explains
+// itself; wrapping it in a generic "this indicator provides context"
+// blurb adds noise instead of insight).
 export function generateTechnicalExplanation(reason, _overallSignal, symbol) {
     const sym = symbol || 'this asset';
     const lower = reason.toLowerCase();
@@ -71,5 +78,9 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol) {
     if (lower.includes('all timeframes align')) return `Daily, weekly, and 4-hour timeframes all agree on direction for ${sym}. This is the highest-confidence technical setup — when all timeframes confirm, the probability of the move succeeding is at its peak.`;
     if (lower.includes('conflict') || lower.includes('disagree')) return `Different timeframes are giving conflicting signals for ${sym}. The short-term and long-term trends disagree — this means higher uncertainty. Consider reducing position size or waiting for alignment.`;
 
-    return `This technical indicator provides context on ${sym}'s current price behavior relative to its historical patterns. Combined with other signals, it contributes to the overall directional assessment.`;
+    // No textbook match. Return null so the caller surfaces the raw
+    // reason text — it's already specific (tagged + parameterized
+    // from real engine output) and rendering a generic placeholder
+    // dozens of times made the panel look broken.
+    return null;
 }

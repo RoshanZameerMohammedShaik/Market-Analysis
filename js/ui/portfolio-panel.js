@@ -21,6 +21,7 @@ import { COMMON_CURRENCIES, getRateToUSD, fromUSDCached, warmCommonRates } from 
 import { subscribe, refreshStockPrices, isCryptoSymbol } from '../portfolio/pricing.js';
 import { sell as tradeSell, unrealizedPnL } from '../portfolio/trade.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';
+import { controlSelectSymbol } from '../mia/ui-bridge.js';
 
 const subs = new Map();   // symbol -> { handle, price }
 const PANEL_WIDTH = 420;
@@ -341,10 +342,14 @@ function renderHoldings(p, cur) {
     }
     const rows = symbols.map(sym => {
         const pos = p.positions[sym];
+        // Symbol cell is a button so a click loads the holding into
+        // the chart + runs full analysis. data-action='load' tells
+        // the delegated click handler to route through controlSelectSymbol
+        // rather than the sell-all path.
         return `
             <div class="portfolio-holding" data-symbol="${sym}">
                 <div class="portfolio-holding-main">
-                    <span class="portfolio-holding-sym">${sym}</span>
+                    <button class="portfolio-holding-sym" data-symbol="${sym}" data-action="load" title="Load ${sym} on the chart and run analysis">${sym}</button>
                     <span class="portfolio-holding-units">${fmtUnits(pos.units)} units</span>
                     <span class="portfolio-holding-price" data-role="price">—</span>
                     <span class="portfolio-holding-value" data-role="value">—</span>
@@ -486,6 +491,23 @@ async function refreshStockSnapshot() {
 }
 
 function onHoldingsClick(e) {
+    // Load-on-click: ticker cell loads the holding on the chart so
+    // the user can review the engine's current read before deciding
+    // what to do with the position. Crypto positions get the
+    // BTC-USD-style symbol passed straight through; stock symbols
+    // route via controlSelectSymbol which handles the search +
+    // chart-load flow.
+    const loadBtn = e.target.closest('.portfolio-holding-sym[data-action="load"]');
+    if (loadBtn) {
+        const sym = loadBtn.dataset.symbol;
+        const mode = isCryptoSymbol(sym) ? 'crypto' : 'stock';
+        // Strip the trailing -USD from crypto symbols when handing to
+        // controlSelectSymbol, which does its own search resolution.
+        const lookupSym = mode === 'crypto' ? sym.replace(/-USD$/i, '') : sym;
+        controlSelectSymbol({ symbol: lookupSym, mode })
+            .catch(err => toast(`Couldn't load ${sym}: ${err.message}`, 'neg'));
+        return;
+    }
     const sellBtn = e.target.closest('.portfolio-sell-btn');
     if (!sellBtn) return;
     const sym = sellBtn.dataset.symbol;
