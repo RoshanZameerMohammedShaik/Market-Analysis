@@ -7,11 +7,11 @@
 
 export function candleLoaderHTML(n = 7) {
     const bars = [];
-    // Alternating-ish pattern with a couple flips so the loader looks
-    // like an actual price-action sequence, not a regular oscillation.
-    const dirSeq = ['up', 'up', 'down', 'up', 'down', 'down', 'up', 'down', 'up'];
+    // Strict alternation: green, red, green, red, … Roshan asked for
+    // the cleaner rhythm over the irregular price-action pattern that
+    // was here before.
     for (let i = 0; i < n; i++) {
-        const cls = dirSeq[i % dirSeq.length];
+        const cls = i % 2 === 0 ? 'up' : 'down';
         bars.push(`<span class="cl-bar ${cls}"><span class="cl-wick"></span><span class="cl-body"></span></span>`);
     }
     return `<div class="candle-loader" aria-label="Loading market data" role="progressbar">${bars.join('')}</div>`;
