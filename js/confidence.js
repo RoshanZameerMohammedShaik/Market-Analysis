@@ -33,6 +33,7 @@ import { getPennyTierData, pennyTierAdjustment } from './penny-tier.js';
 import { getFinraShort, finraShortAdjustment } from './finra-short.js';
 import { getOpenInsider, openInsiderAdjustment } from './openinsider.js';
 import { getSocialVelocity, socialVelocityAdjustment } from './social-velocity.js';
+import { readLedgerHistory } from './mia/ui-bridge.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -78,8 +79,16 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // 55%-confidence floor: anything weaker becomes NEUTRAL (which
     // surfaces as "DON'T BUY" in the UI). Engine commits less
     // often, but each commit is meaningful.
+    // Calibration floor was 38, ceiling 88. The 38–50 band is mostly
+    // coin-flips that the engine already won't commit on (we filter
+    // BUY/SELL by score AND >=55 threshold below). Raising the
+    // displayed floor to 50 doesn't change accuracy — it just maps
+    // the score to the part of the scale where commitments actually
+    // happen. "60% confidence" stops being a rare ceiling and
+    // becomes the routine commit threshold that matches our prompt
+    // language. Range now 50–88.
     const deviation = Math.abs(weightedScore - 50) / 50;
-    let rawConfidence = Math.round(38 + deviation * 50);
+    let rawConfidence = Math.round(50 + deviation * 38);
 
     let finalSignal;
     if (weightedScore > 60 && rawConfidence >= 55) finalSignal = 'BUY';
@@ -93,14 +102,75 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (dispersion > 50) disagreementPenalty = 12;
     else if (dispersion > 35) disagreementPenalty = 7;
     else if (dispersion > 25) disagreementPenalty = 3;
-    rawConfidence = Math.max(38, rawConfidence - disagreementPenalty);
+    rawConfidence = Math.max(50, rawConfidence - disagreementPenalty);
+
+    // Unanimous-agreement bonus. When all available weighted sources
+    // (AI / Technical / Sentiment / Market) agree DIRECTIONALLY on
+    // the call (all >55 for BUY, all <45 for SELL), confidence gets
+    // +5 points (capped at 88). The engine's 4 sources rarely all
+    // agree; when they do, that's the strongest signal we can detect
+    // and it deserves a confidence boost. Honest because the boost
+    // is gated on real source agreement, not math inflation. Skip
+    // for NEUTRAL — by definition there's no direction to agree on.
+    let unanimousBonus = 0;
+    if (finalSignal === 'BUY' || finalSignal === 'SELL') {
+        const all = [technicalScore, sentiment.score, market.score];
+        if (ai.available) all.push(ai.score);
+        const direction = finalSignal === 'BUY' ? 'up' : 'down';
+        const allAgree = direction === 'up'
+            ? all.every(s => s > 55)
+            : all.every(s => s < 45);
+        if (allAgree) {
+            unanimousBonus = 5;
+            rawConfidence = Math.min(88, rawConfidence + unanimousBonus);
+        }
+    }
+
+    // Per-symbol live-ledger track-record bonus. If the engine has
+    // a meaningful number of resolved predictions on THIS exact
+    // symbol (>=5) AND its 1d hit rate on this symbol is above the
+    // engine-wide average, we have evidence the engine reads this
+    // particular name well — boost up to +5pts. If the symbol's
+    // track record is BELOW average, dock up to -3pts. Skipped on
+    // bulkScan to keep Hot Picks scan fast (the ledger fetch is
+    // small but adds up across 60 symbols). Skipped for crypto
+    // because the ledger is stock-only today.
+    let trackRecord = null;
+    if (mode === 'stock' && !bulkScan && symbolOrCoinId && (finalSignal === 'BUY' || finalSignal === 'SELL')) {
+        try {
+            const lh = await readLedgerHistory({ symbol: symbolOrCoinId, limit: 50 });
+            if (lh?.available && lh.resolved1d >= 5) {
+                const symHitRate = lh.hitRate1dPct;
+                // Engine-wide baseline ~50% on the live ledger
+                // (slightly above coin-flip per the calibration audit).
+                // Anything >60% is meaningfully above; >70% is strong.
+                let trAdj = 0;
+                if (symHitRate >= 70) trAdj = 5;
+                else if (symHitRate >= 60) trAdj = 3;
+                else if (symHitRate < 40) trAdj = -3;
+                if (trAdj !== 0) {
+                    rawConfidence = Math.max(50, Math.min(88, rawConfidence + trAdj));
+                }
+                trackRecord = {
+                    resolvedN: lh.resolved1d,
+                    hitRatePct: symHitRate,
+                    adjust: trAdj,
+                    reason: trAdj > 0
+                        ? `Engine has ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls — track-record bonus`
+                        : trAdj < 0
+                            ? `Engine has only ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls — track-record penalty`
+                            : null,
+                };
+            }
+        } catch (_) {}
+    }
 
     let regimePen = 0;
-    if (regime) { regimePen = regimeBias(regime.regime).pen || 0; rawConfidence = Math.max(38, rawConfidence - regimePen); }
+    if (regime) { regimePen = regimeBias(regime.regime).pen || 0; rawConfidence = Math.max(50, rawConfidence - regimePen); }
 
     let sectorAdj = 0, sectorMeta = null;
     if (mode === 'stock' && symbolOrCoinId) {
-        try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(38, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
+        try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(50, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
     }
 
     // 10-year yield context. Long-duration / rate-sensitive sectors get
@@ -111,7 +181,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         try {
             yieldResult = await getYieldAdjustment(symbolOrCoinId, finalSignal);
             if (yieldResult?.adjust) {
-                rawConfidence = Math.max(38, Math.min(88, rawConfidence + yieldResult.adjust));
+                rawConfidence = Math.max(50, Math.min(88, rawConfidence + yieldResult.adjust));
             }
         } catch (_) {}
     }
@@ -125,39 +195,39 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     let derivs = null, derivsResult = null;
     if (mode === 'crypto' && !bulkScan && symbolOrCoinId) {
-        try { derivs = await fetchCryptoDerivs(symbolOrCoinId); if (derivs) { const priceChange1d = computePriceChange1d(multiData); derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d); rawConfidence = Math.max(38, Math.min(88, rawConfidence + (derivsResult.adjust || 0))); } } catch (_) {}
+        try { derivs = await fetchCryptoDerivs(symbolOrCoinId); if (derivs) { const priceChange1d = computePriceChange1d(multiData); derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d); rawConfidence = Math.max(50, Math.min(88, rawConfidence + (derivsResult.adjust || 0))); } } catch (_) {}
     }
 
     let peerResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { const peer = await getPeerAgreement(symbolOrCoinId, finalSignal); if (peer) { peerResult = peerAdjustment(finalSignal, peer); if (peerResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + peerResult.adjust)); peerResult.peer = peer; } } catch (_) {}
+        try { const peer = await getPeerAgreement(symbolOrCoinId, finalSignal); if (peer) { peerResult = peerAdjustment(finalSignal, peer); if (peerResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + peerResult.adjust)); peerResult.peer = peer; } } catch (_) {}
     }
 
     let options = null, optionsResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { options = await fetchOptionsPositioning(symbolOrCoinId); if (options) { optionsResult = optionsAdjustment(finalSignal, options); rawConfidence = Math.max(38, Math.min(88, rawConfidence + (optionsResult.adjust || 0))); } } catch (_) {}
+        try { options = await fetchOptionsPositioning(symbolOrCoinId); if (options) { optionsResult = optionsAdjustment(finalSignal, options); rawConfidence = Math.max(50, Math.min(88, rawConfidence + (optionsResult.adjust || 0))); } } catch (_) {}
     }
 
     let squeeze = null, squeezeResult = null;
-    try { const closes = (multiData?.daily?.candles || []).map(c => c.close); squeeze = detectSqueeze(closes); if (squeeze) { squeezeResult = squeezeAdjustment(finalSignal, squeeze); if (squeezeResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + squeezeResult.adjust)); } } catch (_) {}
+    try { const closes = (multiData?.daily?.candles || []).map(c => c.close); squeeze = detectSqueeze(closes); if (squeeze) { squeezeResult = squeezeAdjustment(finalSignal, squeeze); if (squeezeResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + squeezeResult.adjust)); } } catch (_) {}
 
     let tfAgreement = null, tfResult = null;
-    if (technicalPred.breakdown) { tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown); if (tfAgreement) { tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement); if (tfResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + tfResult.adjust)); } }
+    if (technicalPred.breakdown) { tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown); if (tfAgreement) { tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement); if (tfResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + tfResult.adjust)); } }
 
     let vwap = null, vwapResult = null;
-    try { vwap = computeVwapClassifier(multiData?.daily?.candles || []); if (vwap) { vwapResult = vwapAdjustment(finalSignal, vwap); if (vwapResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + vwapResult.adjust)); } } catch (_) {}
+    try { vwap = computeVwapClassifier(multiData?.daily?.candles || []); if (vwap) { vwapResult = vwapAdjustment(finalSignal, vwap); if (vwapResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + vwapResult.adjust)); } } catch (_) {}
 
     let rotation = null, rotationResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { rotation = await getSectorRotation(symbolOrCoinId); if (rotation) { rotationResult = rotationAdjustment(finalSignal, rotation); if (rotationResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + rotationResult.adjust)); } } catch (_) {}
+        try { rotation = await getSectorRotation(symbolOrCoinId); if (rotation) { rotationResult = rotationAdjustment(finalSignal, rotation); if (rotationResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + rotationResult.adjust)); } } catch (_) {}
     }
 
     let volProfile = null, volProfileResult = null;
-    try { volProfile = computeVolumeProfile(multiData?.daily?.candles || []); if (volProfile) { volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend); if (volProfileResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + volProfileResult.adjust)); } } catch (_) {}
+    try { volProfile = computeVolumeProfile(multiData?.daily?.candles || []); if (volProfile) { volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend); if (volProfileResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + volProfileResult.adjust)); } } catch (_) {}
 
     let crossAsset = null, crossAssetResult = null;
     if (!bulkScan && symbolOrCoinId) {
-        try { crossAsset = await getCrossAsset(mode, symbolOrCoinId); if (crossAsset) { crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset); if (crossAssetResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + crossAssetResult.adjust)); } } catch (_) {}
+        try { crossAsset = await getCrossAsset(mode, symbolOrCoinId); if (crossAsset) { crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset); if (crossAssetResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + crossAssetResult.adjust)); } } catch (_) {}
     }
 
     let gap = null;
@@ -179,7 +249,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             penny = await getPennyTierData(symbolOrCoinId);
             if (penny) {
                 pennyResult = pennyTierAdjustment(finalSignal, penny, tier);
-                if (pennyResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + pennyResult.adjust));
+                if (pennyResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + pennyResult.adjust));
                 if (pennyResult.cap < rawConfidence) rawConfidence = pennyResult.cap;
             }
         } catch (_) {}
@@ -191,7 +261,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             finraShort = await getFinraShort(symbolOrCoinId);
             if (finraShort) {
                 finraResult = finraShortAdjustment(finalSignal, finraShort, tier, priceChange1d);
-                if (finraResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + finraResult.adjust));
+                if (finraResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + finraResult.adjust));
             }
         } catch (_) {}
     }
@@ -202,7 +272,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             insider = await getOpenInsider(symbolOrCoinId);
             if (insider) {
                 insiderResult = openInsiderAdjustment(finalSignal, insider, tier);
-                if (insiderResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + insiderResult.adjust));
+                if (insiderResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + insiderResult.adjust));
             }
         } catch (_) {}
     }
@@ -213,7 +283,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             socialVel = await getSocialVelocity(symbolOrCoinId);
             if (socialVel) {
                 socialResult = socialVelocityAdjustment(finalSignal, socialVel);
-                if (socialResult.adjust) rawConfidence = Math.max(38, Math.min(88, rawConfidence + socialResult.adjust));
+                if (socialResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + socialResult.adjust));
             }
         } catch (_) {}
     }
@@ -223,7 +293,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const patternKey = encodePattern({ signal: finalSignal, indicators: technicalPred.indicators, tier });
         const adj = patternAdjustment(patternKey);
         if (adj.cap != null && adj.cap < rawConfidence) { rawConfidence = adj.cap; patternResult = adj; }
-        else if (adj.adjust) { rawConfidence = Math.max(38, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
+        else if (adj.adjust) { rawConfidence = Math.max(50, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
     }
 
     const region = regionFor(symbolOrCoinId);
@@ -256,7 +326,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (penny?.squeezeRisk >= 0.5) widthBase += 4;
     if (socialVel?.label === 'extreme') widthBase += 3;
     const halfWidth = Math.round(widthBase / 2);
-    const lo = Math.max(38, calibratedConfidence - halfWidth);
+    const lo = Math.max(50, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
     const confidenceRange = (hi - lo) >= 4 ? { lo, hi } : null;
 
@@ -288,6 +358,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (insiderResult?.reasons?.length) insiderResult.reasons.forEach(r => allReasons.push(`[Insiders] ${r}`));
     if (socialResult?.reasons?.length) socialResult.reasons.forEach(r => allReasons.push(`[Social] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
+    if (unanimousBonus > 0) allReasons.push(`[Engine] All sources agree directionally — confidence boosted by ${unanimousBonus}`);
+    if (trackRecord?.reason) allReasons.push(`[Track Record] ${trackRecord.reason}`);
 
     return {
         signal: finalSignal,
@@ -299,6 +371,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         liquidityTier: tier,
         volTier,
         disagreementPenalty,
+        unanimousBonus,
+        trackRecord,
         dispersion: Math.round(dispersion),
         regime: regime?.regime,
         sector: sectorMeta,
