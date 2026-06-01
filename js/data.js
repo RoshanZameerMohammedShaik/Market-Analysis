@@ -24,6 +24,29 @@ function isYahooUrl(url) {
     return /^https?:\/\/(query1|query2)\.finance\.yahoo\.com\//i.test(url);
 }
 
+// Per-target-host breaker. Independent of the per-proxy breaker
+// below — this one trips when the TARGET URL's host is unreachable
+// regardless of which proxy we tried. Catches the case where Hot
+// Picks fires 5 parallel analyses, each calling fetchGoogleNews,
+// before the news.js-level breaker has time to trip on the first
+// failure. We trip THIS one fast (after a single chain failure) so
+// concurrent callers in flight short-circuit at the proxy layer.
+function targetBreakerName(url) {
+    try { return 'target:' + new URL(url).hostname; }
+    catch (_) { return null; }
+}
+// Targets we don't want to breaker-cool (they're our own infra OR
+// reliably-up Yahoo paths that aren't crumb-walled). Without this,
+// a single transient blip on chart endpoints would silence the whole
+// engine.
+const TARGET_BREAKER_EXEMPT = /(^|\.)yahoo\.com$|workers\.dev$|coingecko\.com$|stooq\.com$/i;
+function shouldUseTargetBreaker(url) {
+    try {
+        const h = new URL(url).hostname;
+        return !TARGET_BREAKER_EXEMPT.test(h);
+    } catch (_) { return false; }
+}
+
 // Per-endpoint cool-down for Yahoo paths Yahoo started crumb-walling.
 // /v10/quoteSummary and /v7/options/ require an auth cookie + crumb
 // our worker proxy can't satisfy; Yahoo returns 401. Each endpoint
@@ -49,6 +72,15 @@ function recordYahooSkip(url) {
     if (name) recordFailure(name);
 }
 
+// Each public CORS proxy gets its own breaker so a 503 on corsproxy.io
+// doesn't cause us to retry it for every subsequent URL in a scan.
+// Trip on first failure (per the centralized breaker contract);
+// 10-min cooldown then probes again.
+function proxyBreakerName(proxyUrl) {
+    try { return 'cors-proxy:' + new URL(proxyUrl).hostname; }
+    catch (_) { return 'cors-proxy:unknown'; }
+}
+
 export async function fetchWithProxy(url) {
     const yahoo = isYahooUrl(url);
 
@@ -57,11 +89,30 @@ export async function fetchWithProxy(url) {
     if (yahoo && shouldSkipYahooUrl(url)) {
         throw new Error('Yahoo endpoint crumb-walled (skipped).');
     }
+    // Short-circuit any target host that's already cooling (e.g.
+    // news.google.com after one failed chain). When 5 parallel
+    // callers race in, only the first walks the chain; the rest
+    // hit the breaker at the gate.
+    const targetBreaker = shouldUseTargetBreaker(url) ? targetBreakerName(url) : null;
+    if (targetBreaker && isCooling(targetBreaker)) {
+        throw new Error(`Target host cooling (${targetBreaker}).`);
+    }
 
     // 1) Direct fetch — only for non-Yahoo URLs. Yahoo never sends CORS
     //    headers from the browser, so a direct attempt is guaranteed to
     //    log an error and waste a round-trip. Skip it.
-    if (!yahoo) {
+    //
+    // Also skip direct for hosts we've already learned reject CORS —
+    // news.google.com is the textbook example. After one failure the
+    // target breaker covers it, but we additionally maintain a
+    // hard-coded list of hosts that NEVER work via direct fetch from
+    // a browser, so we don't even try once. Saves the first error
+    // every session.
+    const directBlockedHosts = /^([^.]+\.)?(news\.google\.com|reddit\.com)$/i;
+    let urlHost = '';
+    try { urlHost = new URL(url).hostname; } catch (_) {}
+    const tryDirect = !yahoo && !directBlockedHosts.test(urlHost);
+    if (tryDirect) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (res.ok) {
@@ -72,34 +123,63 @@ export async function fetchWithProxy(url) {
     }
 
     // 2) For Yahoo URLs, our Worker is the primary path.
-    let workerStatus = null;
     if (yahoo) {
         try {
             const res = await tryProxy(WORKER_PROXY, url);
             if (res) return res;
-        } catch (e) { workerStatus = e.status; /* fall through */ }
+        } catch (e) {
+            // 401 from the worker on a crumb-walled Yahoo path means
+            // EVERY downstream proxy will also 401 — they all hit the
+            // same Yahoo endpoint that requires the auth cookie + crumb.
+            // Trip the breaker IMMEDIATELY and abort the chain. Without
+            // this, we'd cascade through 4 CORS proxies just to learn
+            // the same thing 4 more times.
+            if (e.status === 401 && yahooBreakerNameFor(url)) {
+                recordYahooSkip(url);
+                throw new Error('Yahoo endpoint crumb-walled (401, skipping chain).');
+            }
+        }
     }
 
+    // 3) Public CORS proxy chain. Each proxy has its own breaker so a
+    //    503/timeout on corsproxy.io doesn't get retried for every
+    //    subsequent URL in a Hot-Picks-style scan. The "lastWorking"
+    //    sticky-pick stays — once one proxy works, future calls hit it
+    //    first and skip the chain entirely on the happy path.
     if (workingProxy !== null) {
-        try {
-            const res = await tryProxy(CORS_PROXIES[workingProxy], url);
-            if (res) return res;
-        } catch (e) { workingProxy = null; }
+        const proxy = CORS_PROXIES[workingProxy];
+        if (!isCooling(proxyBreakerName(proxy))) {
+            try {
+                const res = await tryProxy(proxy, url);
+                if (res) return res;
+            } catch (e) {
+                recordFailure(proxyBreakerName(proxy));
+                workingProxy = null;
+            }
+        } else {
+            workingProxy = null;
+        }
     }
 
     for (let i = 0; i < CORS_PROXIES.length; i++) {
         if (i === workingProxy) continue;
+        const proxy = CORS_PROXIES[i];
+        if (isCooling(proxyBreakerName(proxy))) continue;
         try {
-            const res = await tryProxy(CORS_PROXIES[i], url);
+            const res = await tryProxy(proxy, url);
             if (res) {
                 workingProxy = i;
                 return res;
             }
-        } catch (e) { continue; }
+        } catch (e) {
+            recordFailure(proxyBreakerName(proxy));
+            continue;
+        }
     }
-    // If we exhausted EVERY proxy on a Yahoo crumb-walled path, mark
-    // that endpoint family as cooling so the next 60 batch items
-    // don't re-walk the same dead chain.
+    // Exhausted every proxy. Trip both the per-target breaker (so
+    // future calls to the same host short-circuit) and any matching
+    // Yahoo crumb-wall breaker.
+    if (targetBreaker) recordFailure(targetBreaker);
     if (yahoo) recordYahooSkip(url);
     throw new Error(`Unable to reach data source. Please try again.`);
 }

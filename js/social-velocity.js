@@ -29,14 +29,11 @@ async function fetchRedditMentions(symbol) {
     if (isCooling('reddit')) return null;
     const sub = 'wallstreetbets+stocks+pennystocks+stockmarket';
     const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?q=${encodeURIComponent(symbol)}&restrict_sr=1&sort=new&limit=100`;
-    try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-        if (res.ok) {
-            const json = await res.json();
-            recordSuccess('reddit');
-            return (json?.data?.children || []).map(c => c.data).filter(Boolean);
-        }
-    } catch (_) { /* fall through to proxy */ }
+    // Reddit reliably 403s direct browser fetches in production —
+    // skip the direct attempt and route straight through fetchWithProxy
+    // which has its own per-host breaker covering reddit.com. The old
+    // direct-then-proxy code was logging "Failed to fetch" once per
+    // analysis even when the proxy path worked.
     try {
         const { fetchWithProxy } = await import('./data.js');
         const res = await fetchWithProxy(url);
