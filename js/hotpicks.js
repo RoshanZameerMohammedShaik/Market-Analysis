@@ -129,7 +129,12 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         const batchResults = await Promise.allSettled(
             batch.map(async (symbol) => {
                 try {
-                    const data = await fetchStockData(symbol, '3mo', '1d');
+                    // suffixProbe disabled — Hot Picks operates on a
+                    // curated universe with exchange suffixes already
+                    // baked in where needed. The expensive 6-candidate
+                    // probe in fetchStockData is only valuable for
+                    // user-typed tickers that might be ambiguous.
+                    const data = await fetchStockData(symbol, '3mo', '1d', { suffixProbe: false });
                     if (!data.candles || data.candles.length < 30) return null;
                     const multiData = deriveMultiTimeframe(data);
                     const prediction = generateMultiTimeframePrediction(multiData, timeframe);

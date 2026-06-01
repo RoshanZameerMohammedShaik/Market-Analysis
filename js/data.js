@@ -91,22 +91,26 @@ function createTextResponse(text, originalRes) {
 
 // ─── STOCK DATA ───────────────────────────────────────────────────────────────
 
-export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
+export async function fetchStockData(symbol, range = '3mo', interval = '1d', opts = {}) {
     // Raw symbol — fetchWithProxy encodes the URL exactly once at the
     // proxy layer (see regime.js comment). Pre-encoding here would
     // double-encode any '^' / ':' / non-ASCII characters and Yahoo
     // would 404. ASCII tickers are unaffected (encodeURIComponent is
     // idempotent for them), but the bug pattern is still wrong.
     //
-    // Suffix retry chain: if the user (or some upstream caller) hands us
-    // a BARE Indian / international ticker (no .NS/.BO/.L/.HK/.T/.AX/.DE
-    // suffix), Yahoo's chart endpoint returns no data because it can't
-    // resolve the exchange. Most common case: Indian small-caps like
-    // CORDSCABLE that Yahoo's autocomplete misses. We try the bare form
-    // first (correct for US tickers), then fall through the major
-    // non-US exchanges in order of likelihood for a global app.
+    // Suffix retry chain: when the caller hands us a BARE ticker (no
+    // .NS/.BO/.L/.HK/.T/.AX suffix), Yahoo's chart endpoint may return
+    // no data for non-US listings (CORDSCABLE-style Indian small-caps)
+    // because it can't resolve the exchange. We probe the bare form
+    // first, then fall through major non-US exchanges in likelihood
+    // order. EXPENSIVE on the miss path — 6 candidates × 2 URLs ×
+    // proxy chain — so callers that operate on bulk universes (Hot
+    // Picks scan, batch refresh) opt OUT via { suffixProbe: false } to
+    // avoid the freeze when even one symbol is dead. User-initiated
+    // searches keep the probe enabled (default true).
     const hasSuffix = /\.[A-Z]{1,3}$/.test(symbol);
-    const candidates = hasSuffix
+    const probe = opts.suffixProbe !== false;
+    const candidates = hasSuffix || !probe
         ? [symbol]
         : [symbol, `${symbol}.NS`, `${symbol}.BO`, `${symbol}.L`, `${symbol}.HK`, `${symbol}.T`];
 
@@ -186,17 +190,23 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d') {
 }
 
 export async function fetchStockMultiTimeframe(symbol) {
-    const [dailyRes, weeklyRes, fourHourRes] = await Promise.allSettled([
-        fetchStockData(symbol, '3mo', '1d'),
-        fetchStockData(symbol, '1y', '1wk'),
-        fetchStockData(symbol, '1mo', '1h'),
+    // Resolve the daily fetch FIRST — that one runs the suffix probe
+    // (CORDSCABLE → CORDSCABLE.NS), so the weekly + 4h calls can
+    // skip re-probing by using the resolved symbol with suffixProbe off.
+    // Without this, an unsuffixed Indian ticker would re-probe through
+    // 6 candidates × 2 URLs three separate times in parallel — major
+    // slowdown on a search miss.
+    const dailyRes = await fetchStockData(symbol, '3mo', '1d').catch(() => null);
+    if (!dailyRes) throw new Error(`Could not fetch data for ${symbol}`);
+    const resolved = dailyRes.symbol || symbol;
+    const [weeklyRes, fourHourRes] = await Promise.allSettled([
+        fetchStockData(resolved, '1y', '1wk', { suffixProbe: false }),
+        fetchStockData(resolved, '1mo', '1h', { suffixProbe: false }),
     ]);
 
-    const daily = dailyRes.status === 'fulfilled' ? dailyRes.value : null;
+    const daily = dailyRes;
     const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
     const fourHourRaw = fourHourRes.status === 'fulfilled' ? fourHourRes.value : null;
-
-    if (!daily) throw new Error(`Could not fetch data for ${symbol}`);
 
     const fourHour = fourHourRaw
         ? { ...fourHourRaw, candles: aggregateCandles(fourHourRaw.candles, 4) }

@@ -157,7 +157,10 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
                 let candles = c.candles;
                 if (!candles) {
                     if (mode === 'stock') {
-                        const data = await fetchStockData(c.symbol, '3mo', '1d');
+                        // Bulk scan path — suffixProbe off so a single
+                        // missing symbol doesn't walk 6 candidates × 2
+                        // URLs through the proxy chain.
+                        const data = await fetchStockData(c.symbol, '3mo', '1d', { suffixProbe: false });
                         candles = data.candles;
                         c.name = c.name || data.name;
                         c.price = data.currentPrice;

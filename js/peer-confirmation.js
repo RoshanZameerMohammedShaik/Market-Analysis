@@ -46,7 +46,9 @@ export async function getPeerAgreement(symbol, ourSignal) {
 
     const sample = peers.slice(0, 4);
     const results = await Promise.allSettled(sample.map(async p => {
-        const data = await fetchStockData(p, '3mo', '1d');
+        // suffixProbe off — peer set is curated US tickers; the probe
+        // would just slow this down on any miss.
+        const data = await fetchStockData(p, '3mo', '1d', { suffixProbe: false });
         if (!data?.candles || data.candles.length < 30) return null;
         const pred = generatePrediction(data.candles);
         return pred?.signal || null;

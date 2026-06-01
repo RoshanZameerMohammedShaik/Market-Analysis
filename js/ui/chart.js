@@ -126,7 +126,9 @@ async function renderLocalChart(symbol, container) {
     try {
         const [LWC, data] = await Promise.all([
             loadLightweightCharts(),
-            fetchStockData(symbol, '6mo', '1d'),
+            // Symbol is already exchange-tagged at this point (we only
+            // hit renderLocalChart for non-US tickers). suffixProbe off.
+            fetchStockData(symbol, '6mo', '1d', { suffixProbe: false }),
         ]);
         if (!data?.candles?.length) {
             container.innerHTML = `<div class="error-message">No chart data for ${symbol}.</div>`;
