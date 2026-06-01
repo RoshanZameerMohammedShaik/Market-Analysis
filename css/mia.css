@@ -717,13 +717,17 @@ body.side-panel-mia-open .mia-launcher {
        the gradient (300%) and use linear timing. Start frame and
        end frame are then geometrically identical (since the gradient
        repeats every 300%), and the wrap is invisible. */
+    /* Wider contrast between rest-state and peak: rest is a noticeably
+       darker grey (was 0.65 → now 0.40) so the shimmer band reads as
+       a bright sweep instead of a faint highlight on already-bright
+       text. Peak goes pure white. */
     background-image: linear-gradient(
         100deg,
-        rgba(255, 255, 255, 0.65) 0%,
-        rgba(255, 255, 255, 0.65) 35%,
+        rgba(255, 255, 255, 0.40) 0%,
+        rgba(255, 255, 255, 0.40) 35%,
         rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.65) 65%,
-        rgba(255, 255, 255, 0.65) 100%
+        rgba(255, 255, 255, 0.40) 65%,
+        rgba(255, 255, 255, 0.40) 100%
     );
     background-size: 300% 100%;
     background-repeat: repeat-x;

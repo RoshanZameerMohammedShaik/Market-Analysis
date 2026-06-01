@@ -18,10 +18,16 @@
     .dev-tile h2 { font-size: 1.05rem; margin: 0 0 4px; }
     .dev-tile p { color: var(--text-secondary); font-size: 0.86rem; margin: 0 0 12px; line-height: 1.5; }
     .dev-tile .dev-tile-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .dev-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--brand-grad-2); color: white; border: none; border-radius: 8px; font-size: 0.84rem; font-weight: 700; cursor: pointer; text-decoration: none; }
-    .dev-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px var(--brand-grad-shadow); }
+    .dev-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 800; cursor: pointer; text-decoration: none; letter-spacing: 0.4px; transition: transform 0.15s, box-shadow 0.15s; }
+    .dev-btn:hover { transform: translateY(-1px); }
+    /* Distinct on/off colors so the buttons read as clear opposites,
+       not two pills that look the same. ON = vivid green (active),
+       OFF = vivid red (destructive). */
+    .dev-btn-on { background: linear-gradient(135deg, #22c55e, #15803d); color: white; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); }
+    .dev-btn-on:hover { box-shadow: 0 6px 20px rgba(34, 197, 94, 0.55); }
+    .dev-btn-danger { background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4); }
+    .dev-btn-danger:hover { box-shadow: 0 6px 20px rgba(239, 68, 68, 0.55); }
     .dev-btn-ghost { background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); }
-    .dev-btn-danger { background: linear-gradient(135deg, #ef4444, #b91c1c); }
     .dev-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(34, 197, 94, 0.15); color: var(--green); border-radius: 12px; font-size: 0.74rem; font-weight: 700; margin-left: 8px; }
     .dev-status[data-on="false"] { background: rgba(239, 68, 68, 0.15); color: var(--red); }
     .dev-back { color: var(--accent); text-decoration: none; font-size: 0.86rem; }
@@ -61,14 +67,15 @@
         <h2>Mode toggle</h2>
         <p>Dev mode persists in <code>localStorage</code>. While on, the app reveals extra diagnostics on the signal card and skips some user-friendly fallbacks.</p>
         <div class="dev-tile-actions">
-            <button class="dev-btn" id="dev-toggle-on">Turn ON</button>
-            <button class="dev-btn dev-btn-danger" id="dev-toggle-off">Turn OFF</button>
+            <button class="dev-btn dev-btn-on" id="dev-toggle-on">✓ Turn ON</button>
+            <button class="dev-btn dev-btn-danger" id="dev-toggle-off">✕ Turn OFF</button>
         </div>
     </div>
 
     <div class="dev-tile">
         <h2>Debug App</h2>
-        <p>Live view of every console message, uncaught error, promise rejection, and fetch failure across the whole app — captured from the moment the page loads. URLs and tokens are auto-redacted before they hit the buffer, so it's safe to copy or screenshot.</p>
+        <p><strong>To see the main app's logs in real time, open the app at <a href="../" class="dev-back">/</a> with dev mode ON</strong> — a floating debug chip appears in the bottom-left corner. Click it to open the same console UI you'd expect here. Each browser tab has its own log buffer, so the panel HAS to live on the page you're debugging — this <code>/dev</code> page can't see the main app's tab.</p>
+        <p style="margin-top: 8px;">The console below shows what's happening on <strong>this</strong> page (the Dev Hub itself) — useful only for debugging dev-mode bootstrap problems.</p>
         <div class="dev-console" id="dev-console">
             <div class="dev-console-toolbar">
                 <input id="dev-console-search" placeholder="filter (substring)…" autocomplete="off" spellcheck="false">
