@@ -1194,10 +1194,52 @@ body {
 .hot-pick-confidence.sell { color: var(--red); }
 .hot-pick-confidence.neutral { color: var(--yellow); }
 .hot-pick-arrow { display: inline-block; }
-/* Predicted-move % — secondary line under confidence so the user can
-   tell "60% sure" apart from "+4% expected". Smaller and muted so
-   confidence stays the headline number. */
-.hot-pick-expected { font-family: var(--num-font); font-size: 0.72rem; color: var(--text-muted); margin-top: -2px; }
+/* Spike-expected line: shows magnitude of the predicted upside as a
+   percent. Bright accent + ⚡ icon to telegraph "this is the
+   forecast move size", distinct from confidence. */
+.hot-pick-spike {
+    font-family: var(--num-font);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.2px;
+    margin-top: 2px;
+}
+
+/* High / Low / Current price target rows. Two-line layout per row:
+   muted descriptor on top ("Expected Highest Reach"), the actual
+   price below. Color-coded so green = upside target, red = downside,
+   neutral = current price reference. */
+.hot-pick-target {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 4px;
+    line-height: 1.25;
+}
+.hot-pick-target-label {
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.hot-pick-target-value {
+    font-family: var(--num-font);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+.hot-pick-target-high .hot-pick-target-value { color: var(--green); }
+.hot-pick-target-low  .hot-pick-target-value { color: var(--red); }
+.hot-pick-current-price {
+    /* Override the default flex layout from .hot-pick-price so the
+       two-line stack works the same as the high/low rows. */
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 4px;
+}
+.hot-pick-current-price .hot-pick-target-value { color: var(--text-primary); }
 .hot-pick-price { font-family: var(--num-font); font-size: 0.82rem; color: var(--text-secondary); }
 .hp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .hp-skel { height: 130px; background: var(--bg-hover); border-radius: var(--radius-md); animation: skel-pulse 1.6s ease-in-out infinite; }

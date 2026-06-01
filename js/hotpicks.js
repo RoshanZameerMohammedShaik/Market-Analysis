@@ -158,10 +158,16 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                         price: data.currentPrice || meta.price,
                         signal,
                         confidence,
-                        // Predicted upside % surfaces on the card next
-                        // to confidence so the user can distinguish
-                        // "60% sure" from "predicted +4% move".
+                        // Surface the full price-target band on the card.
+                        // expectedPct = upside %, expectedHigh = absolute
+                        // price for the high target, expectedLow + lowPct
+                        // = downside risk number. Roshan asked for
+                        // verbose labels per number; renderer formats them.
                         expectedPct: prediction.priceTargets?.highPercent ?? null,
+                        expectedHigh: prediction.priceTargets?.predictedHigh ?? null,
+                        expectedLow: prediction.priceTargets?.predictedLow ?? null,
+                        expectedLowPct: prediction.priceTargets?.lowPercent ?? null,
+                        currency: data.currency || 'USD',
                         reasons: prediction.reasons,
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
@@ -345,6 +351,10 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
                 signal, confidence,
                 expectedPct: prediction.priceTargets?.highPercent ?? null,
+                expectedHigh: prediction.priceTargets?.predictedHigh ?? null,
+                expectedLow: prediction.priceTargets?.predictedLow ?? null,
+                expectedLowPct: prediction.priceTargets?.lowPercent ?? null,
+                currency: 'USD', // CoinGecko data is always USD
                 reasons: prediction.reasons,
                 change: coin.change24h || 0, _sparkline: sparklineData,
             });

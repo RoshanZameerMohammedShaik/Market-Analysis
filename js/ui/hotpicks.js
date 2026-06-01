@@ -142,15 +142,24 @@ function renderCards(grid, picks, withFooter) {
             : "DON'T BUY";
         const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
-        // Two distinct numbers on the card now:
-        //   - confidence (calibrated %) — how sure the engine is
-        //   - expectedPct (price-target high %) — predicted move size
-        // Roshan asked for the distinction explicitly. Confidence
-        // sits primary; expected move is the smaller secondary line.
-        const expectedHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
-            ? `<div class="hot-pick-expected" title="Predicted upside to high target">
-                  ${pick.expectedPct >= 0 ? '+' : ''}${Number(pick.expectedPct).toFixed(2)}% target
-               </div>`
+        // Verbose labels per Roshan's spec:
+        //   "56% Confidence"
+        //   "5% Spike Expected ⚡"
+        //   "Expected Highest Reach $X"
+        //   "Expected Lowest Fall $Y"
+        // All four lines surface so the user can read the FULL forecast
+        // at a glance without clicking into the card. Source-currency
+        // is threaded so non-USD listings render in their native quote
+        // currency (no FX-multiplied INR-as-USD bug).
+        const co = { srcCurrency: pick.currency || 'USD' };
+        const spikeHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
+            ? `<div class="hot-pick-spike">${pick.expectedPct >= 0 ? '+' : ''}${Number(pick.expectedPct).toFixed(2)}% Spike Expected ⚡</div>`
+            : '';
+        const highHTML = (pick.expectedHigh != null && Number.isFinite(pick.expectedHigh))
+            ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Expected Highest Reach</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}</span></div>`
+            : '';
+        const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
+            ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
         return `
         <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
@@ -158,9 +167,11 @@ function renderCards(grid, picks, withFooter) {
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}%</div>
-            ${expectedHTML}
-            <div class="hot-pick-price">${fmtPriceTag(pick.price)}</div>
+            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}% Confidence</div>
+            ${spikeHTML}
+            ${highHTML}
+            ${lowHTML}
+            <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.price, co)}</span></div>
         </div>`;
     }).join('');
 
