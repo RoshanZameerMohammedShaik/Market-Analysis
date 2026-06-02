@@ -357,14 +357,17 @@ function initSettingsMenu() {
         if (e.key === 'Escape' && menu.classList.contains('open')) setOpen(false);
     });
 
-    // P&L Calculator shortcut — opens the Portfolio panel (where the
-    // calc lives) and focuses the first input so the user can start
-    // typing immediately.
+    // P&L Calculator shortcut — opens the Portfolio panel, expands
+    // the collapsed P&L calculator <details> section, scrolls it
+    // into view, and focuses the first input. Without the open=true
+    // step the input was hidden inside the collapsed details and
+    // the scroll/focus silently no-op'd.
     document.getElementById('pl-shortcut')?.addEventListener('click', async () => {
         const m = await import('./portfolio-panel.js');
         m.openPortfolioPanel();
-        // Wait one frame for the panel to mount its body.
         requestAnimationFrame(() => {
+            const section = document.getElementById('portfolio-pl-section');
+            if (section && !section.open) section.open = true;
             const inv = document.getElementById('pp-calc-investment');
             if (inv) {
                 inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
