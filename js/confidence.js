@@ -33,7 +33,7 @@ import { getPennyTierData, pennyTierAdjustment } from './penny-tier.js';
 import { getFinraShort, finraShortAdjustment } from './finra-short.js';
 import { getOpenInsider, openInsiderAdjustment } from './openinsider.js';
 import { getSocialVelocity, socialVelocityAdjustment } from './social-velocity.js';
-import { readLedgerHistory } from './mia/ui-bridge.js';
+import { readLedgerHistory } from './ledger-reader.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;

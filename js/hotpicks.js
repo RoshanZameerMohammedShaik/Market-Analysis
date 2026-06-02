@@ -23,6 +23,7 @@ import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { getMarketConditionsScore } from './market.js';
 import { UNIVERSE_CONFIG } from './markets.js';
+import { computeFullConfidence } from './confidence.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const stockCache = new Map(); // key -> { ts, picks }
@@ -118,9 +119,20 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${filteredSymbols.length} stocks…`);
 
-    // Phase 2: full analysis on filtered set.
+    // Phase 2: FULL engine analysis on filtered set. Every Phase 1
+    // finalist runs through computeFullConfidence — same code path as
+    // a user click — so Hot Picks cards reflect the real engine
+    // (LSTM + sentiment + market + macro/sector/yield/calendar/
+    // ledger-track-record + 20+ enrichment layers), not just a
+    // technicals-only preview.
+    //
+    // Cost: scan goes from ~12s to ~25-30s. Acceptable because
+    // (a) the user only does this on demand, (b) the cache layer
+    // means subsequent clicks on those symbols are instant, (c) the
+    // cards now actually mean what their confidence number says.
+    // Smaller batchSize (6) so the per-batch wait is short.
     const results = [];
-    const batchSize = 12;
+    const batchSize = 6;
     for (let i = 0; i < filteredSymbols.length; i += batchSize) {
         const batch = filteredSymbols.slice(i, i + batchSize);
         const analyzed = i + batch.length;
@@ -129,46 +141,27 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         const batchResults = await Promise.allSettled(
             batch.map(async (symbol) => {
                 try {
-                    // suffixProbe disabled — Hot Picks operates on a
-                    // curated universe with exchange suffixes already
-                    // baked in where needed. The expensive 6-candidate
-                    // probe in fetchStockData is only valuable for
-                    // user-typed tickers that might be ambiguous.
                     const data = await fetchStockData(symbol, '3mo', '1d', { suffixProbe: false });
                     if (!data.candles || data.candles.length < 30) return null;
                     const multiData = deriveMultiTimeframe(data);
-                    const prediction = generateMultiTimeframePrediction(multiData, timeframe);
+                    // Full pipeline — same call as the user-click path
+                    // in core.js. bulkScan=false so the LSTM, per-symbol
+                    // ledger track record, and all enrichments fire.
+                    const result = await computeFullConfidence(multiData, 'stock', symbol, timeframe, { bulkScan: false });
                     const meta = symbolMeta[symbol] || {};
-                    const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
-                    const blended = techScore * 0.60 + marketScore.score * 0.40;
-                    const deviation = Math.abs(blended - 50) / 50;
-                    const confidence = Math.round(38 + deviation * 50);
-                    // Same thresholds as confidence.js — engine commits
-                    // only when score crosses 60/40 AND calibrated
-                    // confidence is at least 55. Anything weaker is
-                    // NEUTRAL (filtered out below by the 60-floor cut).
-                    let signal;
-                    if (blended > 60 && confidence >= 55) signal = 'BUY';
-                    else if (blended < 40 && confidence >= 55) signal = 'SELL';
-                    else signal = 'NEUTRAL';
                     const sparkline = data.candles.slice(-30).map(c => c.close);
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
                         price: data.currentPrice || meta.price,
-                        signal,
-                        confidence,
-                        // Surface the full price-target band on the card.
-                        // expectedPct = upside %, expectedHigh = absolute
-                        // price for the high target, expectedLow + lowPct
-                        // = downside risk number. Roshan asked for
-                        // verbose labels per number; renderer formats them.
-                        expectedPct: prediction.priceTargets?.highPercent ?? null,
-                        expectedHigh: prediction.priceTargets?.predictedHigh ?? null,
-                        expectedLow: prediction.priceTargets?.predictedLow ?? null,
-                        expectedLowPct: prediction.priceTargets?.lowPercent ?? null,
+                        signal: result.signal,
+                        confidence: result.confidence,
+                        expectedPct: result.priceTargets?.highPercent ?? null,
+                        expectedHigh: result.priceTargets?.predictedHigh ?? null,
+                        expectedLow: result.priceTargets?.predictedLow ?? null,
+                        expectedLowPct: result.priceTargets?.lowPercent ?? null,
                         currency: data.currency || 'USD',
-                        reasons: prediction.reasons,
+                        reasons: result.reasons,
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                             : 0),
@@ -336,26 +329,20 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 weekly: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles: aggregateCandlesPeriod(candles, 7) },
                 fourHour: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
             };
-            const prediction = generateMultiTimeframePrediction(multiData, timeframe);
-            const techScore = convertSignalToScore(prediction.signal, prediction.confidence);
-            const blended = techScore * 0.60 + marketScore.score * 0.40;
-            const deviation = Math.abs(blended - 50) / 50;
-            const confidence = Math.round(38 + deviation * 50);
-            // Same conviction thresholds as the stock path + main engine:
-            // 60/40 score AND >=55 confidence to commit.
-            let signal;
-            if (blended > 60 && confidence >= 55) signal = 'BUY';
-            else if (blended < 40 && confidence >= 55) signal = 'SELL';
-            else signal = 'NEUTRAL';
+            // Full pipeline on crypto Hot Picks too — same engine as
+            // the click-path. computeFullConfidence handles crypto by
+            // routing through derivs / cross-asset enrichments.
+            const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false });
             results.push({
                 symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
-                signal, confidence,
-                expectedPct: prediction.priceTargets?.highPercent ?? null,
-                expectedHigh: prediction.priceTargets?.predictedHigh ?? null,
-                expectedLow: prediction.priceTargets?.predictedLow ?? null,
-                expectedLowPct: prediction.priceTargets?.lowPercent ?? null,
+                signal: result.signal,
+                confidence: result.confidence,
+                expectedPct: result.priceTargets?.highPercent ?? null,
+                expectedHigh: result.priceTargets?.predictedHigh ?? null,
+                expectedLow: result.priceTargets?.predictedLow ?? null,
+                expectedLowPct: result.priceTargets?.lowPercent ?? null,
                 currency: 'USD', // CoinGecko data is always USD
-                reasons: prediction.reasons,
+                reasons: result.reasons,
                 change: coin.change24h || 0, _sparkline: sparklineData,
             });
             // Progressive update every ~10 coins so the UI can repaint.
