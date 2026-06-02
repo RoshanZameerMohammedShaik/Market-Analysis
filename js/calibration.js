@@ -136,7 +136,29 @@ function liveRegionLookup(rawConfidence, region) {
     return { actual: slot.actual, n: slot.n };
 }
 
+// Lazy-load on first calibrate() call. Previously calibration was
+// only loaded by ui/core.js init, which raced against confidence.js
+// callers that fire from Hot Picks / scanner / prewarm before init
+// finished. Result: liveCalibration was null on early calls and
+// calibrate() returned raw confidence unchanged — every signal looked
+// pinned to the commitFloor (~53). Lazy-load eliminates that race.
+let _loadingPromise = null;
+function ensureLoaded() {
+    if (calibrationStatus !== 'unloaded') return null;
+    if (!_loadingPromise) _loadingPromise = loadCalibration();
+    return _loadingPromise;
+}
+
+export async function calibrateAsync(rawConfidence, opts) {
+    await ensureLoaded();
+    return calibrate(rawConfidence, opts);
+}
+
 export function calibrate(rawConfidence, { tier = null, volTier = null, region = null } = {}) {
+    // If load hasn't kicked off yet, kick it off now so subsequent
+    // calls have data. This call still uses whatever's currently in
+    // memory (may be null on the very first call).
+    ensureLoaded();
     // Priority 0: live ledger by horizon+signal (real-world, current).
     const live = liveBucketLookup(rawConfidence);
     if (live && live.n >= 30) {

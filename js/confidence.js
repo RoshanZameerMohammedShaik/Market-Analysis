@@ -7,7 +7,7 @@ import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
 import { generateMultiTimeframePrediction, calculateATR, summarizeAttribution } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
-import { calibrate, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
+import { calibrate, calibrateAsync, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
@@ -298,7 +298,12 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     }
 
     const region = regionFor(symbolOrCoinId);
-    const calibratedConfidence = calibrate(rawConfidence, { tier, volTier, region });
+    // Await the async variant so the calibration JSON is loaded before
+    // we read it. Earlier this was a sync call that raced against the
+    // ui/core.js init: the first wave of Hot Picks / scanner runs hit
+    // calibrate() while liveCalibration was still null, so calibration
+    // silently no-op'd and every confidence pinned near the commitFloor.
+    const calibratedConfidence = await calibrateAsync(rawConfidence, { tier, volTier, region });
     const calibrationApplied = getCalibrationStatus() === 'loaded';
     const ci = getInterval(finalSignal, calibratedConfidence);
 
