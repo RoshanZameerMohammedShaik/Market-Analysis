@@ -34,6 +34,7 @@ import { getFinraShort, finraShortAdjustment } from './finra-short.js';
 import { getOpenInsider, openInsiderAdjustment } from './openinsider.js';
 import { getSocialVelocity, socialVelocityAdjustment } from './social-velocity.js';
 import { readLedgerHistory } from './ledger-reader.js';
+import { getLearnedWeights } from './source-weights.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -65,9 +66,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const currentVix = regime?.components?.vix?.level;
     const volTier = classifyVolTier(currentVix);
 
-    let weights = ai.available
-        ? { ai: 0.15, technical: 0.35, sentiment: 0.25, market: 0.25 }
-        : { ai: 0,    technical: 0.40, sentiment: 0.30, market: 0.30 };
+    // Source weights are LEARNED from the live ledger every 30 min
+    // (see js/source-weights.js). Each source's per-prediction
+    // directional accuracy → normalized weight. Replaces the old
+    // hardcoded 0.15/0.35/0.25/0.25 split that violated the
+    // dynamic-only rule. Falls back to baseline only while the
+    // ledger is too thin (< 50 resolved rows with breakdown data).
+    let weights = await getLearnedWeights(ai.available);
     weights = applyWeightShifts(weights, regime?.regime, trendRegime, attributionShifts());
 
     const weightedScore = ai.score * weights.ai + technicalScore * weights.technical + sentiment.score * weights.sentiment + market.score * weights.market;
