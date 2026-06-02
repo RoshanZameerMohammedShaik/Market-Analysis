@@ -204,21 +204,14 @@ export function getHotPicksFloor() {
 }
 
 // Always surface the engine's top-conviction directional picks for the
-// session. The learned floor is now metadata, not a visibility gate:
-// each card carries a `qualityTier` field that the UI uses to mark
-// picks as "above-bar" or "below-bar" so the user can see what's
-// historically reliable vs. speculative without Hot Picks looking
-// empty on weak-conviction days.
-function rankPicks(results, maxPicks, floor) {
-    const directional = results
+// session, ranked by confidence. The learned floor (passed in but
+// unused here) used to gate visibility — that left Hot Picks empty on
+// weak-conviction days, so it's no longer a filter.
+function rankPicks(results, maxPicks, _floor) {
+    return results
         .filter(r => r.signal === 'BUY' || r.signal === 'SELL')
         .sort((a, b) => b.confidence - a.confidence)
-        .map(r => ({
-            ...r,
-            qualityTier: r.confidence >= floor ? 'above-bar' : 'below-bar',
-            historicalFloor: floor,
-        }));
-    return directional.slice(0, maxPicks);
+        .slice(0, maxPicks);
 }
 
 /**
