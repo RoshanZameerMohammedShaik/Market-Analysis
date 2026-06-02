@@ -336,10 +336,12 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 
 .mia-launcher .mia-launcher-logo .mia-ecg-trace,
 .mia-launcher .mia-launcher-logo .mia-ecg-blip {
-    stroke: #ffffff;
+    /* Black ECG on the new white disc — Roshan's spec was "Mia's
+       toggle in white, the ECG M animation in black inside it". */
+    stroke: #000000;
 }
 .mia-launcher .mia-launcher-logo .mia-ecg-blip {
     stroke-dasharray: 12 80;
     animation: ecg-sweep-mia 2s linear infinite;
-    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7));
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.35));
 }

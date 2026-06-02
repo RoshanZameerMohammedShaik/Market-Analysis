@@ -519,7 +519,7 @@ async function startLiveVoice() {
                     // of cutting off speech.
                     persistLiveTurn();
                     setOrbState('listening');
-                    setStatus('Listening…');
+                    setStatus('Listening…', { shimmer: true });
                     return;
                 }
                 // Generation finished but the audio queue may still be
@@ -531,7 +531,7 @@ async function startLiveVoice() {
                     if (!session.open || !session.liveMode) return;
                     persistLiveTurn();
                     setOrbState('listening');
-                    setStatus('Listening…');
+                    setStatus('Listening…', { shimmer: true });
                 });
             },
             onToolCall: async ({ id, name, args }) => {

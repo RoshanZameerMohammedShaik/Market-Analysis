@@ -8,29 +8,29 @@
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
                 background 0.4s ease, box-shadow 0.4s ease,
                 opacity 0.22s ease;
-    /* Slightly smaller than before (was 60px) so the launcher is less
-       visually dominant at rest, but still tap-friendly. */
     width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
     border: none; border-radius: 50%;
-    /* 3D-domed surface: top-left highlight + center-bottom shadow
-       layered over the brand gradient. Reads like a polished disc with
-       a light source from upper-left, not the flat painted-roti look
-       Roshan flagged. */
+    /* White 3D dome: subtle off-white gradient with a soft inner
+       shadow at the bottom and a bright highlight at the top so the
+       disc reads as a domed pearl with a top-left light source. The
+       black M-ECG glyph inside (see .mia-ecg-trace / .mia-ecg-blip
+       overrides below) sits on this white surface. */
     background:
-        radial-gradient(circle at 30% 28%, rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.0) 40%),
-        radial-gradient(circle at 70% 80%, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.0) 55%),
-        var(--brand-grad);
-    color: #fff;
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,1.0) 0%, rgba(255,255,255,0.0) 50%),
+        radial-gradient(circle at 70% 78%, rgba(0,0,0,0.10) 0%, rgba(0,0,0,0.0) 55%),
+        linear-gradient(180deg, #ffffff 0%, #f0f3f8 100%);
+    color: #000;
     cursor: pointer;
-    /* Outer glow + inset highlight + inset shadow for a clear
-       light-from-above 3D feel. */
+    /* Outer accent glow keeps the launcher discoverable on dark
+       backgrounds. Inset top highlight + inset bottom shadow give
+       the dome real depth. */
     box-shadow:
         0 12px 30px var(--brand-grad-shadow),
         0 4px 10px rgba(0, 0, 0, 0.30),
-        inset 0 2px 3px rgba(255, 255, 255, 0.45),
-        inset 0 -3px 6px rgba(0, 0, 0, 0.28);
+        inset 0 2px 3px rgba(255, 255, 255, 1.0),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.18);
     overflow: visible;
     animation: mia-launcher-breath 3.6s ease-in-out infinite, mia-launcher-pulse 4s ease-in-out infinite;
 }
@@ -687,6 +687,18 @@ body.side-panel-mia-open .mia-launcher {
 @keyframes mia-voice-think {
     0%, 100% { transform: scale(0.985); }
     50%      { transform: scale(1.02); }
+}
+/* Listening: slow gentle breath so the user can SEE that Mia's mic is
+   live and waiting for them — earlier the orb sat completely static
+   in the listening state, which made it ambiguous whether voice was
+   actually capturing. The breath is bigger + slower than the thinking
+   pulse so the two states are visually distinct. */
+.mia-voice-orb[data-state="listening"] {
+    animation: mia-voice-listen 2.2s ease-in-out infinite;
+}
+@keyframes mia-voice-listen {
+    0%, 100% { transform: scale(0.97); filter: drop-shadow(0 0 0 rgba(var(--accent-rgb), 0)); }
+    50%      { transform: scale(1.04); filter: drop-shadow(0 0 18px rgba(var(--accent-rgb), 0.55)); }
 }
 .mia-voice-orb.pulse {
     animation: mia-voice-pulse 0.5s ease-out;
