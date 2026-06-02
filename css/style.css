@@ -336,11 +336,11 @@ body {
 .app-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    /* Always centered at 1100px. Resources is now an overlay panel
-       (slides in from the left) instead of a grid column, so opening
-       it must NOT shift or resize the chart. P&L behaves the same
-       way from the right (see css/pl-toggle.css). */
-    max-width: 1100px;
+    /* Tighter centered column so the chart, search, and tabs read as
+       a clean centered block on wide displays instead of stretching
+       edge-to-edge. Resources / P&L slide in as overlays without
+       resizing this column (see css/pl-toggle.css). */
+    max-width: 960px;
     margin: 0 auto;
     padding: 24px;
     gap: 24px;
@@ -441,8 +441,10 @@ body.resources-open .resources-backdrop {
    Shape and metrics mirror .tab-group exactly: 4px outer + 8px inner
    vertical padding, 0.85rem font, 999px radius. */
 .resources-toggle {
-    position: relative;
-    z-index: 460;     /* above .resources-backdrop (440) and .glossary-rail (450) */
+    /* Only enter the elevated stacking context while Resources is
+       open (so the pill stays clickable above the overlay+backdrop).
+       When closed, leave it in normal flow so it scrolls under the
+       sticky .app-header instead of punching through it. */
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -471,6 +473,13 @@ body.resources-open .resources-backdrop {
 body.resources-open .resources-toggle[aria-expanded="true"] .resources-toggle-icon {
     /* Subtle visual indication that the toggle will close (vs open). */
     opacity: 0.9;
+}
+/* Lift the pill above the overlay (450) + backdrop (440) ONLY while
+   Resources is open — otherwise it would float over the sticky
+   app-header on scroll. */
+body.resources-open .resources-toggle {
+    position: relative;
+    z-index: 460;
 }
 
 .main-container { min-width: 0; }
