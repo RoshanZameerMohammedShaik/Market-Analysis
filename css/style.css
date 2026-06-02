@@ -341,15 +341,14 @@ body {
     padding: 24px;
     gap: 24px;
 }
+/* Desktop default: SINGLE column. The 220px Resources rail only
+   appears when body.resources-open. Without this gate, the layout
+   reserved a 220px slot even with Resources hidden, squeezing the
+   main column. P&L sidebar still adds its 320px column when open. */
 @media (min-width: 1024px) {
-    .app-layout {
-        grid-template-columns: 220px minmax(0, 1fr);
-    }
-    .app-layout.pl-open {
-        grid-template-columns: 220px minmax(0, 1fr) 320px;
-    }
+    .app-layout.pl-open,
     body.pl-open .app-layout {
-        grid-template-columns: 220px minmax(0, 1fr) 320px;
+        grid-template-columns: minmax(0, 1fr) 320px;
     }
 }
 /* Resources panel (left rail) — hidden by default per Roshan's
@@ -357,31 +356,39 @@ body {
    hides the panel. When closed, layout collapses to single column. */
 .glossary-rail {
     display: none;
-    background: var(--bg-card);
-    border-right: 1px solid var(--border);
+    background: transparent;
     border-radius: 12px;
     overflow-y: auto;
     max-height: calc(100vh - 48px);
     position: sticky;
     top: 24px;
 }
+/* Header is sized to match the tabs-row height in the main column,
+   so "Resources" sits on the same baseline as "Stock Analysis /
+   Crypto Analysis / Today / Tomorrow / Portfolio". The tabs row
+   = .tab-group with 4px padding + .tab-btn at 8px vertical padding
+   + margin-bottom 12px. Resources mirrors those dimensions. */
 .glossary-rail .resources-header {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--border);
+    height: 40px;            /* matches .tab-group rendered height */
+    margin-bottom: 12px;     /* matches tabs-row margin-bottom */
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
     background: var(--bg-secondary);
-    border-radius: 12px 12px 0 0;
-    position: sticky;
-    top: 0;
-    z-index: 1;
+    border: 1px solid var(--border);
+    border-radius: 999px;    /* same pill shape as tab-groups */
 }
 .glossary-rail .resources-title {
     margin: 0;
-    font-size: 0.92rem;
-    font-weight: 800;
+    font-size: 0.85rem;       /* matches .tab-btn font-size */
+    font-weight: 700;
     letter-spacing: 0.4px;
     color: var(--text-primary);
 }
 .glossary-rail .resources-body {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 12px 14px;
 }
 body.resources-open .glossary-rail {
