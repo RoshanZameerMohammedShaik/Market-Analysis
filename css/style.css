@@ -336,19 +336,26 @@ body {
 .app-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    max-width: 1400px;
+    /* Default: tighter max-width when Resources is hidden so the
+       single-column layout reads as centered, not stretched-edge-to-edge.
+       Resources-open expands to 1400px to accommodate the rail + main.
+       Each rule below overrides this when its state is active. */
+    max-width: 1100px;
     margin: 0 auto;
     padding: 24px;
     gap: 24px;
 }
-/* Desktop default: SINGLE column. The 220px Resources rail only
-   appears when body.resources-open. Without this gate, the layout
-   reserved a 220px slot even with Resources hidden, squeezing the
-   main column. P&L sidebar still adds its 320px column when open. */
 @media (min-width: 1024px) {
+    /* Resources visible: full 1400px, two-column grid. */
+    body.resources-open .app-layout {
+        max-width: 1400px;
+    }
+    /* P&L panel docks as a third column from the right; expand max-width
+       to fit the wider total. */
     .app-layout.pl-open,
     body.pl-open .app-layout {
         grid-template-columns: minmax(0, 1fr) 320px;
+        max-width: 1400px;
     }
 }
 /* Resources panel (left rail) — hidden by default per Roshan's
@@ -363,27 +370,33 @@ body {
     position: sticky;
     top: 24px;
 }
-/* Header is sized to match the tabs-row height in the main column,
-   so "Resources" sits on the same baseline as "Stock Analysis /
-   Crypto Analysis / Today / Tomorrow / Portfolio". The tabs row
-   = .tab-group with 4px padding + .tab-btn at 8px vertical padding
-   + margin-bottom 12px. Resources mirrors those dimensions. */
+/* Header sized as a pill that matches the .tab-group rendering
+   exactly. .tab-group is inline-flex with 4px padding wrapping
+   .tab-btn (8px vertical padding + 0.85rem text). Mirroring those
+   metrics on .resources-header puts the "Resources" baseline on
+   the same horizontal line as "Stock Analysis", "Today", etc.
+   margin-bottom matches tabs-row's 12px so the resources-body
+   below also lines up with the search-container row. */
 .glossary-rail .resources-header {
-    height: 40px;            /* matches .tab-group rendered height */
-    margin-bottom: 12px;     /* matches tabs-row margin-bottom */
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    padding: 0 14px;
+    padding: 4px 16px;        /* group-padding + button-padding inline */
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: 999px;    /* same pill shape as tab-groups */
+    border-radius: 999px;
+    margin-bottom: 12px;
+    /* match the tabs-row's natural total height by setting the
+       inner pill content's vertical padding identically to a
+       .tab-btn (8px 16px). The outer 4px wraps it like .tab-group. */
 }
 .glossary-rail .resources-title {
     margin: 0;
-    font-size: 0.85rem;       /* matches .tab-btn font-size */
+    padding: 8px 0;            /* same vertical padding as .tab-btn */
+    font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 0.4px;
     color: var(--text-primary);
+    line-height: 1;            /* avoid line-height drift vs button label */
 }
 .glossary-rail .resources-body {
     background: var(--bg-card);
