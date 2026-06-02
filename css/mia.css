@@ -4,22 +4,33 @@
 
 .mia-launcher {
     position: fixed; bottom: 22px; right: 22px;
-    /* Above panels (z:600) so it stays visible + clickable when the
-       Portfolio panel is open in front of it. Below modals (z:1100)
-       so trade/instantiate dialogs can still cover it cleanly. */
     z-index: 700;
-    /* Slight fade transition for the auto-hide on Mia-panel-open. */
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
                 background 0.4s ease, box-shadow 0.4s ease,
                 opacity 0.22s ease;
-    width: 60px; height: 60px;
+    /* Slightly smaller than before (was 60px) so the launcher is less
+       visually dominant at rest, but still tap-friendly. */
+    width: 52px; height: 52px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
     border: none; border-radius: 50%;
-    background: var(--brand-grad);
+    /* 3D-domed surface: top-left highlight + center-bottom shadow
+       layered over the brand gradient. Reads like a polished disc with
+       a light source from upper-left, not the flat painted-roti look
+       Roshan flagged. */
+    background:
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.0) 40%),
+        radial-gradient(circle at 70% 80%, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.0) 55%),
+        var(--brand-grad);
     color: #fff;
     cursor: pointer;
-    box-shadow: 0 12px 36px var(--brand-grad-shadow), 0 0 0 0 var(--brand-grad-shadow);
+    /* Outer glow + inset highlight + inset shadow for a clear
+       light-from-above 3D feel. */
+    box-shadow:
+        0 12px 30px var(--brand-grad-shadow),
+        0 4px 10px rgba(0, 0, 0, 0.30),
+        inset 0 2px 3px rgba(255, 255, 255, 0.45),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.28);
     overflow: visible;
     animation: mia-launcher-breath 3.6s ease-in-out infinite, mia-launcher-pulse 4s ease-in-out infinite;
 }
@@ -64,7 +75,13 @@ body.side-panel-mia-open .mia-launcher {
     0%   { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.85), 0 0 30px rgba(var(--accent-rgb), 1); }
     100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
 }
-.mia-launcher-logo { width: 48px; height: 36px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25)); }
+.mia-launcher-logo {
+    /* Scaled down with the 60→52 launcher resize so the logo doesn't
+       crowd the disc edge. drop-shadow gives it a subtle lift off the
+       3D surface so it reads as printed onto the dome, not flat. */
+    width: 40px; height: 30px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.40));
+}
 @keyframes mia-launcher-breath {
     0%, 100% { transform: scale(1); }
     50%      { transform: scale(1.04); }
@@ -779,36 +796,42 @@ body.side-panel-mia-open .mia-launcher {
    gear-menu opens it, "Portfolio Simulation" header when the panel
    slides in, etc. */
 .flash-shimmer {
+    /* Wider gradient (500%) and a single-period travel keeps the
+       sweep slow + obviously one pass. Earlier the gradient was 300%
+       and the travel went 100% → -200% which made the bright band
+       cross the visible glyphs twice on certain widths. Now: gradient
+       starts off-screen right, travels exactly one full period, ends
+       off-screen left → exactly one bright sweep, every time. */
     background-image: linear-gradient(
         100deg,
-        rgba(255, 255, 255, 0.30) 0%,
-        rgba(255, 255, 255, 0.30) 42%,
+        rgba(255, 255, 255, 0.32) 0%,
+        rgba(255, 255, 255, 0.32) 45%,
         rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.30) 58%,
-        rgba(255, 255, 255, 0.30) 100%
+        rgba(255, 255, 255, 0.32) 55%,
+        rgba(255, 255, 255, 0.32) 100%
     );
-    background-size: 300% 100%;
-    background-repeat: repeat-x;
+    background-size: 500% 100%;
+    background-repeat: no-repeat;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent !important;
     color: transparent !important;
     text-shadow: none !important;
-    animation: ma-shimmer-flash 1.6s linear 1 both;
+    animation: ma-shimmer-flash 2.6s cubic-bezier(0.45, 0, 0.55, 1) 1 both;
     will-change: background-position;
 }
 [data-theme="light"] .flash-shimmer {
     background-image: linear-gradient(
         100deg,
         rgba(37, 99, 235, 0.55) 0%,
-        rgba(37, 99, 235, 0.55) 42%,
+        rgba(37, 99, 235, 0.55) 45%,
         rgba(37, 99, 235, 1.0)  50%,
-        rgba(37, 99, 235, 0.55) 58%,
+        rgba(37, 99, 235, 0.55) 55%,
         rgba(37, 99, 235, 0.55) 100%
     );
 }
 @keyframes ma-shimmer-flash {
-    0%   { background-position: 100% 0; }
+    0%   { background-position: 200% 0; }
     100% { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {

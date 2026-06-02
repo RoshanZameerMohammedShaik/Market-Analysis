@@ -60,15 +60,26 @@ const SECTIONS = [
 // Resources panel state — in-memory only. Always starts closed on page
 // load (Roshan's UX preference: the panel should never auto-open after
 // a refresh, even if the user opened it earlier in a previous session).
+import { flashShimmer } from './flash-shimmer.js';
+
 let _open = false;
 function isOpen() { return _open; }
 function setOpen(v) {
+    const wasOpen = _open;
     _open = !!v;
     document.body.classList.toggle('resources-open', _open);
     const toggle = document.getElementById('resources-toggle');
     if (toggle) {
         toggle.setAttribute('aria-expanded', _open ? 'true' : 'false');
         toggle.title = _open ? 'Hide Resources panel' : 'Show Resources panel';
+    }
+    // One-shot shimmer on the "Resources" headline when the panel
+    // opens (transition from closed → open). Skipped on the initial
+    // setOpen(false) call during render.
+    if (_open && !wasOpen) {
+        requestAnimationFrame(() => {
+            flashShimmer(document.querySelector('.glossary-rail .resources-title'));
+        });
     }
 }
 // Clear any persisted open state from prior sessions so the panel

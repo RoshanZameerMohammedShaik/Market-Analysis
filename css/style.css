@@ -145,7 +145,16 @@ body {
 }
 
 .header-actions {
-    position: fixed; top: 14px; right: 24px;
+    /* Anchor to the header's own height so the gear sits on the same
+       horizontal baseline as the centered title, not on a separate
+       fixed-coordinate that drifts on different viewport widths. The
+       header has padding: 14px 24px and the title is 1.4rem — using
+       50% + translate centers the gear vertically against the title
+       no matter the rendered title height. */
+    position: absolute;
+    top: 50%;
+    right: 24px;
+    transform: translateY(-50%);
     display: flex; gap: 8px; align-items: center;
     z-index: 200;
 }
@@ -164,24 +173,17 @@ body {
 .header-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
 .header-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Settings gear icon — spins ONCE when the menu opens and ONCE again
-   when the menu closes. No continuous rotation while open (Roshan's
-   feedback: the constant spin felt like an unread-notification badge,
-   not a settings affordance). Implementation:
-   - `transform: rotate(0deg)` when collapsed → menu closes triggers
-     the back-rotation transition
-   - `transform: rotate(360deg)` when expanded → menu opens triggers
-     the forward-rotation transition
-   The 0.7s transition is the spin duration; the gear holds steady
-   afterward in either direction. Hover gives a tiny preview rotation
-   so the icon still feels interactive at rest. */
+/* Settings gear — exactly ONE forward rotation on open, ONE backward
+   on close. No hover rotation, no continuous spin. Earlier the hover
+   rule rotated to 60deg, which made the open animation jump 60→360
+   (looked like a fast forward+back wobble). Now the gear holds at 0
+   when closed, transitions cleanly to 360 on open, and back to 0 on
+   close. The 0.6s transition is the spin duration. */
 .settings-gear {
     transform: rotate(0deg);
-    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.header-btn:hover .settings-gear { transform: rotate(60deg); }
-.header-btn[aria-expanded="true"] .settings-gear,
-.header-btn[aria-expanded="true"]:hover .settings-gear {
+.header-btn[aria-expanded="true"] .settings-gear {
     transform: rotate(360deg);
 }
 
@@ -372,22 +374,21 @@ body {
     padding: 16px;
 }
 body.resources-open .glossary-rail { transform: translateX(0); }
-/* The "Resources" pill in the tabs row already labels the overlay,
-   so the in-rail title is redundant — keep only the × close button.
-   Title kept in the DOM for screen readers but visually hidden. */
+/* In-rail header: "Resources" title on the left + close × on the
+   right. Title is the shimmer target after the panel slides in. */
 .glossary-rail .resources-header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;     /* close button on the right */
+    justify-content: space-between;
     margin-bottom: 12px;
     padding: 0 4px;
 }
 .glossary-rail .resources-title {
-    position: absolute;
-    width: 1px; height: 1px;
-    margin: -1px; padding: 0; overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: var(--text-primary);
 }
 .glossary-rail .resources-close {
     background: transparent;

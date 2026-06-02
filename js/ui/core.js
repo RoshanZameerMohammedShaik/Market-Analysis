@@ -388,7 +388,10 @@ function initSettingsMenu() {
     // to be slow enough to read as an animation).
     document.getElementById('pl-shortcut')?.addEventListener('click', async () => {
         const m = await import('./portfolio-panel.js');
-        m.openPortfolioPanel();
+        // shimmerTitle: false so the panel-title doesn't shimmer at
+        // the same time as the P&L Calculator label below — the user
+        // is being navigated to the calculator, not the panel header.
+        m.openPortfolioPanel({ shimmerTitle: false });
         requestAnimationFrame(() => {
             const section = document.getElementById('portfolio-pl-section');
             if (section && !section.open) section.open = true;

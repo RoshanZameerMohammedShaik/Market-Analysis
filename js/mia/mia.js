@@ -15,6 +15,7 @@ import { webllm as webllmShim, getRoutingSummary } from './llm-client.js';
 import { flagUnverifiedNumbers, UNVERIFIED_TOKEN_RE } from './guard.js';
 import { initVoice, attachVoiceButton } from './voice.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
+import { flashShimmer } from '../ui/flash-shimmer.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -177,6 +178,12 @@ function togglePanel() {
         // callback; we just need to render inside.
         openSidePanel('mia');
         renderRoot();
+        // One-shot shimmer on Mia's name in the chat header so the
+        // user's eye lands on the destination right after the panel
+        // slides in. Theme-aware via .flash-shimmer in mia.css.
+        requestAnimationFrame(() => {
+            flashShimmer(document.querySelector('#mia-panel .mia-name'));
+        });
     } else {
         closeSidePanel('mia');
     }

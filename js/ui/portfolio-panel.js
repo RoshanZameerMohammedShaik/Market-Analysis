@@ -119,18 +119,23 @@ function bindLauncher() {
     });
 }
 
-export function openPortfolioPanel() {
+export function openPortfolioPanel(opts = {}) {
+    const { shimmerTitle = true } = opts;
     openSidePanel('portfolio');
     // Re-render so the user sees the latest state (in case it changed
     // while the panel was closed via Mia tool / chart-header trade).
     renderPanel();
     // One-shot shimmer on the panel header so the user's eye is
-    // pulled to the destination right after the slide-in. Theme-aware
-    // via CSS — see .flash-shimmer in mia.css. Fired after the next
-    // frame so the title element exists in the DOM.
-    requestAnimationFrame(() => {
-        flashShimmer(document.querySelector('.portfolio-panel-title-text'));
-    });
+    // pulled to the destination right after the slide-in. The gear-
+    // menu's "P&L Calculator" path passes shimmerTitle: false because
+    // it shimmers a different label (the P&L Calculator header inside
+    // the panel) — running both at once was the "shimmering twice"
+    // glitch Roshan reported.
+    if (shimmerTitle) {
+        requestAnimationFrame(() => {
+            flashShimmer(document.querySelector('.portfolio-panel-title-text'));
+        });
+    }
     // Auto-refresh stock prices on open ONLY if the user actually has
     // a portfolio with positions. No portfolio = nothing to refresh =
     // no fetch. Stocks don't tick continuously (no free realtime
