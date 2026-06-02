@@ -27,28 +27,17 @@ import { flashShimmer } from './flash-shimmer.js';
 const subs = new Map();   // symbol -> { handle, price }
 const PANEL_WIDTH = 420;
 
-// Animated portfolio mark used inside the panel HEAD next to the title.
-// Three rising bars + trend line, kept here so the panel header keeps
-// the recognizable identity icon.
-const PANEL_TITLE_ICON_SVG = `
-<svg class="portfolio-icon" viewBox="0 0 22 22" width="18" height="18" aria-hidden="true">
-    <rect class="portfolio-icon-bar bar-1" x="3"  y="13" width="3" height="6"  rx="1"/>
-    <rect class="portfolio-icon-bar bar-2" x="9.5" y="9"  width="3" height="10" rx="1"/>
-    <rect class="portfolio-icon-bar bar-3" x="16" y="6"  width="3" height="13" rx="1"/>
-    <path class="portfolio-icon-trend" d="M3 11 L10.5 7 L17 4" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle class="portfolio-icon-dot" cx="17" cy="4" r="1.6"/>
-</svg>`;
-
-// Two-candle mark for the launcher BUTTON next to the "Portfolio" label.
-// Roshan asked to swap the header candle animation and the portfolio
-// button icon — the bars+trend SVG moved up into the header beside
-// MARKET ANALYZER, and these two candles take its place on the button.
-// Sits close to the 'o' via the small gap in .portfolio-launcher-label.
+// Two-candle mark used in BOTH the launcher button AND the panel
+// header so the two icons animate identically. Earlier the panel
+// header had a separate 3-bar+trend SVG that ran on its own keyframe
+// — visibly out of step with the launcher's 2-candle animation.
+// One SVG, one keyframe, perfect sync.
 const LAUNCHER_ICON_SVG = `
 <span class="portfolio-icon-candles" aria-hidden="true">
     <span class="cl-bar up"><span class="cl-body"></span></span>
     <span class="cl-bar down"><span class="cl-body"></span></span>
 </span>`;
+const PANEL_TITLE_ICON_SVG = LAUNCHER_ICON_SVG;
 
 export function initPortfolioPanel() {
     initPortfolio();
