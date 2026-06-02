@@ -191,7 +191,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 // engine has historically been right ~55% of the time on similar
 // setups — not "claims 55, hits 46". BUY/SELL only; NEUTRAL and
 // NO_TRADE filtered out.
-const MIN_HOT_CONFIDENCE = 55;
+export const MIN_HOT_CONFIDENCE = 55;
 function rankPicks(results, maxPicks) {
     const buy = results
         .filter(r => r.signal === 'BUY' && r.confidence >= MIN_HOT_CONFIDENCE)
