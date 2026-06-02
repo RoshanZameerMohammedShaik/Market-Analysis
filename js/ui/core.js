@@ -24,6 +24,29 @@ import { candleLoaderHTML } from './skeleton.js';
 
 let stopTips = null;
 
+// Eased scroll on an arbitrary container. The browser's native
+// scrollIntoView({ behavior: 'smooth' }) uses a hardcoded short
+// duration; we want the P&L-shortcut pull to be visibly slow so the
+// motion reads as a deliberate animation, not a teleport. easeOutCubic
+// matches the panel-slide easing already used elsewhere in the app.
+function slowScrollTo(scroller, target, durationMs = 1200) {
+    const containerRect = scroller.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const offsetWithin = targetRect.top - containerRect.top + scroller.scrollTop;
+    const destination = offsetWithin - (scroller.clientHeight - target.clientHeight) / 2;
+    const start = scroller.scrollTop;
+    const distance = destination - start;
+    if (Math.abs(distance) < 2) return;
+    const startTs = performance.now();
+    function tick(now) {
+        const t = Math.min(1, (now - startTs) / durationMs);
+        const eased = 1 - Math.pow(1 - t, 3);
+        scroller.scrollTop = start + distance * eased;
+        if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
 export function init() {
     document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
     initRipple();
@@ -358,10 +381,10 @@ function initSettingsMenu() {
     });
 
     // P&L Calculator shortcut — opens the Portfolio panel, expands
-    // the collapsed P&L calculator <details> section, scrolls it
-    // into view, and focuses the first input. Without the open=true
-    // step the input was hidden inside the collapsed details and
-    // the scroll/focus silently no-op'd.
+    // the collapsed P&L calculator <details> section, then scrolls
+    // to it on a slow easeOutCubic curve so the user can SEE the
+    // panel travel down to the calculator (Roshan asked for the pull
+    // to be slow enough to read as an animation).
     document.getElementById('pl-shortcut')?.addEventListener('click', async () => {
         const m = await import('./portfolio-panel.js');
         m.openPortfolioPanel();
@@ -369,7 +392,11 @@ function initSettingsMenu() {
             const section = document.getElementById('portfolio-pl-section');
             if (section && !section.open) section.open = true;
             const inv = document.getElementById('pp-calc-investment');
-            if (inv) {
+            const scroller = document.querySelector('.portfolio-panel-scroll');
+            if (inv && scroller) {
+                slowScrollTo(scroller, inv, 1400);
+                setTimeout(() => inv.focus({ preventScroll: true }), 1500);
+            } else if (inv) {
                 inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 setTimeout(() => inv.focus(), 280);
             }
