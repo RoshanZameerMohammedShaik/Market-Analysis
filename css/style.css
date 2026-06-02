@@ -370,39 +370,26 @@ body {
     position: sticky;
     top: 24px;
 }
-/* Header sized as a pill that matches the .tab-group rendering
-   exactly. .tab-group is inline-flex with 4px padding wrapping
-   .tab-btn (8px vertical padding + 0.85rem text). Mirroring those
-   metrics on .resources-header puts the "Resources" baseline on
-   the same horizontal line as "Stock Analysis", "Today", etc.
-   margin-bottom matches tabs-row's 12px so the resources-body
-   below also lines up with the search-container row. */
+/* The in-rail header is hidden because the floating .resources-toggle
+   pill (top-left, aligned with the tabs row) now serves as the visible
+   "Resources" label. Keeping the markup for screen readers but visually
+   collapsing it avoids a duplicate header above the rail body. */
 .glossary-rail .resources-header {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 16px;        /* group-padding + button-padding inline */
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    margin-bottom: 12px;
-    /* match the tabs-row's natural total height by setting the
-       inner pill content's vertical padding identically to a
-       .tab-btn (8px 16px). The outer 4px wraps it like .tab-group. */
-}
-.glossary-rail .resources-title {
-    margin: 0;
-    padding: 8px 0;            /* same vertical padding as .tab-btn */
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    color: var(--text-primary);
-    line-height: 1;            /* avoid line-height drift vs button label */
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }
 .glossary-rail .resources-body {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 12px 14px;
+    /* Reserve vertical space so the first rail section starts BELOW
+       the floating toggle pill (which is fixed at top: 89px, ~32px
+       tall) instead of sliding underneath it. */
+    margin-top: 44px;
 }
 body.resources-open .glossary-rail {
     display: block;
@@ -416,45 +403,58 @@ body.resources-open .glossary-rail {
     }
 }
 
-/* Floating toggle handle — sits at the left edge so it's always
-   reachable. Clicking it slides the Resources panel in/out. */
+/* Floating toggle handle — pinned to the top-left of the content
+   area, sitting on the same horizontal baseline as the .tab-group
+   pills (Stock Analysis / Crypto Analysis / Today / Tomorrow /
+   Portfolio). Header is ~65px tall and .app-layout has 24px top
+   padding, so 89px puts the toggle pill flush with the tabs row. */
 .resources-toggle {
     position: fixed;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: 89px;
+    left: 24px;
     z-index: 500;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong);
-    border-left: 0;
-    border-radius: 0 10px 10px 0;
-    color: var(--text-secondary);
-    padding: 12px 8px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    box-shadow: 2px 4px 14px rgba(0, 0, 0, 0.25);
-    transition: background 0.15s, color 0.15s, transform 0.15s;
+    gap: 8px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-primary);
+    padding: 4px 14px 4px 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
 }
 .resources-toggle:hover {
     background: var(--bg-hover);
     color: var(--accent);
-    transform: translateY(-50%) translateX(2px);
+    border-color: var(--accent);
+    transform: translateY(-1px);
 }
-.resources-toggle-icon { font-size: 1.1rem; line-height: 1; }
+.resources-toggle-icon { font-size: 1rem; line-height: 1; }
 .resources-toggle-label {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 0.68rem;
+    writing-mode: horizontal-tb;
+    transform: none;
+    font-size: 0.85rem;
     font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    text-transform: none;
+    padding: 6px 0;
+    line-height: 1;
 }
 body.resources-open .resources-toggle[aria-expanded="true"] .resources-toggle-icon {
     /* Subtle visual indication that the toggle will close (vs open). */
     opacity: 0.9;
+}
+/* Tablet / mobile: drop the fixed position so the toggle doesn't
+   overlap the tabs when the layout collapses to a narrower column. */
+@media (max-width: 1023px) {
+    .resources-toggle {
+        position: fixed;
+        top: auto;
+        bottom: 16px;
+        left: 16px;
+    }
 }
 
 .main-container { min-width: 0; }
