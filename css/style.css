@@ -11,12 +11,16 @@
 @import url('portfolio.css');
 
 :root {
-    --bg-primary: #0a0e14;
-    --bg-secondary: #131820;
-    --bg-card: #0d1118;
-    --bg-hover: #1a1f29;
-    --border: #1f2733;
-    --border-strong: #2a3340;
+    /* True-black dark mode. Page is pure #000; cards lift slightly
+       (#080808) so they're distinguishable from the background, but
+       still read as black. Borders sit just above the cards so the
+       grid doesn't dissolve. */
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-card: #080808;
+    --bg-hover: #141414;
+    --border: #1a1a1a;
+    --border-strong: #262626;
     --text-primary: #e8eef5;
     --text-secondary: #9fb0c4;
     --text-muted: #6c7a8c;
@@ -35,8 +39,8 @@
     --brand-grad: linear-gradient(135deg, #4a9eff 0%, #2dd28b 100%);
     --brand-grad-2: linear-gradient(135deg, #4a9eff, #a371f7);
     --brand-grad-shadow: rgba(74, 158, 255, 0.32);
-    --scroll-track: #0d1118;
-    --scroll-thumb: #2a3340;
+    --scroll-track: #000000;
+    --scroll-thumb: #262626;
     --scroll-thumb-hover: #4a9eff;
 }
 
@@ -104,7 +108,7 @@ body {
 
 .app-header {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(10, 14, 20, 0.85);
+    background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border);
@@ -365,22 +369,22 @@ body {
     padding: 16px;
 }
 body.resources-open .glossary-rail { transform: translateX(0); }
-/* In-rail header now shows a "Resources" title + close (×) button
-   so users have a way to dismiss the overlay even if the toggle
-   pill in the tabs row is hidden behind the panel. */
+/* The "Resources" pill in the tabs row already labels the overlay,
+   so the in-rail title is redundant — keep only the × close button.
+   Title kept in the DOM for screen readers but visually hidden. */
 .glossary-rail .resources-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;     /* close button on the right */
     margin-bottom: 12px;
     padding: 0 4px;
 }
 .glossary-rail .resources-title {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    color: var(--text-primary);
+    position: absolute;
+    width: 1px; height: 1px;
+    margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
 }
 .glossary-rail .resources-close {
     background: transparent;
@@ -666,7 +670,11 @@ body.resources-open .resources-toggle {
     .chart-price::after { animation: none !important; }
 }
 .chart-container {
-    background: var(--bg-secondary);
+    /* Use the page background so the empty-chart placeholder reads as
+       seamless true black on dark mode, with a thin border to keep it
+       visually distinct. Light + aurora themes still get their own
+       tokens via the same variable. */
+    background: var(--bg-primary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     overflow: hidden;

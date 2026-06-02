@@ -135,9 +135,15 @@ async function renderLocalChart(symbol, container) {
             return;
         }
         const isLight = state.theme === 'light';
+        // Pull background straight from CSS variables so the chart
+        // stays in lockstep with the active theme. Dark mode is true
+        // black (#000); light is white. Aurora (the third option) gets
+        // its purple from --bg-primary too.
+        const css = getComputedStyle(document.documentElement);
+        const themeBg = (css.getPropertyValue('--bg-primary') || '').trim() || (isLight ? '#ffffff' : '#000000');
         const themeColors = isLight
-            ? { bg: '#ffffff', text: '#1f2937', grid: '#e5e7eb', border: '#d1d5db' }
-            : { bg: '#0b1020', text: '#e5e7eb', grid: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)' };
+            ? { bg: themeBg, text: '#1f2937', grid: '#e5e7eb', border: '#d1d5db' }
+            : { bg: themeBg, text: '#e5e7eb', grid: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' };
 
         container.innerHTML = '<div id="tv-local-chart" style="width:100%;height:100%;"></div>';
         const host = container.querySelector('#tv-local-chart');
