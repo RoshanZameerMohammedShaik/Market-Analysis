@@ -1001,7 +1001,10 @@ body.resources-open .resources-toggle {
     padding: 14px 18px;
     cursor: pointer;
     display: flex;
-    justify-content: space-between;
+    /* Left-align so the title sits next to the chevron, with the hint
+       trailing it. space-between was pushing the hint to the far right
+       on wide displays, dragging the title with it on narrow ones. */
+    justify-content: flex-start;
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
