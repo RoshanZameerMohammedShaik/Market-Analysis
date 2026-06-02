@@ -14,7 +14,7 @@
 // Theme-awareness is handled in CSS via [data-theme="light"]
 // .flash-shimmer override; this module is theme-agnostic.
 
-const FALLBACK_MS = 2200;   // generous; animation is 1.6s
+const FALLBACK_MS = 5500;   // generous; animation is 5s (one .shimmer sweep)
 
 /**
  * Run the one-shot shimmer on the given element. Safe to call when

@@ -788,51 +788,47 @@ body.side-panel-mia-open .mia-launcher {
     .shimmer { animation: none; background-position: 50% 0; }
 }
 
-/* One-shot shimmer — same gradient as .shimmer, but runs a single
-   left-to-right sweep then auto-removes (the JS helper in
-   flash-shimmer.js listens for animationend and strips the class so
-   the text returns to its normal colour). Used to highlight the next
-   actionable thing after a navigation: P&L Calculator name when the
-   gear-menu opens it, "Portfolio Simulation" header when the panel
-   slides in, etc. */
+/* One-shot shimmer — IDENTICAL look to the looping .shimmer above
+   (same gradient, same sweep timing), the only difference is it runs
+   the sweep once and stops. The JS helper in flash-shimmer.js strips
+   the class on animationend so the text returns to its normal colour.
+   Used to highlight the next actionable thing after a navigation:
+   "Portfolio Simulation" header when the panel slides in, "P&L
+   Calculator" inside the panel, etc.
+
+   Earlier this was a custom gradient/keyframe pair, but Roshan asked
+   to "make it shimmer the same way as the empty-chart placeholder" —
+   so we now reuse .shimmer's exact gradient AND the ma-shimmer-sweep
+   keyframe, just with iteration-count: 1. Pixel-identical sweep, one
+   pass. */
 .flash-shimmer {
-    /* Wider gradient (500%) and a single-period travel keeps the
-       sweep slow + obviously one pass. Earlier the gradient was 300%
-       and the travel went 100% → -200% which made the bright band
-       cross the visible glyphs twice on certain widths. Now: gradient
-       starts off-screen right, travels exactly one full period, ends
-       off-screen left → exactly one bright sweep, every time. */
     background-image: linear-gradient(
         100deg,
-        rgba(255, 255, 255, 0.32) 0%,
-        rgba(255, 255, 255, 0.32) 45%,
+        rgba(255, 255, 255, 0.30) 0%,
+        rgba(255, 255, 255, 0.30) 42%,
         rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.32) 55%,
-        rgba(255, 255, 255, 0.32) 100%
+        rgba(255, 255, 255, 0.30) 58%,
+        rgba(255, 255, 255, 0.30) 100%
     );
-    background-size: 500% 100%;
-    background-repeat: no-repeat;
+    background-size: 300% 100%;
+    background-repeat: repeat-x;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent !important;
     color: transparent !important;
     text-shadow: none !important;
-    animation: ma-shimmer-flash 2.6s cubic-bezier(0.45, 0, 0.55, 1) 1 both;
+    animation: ma-shimmer-sweep 5s linear 1 both;
     will-change: background-position;
 }
 [data-theme="light"] .flash-shimmer {
     background-image: linear-gradient(
         100deg,
         rgba(37, 99, 235, 0.55) 0%,
-        rgba(37, 99, 235, 0.55) 45%,
+        rgba(37, 99, 235, 0.55) 42%,
         rgba(37, 99, 235, 1.0)  50%,
-        rgba(37, 99, 235, 0.55) 55%,
+        rgba(37, 99, 235, 0.55) 58%,
         rgba(37, 99, 235, 0.55) 100%
     );
-}
-@keyframes ma-shimmer-flash {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .flash-shimmer { animation: none; }
