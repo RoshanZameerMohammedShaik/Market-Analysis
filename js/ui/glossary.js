@@ -100,7 +100,11 @@ export function renderGlossary() {
         <div class="resources-body">${sectionsHTML}</div>
     `;
 
-    // Mount the always-visible toggle handle if not already there.
+    // Mount the toggle inline in the .tabs-row so it sits on the
+    // same horizontal baseline as Stock Analysis / Today / Portfolio.
+    // Earlier this was position:fixed at the viewport edge — the tabs
+    // are centered inside the 1100/1400px container, so a fixed-edge
+    // pill could never visually align with them.
     if (!document.getElementById('resources-toggle')) {
         const toggle = document.createElement('button');
         toggle.id = 'resources-toggle';
@@ -114,7 +118,9 @@ export function renderGlossary() {
             <span class="resources-toggle-label">Resources</span>
         `;
         toggle.addEventListener('click', () => setOpen(!isOpen()));
-        document.body.appendChild(toggle);
+        const tabsRow = document.querySelector('.tabs-row');
+        if (tabsRow) tabsRow.insertBefore(toggle, tabsRow.firstChild);
+        else document.body.appendChild(toggle);
     }
     // Apply persisted state on render.
     setOpen(isOpen());
