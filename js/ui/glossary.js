@@ -57,23 +57,23 @@ const SECTIONS = [
     },
 ];
 
-// Resources panel state. Hidden by default — Roshan asked for the
-// left rail to be collapsed unless explicitly opened. Persists in
-// localStorage so the choice survives page reloads.
-const STATE_KEY = 'ma-resources-open';
-function isOpen() {
-    try { return localStorage.getItem(STATE_KEY) === '1'; }
-    catch (_) { return false; }
-}
+// Resources panel state — in-memory only. Always starts closed on page
+// load (Roshan's UX preference: the panel should never auto-open after
+// a refresh, even if the user opened it earlier in a previous session).
+let _open = false;
+function isOpen() { return _open; }
 function setOpen(v) {
-    try { localStorage.setItem(STATE_KEY, v ? '1' : '0'); } catch (_) {}
-    document.body.classList.toggle('resources-open', v);
+    _open = !!v;
+    document.body.classList.toggle('resources-open', _open);
     const toggle = document.getElementById('resources-toggle');
     if (toggle) {
-        toggle.setAttribute('aria-expanded', v ? 'true' : 'false');
-        toggle.title = v ? 'Hide Resources panel' : 'Show Resources panel';
+        toggle.setAttribute('aria-expanded', _open ? 'true' : 'false');
+        toggle.title = _open ? 'Hide Resources panel' : 'Show Resources panel';
     }
 }
+// Clear any persisted open state from prior sessions so the panel
+// stays closed on hard-refresh.
+try { localStorage.removeItem('ma-resources-open'); } catch (_) {}
 
 export function renderGlossary() {
     const rail = document.getElementById('glossary-rail');
@@ -96,15 +96,15 @@ export function renderGlossary() {
     rail.innerHTML = `
         <div class="resources-header">
             <h2 class="resources-title">Resources</h2>
+            <button type="button" class="resources-close" id="resources-close" aria-label="Close Resources panel" title="Close">×</button>
         </div>
         <div class="resources-body">${sectionsHTML}</div>
     `;
+    const closeBtn = rail.querySelector('#resources-close');
+    if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
 
     // Mount the toggle inline in the .tabs-row so it sits on the
     // same horizontal baseline as Stock Analysis / Today / Portfolio.
-    // Earlier this was position:fixed at the viewport edge — the tabs
-    // are centered inside the 1100/1400px container, so a fixed-edge
-    // pill could never visually align with them.
     if (!document.getElementById('resources-toggle')) {
         const toggle = document.createElement('button');
         toggle.id = 'resources-toggle';
@@ -122,6 +122,21 @@ export function renderGlossary() {
         if (tabsRow) tabsRow.insertBefore(toggle, tabsRow.firstChild);
         else document.body.appendChild(toggle);
     }
-    // Apply persisted state on render.
-    setOpen(isOpen());
+
+    // Click-outside / Esc to dismiss. Resources is an overlay, so the
+    // backdrop intercepts pointer events; clicking it closes the panel
+    // the same way as clicking the rail's × button.
+    if (!document.getElementById('resources-backdrop')) {
+        const backdrop = document.createElement('div');
+        backdrop.id = 'resources-backdrop';
+        backdrop.className = 'resources-backdrop';
+        backdrop.addEventListener('click', () => setOpen(false));
+        document.body.appendChild(backdrop);
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isOpen()) setOpen(false);
+    });
+
+    // Force-close on render so the panel never auto-opens on refresh.
+    setOpen(false);
 }

@@ -353,7 +353,7 @@ body {
     top: 65px;            /* sit below the sticky app-header */
     left: 0;
     bottom: 0;
-    width: min(280px, 92vw);
+    width: min(300px, 92vw);
     height: calc(100vh - 65px);
     background: var(--bg-card);
     border-right: 1px solid var(--border-strong);
@@ -365,14 +365,41 @@ body {
     padding: 16px;
 }
 body.resources-open .glossary-rail { transform: translateX(0); }
-/* Hide the in-rail headline; the inline "Resources" pill in the
-   tabs row already labels the panel. Keep markup for screen readers. */
+/* In-rail header now shows a "Resources" title + close (×) button
+   so users have a way to dismiss the overlay even if the toggle
+   pill in the tabs row is hidden behind the panel. */
 .glossary-rail .resources-header {
-    position: absolute;
-    width: 1px; height: 1px;
-    margin: -1px; padding: 0; overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+.glossary-rail .resources-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--text-primary);
+}
+.glossary-rail .resources-close {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    width: 28px; height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.glossary-rail .resources-close:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+    border-color: var(--accent);
 }
 .glossary-rail .resources-body {
     background: transparent;
@@ -380,25 +407,33 @@ body.resources-open .glossary-rail { transform: translateX(0); }
     border-radius: 0;
     padding: 0;
 }
-/* Mobile / tablet: full-width sheet from the left, with a backdrop
-   that dims the chart so the slide-out reads. */
+/* Backdrop: invisible click-target on desktop so clicking outside the
+   panel closes it (no visual dim — the chart stays clearly readable).
+   Mobile gets a dim + blur so the sheet pattern reads. */
+.resources-backdrop {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+    z-index: 440;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease, background 0.3s ease;
+}
+body.resources-open .resources-backdrop {
+    pointer-events: auto;
+    opacity: 1;
+}
 @media (max-width: 1023px) {
     .glossary-rail {
         top: 0;
         height: 100vh;
         width: min(320px, 88vw);
     }
-    body.resources-open::after {
-        content: '';
-        position: fixed;
-        inset: 0;
+    body.resources-open .resources-backdrop {
         background: rgba(0, 0, 0, 0.36);
         backdrop-filter: blur(2px);
-        z-index: 440;
-        animation: resources-backdrop-in 0.3s ease;
     }
 }
-@keyframes resources-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* Toggle handle lives inline in the .tabs-row (mounted by glossary.js)
    so it sits on the same horizontal baseline as the .tab-group pills
@@ -406,6 +441,8 @@ body.resources-open .glossary-rail { transform: translateX(0); }
    Shape and metrics mirror .tab-group exactly: 4px outer + 8px inner
    vertical padding, 0.85rem font, 999px radius. */
 .resources-toggle {
+    position: relative;
+    z-index: 460;     /* above .resources-backdrop (440) and .glossary-rail (450) */
     display: inline-flex;
     align-items: center;
     gap: 8px;
