@@ -215,22 +215,8 @@ async function recomputeFromLedger() {
 
     const smoothedRates = hitRateByConfidence(rows);
     const commitFloor = findFloorForRate(smoothedRates, 0.50);
-    let hotFloor = findFloorForRate(smoothedRates, 0.55);
-    let highConvFloor = findFloorForRate(smoothedRates, 0.60);
-
-    // Sanity cap: if the learned floor sits well above the commit
-    // floor the empirical fit is sparse and the floor will lock Hot
-    // Picks empty no matter what the live engine produces today.
-    // Pin hotPicksFloor to commitFloor + 5 in that case so Hot Picks
-    // remains a tighter gate than commit but not a structurally
-    // unreachable one. Same logic for highConviction at +10.
-    const effectiveCommit = commitFloor ?? BOOTSTRAP.commitFloorConfidence;
-    if (hotFloor != null && hotFloor > effectiveCommit + 5) {
-        hotFloor = effectiveCommit + 5;
-    }
-    if (highConvFloor != null && highConvFloor > effectiveCommit + 10) {
-        highConvFloor = effectiveCommit + 10;
-    }
+    const hotFloor = findFloorForRate(smoothedRates, 0.55);
+    const highConvFloor = findFloorForRate(smoothedRates, 0.60);
 
     const scoreBuckets = hitRateByScore(rows);
     const buyScore = findBuyScoreThreshold(scoreBuckets);

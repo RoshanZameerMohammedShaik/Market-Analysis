@@ -203,14 +203,22 @@ export function getHotPicksFloor() {
     return getCalibrationThresholdsSync().hotPicksFloor;
 }
 
+// Always surface the engine's top-conviction directional picks for the
+// session. The learned floor is now metadata, not a visibility gate:
+// each card carries a `qualityTier` field that the UI uses to mark
+// picks as "above-bar" or "below-bar" so the user can see what's
+// historically reliable vs. speculative without Hot Picks looking
+// empty on weak-conviction days.
 function rankPicks(results, maxPicks, floor) {
-    const buy = results
-        .filter(r => r.signal === 'BUY' && r.confidence >= floor)
-        .sort((a, b) => b.confidence - a.confidence);
-    const sell = results
-        .filter(r => r.signal === 'SELL' && r.confidence >= floor)
-        .sort((a, b) => b.confidence - a.confidence);
-    return [...buy, ...sell].slice(0, maxPicks);
+    const directional = results
+        .filter(r => r.signal === 'BUY' || r.signal === 'SELL')
+        .sort((a, b) => b.confidence - a.confidence)
+        .map(r => ({
+            ...r,
+            qualityTier: r.confidence >= floor ? 'above-bar' : 'below-bar',
+            historicalFloor: floor,
+        }));
+    return directional.slice(0, maxPicks);
 }
 
 /**

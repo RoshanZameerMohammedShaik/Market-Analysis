@@ -106,14 +106,14 @@ export async function loadHotPicks(onPick) {
         const filtered = applyPennyFilter(picks);
 
         if (filtered.length === 0) {
-            // Strict "no high-conviction picks" empty state — Hot Picks
-            // now requires BUY/SELL with calibrated confidence >= 60.
-            // On slow / mixed-market days this can legitimately return
-            // zero, which is the correct behavior for a conviction-
-            // first product. Don't pad with NEUTRAL filler.
+            // Empty only fires when zero BUY/SELL exist in the entire
+            // scan — every directional pick now surfaces, ranked by
+            // confidence. Each card carries a quality-tier badge so the
+            // user can tell historically-reliable picks from speculative
+            // ones at a glance (badge driven by hotpicks.js qualityTier).
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No high-conviction picks ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — engine requires ${getHotPicksFloor()}%+ confidence on a BUY/SELL setup. Sit it out, or check back later.</p>
+                <p>No directional setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — every symbol the engine scanned came back as DON'T BUY or AVOID. Sit it out, or check back later.</p>
             </div>`;
             return;
         }
@@ -161,6 +161,15 @@ function renderCards(grid, picks, withFooter) {
         const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
             ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
+        // Quality-tier badge surfaces whether this pick clears the
+        // confidence floor learned from the live ledger (the floor at
+        // which historical hit rate >= 55%). "Above bar" = engine has
+        // been right 55%+ on similar setups; "Below bar" = the engine
+        // has a directional view but the math is below historical
+        // reliability for this confidence band — speculative.
+        const qualityHTML = (pick.qualityTier && pick.historicalFloor != null)
+            ? `<div class="hot-pick-quality hp-q-${pick.qualityTier}" title="Historical reliability bar: ${pick.historicalFloor}% confidence">${pick.qualityTier === 'above-bar' ? `✓ Above ${pick.historicalFloor}% reliability bar` : `⚠ Below ${pick.historicalFloor}% reliability bar — speculative`}</div>`
+            : '';
         return `
         <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
             <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
@@ -168,6 +177,7 @@ function renderCards(grid, picks, withFooter) {
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
             <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}% Confidence</div>
+            ${qualityHTML}
             ${spikeHTML}
             ${highHTML}
             ${lowHTML}

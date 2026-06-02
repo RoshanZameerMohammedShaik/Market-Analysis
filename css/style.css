@@ -1425,6 +1425,30 @@ body.resources-open .resources-toggle {
     letter-spacing: 0.2px;
     margin-top: 2px;
 }
+/* Quality-tier badge — surfaces whether the pick clears the live
+   ledger's reliability floor. Above-bar reads green, below-bar reads
+   amber so the user can scan the grid and see at a glance which cards
+   are historically reliable vs. speculative. */
+.hot-pick-quality {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-top: 2px;
+    width: fit-content;
+}
+.hot-pick-quality.hp-q-above-bar {
+    background: rgba(34, 197, 94, 0.14);
+    color: var(--green, #22c55e);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+.hot-pick-quality.hp-q-below-bar {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--amber, #f59e0b);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
 
 /* High / Low / Current price target rows. Two-line layout per row:
    muted descriptor on top ("Expected Highest Reach"), the actual
