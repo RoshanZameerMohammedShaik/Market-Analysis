@@ -398,18 +398,32 @@ function initSettingsMenu() {
             const inv = document.getElementById('pp-calc-investment');
             const scroller = document.querySelector('.portfolio-panel-scroll');
             const shimmerTarget = document.querySelector('.portfolio-pl-summary-text');
+            // Park the label in the dim pre-shimmer state IMMEDIATELY
+            // so it doesn't sit in default-bright-white during the
+            // ~1.5s scroll and then "blink" to dim when the shimmer
+            // class is added. .pre-shimmer just sets the dim background
+            // without animating; .flash-shimmer (added after the scroll)
+            // runs the sweep and ends bright.
+            if (shimmerTarget) shimmerTarget.classList.add('pre-shimmer');
+            const armShimmer = () => {
+                if (!shimmerTarget) return;
+                shimmerTarget.classList.remove('pre-shimmer');
+                flashShimmer(shimmerTarget);
+            };
             if (inv && scroller) {
                 slowScrollTo(scroller, inv, 1400);
                 setTimeout(() => {
                     inv.focus({ preventScroll: true });
-                    flashShimmer(shimmerTarget);
+                    armShimmer();
                 }, 1500);
             } else if (inv) {
                 inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 setTimeout(() => {
                     inv.focus();
-                    flashShimmer(shimmerTarget);
+                    armShimmer();
                 }, 280);
+            } else {
+                armShimmer();
             }
         });
     });

@@ -817,30 +817,34 @@ body.side-panel-mia-open .mia-launcher {
    bright region appears to sweep from right edge to left edge —
    matches the looping .shimmer's reading direction). */
 .flash-shimmer {
-    /* Two-region gradient: DIM on the left half (gradient stops
-       0%-50%), then a soft transition from 50%-65%, then fully BRIGHT
-       on the right half (65%-100%). With background-size 200% and
-       no-repeat, animating background-position from 0% to 100% slides
-       the gradient leftward under the box → the bright right region
-       enters from the box's right edge and sweeps across to fully
-       cover the text. Final frame at 100% shows the gradient's right
-       half (mostly bright) over the box. fill-mode: forwards holds
-       it bright. Visual direction: bright peak appears to sweep
-       right→left, exactly like the looping .shimmer. */
+    /* Wider gradient (300% = 3x box width) so the final animation
+       frame can land the box ENTIRELY in the bright region. Earlier
+       this was 200% with stops dim 0-50% / bright 65-100%, which
+       meant the final frame's leftmost ~30% of the box sat in the
+       dim→bright transition zone — making the first letters ("Por"
+       in "Portfolio Simulation") never reach full brightness.
+
+       New math (bg-size 300%, box = 33.3% of gradient width):
+         bg-position 0%   → box samples gradient stops  [0%, 33%]  → ALL DIM
+         bg-position 50%  → box samples gradient stops  [33%, 67%] → transition
+         bg-position 100% → box samples gradient stops  [67%, 100%] → ALL BRIGHT
+       So at the end, every letter in the box is covered by the
+       bright region — no dim leftmost letters. */
     background-image: linear-gradient(
         100deg,
         rgba(255, 255, 255, 0.30)  0%,
-        rgba(255, 255, 255, 0.30) 50%,
+        rgba(255, 255, 255, 0.30) 35%,
         rgba(255, 255, 255, 1.00) 65%,
         rgba(255, 255, 255, 1.00) 100%
     );
-    background-size: 200% 100%;
+    background-size: 300% 100%;
     background-repeat: no-repeat;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent !important;
     color: transparent !important;
     text-shadow: none !important;
+    background-position: 0% 0;     /* hold at dim until animation runs */
     animation: ma-shimmer-flash-rl 1.6s cubic-bezier(0.4, 0, 0.2, 1) 1 forwards;
     will-change: background-position;
 }
@@ -848,22 +852,49 @@ body.side-panel-mia-open .mia-launcher {
     background-image: linear-gradient(
         100deg,
         rgba(37, 99, 235, 0.45)  0%,
-        rgba(37, 99, 235, 0.45) 50%,
+        rgba(37, 99, 235, 0.45) 35%,
         rgba(37, 99, 235, 1.00) 65%,
         rgba(37, 99, 235, 1.00) 100%
     );
 }
 @keyframes ma-shimmer-flash-rl {
-    /* 0%: bg left-aligned with box → text sees gradient 0-50% = ALL
-       DIM (text reads slightly faded). 100%: bg right-aligned with
-       box → text sees gradient 50-100% = mostly bright with a soft
-       transition starting at the very left (which feels like the
-       bright peak just settled). */
     0%   { background-position: 0% 0; }
     100% { background-position: 100% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     .flash-shimmer { animation: none; background-position: 100% 0; }
+}
+/* Pre-shimmer dim state — same gradient as .flash-shimmer parked at
+   0% position (fully dim region over the text). Used to hold the
+   label dim BEFORE the shimmer animation runs, so we don't get a
+   white→dim flash at the start of the sweep. The P&L Calculator
+   path adds this class while the slow scroll runs (~1.5s), then
+   swaps it for .flash-shimmer when the scroll lands. */
+.pre-shimmer {
+    background-image: linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0.30)  0%,
+        rgba(255, 255, 255, 0.30) 35%,
+        rgba(255, 255, 255, 1.00) 65%,
+        rgba(255, 255, 255, 1.00) 100%
+    );
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    background-position: 0% 0;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    text-shadow: none !important;
+}
+[data-theme="light"] .pre-shimmer {
+    background-image: linear-gradient(
+        100deg,
+        rgba(37, 99, 235, 0.45)  0%,
+        rgba(37, 99, 235, 0.45) 35%,
+        rgba(37, 99, 235, 1.00) 65%,
+        rgba(37, 99, 235, 1.00) 100%
+    );
 }
 /* Live transcript region. Scroll-into-view keeps the latest sentence
    in sight; older ones stay above for context. */
