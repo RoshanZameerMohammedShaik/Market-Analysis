@@ -23,6 +23,7 @@ import { sell as tradeSell, unrealizedPnL } from '../portfolio/trade.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';
 import { controlSelectSymbol } from '../mia/ui-bridge.js';
 import { flashShimmer } from './flash-shimmer.js';
+import { notify } from './notify.js';
 
 const subs = new Map();   // symbol -> { handle, price }
 const PANEL_WIDTH = 420;
@@ -712,20 +713,12 @@ function currencySymbol(c) {
     return map[c] || `${c} `;
 }
 
-let toastTimer = null;
+// Portfolio messaging routes through the unified top-left notification
+// stack (see js/ui/notify.js). Earlier this had its own bottom-anchored
+// .portfolio-toast div with a fixed 4.5s timeout — Roshan asked for
+// every notification across the app to use the same top-left pattern
+// with a green drain bar.
 function toast(msg, kind) {
-    let el = document.getElementById('portfolio-toast');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'portfolio-toast';
-        el.className = 'portfolio-toast';
-        document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.className = `portfolio-toast visible ${kind || ''}`;
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-        el.classList.remove('visible');
-        toastTimer = null;
-    }, 4500);
+    const map = { error: 'error', warn: 'warn', success: 'success', info: 'info' };
+    notify(msg, { kind: map[kind] || 'info' });
 }

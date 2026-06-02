@@ -10,6 +10,7 @@ import { isInstantiated, getPortfolio } from '../portfolio/state.js';
 import { buy, sell } from '../portfolio/trade.js';
 import { getCurrentPrice } from '../portfolio/pricing.js';
 import { fromUSDCached } from '../portfolio/fx.js';
+import { notify } from './notify.js';
 
 export function attachTradeButtons(symbol) {
     const headerEl = document.getElementById('chart-header');
@@ -181,20 +182,10 @@ function formatUnits(n) {
     return n.toFixed(8);
 }
 
-let toastTimer = null;
+// Trade messaging now routes through the unified top-left notification
+// stack (see js/ui/notify.js). Same green-drain pattern as the rest
+// of the app.
 function toast(msg, kind) {
-    let el = document.getElementById('portfolio-toast');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'portfolio-toast';
-        el.className = 'portfolio-toast';
-        document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.className = `portfolio-toast visible ${kind || ''}`;
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-        el.classList.remove('visible');
-        toastTimer = null;
-    }, 5500);
+    const map = { error: 'error', warn: 'warn', success: 'success', info: 'info' };
+    notify(msg, { kind: map[kind] || 'info' });
 }

@@ -1,0 +1,113 @@
+/* Top-left notification stack. Mounted by js/ui/notify.js. Newest
+   notification slides in at the TOP of the stack; older ones shift
+   down beneath it. Hovering pauses the drain bar. Clicking the body
+   pins the notification (kills the bar; persists until × clicked).
+   Theme-aware colours via CSS variables. */
+
+.ma-notify-container {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: min(380px, calc(100vw - 32px));
+    pointer-events: none;     /* let clicks fall through container; per-toast re-enables */
+}
+.ma-notify {
+    pointer-events: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--text-secondary);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+    overflow: hidden;
+    transform: translateX(-110%);
+    opacity: 0;
+    animation: ma-notify-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    will-change: transform, opacity;
+}
+@keyframes ma-notify-in {
+    from { transform: translateX(-110%); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+}
+.ma-notify-leaving {
+    animation: ma-notify-out 0.24s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+}
+@keyframes ma-notify-out {
+    to { transform: translateX(-110%); opacity: 0; }
+}
+
+/* Kind tints: only the left accent border changes — the auto-drain
+   bar always reads green per Roshan's spec ("a green liner animation
+   that reduces over 5 seconds"). The bar communicates time, not
+   sentiment. */
+.ma-notify-info    { border-left-color: var(--accent); }
+.ma-notify-success { border-left-color: var(--green); }
+.ma-notify-warn    { border-left-color: var(--yellow); }
+.ma-notify-error   { border-left-color: var(--red); }
+
+.ma-notify-body {
+    padding: 12px 14px 12px 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+.ma-notify-text {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    word-break: break-word;
+}
+.ma-notify-close {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ma-notify-close:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Drain bar — green that reduces left-to-right over the lifetime of
+   the notification. The fill width is updated by JS (rAF-driven) so
+   pause-on-hover and pin-on-click can manipulate it precisely. */
+.ma-notify-bar {
+    height: 3px;
+    background: rgba(var(--accent-rgb), 0.10);
+    overflow: hidden;
+}
+.ma-notify-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--green);
+    transform-origin: left center;
+    /* No transition — JS sets width directly each frame. */
+}
+
+/* Pinned: hide the drain bar entirely so the user knows the timer
+   is gone and the notification will only close on × click. */
+.ma-notify-pinned .ma-notify-bar { display: none; }
+.ma-notify-pinned { border-left-width: 4px; }
+
+/* Reduced motion: skip the slide-in/out animations. */
+@media (prefers-reduced-motion: reduce) {
+    .ma-notify { animation: none; transform: none; opacity: 1; }
+    .ma-notify-leaving { animation: none; opacity: 0; }
+}

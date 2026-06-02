@@ -7,9 +7,6 @@
 const PULSE_CLASS = 'mia-agent-pulse';
 const PULSE_MS = 1100;
 
-let toastEl = null;
-let toastTimer = null;
-
 export function pulseElement(el) {
     if (!el || !el.classList) return;
     el.classList.remove(PULSE_CLASS);
@@ -37,22 +34,18 @@ export function scrollIntoViewIfNeeded(el) {
     if (!inView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-export function showAgentToast(text, ms = 2200) {
+// Now routes through the unified notification system (top-left,
+// auto-drain green bar, pause-on-hover, pin-on-click). The old
+// custom .mia-agent-toast element + timer are gone.
+import { notifyInfo } from '../ui/notify.js';
+let _lastHandle = null;
+export function showAgentToast(text, ms = 5000) {
     if (!text) return;
-    if (!toastEl) {
-        toastEl = document.createElement('div');
-        toastEl.className = 'mia-agent-toast';
-        toastEl.setAttribute('role', 'status');
-        toastEl.setAttribute('aria-live', 'polite');
-        document.body.appendChild(toastEl);
-    }
-    toastEl.innerHTML = `<span class="mia-agent-toast-dot"></span><span class="mia-agent-toast-text"></span>`;
-    toastEl.querySelector('.mia-agent-toast-text').textContent = text;
-    toastEl.classList.remove('show');
-    void toastEl.offsetWidth;
-    toastEl.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { if (toastEl) toastEl.classList.remove('show'); }, ms);
+    // Only one Mia agent toast on screen at a time — close the
+    // previous one before opening the next so we don't stack
+    // identical agent-step toasts.
+    if (_lastHandle) _lastHandle.close();
+    _lastHandle = notifyInfo(text, { autoCloseMs: ms });
 }
 
 export function announce({ text, target }) {
