@@ -161,17 +161,14 @@ export async function morphToggleToSend() {
           background: '#dbe6ff',
           easing: 'cubic-bezier(0.30, 0, 0.20, 1)' },
         // 4. Second (smaller) arc peak — colour shifts to accent blue.
-        { offset: 0.60,
+        { offset: 0.62,
           transform: `translate(${dx * 0.82}px, ${dy * 0.70 - 32}px) scale(${BALL})`,
           background: '#a8c1ff',
-          easing: 'cubic-bezier(0.55, 0, 0.55, 1)' },
-        // 5. Lands at destination as a coloured ball.
-        { offset: 0.78,
-          transform: `translate(${dx}px, ${dy + 4}px) scaleX(${BALL * 1.06}) scaleY(${BALL * 0.94})`,
-          background: accent,
-          boxShadow: `0 6px 16px rgba(${accentRgb}, 0.45)`,
           easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        // 6. Expands to send-button rect (final frame, held by fill: forwards).
+        // 5. Settles directly into the send-button rect — no extra
+        //    landing-bob keyframe (the previous "land then expand"
+        //    sequence read as a third small jump after the user
+        //    expected the motion to end). One smooth descent + scale.
         { offset: 1,
           transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
           background: accent,
@@ -241,17 +238,13 @@ export async function morphSendToToggle() {
           background: '#dbe6ff',
           easing: 'cubic-bezier(0.55, 0, 0.55, 1)' },
         // 4. Second (bigger) arc peak — colour fades to white.
-        { offset: 0.62,
+        { offset: 0.64,
           transform: `translate(${dx * 0.78}px, ${dy * 0.50 - 56}px) scale(${BALL})`,
           background: '#f0f3fa',
-          easing: 'cubic-bezier(0.30, 0, 0.20, 1)' },
-        // 5. Lands at toggle position as a white ball.
-        { offset: 0.80,
-          transform: `translate(${dx}px, ${dy + 8}px) scaleX(${BALL * 1.06}) scaleY(${BALL * 0.94})`,
-          background: '#ffffff',
-          boxShadow: '0 4px 10px rgba(0, 0, 0, 0.28)',
           easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        // 6. Expands into toggle shape (final frame).
+        // 5. Settles directly into the toggle disc — same fix as the
+        //    forward direction: dropped the extra landing-bob keyframe
+        //    that was reading as a third tiny jump.
         { offset: 1,
           transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
           background: '#ffffff',
