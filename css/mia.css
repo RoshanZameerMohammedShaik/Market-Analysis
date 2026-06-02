@@ -788,50 +788,59 @@ body.side-panel-mia-open .mia-launcher {
     .shimmer { animation: none; background-position: 50% 0; }
 }
 
-/* One-shot shimmer — IDENTICAL look to the looping .shimmer above
-   (same gradient, same sweep timing), the only difference is it runs
-   the sweep once and stops. The JS helper in flash-shimmer.js strips
-   the class on animationend so the text returns to its normal colour.
-   Used to highlight the next actionable thing after a navigation:
-   "Portfolio Simulation" header when the panel slides in, "P&L
-   Calculator" inside the panel, etc.
+/* One-shot shimmer — sweeps a single bright peak across the text and
+   STOPS while the bright region covers the glyphs, so the text ends
+   white and stays white (Roshan's spec: "1st shimmering itself make
+   it into white and keep it white"). Used to highlight the next
+   actionable thing after a navigation: "Portfolio Simulation" header
+   when the panel slides in, "P&L Calculator" inside the panel, "Mia"
+   in the chat header, "Resources" in the rail.
 
-   Earlier this was a custom gradient/keyframe pair, but Roshan asked
-   to "make it shimmer the same way as the empty-chart placeholder" —
-   so we now reuse .shimmer's exact gradient AND the ma-shimmer-sweep
-   keyframe, just with iteration-count: 1. Pixel-identical sweep, one
-   pass. */
+   Earlier attempts reused the looping .shimmer's gradient with
+   `iteration: 1`, but that gradient is dim-bright-dim with repeat-x
+   — at the end of one travel cycle the text returned to dim. Worse,
+   the bright peak's "rise" and "fall" through the visible window
+   read as two separate shimmers on shorter labels.
+
+   This version uses a no-repeat, dim-then-bright gradient. The
+   animation slides the bright half into view exactly once. fill-mode:
+   forwards holds the final frame so the text stays bright. */
 .flash-shimmer {
     background-image: linear-gradient(
         100deg,
-        rgba(255, 255, 255, 0.30) 0%,
-        rgba(255, 255, 255, 0.30) 42%,
-        rgba(255, 255, 255, 1.0)  50%,
-        rgba(255, 255, 255, 0.30) 58%,
-        rgba(255, 255, 255, 0.30) 100%
+        rgba(255, 255, 255, 0.30)  0%,
+        rgba(255, 255, 255, 0.30) 35%,
+        rgba(255, 255, 255, 1.00) 55%,
+        rgba(255, 255, 255, 1.00) 100%
     );
-    background-size: 300% 100%;
-    background-repeat: repeat-x;
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent !important;
     color: transparent !important;
     text-shadow: none !important;
-    animation: ma-shimmer-sweep 5s linear 1 both;
+    animation: ma-shimmer-flash-once 2.4s cubic-bezier(0.45, 0, 0.55, 1) 1 forwards;
     will-change: background-position;
 }
 [data-theme="light"] .flash-shimmer {
     background-image: linear-gradient(
         100deg,
-        rgba(37, 99, 235, 0.55) 0%,
-        rgba(37, 99, 235, 0.55) 42%,
-        rgba(37, 99, 235, 1.0)  50%,
-        rgba(37, 99, 235, 0.55) 58%,
-        rgba(37, 99, 235, 0.55) 100%
+        rgba(37, 99, 235, 0.55)  0%,
+        rgba(37, 99, 235, 0.55) 35%,
+        rgba(37, 99, 235, 1.00) 55%,
+        rgba(37, 99, 235, 1.00) 100%
     );
 }
+@keyframes ma-shimmer-flash-once {
+    /* Start: bg shifted so the dim left half of the gradient sits
+       over the visible text. End: bg shifted so the bright right
+       half sits over the text. Single sweep, ends white. */
+    0%   { background-position: 0% 0; }
+    100% { background-position: 100% 0; }
+}
 @media (prefers-reduced-motion: reduce) {
-    .flash-shimmer { animation: none; }
+    .flash-shimmer { animation: none; background-position: 100% 0; }
 }
 /* Live transcript region. Scroll-into-view keeps the latest sentence
    in sight; older ones stay above for context. */

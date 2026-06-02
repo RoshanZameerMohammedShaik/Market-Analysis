@@ -1,38 +1,44 @@
 // One-shot shimmer helper.
 //
 // Roshan's pattern: when the user clicks something that navigates to
-// the next view (settings-gear → P&L Calculator inside Portfolio,
-// header Portfolio button → "Portfolio Simulation" panel header,
-// etc.), the destination's name should run a single left-to-right
-// shimmer once it's on screen so the user's eye is pulled to it.
+// the next view (gear → P&L Calculator inside Portfolio, header
+// Portfolio button → "Portfolio Simulation" panel header, Mia toggle
+// → "Mia" name in the chat, Resources toggle → "Resources" headline),
+// the destination's name should run a single left-to-right shimmer
+// once it's on screen so the user's eye lands on it. The text ends
+// bright white (or theme-blue) and STAYS bright — the shimmer is the
+// transition into a bright label, not a flash that disappears.
 //
-// CSS does the visual; this module just toggles the .flash-shimmer
-// class onto a target element and removes it after the animation
-// finishes (or after a hard timeout, in case animationend doesn't
-// fire — e.g., element re-rendered, prefers-reduced-motion, etc.).
+// CSS does the visual: .flash-shimmer's animation runs once with
+// fill-mode: forwards so the final frame (bright peak over the text)
+// stays after the animation ends. This module only adds the class
+// once and never removes it, so the persisted bright state holds
+// until the element is re-rendered by something else.
 //
 // Theme-awareness is handled in CSS via [data-theme="light"]
 // .flash-shimmer override; this module is theme-agnostic.
-
-const FALLBACK_MS = 5500;   // generous; animation is 5s (one .shimmer sweep)
 
 /**
  * Run the one-shot shimmer on the given element. Safe to call when
  * `el` is null (no-op). Re-firing while a shimmer is already running
  * restarts it from the beginning (matches the user's expectation of
- * "highlight this NOW").
+ * "highlight this NOW") — useful when a panel is opened a second time
+ * after the bright state was wiped by a re-render.
  */
 export function flashShimmer(el) {
     if (!el) return;
-    // Restart pattern: remove the class, force a reflow, re-add it.
-    // Just toggling won't restart the animation if the class is
-    // already present.
+    // Restart pattern: remove the class, force a reflow, re-add.
+    // Toggling alone won't restart the animation if the class is
+    // already present from a previous shimmer that wasn't cleared.
     el.classList.remove('flash-shimmer');
     void el.offsetWidth;
     el.classList.add('flash-shimmer');
-    const cleanup = () => el.classList.remove('flash-shimmer');
-    el.addEventListener('animationend', cleanup, { once: true });
-    setTimeout(cleanup, FALLBACK_MS);
+    // Note: we DON'T strip the class on animationend. The whole point
+    // of one-shot shimmer is that it ends with the text bright and
+    // STAYS bright (animation-fill-mode: forwards in the CSS holds the
+    // final frame). Removing the class here would snap the text back
+    // to its dim base immediately after the sweep — exactly what
+    // Roshan called out as wrong.
 }
 
 /**
