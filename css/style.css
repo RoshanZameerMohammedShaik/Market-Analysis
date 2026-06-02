@@ -107,6 +107,10 @@ body {
 }
 
 .app-header {
+    /* sticky already counts as a positioned value, so the absolute
+       .header-actions inside it anchors here (not to <body>). The
+       gear cluster sits centred against the header height via
+       top: 50% / translateY(-50%) — see .header-actions below. */
     position: sticky; top: 0; z-index: 100;
     background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(12px);
