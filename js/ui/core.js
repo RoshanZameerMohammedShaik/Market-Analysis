@@ -21,6 +21,7 @@ import { initMia, setLatestSignal } from '../mia/mia.js';
 import { startDyk } from './dyk.js';
 import { initRipple } from './ripple.js';
 import { candleLoaderHTML } from './skeleton.js';
+import { flashShimmer } from './flash-shimmer.js';
 
 let stopTips = null;
 
@@ -393,12 +394,19 @@ function initSettingsMenu() {
             if (section && !section.open) section.open = true;
             const inv = document.getElementById('pp-calc-investment');
             const scroller = document.querySelector('.portfolio-panel-scroll');
+            const shimmerTarget = document.querySelector('.portfolio-pl-summary-text');
             if (inv && scroller) {
                 slowScrollTo(scroller, inv, 1400);
-                setTimeout(() => inv.focus({ preventScroll: true }), 1500);
+                setTimeout(() => {
+                    inv.focus({ preventScroll: true });
+                    flashShimmer(shimmerTarget);
+                }, 1500);
             } else if (inv) {
                 inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(() => inv.focus(), 280);
+                setTimeout(() => {
+                    inv.focus();
+                    flashShimmer(shimmerTarget);
+                }, 280);
             }
         });
     });

@@ -770,6 +770,50 @@ body.side-panel-mia-open .mia-launcher {
 @media (prefers-reduced-motion: reduce) {
     .shimmer { animation: none; background-position: 50% 0; }
 }
+
+/* One-shot shimmer — same gradient as .shimmer, but runs a single
+   left-to-right sweep then auto-removes (the JS helper in
+   flash-shimmer.js listens for animationend and strips the class so
+   the text returns to its normal colour). Used to highlight the next
+   actionable thing after a navigation: P&L Calculator name when the
+   gear-menu opens it, "Portfolio Simulation" header when the panel
+   slides in, etc. */
+.flash-shimmer {
+    background-image: linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0.30) 0%,
+        rgba(255, 255, 255, 0.30) 42%,
+        rgba(255, 255, 255, 1.0)  50%,
+        rgba(255, 255, 255, 0.30) 58%,
+        rgba(255, 255, 255, 0.30) 100%
+    );
+    background-size: 300% 100%;
+    background-repeat: repeat-x;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    text-shadow: none !important;
+    animation: ma-shimmer-flash 1.6s linear 1 both;
+    will-change: background-position;
+}
+[data-theme="light"] .flash-shimmer {
+    background-image: linear-gradient(
+        100deg,
+        rgba(37, 99, 235, 0.55) 0%,
+        rgba(37, 99, 235, 0.55) 42%,
+        rgba(37, 99, 235, 1.0)  50%,
+        rgba(37, 99, 235, 0.55) 58%,
+        rgba(37, 99, 235, 0.55) 100%
+    );
+}
+@keyframes ma-shimmer-flash {
+    0%   { background-position: 100% 0; }
+    100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .flash-shimmer { animation: none; }
+}
 /* Live transcript region. Scroll-into-view keeps the latest sentence
    in sight; older ones stay above for context. */
 .mia-voice-transcript {
