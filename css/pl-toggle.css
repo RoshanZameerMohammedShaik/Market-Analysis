@@ -23,13 +23,17 @@
 #pl-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 #pl-toggle.active:hover { transform: translateY(-2px) rotate(-8deg) scale(1.05); }
 
-/* Layout: 2-column grid (glossary + main). P&L was a third column — now floats. */
-.app-layout { grid-template-columns: 260px 1fr !important; }
-@media (max-width: 1280px) {
-    .app-layout { grid-template-columns: 220px 1fr !important; }
-}
-@media (max-width: 1024px) {
-    .app-layout { grid-template-columns: 1fr !important; }
+/* Layout: SINGLE column by default. The Resources rail (220px) only
+   appears when body.resources-open. P&L is a floating panel (sliding
+   sheet from the right) — not a grid column anymore.
+   Earlier this file forced `260px 1fr !important` on every desktop
+   load, which kept the glossary slot reserved even when Resources
+   was hidden — squeezing the main content. */
+.app-layout { grid-template-columns: minmax(0, 1fr) !important; }
+@media (min-width: 1024px) {
+    body.resources-open .app-layout {
+        grid-template-columns: 220px minmax(0, 1fr) !important;
+    }
 }
 
 /* P&L sidebar becomes a floating panel that slides from the right. */
