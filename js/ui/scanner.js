@@ -1,44 +1,45 @@
-// Full ledger scanner — sortable, filterable table over today's
-// predictions for the entire global universe.
+// Full Ledger — sortable, filterable table over today's predictions
+// for the entire global universe. Drives the SAME computeFullConfidence
+// pipeline as the detail card at the top of the page (with bulkScan:
+// false) so a row's verdict matches the detail card byte-for-byte.
 //
-// Why this used to disagree with the detail card:
-//   The previous version pulled rows from model/ledger/<year>.jsonl,
-//   which is written by a Python cron using a simple RSI/MACD/BB voting
-//   heuristic (see backtest.py::generate_prediction). The detail card
-//   at the top of the page runs computeFullConfidence — the production
-//   JS engine with LSTM, sentiment, market context, calibration, and
-//   ~20 enrichments. They are not the same engine, so the same symbol
-//   could read "BUY 64%" in this table and "DON'T BUY 53%" in the card.
+// Three click behaviours:
+//   - clicking the symbol cell  → loads it into the main top chart +
+//                                 detail card (full analysis upstairs).
+//   - clicking elsewhere on the row → expands an inline drawer below
+//                                 the row showing the same analysis
+//                                 fields (signal, confidence, sources,
+//                                 top reasons, price targets).
+//   - clicking the row again or its expanded drawer's × → collapses.
 //
-// Fix: this scanner now drives the SAME computeFullConfidence pipeline
-// as the detail card, with bulkScan: false. Rows are streamed in as
-// they compute, with concurrency clamped so we don't saturate the data
-// proxies. Resolution columns (1d/3d/5d hit) are still joined from the
-// historical ledger because that's the only source of "did the past
-// prediction actually hit?".
-//
-// Trade-off: a full universe scan takes minutes, not seconds. We stream
-// progressively so the user sees results as they land, and any row the
-// scanner computes is cached via analysis-cache.js — clicking that
-// symbol later in the same session is instant.
+// Prediction Accuracy column: per-symbol hit rate aggregated across
+// every resolved horizon in the live ledger (1d/3d/5d/10d/20d). The
+// underlying assumption per the user's spec is that every resolved
+// horizon is one prediction; "12/20" means 12 of the last 20 resolved
+// horizons for THAT symbol hit the predicted direction. Colour bar
+// gradients smoothly across the percentage range — red < 45, amber
+// 45-70, green > 70 — interpolated, not stepped.
 
 import { GLOBAL_POOL, UNIVERSE_CONFIG } from '../markets.js';
 import { analyzeAndCache, peek } from '../analysis-cache.js';
 import { calculateRSI } from '../analysis.js';
+import { fmtPrice } from './format.js';
 
 let scanState = {
     started: false,
     running: false,
     aborted: false,
-    rows: [],            // computed scanner rows
-    historyByKey: {},    // ledger history keyed by symbol → { horizons }
+    rows: [],
+    historyByKey: {},
+    accuracyBySymbol: {},
     progress: { done: 0, total: 0, errors: 0 },
 };
 
 let sortKey = 'confidence';
 let sortDir = 'desc';
+let expandedSymbol = null;       // currently inline-expanded symbol, or null
 
-// ── Ledger history (for resolution columns only) ─────────────────────
+// ── Ledger history + accuracy aggregation ────────────────────────────
 
 let cachedHistory = null;
 async function loadLedgerHistory() {
@@ -62,9 +63,6 @@ async function loadLedgerHistory() {
     }
 }
 
-// Build a map: symbol → most recent resolved horizons. Used to fill
-// the "1d hit" column with historical resolution data so users can
-// see which symbols the engine has read correctly in the past.
 function buildHistoryIndex(rows) {
     const out = {};
     for (const r of rows) {
@@ -75,12 +73,30 @@ function buildHistoryIndex(rows) {
     return out;
 }
 
+// Per-symbol accuracy: count every resolved horizon row where
+// directionMatch is set (true or false), and how many were true.
+// "12/20 = 12 hits out of 20 resolved predictions for this symbol."
+function buildAccuracyIndex(rows) {
+    const out = {};
+    for (const r of rows) {
+        if (!r.symbol || !r.horizons) continue;
+        // Only count predictions that committed to a direction. NEUTRAL
+        // and NO_TRADE setups don't make a directional claim, so
+        // counting them as "hits" or "misses" would be noise.
+        if (r.signal !== 'BUY' && r.signal !== 'SELL') continue;
+        const slot = (out[r.symbol] ||= { hits: 0, total: 0 });
+        for (const k of Object.keys(r.horizons)) {
+            const h = r.horizons[k];
+            if (!h || h.directionMatch == null) continue;
+            slot.total++;
+            if (h.directionMatch) slot.hits++;
+        }
+    }
+    return out;
+}
+
 // ── Universe ─────────────────────────────────────────────────────────
 
-// Static sample of liquid US large-caps to scan alongside the global
-// pool. The cron's universe is bigger but we keep this list focused so
-// a UI scan doesn't take forever. Users can still search any symbol;
-// this is just the seed list for the scanner table.
 const US_SEED = [
     'AAPL','MSFT','GOOGL','GOOG','AMZN','META','NVDA','TSLA','AVGO','ORCL',
     'JPM','V','MA','BAC','WFC','GS','MS','C','BLK','AXP',
@@ -104,7 +120,6 @@ function buildUniverse() {
 // ── Scanning ─────────────────────────────────────────────────────────
 
 async function scanOne(symbol, mode = 'stock') {
-    // Reuse cached entry if it's already been computed at full fidelity.
     const cached = peek(symbol, 'today', mode);
     if (cached && cached.fresh && cached.bulkScan === false) {
         return entryToRow(symbol, cached);
@@ -119,9 +134,6 @@ function entryToRow(symbol, entry) {
     const candles = entry?.data?.daily?.candles || [];
     const last = candles[candles.length - 1];
     const closes = candles.map(c => c.close);
-    // computeFullConfidence returns the final verdict on .signal — same
-    // field the detail card reads from. So picking it up here guarantees
-    // the scanner row matches whatever the card shows for that symbol.
     return {
         symbol,
         region: inferRegion(symbol),
@@ -129,6 +141,9 @@ function entryToRow(symbol, entry) {
         confidence: Math.round(sig.confidence || 0),
         entry: last?.close ?? null,
         indicators: { rsi: calculateRSI(closes) ?? null },
+        // Hold a reference to the engine result so the inline drawer
+        // can re-render without re-running the pipeline.
+        _signal: sig,
     };
 }
 
@@ -154,11 +169,9 @@ async function startScan() {
 
     const history = await loadLedgerHistory();
     scanState.historyByKey = buildHistoryIndex(history);
+    scanState.accuracyBySymbol = buildAccuracyIndex(history);
     refresh();
 
-    // Concurrency 4 — small enough that worker proxies don't get
-    // hammered, large enough that a full universe scan completes in
-    // a few minutes instead of an hour.
     const CONCURRENCY = 4;
     let cursor = 0;
 
@@ -174,8 +187,6 @@ async function startScan() {
                 scanState.progress.errors++;
             }
             scanState.progress.done++;
-            // Throttle UI refresh — every 4 rows or every ~250ms,
-            // whichever comes first, so we don't thrash innerHTML.
             if (scanState.progress.done % 4 === 0) refresh();
         }
     }
@@ -186,7 +197,7 @@ async function startScan() {
     refresh();
 }
 
-// ── Filtering / sorting / rendering ──────────────────────────────────
+// ── Filter / sort ────────────────────────────────────────────────────
 
 function applyFilters(rows) {
     const filterText = (document.getElementById('scanner-filter')?.value || '').trim().toUpperCase();
@@ -206,10 +217,10 @@ function getSortValue(row, key) {
     if (key === 'confidence') return Number(row.confidence) || 0;
     if (key === 'entry') return Number(row.entry) || 0;
     if (key === 'rsi') return Number(row.indicators?.rsi) || 0;
-    if (key === 'hit1d') {
-        const slot = scanState.historyByKey[row.symbol]?.horizons?.['1'];
-        if (!slot || slot.directionMatch == null) return -1;
-        return slot.directionMatch ? 1 : 0;
+    if (key === 'accuracy') {
+        const a = scanState.accuracyBySymbol[row.symbol];
+        if (!a || !a.total) return -1;       // no data sorts last on desc
+        return a.hits / a.total;
     }
     return 0;
 }
@@ -224,14 +235,8 @@ function sortRows(rows) {
     });
 }
 
-// Mirror the detail-card translation in js/ui/signal.js: the engine
-// internally uses BUY / SELL / NEUTRAL / NO_TRADE (so the ledger and
-// calibration tables stay valid), but the UI surfaces decisive labels
-// per Roshan's "say things with conviction" rule.
-//   BUY      → BUY        (clear bullish edge)
-//   SELL     → SELL       (clear bearish edge)
-//   NEUTRAL  → DON'T BUY  (no edge, sit out)
-//   NO_TRADE → AVOID      (event-risk cap — earnings, gap, etc)
+// ── Render ───────────────────────────────────────────────────────────
+
 function fmtSignal(signal) {
     if (signal === 'BUY') return '<span class="scanner-sig sig-buy">▲ BUY</span>';
     if (signal === 'SELL') return '<span class="scanner-sig sig-sell">▼ SELL</span>';
@@ -239,12 +244,96 @@ function fmtSignal(signal) {
     return '<span class="scanner-sig sig-neutral">◆ DON\'T BUY</span>';
 }
 
-function fmtHit1d(symbol) {
-    const slot = scanState.historyByKey[symbol]?.horizons?.['1'];
-    if (!slot || slot.directionMatch == null) return '<span class="hit-pending">pending</span>';
-    return slot.directionMatch
-        ? '<span class="hit-yes">✓ hit</span>'
-        : '<span class="hit-no">✗ miss</span>';
+// Smooth red→amber→green gradient based on hit-rate percentage.
+// Per Roshan's spec: above 70 = green, 45–60 = amber, below 45 = red,
+// gradiented (not stepped) across the in-between values.
+//   < 45    : pure red
+//   45 → 60 : red → amber blend
+//   60 → 70 : amber → green blend
+//   > 70    : pure green
+// Returns an HSL string so the colour shifts smoothly with the value.
+function accuracyColor(pct) {
+    if (!Number.isFinite(pct)) return 'var(--text-muted)';
+    let hue;
+    if (pct < 45) hue = 0;                       // red
+    else if (pct < 60) hue = ((pct - 45) / 15) * 45;        // 0 → 45 (red → amber)
+    else if (pct < 70) hue = 45 + ((pct - 60) / 10) * 75;   // 45 → 120 (amber → green)
+    else hue = 120;                              // green
+    return `hsl(${hue}, 75%, 48%)`;
+}
+
+function fmtAccuracy(symbol) {
+    const a = scanState.accuracyBySymbol[symbol];
+    if (!a || !a.total) {
+        return '<div class="acc-cell"><span class="acc-empty">no resolved predictions yet</span></div>';
+    }
+    const pct = (a.hits / a.total) * 100;
+    const color = accuracyColor(pct);
+    return `
+        <div class="acc-cell">
+            <div class="acc-frac">${a.hits}/${a.total}</div>
+            <div class="acc-pct" style="color:${color}">${pct.toFixed(0)}% Success Rate</div>
+            <div class="acc-bar"><div class="acc-bar-fill" style="width:${pct.toFixed(1)}%; background:${color}"></div></div>
+        </div>`;
+}
+
+// Inline drawer rendered beneath the clicked row. Reuses the engine's
+// .breakdown / .reasons / .priceTargets so the user sees the same
+// analysis they'd see in the detail card upstairs, without leaving the
+// table.
+function renderDrawer(row) {
+    const sig = row._signal;
+    if (!sig) return '<div class="scanner-drawer-empty">Analysis unavailable for this row.</div>';
+    const breakdown = sig.breakdown || {};
+    const reasons = (sig.reasons || []).slice(0, 8);
+    const tgt = sig.priceTargets;
+    const co = { srcCurrency: 'USD' };  // ledger entries currency-aware via formatter
+
+    const sourceRows = ['ai', 'technical', 'sentiment', 'market']
+        .filter(k => breakdown[k])
+        .map(k => {
+            const b = breakdown[k];
+            const score = Math.round(b.score || 0);
+            const weight = Math.round(b.weight || 0);
+            const label = k === 'ai' ? 'AI Model' : k.charAt(0).toUpperCase() + k.slice(1);
+            return `
+                <div class="drawer-source">
+                    <span class="drawer-source-label">${label} <span class="drawer-source-weight">(${weight}%)</span></span>
+                    <span class="drawer-source-bar"><span class="drawer-source-fill" style="width:${score}%"></span></span>
+                    <span class="drawer-source-score">${score}</span>
+                </div>`;
+        }).join('');
+
+    const reasonsHTML = reasons.length
+        ? `<ul class="drawer-reasons">${reasons.map(r => `<li>${r}</li>`).join('')}</ul>`
+        : '<p class="drawer-empty-reasons">No driver explanations from the engine for this run.</p>';
+
+    const targetsHTML = tgt ? `
+        <div class="drawer-targets">
+            <div class="drawer-target"><span class="drawer-target-label">Possible High</span> <span class="drawer-target-value high">${fmtPrice(tgt.predictedHigh, co)} ▲ +${tgt.highPercent}%</span></div>
+            <div class="drawer-target"><span class="drawer-target-label">Current</span> <span class="drawer-target-value">${fmtPrice(tgt.currentPrice, co)}</span></div>
+            <div class="drawer-target"><span class="drawer-target-label">Possible Low</span> <span class="drawer-target-value low">${fmtPrice(tgt.predictedLow, co)} ▼ ${tgt.lowPercent}%</span></div>
+        </div>` : '';
+
+    return `
+        <div class="scanner-drawer">
+            <div class="drawer-head">
+                <div class="drawer-verdict ${row.signal.toLowerCase()}">
+                    <span class="drawer-verdict-arrow">${row.signal === 'BUY' ? '▲' : row.signal === 'SELL' ? '▼' : row.signal === 'NO_TRADE' ? '⊘' : '◆'}</span>
+                    <span class="drawer-verdict-label">${row.signal === 'NO_TRADE' ? 'AVOID' : row.signal === 'NEUTRAL' ? "DON'T BUY" : row.signal}</span>
+                    <span class="drawer-verdict-conf">${row.confidence}% confidence</span>
+                </div>
+                <button class="drawer-close" type="button" aria-label="Collapse" data-action="collapse">×</button>
+            </div>
+            <div class="drawer-section-title">Confidence Sources</div>
+            <div class="drawer-sources">${sourceRows || '<div class="drawer-empty-reasons">No source breakdown.</div>'}</div>
+            ${targetsHTML}
+            <div class="drawer-section-title">Why this signal — top drivers</div>
+            ${reasonsHTML}
+            <div class="drawer-foot">
+                <button class="drawer-load-chart" type="button" data-action="load-chart" data-symbol="${row.symbol}">Open in chart above ↑</button>
+            </div>
+        </div>`;
 }
 
 function renderRows() {
@@ -259,17 +348,23 @@ function renderRows() {
         tbody.innerHTML = `<tr><td colspan="7" class="scanner-empty">${msg}</td></tr>`;
         return;
     }
-    tbody.innerHTML = rows.map(r => `
-        <tr class="scanner-row" data-symbol="${r.symbol}">
-            <td class="scanner-symbol">${r.symbol}</td>
-            <td class="scanner-region">${r.region || '-'}</td>
-            <td>${fmtSignal(r.signal)}</td>
-            <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
-            <td class="scanner-num">${typeof r.entry === 'number' ? r.entry.toFixed(2) : '-'}</td>
-            <td class="scanner-num">${r.indicators?.rsi != null ? r.indicators.rsi.toFixed(1) : '-'}</td>
-            <td class="scanner-num">${fmtHit1d(r.symbol)}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = rows.map(r => {
+        const isExpanded = expandedSymbol === r.symbol;
+        const drawerRow = isExpanded
+            ? `<tr class="scanner-drawer-row"><td colspan="7">${renderDrawer(r)}</td></tr>`
+            : '';
+        return `
+            <tr class="scanner-row ${isExpanded ? 'expanded' : ''}" data-symbol="${r.symbol}">
+                <td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a></td>
+                <td class="scanner-region">${r.region || '-'}</td>
+                <td>${fmtSignal(r.signal)}</td>
+                <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
+                <td class="scanner-num">${typeof r.entry === 'number' ? r.entry.toFixed(2) : '-'}</td>
+                <td class="scanner-num">${r.indicators?.rsi != null ? r.indicators.rsi.toFixed(1) : '-'}</td>
+                <td class="scanner-acc">${fmtAccuracy(r.symbol)}</td>
+            </tr>
+            ${drawerRow}`;
+    }).join('');
 }
 
 function updateMeta() {
@@ -277,10 +372,7 @@ function updateMeta() {
     if (!el) return;
     const { done, total, errors } = scanState.progress;
     const shown = applyFilters(scanState.rows).length;
-    if (!total) {
-        el.textContent = '';
-        return;
-    }
+    if (!total) { el.textContent = ''; return; }
     if (scanState.running) {
         el.textContent = `Scanning ${done} / ${total}${errors ? ` (${errors} errors)` : ''} — ${shown} ready`;
     } else {
@@ -302,16 +394,32 @@ function updateSortHeaders() {
     });
 }
 
+// ── Click handling ───────────────────────────────────────────────────
+
+function loadInMainChart(sym) {
+    const input = document.getElementById('search-input');
+    if (input) {
+        input.value = sym;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        setTimeout(() => {
+            document.querySelector(`.search-result-item[data-symbol="${sym}"]`)?.click();
+        }, 400);
+    }
+    // Scroll up so the user actually sees the chart they just loaded.
+    document.querySelector('.chart-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleExpand(sym) {
+    expandedSymbol = (expandedSymbol === sym) ? null : sym;
+    renderRows();
+}
+
 export async function initScanner() {
     const section = document.getElementById('scanner-section');
     if (!section) return;
     const details = section.querySelector('.scanner-details');
     if (!details) return;
 
-    // Lazy-start: only kick off the scan when the user actually opens
-    // the panel. We also fetch the historical ledger here so the
-    // "1d hit" column can be filled in even before the live engine
-    // has finished computing.
     details.addEventListener('toggle', () => {
         if (details.open && !scanState.started) startScan();
     });
@@ -331,17 +439,26 @@ export async function initScanner() {
     updateSortHeaders();
 
     document.getElementById('scanner-tbody')?.addEventListener('click', (e) => {
-        const tr = e.target.closest('.scanner-row');
-        if (!tr) return;
-        const sym = tr.dataset.symbol;
+        const action = e.target.closest('[data-action]')?.dataset.action;
+        const sym = e.target.closest('[data-symbol]')?.dataset.symbol
+                  || e.target.closest('.scanner-row')?.dataset.symbol;
         if (!sym) return;
-        const input = document.getElementById('search-input');
-        if (input) {
-            input.value = sym;
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(() => {
-                document.querySelector(`.search-result-item[data-symbol="${sym}"]`)?.click();
-            }, 400);
+
+        // Symbol-name click OR the drawer's "Open in chart above" button:
+        // load this symbol into the main chart + detail card upstairs.
+        if (action === 'load-chart') {
+            e.preventDefault();
+            loadInMainChart(sym);
+            return;
         }
+        // Drawer × button: collapse the drawer.
+        if (action === 'collapse') {
+            e.preventDefault();
+            expandedSymbol = null;
+            renderRows();
+            return;
+        }
+        // Anywhere else on the row: toggle inline drawer.
+        toggleExpand(sym);
     });
 }

@@ -160,8 +160,15 @@
             <section class="scanner-section" id="scanner-section">
                 <details class="scanner-details">
                     <summary class="scanner-summary">
-                        <span class="scanner-title">📊 Full Engine Scanner — Today's Predictions</span>
-                        <span class="scanner-hint">Same engine as the detail card. Streams in over a few minutes; clicking any row is instant after.</span>
+                        <span class="scanner-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="16" rx="2"/>
+                                <path d="M3 9h18"/>
+                                <path d="M8 4v16 M16 4v16"/>
+                            </svg>
+                        </span>
+                        <span class="scanner-title">Full Ledger</span>
+                        <span class="scanner-hint">Same engine as the detail card. Click any row to expand the analysis inline; click the symbol name to load it into the chart above.</span>
                     </summary>
                     <div class="scanner-controls">
                         <input type="text" id="scanner-filter" class="scanner-filter" placeholder="Filter by symbol or region (e.g. AAPL, NSE)..." autocomplete="off">
@@ -184,7 +191,7 @@
                                     <th data-sort="confidence" class="sortable-num">Confidence</th>
                                     <th data-sort="entry" class="sortable-num">Entry</th>
                                     <th data-sort="rsi" class="sortable-num">RSI</th>
-                                    <th data-sort="hit1d" class="sortable-num">1d resolved</th>
+                                    <th data-sort="accuracy" class="sortable-num">Prediction Accuracy</th>
                                 </tr>
                             </thead>
                             <tbody id="scanner-tbody"></tbody>
