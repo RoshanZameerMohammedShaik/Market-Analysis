@@ -224,16 +224,19 @@ function sortRows(rows) {
     });
 }
 
+// Mirror the detail-card translation in js/ui/signal.js: the engine
+// internally uses BUY / SELL / NEUTRAL / NO_TRADE (so the ledger and
+// calibration tables stay valid), but the UI surfaces decisive labels
+// per Roshan's "say things with conviction" rule.
+//   BUY      → BUY        (clear bullish edge)
+//   SELL     → SELL       (clear bearish edge)
+//   NEUTRAL  → DON'T BUY  (no edge, sit out)
+//   NO_TRADE → AVOID      (event-risk cap — earnings, gap, etc)
 function fmtSignal(signal) {
-    if (signal === 'NO_TRADE') return '<span class="scanner-sig sig-no_trade">⊘ NO TRADE</span>';
     if (signal === 'BUY') return '<span class="scanner-sig sig-buy">▲ BUY</span>';
     if (signal === 'SELL') return '<span class="scanner-sig sig-sell">▼ SELL</span>';
-    if (signal === "DONT_BUY" || signal === "DON'T BUY" || signal === 'DONT BUY') {
-        return '<span class="scanner-sig sig-dont-buy">◆ DON\'T BUY</span>';
-    }
-    if (signal === 'AVOID') return '<span class="scanner-sig sig-avoid">⊘ AVOID</span>';
-    if (signal === 'HOLD') return '<span class="scanner-sig sig-hold">◆ HOLD</span>';
-    return '<span class="scanner-sig sig-neutral">◆ NEUTRAL</span>';
+    if (signal === 'NO_TRADE') return '<span class="scanner-sig sig-no_trade">⊘ AVOID</span>';
+    return '<span class="scanner-sig sig-neutral">◆ DON\'T BUY</span>';
 }
 
 function fmtHit1d(symbol) {
