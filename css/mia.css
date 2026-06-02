@@ -800,36 +800,70 @@ body.side-panel-mia-open .mia-launcher {
     .shimmer { animation: none; background-position: 50% 0; }
 }
 
-/* One-shot shimmer — single clean dim-to-bright fade that ends with
-   the text fully bright and stays bright (Roshan's spec: "1st
-   shimmering itself make it into white and keep it white"). Used to
-   highlight the next actionable thing after a navigation: "Portfolio
-   Simulation" header, "P&L Calculator" label, "Mia" name, "Resources"
-   headline, etc.
+/* One-shot shimmer — same look as the looping .shimmer used on the
+   empty-chart placeholder, but runs one sweep and stays bright at
+   the end. Roshan's exact spec: text stays a little faded dark, a
+   bright peak sweeps right→left across the glyphs, after the peak
+   passes the letters stay bright.
 
-   Approach: animate text-color (and -webkit-text-fill-color) from a
-   dim base to the active theme's bright primary over a single ease
-   curve. No background-image gradient, no peak-sweeps to misread as
-   "two shimmers". fill-mode: forwards holds the final bright frame.
-   On dark theme: dim white → full white. On light theme: light blue →
-   full accent blue. */
+   How: a 3-stop gradient (dim 0.30 → bright 1.0 → dim 0.30) wider
+   than the text, animated via background-position. Start frame puts
+   the bright peak OFF the right edge so the text reads dim. End
+   frame puts the bright peak OVER the visible text and stops there,
+   so the final state is bright. fill-mode: forwards holds it.
+
+   Travel direction is deliberately right→left (background-position
+   animates 100% → 0% which slides the gradient leftward, so the
+   bright region appears to sweep from right edge to left edge —
+   matches the looping .shimmer's reading direction). */
 .flash-shimmer {
-    animation: ma-shimmer-fade-once 1.4s cubic-bezier(0.4, 0, 0.2, 1) 1 forwards;
-    will-change: color;
-}
-@keyframes ma-shimmer-fade-once {
-    0%   { color: rgba(255, 255, 255, 0.30); -webkit-text-fill-color: rgba(255, 255, 255, 0.30); }
-    100% { color: rgba(255, 255, 255, 1.00); -webkit-text-fill-color: rgba(255, 255, 255, 1.00); }
+    /* Two-region gradient: DIM on the left half (gradient stops
+       0%-50%), then a soft transition from 50%-65%, then fully BRIGHT
+       on the right half (65%-100%). With background-size 200% and
+       no-repeat, animating background-position from 0% to 100% slides
+       the gradient leftward under the box → the bright right region
+       enters from the box's right edge and sweeps across to fully
+       cover the text. Final frame at 100% shows the gradient's right
+       half (mostly bright) over the box. fill-mode: forwards holds
+       it bright. Visual direction: bright peak appears to sweep
+       right→left, exactly like the looping .shimmer. */
+    background-image: linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0.30)  0%,
+        rgba(255, 255, 255, 0.30) 50%,
+        rgba(255, 255, 255, 1.00) 65%,
+        rgba(255, 255, 255, 1.00) 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    text-shadow: none !important;
+    animation: ma-shimmer-flash-rl 1.6s cubic-bezier(0.4, 0, 0.2, 1) 1 forwards;
+    will-change: background-position;
 }
 [data-theme="light"] .flash-shimmer {
-    animation-name: ma-shimmer-fade-once-light;
+    background-image: linear-gradient(
+        100deg,
+        rgba(37, 99, 235, 0.45)  0%,
+        rgba(37, 99, 235, 0.45) 50%,
+        rgba(37, 99, 235, 1.00) 65%,
+        rgba(37, 99, 235, 1.00) 100%
+    );
 }
-@keyframes ma-shimmer-fade-once-light {
-    0%   { color: rgba(37, 99, 235, 0.40); -webkit-text-fill-color: rgba(37, 99, 235, 0.40); }
-    100% { color: rgba(37, 99, 235, 1.00); -webkit-text-fill-color: rgba(37, 99, 235, 1.00); }
+@keyframes ma-shimmer-flash-rl {
+    /* 0%: bg left-aligned with box → text sees gradient 0-50% = ALL
+       DIM (text reads slightly faded). 100%: bg right-aligned with
+       box → text sees gradient 50-100% = mostly bright with a soft
+       transition starting at the very left (which feels like the
+       bright peak just settled). */
+    0%   { background-position: 0% 0; }
+    100% { background-position: 100% 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .flash-shimmer { animation: none; }
+    .flash-shimmer { animation: none; background-position: 100% 0; }
 }
 /* Live transcript region. Scroll-into-view keeps the latest sentence
    in sight; older ones stay above for context. */
