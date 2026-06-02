@@ -349,20 +349,23 @@ body {
     padding: 24px;
     gap: 24px;
 }
-/* Resources panel — slides in from the left as a fixed overlay so
-   opening / closing it never reflows the main content. Mirrors the
-   P&L sidebar pattern (see css/pl-toggle.css). */
+/* Resources panel — slides in from the left as a fixed full-height
+   overlay (covers the sticky header too) so opening / closing it
+   never reflows the main content and the panel reads as a complete
+   side-sheet, not a clipped strip. Z-index sits above .app-header
+   (100) and the toggle pill so the pill is hidden while the panel
+   is open. */
 .glossary-rail {
     position: fixed;
-    top: 65px;            /* sit below the sticky app-header */
+    top: 0;
     left: 0;
     bottom: 0;
     width: min(300px, 92vw);
-    height: calc(100vh - 65px);
+    height: 100vh;
     background: var(--bg-card);
     border-right: 1px solid var(--border-strong);
     box-shadow: 16px 0 48px rgba(0, 0, 0, 0.35);
-    z-index: 450;
+    z-index: 600;
     transform: translateX(-110%);
     transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
     overflow-y: auto;
@@ -413,12 +416,14 @@ body.resources-open .glossary-rail { transform: translateX(0); }
 }
 /* Backdrop: invisible click-target on desktop so clicking outside the
    panel closes it (no visual dim — the chart stays clearly readable).
-   Mobile gets a dim + blur so the sheet pattern reads. */
+   Mobile gets a dim + blur so the sheet pattern reads. Sits just below
+   the panel (600) and above the header (100) so the header is also
+   click-to-dismiss. */
 .resources-backdrop {
     position: fixed;
     inset: 0;
     background: transparent;
-    z-index: 440;
+    z-index: 590;
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.3s ease, background 0.3s ease;
@@ -429,8 +434,6 @@ body.resources-open .resources-backdrop {
 }
 @media (max-width: 1023px) {
     .glossary-rail {
-        top: 0;
-        height: 100vh;
         width: min(320px, 88vw);
     }
     body.resources-open .resources-backdrop {
@@ -474,16 +477,14 @@ body.resources-open .resources-backdrop {
     padding: 6px 0;
     line-height: 1;
 }
-body.resources-open .resources-toggle[aria-expanded="true"] .resources-toggle-icon {
-    /* Subtle visual indication that the toggle will close (vs open). */
-    opacity: 0.9;
-}
-/* Lift the pill above the overlay (450) + backdrop (440) ONLY while
-   Resources is open — otherwise it would float over the sticky
-   app-header on scroll. */
+/* Hide the toggle pill while Resources is open — the panel itself
+   has its own × close button and the header strip the pill lives in
+   should not show through the overlay. Earlier we lifted the pill
+   above the panel (z-index 460 > overlay 450), but Roshan's correct
+   read is that the pill shouldn't be visible at all once the panel
+   takes the screen. */
 body.resources-open .resources-toggle {
-    position: relative;
-    z-index: 460;
+    visibility: hidden;
 }
 
 .main-container { min-width: 0; }
