@@ -558,6 +558,11 @@ async function startLiveVoice() {
             onClose: () => {
                 console.log('[mia/live] WebSocket closed.');
             },
+            onReconnect: () => {
+                // Clear any tail audio from the previous socket so we
+                // don't double-speak with the new one.
+                try { audioOut.clear(); } catch (_) {}
+            },
             onError: (e) => {
                 console.warn('[mia/live] error:', e);
             },

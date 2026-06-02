@@ -4,7 +4,7 @@
 // fmtPrice() and fmtCompact() delegate to currency.js so any USD value
 // flips automatically when the user toggles INR.
 
-import { format as fmtCurrency, priceTag, getMode, getRate } from '../currency.js';
+import { format as fmtCurrency, priceTag, getMode, getRates } from '../currency.js';
 
 export const fmt = (n, digits = 2) => {
     if (n == null || Number.isNaN(n)) return '—';
@@ -36,4 +36,4 @@ export const timeAgo = date => {
     return `${Math.floor(seconds / 86400)}d ago`;
 };
 
-export { getMode as currencyMode, getRate as currencyRate };
+export { getMode as currencyMode, getRates as currencyRates };

@@ -57,10 +57,28 @@ const SECTIONS = [
     },
 ];
 
+// Resources panel state. Hidden by default — Roshan asked for the
+// left rail to be collapsed unless explicitly opened. Persists in
+// localStorage so the choice survives page reloads.
+const STATE_KEY = 'ma-resources-open';
+function isOpen() {
+    try { return localStorage.getItem(STATE_KEY) === '1'; }
+    catch (_) { return false; }
+}
+function setOpen(v) {
+    try { localStorage.setItem(STATE_KEY, v ? '1' : '0'); } catch (_) {}
+    document.body.classList.toggle('resources-open', v);
+    const toggle = document.getElementById('resources-toggle');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', v ? 'true' : 'false');
+        toggle.title = v ? 'Hide Resources panel' : 'Show Resources panel';
+    }
+}
+
 export function renderGlossary() {
     const rail = document.getElementById('glossary-rail');
     if (!rail) return;
-    rail.innerHTML = SECTIONS.map((section, sIdx) => {
+    const sectionsHTML = SECTIONS.map((section, sIdx) => {
         const intro = section.intro ? `<p class="glos-intro">${section.intro}</p>` : '';
         const items = section.items.map(([term, def]) => `
             <details class="glos-item">
@@ -74,4 +92,30 @@ export function renderGlossary() {
                 ${items}
             </section>`;
     }).join('');
+
+    rail.innerHTML = `
+        <div class="resources-header">
+            <h2 class="resources-title">Resources</h2>
+        </div>
+        <div class="resources-body">${sectionsHTML}</div>
+    `;
+
+    // Mount the always-visible toggle handle if not already there.
+    if (!document.getElementById('resources-toggle')) {
+        const toggle = document.createElement('button');
+        toggle.id = 'resources-toggle';
+        toggle.className = 'resources-toggle';
+        toggle.type = 'button';
+        toggle.setAttribute('aria-controls', 'glossary-rail');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.title = 'Show Resources panel';
+        toggle.innerHTML = `
+            <span class="resources-toggle-icon" aria-hidden="true">📚</span>
+            <span class="resources-toggle-label">Resources</span>
+        `;
+        toggle.addEventListener('click', () => setOpen(!isOpen()));
+        document.body.appendChild(toggle);
+    }
+    // Apply persisted state on render.
+    setOpen(isOpen());
 }

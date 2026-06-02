@@ -35,6 +35,9 @@
     --brand-grad: linear-gradient(135deg, #4a9eff 0%, #2dd28b 100%);
     --brand-grad-2: linear-gradient(135deg, #4a9eff, #a371f7);
     --brand-grad-shadow: rgba(74, 158, 255, 0.32);
+    --scroll-track: #0d1118;
+    --scroll-thumb: #2a3340;
+    --scroll-thumb-hover: #4a9eff;
 }
 
 [data-theme="light"] {
@@ -58,6 +61,9 @@
     --brand-grad: linear-gradient(135deg, #2563eb 0%, #059669 100%);
     --brand-grad-2: linear-gradient(135deg, #2563eb, #7c3aed);
     --brand-grad-shadow: rgba(37, 99, 235, 0.3);
+    --scroll-track: #eef3fa;
+    --scroll-thumb: #c8d2e0;
+    --scroll-thumb-hover: #2563eb;
 }
 
 [data-theme="aurora"] {
@@ -81,6 +87,9 @@
     --brand-grad: linear-gradient(135deg, #c084fc 0%, #14e8a8 50%, #38bdf8 100%);
     --brand-grad-2: linear-gradient(135deg, #c084fc, #ec4899);
     --brand-grad-shadow: rgba(192, 132, 252, 0.4);
+    --scroll-track: #100628;
+    --scroll-thumb: #3d2270;
+    --scroll-thumb-hover: #c084fc;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -243,6 +252,62 @@ body {
     letter-spacing: 0.2px;
     margin-left: 6px;
 }
+
+/* Currency picker popover — opens to the LEFT of the settings menu
+   when the Currency Converter item is clicked. Lists every supported
+   currency with symbol, code, and friendly name. */
+.currency-picker {
+    position: fixed;
+    z-index: 220;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    padding: 6px;
+    min-width: 240px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.currency-picker-item {
+    display: grid;
+    grid-template-columns: 28px 50px 1fr;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: 6px;
+    text-align: left;
+    transition: background 0.12s;
+}
+.currency-picker-item:hover {
+    background: var(--bg-hover);
+}
+.currency-picker-item.active {
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+}
+.currency-picker-symbol {
+    font-family: var(--num-font);
+    font-weight: 800;
+    font-size: 0.95rem;
+    text-align: center;
+}
+.currency-picker-code {
+    font-family: var(--num-font);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+.currency-picker-item.active .currency-picker-code { color: var(--accent); }
+.currency-picker-name {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+.currency-picker-item.active .currency-picker-name { color: var(--accent); }
 /* Brief feedback pulse when a menu item is activated. The user clicks
    → row pulses with the accent → menu closes. Tells the user "yes,
    the click landed" before the menu animates away. */
@@ -287,9 +352,119 @@ body {
         grid-template-columns: 220px minmax(0, 1fr) 320px;
     }
 }
-.glossary-rail { display: none; }
-@media (min-width: 1024px) { .glossary-rail { display: block; } }
+/* Resources panel (left rail) — hidden by default per Roshan's
+   request. Toggle button (resources-toggle, lives in body) shows /
+   hides the panel. When closed, layout collapses to single column. */
+.glossary-rail {
+    display: none;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    border-radius: 12px;
+    overflow-y: auto;
+    max-height: calc(100vh - 48px);
+    position: sticky;
+    top: 24px;
+}
+.glossary-rail .resources-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border-radius: 12px 12px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.glossary-rail .resources-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    color: var(--text-primary);
+}
+.glossary-rail .resources-body {
+    padding: 12px 14px;
+}
+body.resources-open .glossary-rail {
+    display: block;
+}
+@media (min-width: 1024px) {
+    body.resources-open .app-layout {
+        grid-template-columns: 220px minmax(0, 1fr);
+    }
+    body.resources-open.pl-open .app-layout {
+        grid-template-columns: 220px minmax(0, 1fr) 320px;
+    }
+}
+
+/* Floating toggle handle — sits at the left edge so it's always
+   reachable. Clicking it slides the Resources panel in/out. */
+.resources-toggle {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 500;
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-left: 0;
+    border-radius: 0 10px 10px 0;
+    color: var(--text-secondary);
+    padding: 12px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 2px 4px 14px rgba(0, 0, 0, 0.25);
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+.resources-toggle:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+    transform: translateY(-50%) translateX(2px);
+}
+.resources-toggle-icon { font-size: 1.1rem; line-height: 1; }
+.resources-toggle-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+body.resources-open .resources-toggle[aria-expanded="true"] .resources-toggle-icon {
+    /* Subtle visual indication that the toggle will close (vs open). */
+    opacity: 0.9;
+}
+
 .main-container { min-width: 0; }
+
+/* Theme-aware scrollbars across the whole app. CSS variables already
+   carry per-theme colors; we just point the scrollbar pseudo-elements
+   at them so dark / light / aurora each get a matching look.
+   Webkit (Chrome/Edge/Safari) + Firefox both supported. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb, var(--border-strong)) var(--scroll-track, transparent);
+}
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+*::-webkit-scrollbar-track {
+    background: var(--scroll-track, transparent);
+}
+*::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb, var(--border-strong));
+    border-radius: 6px;
+    border: 2px solid var(--bg-primary);
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover, var(--accent));
+}
+*::-webkit-scrollbar-corner {
+    background: var(--scroll-track, transparent);
+}
 
 .controls-section { margin-bottom: 16px; }
 .tabs-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }

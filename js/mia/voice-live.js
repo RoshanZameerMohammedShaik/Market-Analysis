@@ -200,6 +200,7 @@ export async function openLiveSession(opts = {}) {
         onError = null,
         functionDeclarations = null,
         onToolCall = null,
+        onReconnect = null,
     } = opts;
     if (!apiKey) throw new Error('Gemini API key required for Live session.');
 
@@ -335,12 +336,23 @@ export async function openLiveSession(opts = {}) {
                 // typically). Don't surface to user; the close handler
                 // below will trigger the auto-reconnect path.
                 if (msg.goAway) {
-                    console.log('[mia/live] Server goAway received; will reconnect transparently.');
+                    // Server is forcing a session rotation. CRITICAL:
+                    // we must STOP processing audio from this socket
+                    // immediately — otherwise the old socket's tail
+                    // audio plays in parallel with the new socket's
+                    // fresh audio, and the user hears two voices
+                    // overlapping. Mark this socket as "draining" so
+                    // its remaining serverContent frames drop on the
+                    // floor; the close handler kicks off reconnect.
+                    console.log('[mia/live] Server goAway received; muting this socket and reconnecting.');
+                    ws.__draining = true;
                     return;
                 }
 
-                // Normal content path.
-                if (msg.serverContent) {
+                // Normal content path. If this socket is draining
+                // (post-goAway), drop audio + transcripts on the floor
+                // so we don't double-speak with the reconnected socket.
+                if (msg.serverContent && !ws.__draining) {
                     const c = msg.serverContent;
                     const parts = c.modelTurn?.parts || [];
                     for (const p of parts) {
@@ -348,14 +360,6 @@ export async function openLiveSession(opts = {}) {
                             const pcm = base64ToInt16(p.inlineData.data);
                             try { onAudioOut?.(pcm); } catch (_) {}
                         }
-                        // Skip modelTurn.text on AUDIO modality. The model
-                        // sometimes attaches the full reply text in one
-                        // shot here, which made captions render the whole
-                        // sentence first and then "stream" via the
-                        // separate outputTranscription deltas — looked
-                        // like the caption was repeating itself. The
-                        // streaming outputTranscription is what we want
-                        // to show the user; ignore the bulk text path.
                     }
                     if (c.outputTranscription?.text) {
                         try { onTextOut?.(c.outputTranscription.text); } catch (_) {}
@@ -457,6 +461,9 @@ export async function openLiveSession(opts = {}) {
             const newWs = await openOnce(state.successfulModel);
             state.currentWs = newWs;
             state.reconnectAttempts = 0; // success → reset backoff
+            // Tell the caller to clear the audio output queue so any
+            // tail audio from the previous socket stops playing.
+            try { onReconnect?.(); } catch (_) {}
             // Replay any buffered audio that piled up while we were
             // disconnected. Drops oldest if buffer got large to avoid
             // sending stale audio that the model can't usefully respond to.

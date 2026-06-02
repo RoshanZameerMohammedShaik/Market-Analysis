@@ -29,7 +29,10 @@ function updateThemeButton() {
     const btn = document.getElementById('theme-toggle');
     if (!btn) return;
     const next = nextTheme(state.theme);
-    btn.innerHTML = nextIconSvg[next] || nextIconSvg.dark;
     btn.title = `Theme: ${friendly[state.theme]} → click for ${friendly[next]}`;
     btn.setAttribute('aria-label', `Switch theme. Current: ${friendly[state.theme]}. Click for ${friendly[next]}.`);
+    // Update meta text to show current theme. Keeps the menu-item
+    // markup (icon + label + meta) intact instead of overwriting it.
+    const meta = btn.querySelector('#theme-toggle-meta');
+    if (meta) meta.textContent = `${friendly[state.theme]} → ${friendly[next]}`;
 }
