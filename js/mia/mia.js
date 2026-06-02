@@ -16,6 +16,7 @@ import { flagUnverifiedNumbers, UNVERIFIED_TOKEN_RE } from './guard.js';
 import { initVoice, attachVoiceButton } from './voice.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { flashShimmer } from '../ui/flash-shimmer.js';
+import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -178,6 +179,11 @@ function togglePanel() {
         // callback; we just need to render inside.
         openSidePanel('mia');
         renderRoot();
+        // Toggle → send-button morph runs in parallel with the panel
+        // slide-in. The morph helper grabs the send-button's rect on
+        // the next frame (after renderChat() mounts it) and animates
+        // a clone of the toggle to land on it.
+        morphToggleToSend();
         // One-shot shimmer on Mia's name in the chat header so the
         // user's eye lands on the destination right after the panel
         // slides in. Theme-aware via .flash-shimmer in mia.css.
@@ -185,6 +191,9 @@ function togglePanel() {
             flashShimmer(document.querySelector('#mia-panel .mia-name'));
         });
     } else {
+        // Reverse morph BEFORE the panel slides out so the send button
+        // is still mounted and we can read its rect.
+        morphSendToToggle();
         closeSidePanel('mia');
     }
 }
