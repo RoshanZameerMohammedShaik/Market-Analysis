@@ -184,12 +184,14 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     return finalPicks;
 }
 
-// Hot Picks = high-conviction commits only. Roshan's rule: minimum
-// 60% calibrated confidence, BUY or SELL only (no NEUTRAL/DON'T BUY
-// padding). On slow days this can return very few picks — that's
-// the correct behavior; "Hot" should mean hot. NEUTRAL and NO_TRADE
-// are filtered out entirely.
-const MIN_HOT_CONFIDENCE = 60;
+// Hot Picks = high-conviction commits only. Roshan asked for 55%+
+// floor (was 60%). Combined with the calibration adjustment in
+// confidence.js that pulls 50-59% confidence DOWN to match real
+// historical hit rate, "55%" on a Hot Picks card now means the
+// engine has historically been right ~55% of the time on similar
+// setups — not "claims 55, hits 46". BUY/SELL only; NEUTRAL and
+// NO_TRADE filtered out.
+const MIN_HOT_CONFIDENCE = 55;
 function rankPicks(results, maxPicks) {
     const buy = results
         .filter(r => r.signal === 'BUY' && r.confidence >= MIN_HOT_CONFIDENCE)
