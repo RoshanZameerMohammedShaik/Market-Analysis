@@ -44,20 +44,24 @@ export function peek(symbol, timeframe = 'today', mode = 'stock') {
  * Run the full analysis pipeline and store the result. Returns the
  * { multiData, signal } pair. Throws if analysis fails — caller
  * decides whether to display the previous cached entry.
+ *
+ * `opts.bulkScan` toggles between fast-but-approximate (true, used by
+ * the watchlist prewarm) and full-fidelity (false, used by the scanner
+ * + on-click path). When bulkScan is true the engine skips heavy
+ * per-symbol enrichments (track record, options, derivs, peers,
+ * social, squeeze, earnings, penny). When bulkScan is false the
+ * scanner row matches the detail card byte-for-byte. Cache key is
+ * suffixed with the mode so a bulkScan entry doesn't poison a later
+ * full-fidelity click.
  */
-export async function analyzeAndCache(symbol, timeframe = 'today', mode = 'stock', symbolOrCoinId = null) {
+export async function analyzeAndCache(symbol, timeframe = 'today', mode = 'stock', symbolOrCoinId = null, opts = {}) {
+    const { bulkScan = true } = opts;
     const lookupId = symbolOrCoinId || symbol;
     const multiData = mode === 'crypto'
         ? await fetchCryptoMultiTimeframe(lookupId)
         : await fetchStockMultiTimeframe(symbol);
-    // bulkScan=true skips the heavy single-symbol enrichments
-    // (cross-asset, options, derivs, peer-confirm, social, options-iv)
-    // that aren't needed for prewarm — we want the technical signal
-    // available fast. The on-click path runs the full pipeline so
-    // these enrichments still appear when the user actually views
-    // the symbol.
-    const signal = await computeFullConfidence(multiData, mode, lookupId, timeframe, { bulkScan: true });
-    const entry = { ts: Date.now(), data: multiData, signal };
+    const signal = await computeFullConfidence(multiData, mode, lookupId, timeframe, { bulkScan });
+    const entry = { ts: Date.now(), data: multiData, signal, bulkScan };
     cache.set(keyOf(symbol, timeframe, mode), entry);
     return entry;
 }
