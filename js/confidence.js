@@ -35,6 +35,7 @@ import { getOpenInsider, openInsiderAdjustment } from './openinsider.js';
 import { getSocialVelocity, socialVelocityAdjustment } from './social-velocity.js';
 import { readLedgerHistory } from './ledger-reader.js';
 import { getLearnedWeights } from './source-weights.js';
+import { getCalibrationThresholds } from './calibration-thresholds.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
@@ -77,56 +78,49 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const weightedScore = ai.score * weights.ai + technicalScore * weights.technical + sentiment.score * weights.sentiment + market.score * weights.market;
 
-    // Tighter BUY/SELL bands. Earlier 56/44 thresholds let half-
-    // hearted calls slip through with calibrated confidence in the
-    // 38–50 range, which the user reads as "BUY at low conviction"
-    // — exactly what Roshan pushed back on. Now 60/40 with a hard
-    // 55%-confidence floor: anything weaker becomes NEUTRAL (which
-    // surfaces as "DON'T BUY" in the UI). Engine commits less
-    // often, but each commit is meaningful.
-    // Calibration floor was 38, ceiling 88. The 38–50 band is mostly
-    // coin-flips that the engine already won't commit on (we filter
-    // BUY/SELL by score AND >=55 threshold below). Raising the
-    // displayed floor to 50 doesn't change accuracy — it just maps
-    // the score to the part of the scale where commitments actually
-    // happen. "60% confidence" stops being a rare ceiling and
-    // becomes the routine commit threshold that matches our prompt
-    // language. Range now 50–88.
+    // ALL thresholds below are LEARNED from the live ledger by
+    // calibration-thresholds.js. No hardcoded magic numbers.
+    // Bootstrap defaults are used only when the ledger is too thin
+    // to learn from, and they're documented as transitional in that
+    // module. The rule from feedback_dynamic_only is enforced here.
+    const thresh = await getCalibrationThresholds();
+
     const deviation = Math.abs(weightedScore - 50) / 50;
-    let rawConfidence = Math.round(50 + deviation * 38);
+    // Map raw [0, 50] deviation to the [commitFloor, 88] confidence
+    // band — anything below commitFloor doesn't commit anyway.
+    let rawConfidence = Math.round(thresh.commitFloorConfidence +
+        deviation * (88 - thresh.commitFloorConfidence));
 
     let finalSignal;
-    if (weightedScore > 60 && rawConfidence >= 55) finalSignal = 'BUY';
-    else if (weightedScore < 40 && rawConfidence >= 55) finalSignal = 'SELL';
+    if (weightedScore > thresh.buyScoreThreshold && rawConfidence >= thresh.commitFloorConfidence) finalSignal = 'BUY';
+    else if (weightedScore < thresh.sellScoreThreshold && rawConfidence >= thresh.commitFloorConfidence) finalSignal = 'SELL';
     else finalSignal = 'NEUTRAL';
 
     const sourceScores = [technicalScore, sentiment.score, market.score];
     if (ai.available) sourceScores.push(ai.score);
     const dispersion = Math.max(...sourceScores) - Math.min(...sourceScores);
+    // Dispersion penalty bands learned from the ledger — see
+    // calibration-thresholds.js. Previously hardcoded as
+    // 50/35/25 → 12/7/3, those numbers were guesses. The learner
+    // now derives the actual relationship between source dispersion
+    // and miss rate.
     let disagreementPenalty = 0;
-    if (dispersion > 50) disagreementPenalty = 12;
-    else if (dispersion > 35) disagreementPenalty = 7;
-    else if (dispersion > 25) disagreementPenalty = 3;
-    rawConfidence = Math.max(50, rawConfidence - disagreementPenalty);
+    for (const band of thresh.dispersionPenaltyBands) {
+        if (dispersion > band.gt) { disagreementPenalty = band.penalty; break; }
+    }
+    rawConfidence = Math.max(thresh.commitFloorConfidence, rawConfidence - disagreementPenalty);
 
-    // Unanimous-agreement bonus. When all available weighted sources
-    // (AI / Technical / Sentiment / Market) agree DIRECTIONALLY on
-    // the call (all >55 for BUY, all <45 for SELL), confidence gets
-    // +5 points (capped at 88). The engine's 4 sources rarely all
-    // agree; when they do, that's the strongest signal we can detect
-    // and it deserves a confidence boost. Honest because the boost
-    // is gated on real source agreement, not math inflation. Skip
-    // for NEUTRAL — by definition there's no direction to agree on.
+    // Unanimous-agreement bonus. Cutoffs and bonus magnitude come
+    // from calibration-thresholds.js (learned from the ledger).
     let unanimousBonus = 0;
     if (finalSignal === 'BUY' || finalSignal === 'SELL') {
         const all = [technicalScore, sentiment.score, market.score];
         if (ai.available) all.push(ai.score);
-        const direction = finalSignal === 'BUY' ? 'up' : 'down';
-        const allAgree = direction === 'up'
-            ? all.every(s => s > 55)
-            : all.every(s => s < 45);
+        const allAgree = finalSignal === 'BUY'
+            ? all.every(s => s > thresh.unanimousAgreementCutoff)
+            : all.every(s => s < thresh.sellAgreementCutoff);
         if (allAgree) {
-            unanimousBonus = 5;
+            unanimousBonus = thresh.unanimousBonusPts;
             rawConfidence = Math.min(88, rawConfidence + unanimousBonus);
         }
     }
@@ -146,15 +140,17 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             const lh = await readLedgerHistory({ symbol: symbolOrCoinId, limit: 50 });
             if (lh?.available && lh.resolved1d >= 5) {
                 const symHitRate = lh.hitRate1dPct;
-                // Engine-wide baseline ~50% on the live ledger
-                // (slightly above coin-flip per the calibration audit).
-                // Anything >60% is meaningfully above; >70% is strong.
+                // Track-record thresholds from calibration-thresholds.js.
                 let trAdj = 0;
-                if (symHitRate >= 70) trAdj = 5;
-                else if (symHitRate >= 60) trAdj = 3;
-                else if (symHitRate < 40) trAdj = -3;
+                if (symHitRate >= thresh.trackRecord.strong.rateAtLeast) {
+                    trAdj = thresh.trackRecord.strong.bonus;
+                } else if (symHitRate >= thresh.trackRecord.good.rateAtLeast) {
+                    trAdj = thresh.trackRecord.good.bonus;
+                } else if (symHitRate <= thresh.trackRecord.weak.rateAtMost) {
+                    trAdj = thresh.trackRecord.weak.penalty;
+                }
                 if (trAdj !== 0) {
-                    rawConfidence = Math.max(50, Math.min(88, rawConfidence + trAdj));
+                    rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + trAdj));
                 }
                 trackRecord = {
                     resolvedN: lh.resolved1d,
@@ -171,11 +167,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     }
 
     let regimePen = 0;
-    if (regime) { regimePen = regimeBias(regime.regime).pen || 0; rawConfidence = Math.max(50, rawConfidence - regimePen); }
+    if (regime) { regimePen = regimeBias(regime.regime).pen || 0; rawConfidence = Math.max(thresh.commitFloorConfidence, rawConfidence - regimePen); }
 
     let sectorAdj = 0, sectorMeta = null;
     if (mode === 'stock' && symbolOrCoinId) {
-        try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(50, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
+        try { const r = await getSectorAdjustment(symbolOrCoinId, finalSignal); sectorAdj = r.adjust; sectorMeta = r.sector; rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + sectorAdj)); } catch (_) {}
     }
 
     // 10-year yield context. Long-duration / rate-sensitive sectors get
@@ -186,7 +182,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         try {
             yieldResult = await getYieldAdjustment(symbolOrCoinId, finalSignal);
             if (yieldResult?.adjust) {
-                rawConfidence = Math.max(50, Math.min(88, rawConfidence + yieldResult.adjust));
+                rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + yieldResult.adjust));
             }
         } catch (_) {}
     }
@@ -200,39 +196,39 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     let derivs = null, derivsResult = null;
     if (mode === 'crypto' && !bulkScan && symbolOrCoinId) {
-        try { derivs = await fetchCryptoDerivs(symbolOrCoinId); if (derivs) { const priceChange1d = computePriceChange1d(multiData); derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d); rawConfidence = Math.max(50, Math.min(88, rawConfidence + (derivsResult.adjust || 0))); } } catch (_) {}
+        try { derivs = await fetchCryptoDerivs(symbolOrCoinId); if (derivs) { const priceChange1d = computePriceChange1d(multiData); derivsResult = derivsAdjustment(finalSignal, derivs, priceChange1d); rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + (derivsResult.adjust || 0))); } } catch (_) {}
     }
 
     let peerResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { const peer = await getPeerAgreement(symbolOrCoinId, finalSignal); if (peer) { peerResult = peerAdjustment(finalSignal, peer); if (peerResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + peerResult.adjust)); peerResult.peer = peer; } } catch (_) {}
+        try { const peer = await getPeerAgreement(symbolOrCoinId, finalSignal); if (peer) { peerResult = peerAdjustment(finalSignal, peer); if (peerResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + peerResult.adjust)); peerResult.peer = peer; } } catch (_) {}
     }
 
     let options = null, optionsResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { options = await fetchOptionsPositioning(symbolOrCoinId); if (options) { optionsResult = optionsAdjustment(finalSignal, options); rawConfidence = Math.max(50, Math.min(88, rawConfidence + (optionsResult.adjust || 0))); } } catch (_) {}
+        try { options = await fetchOptionsPositioning(symbolOrCoinId); if (options) { optionsResult = optionsAdjustment(finalSignal, options); rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + (optionsResult.adjust || 0))); } } catch (_) {}
     }
 
     let squeeze = null, squeezeResult = null;
-    try { const closes = (multiData?.daily?.candles || []).map(c => c.close); squeeze = detectSqueeze(closes); if (squeeze) { squeezeResult = squeezeAdjustment(finalSignal, squeeze); if (squeezeResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + squeezeResult.adjust)); } } catch (_) {}
+    try { const closes = (multiData?.daily?.candles || []).map(c => c.close); squeeze = detectSqueeze(closes); if (squeeze) { squeezeResult = squeezeAdjustment(finalSignal, squeeze); if (squeezeResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + squeezeResult.adjust)); } } catch (_) {}
 
     let tfAgreement = null, tfResult = null;
-    if (technicalPred.breakdown) { tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown); if (tfAgreement) { tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement); if (tfResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + tfResult.adjust)); } }
+    if (technicalPred.breakdown) { tfAgreement = timeframeAgreement(finalSignal, technicalPred.breakdown); if (tfAgreement) { tfResult = timeframeAgreementAdjustment(finalSignal, tfAgreement); if (tfResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + tfResult.adjust)); } }
 
     let vwap = null, vwapResult = null;
-    try { vwap = computeVwapClassifier(multiData?.daily?.candles || []); if (vwap) { vwapResult = vwapAdjustment(finalSignal, vwap); if (vwapResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + vwapResult.adjust)); } } catch (_) {}
+    try { vwap = computeVwapClassifier(multiData?.daily?.candles || []); if (vwap) { vwapResult = vwapAdjustment(finalSignal, vwap); if (vwapResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + vwapResult.adjust)); } } catch (_) {}
 
     let rotation = null, rotationResult = null;
     if (mode === 'stock' && !bulkScan && symbolOrCoinId) {
-        try { rotation = await getSectorRotation(symbolOrCoinId); if (rotation) { rotationResult = rotationAdjustment(finalSignal, rotation); if (rotationResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + rotationResult.adjust)); } } catch (_) {}
+        try { rotation = await getSectorRotation(symbolOrCoinId); if (rotation) { rotationResult = rotationAdjustment(finalSignal, rotation); if (rotationResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + rotationResult.adjust)); } } catch (_) {}
     }
 
     let volProfile = null, volProfileResult = null;
-    try { volProfile = computeVolumeProfile(multiData?.daily?.candles || []); if (volProfile) { volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend); if (volProfileResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + volProfileResult.adjust)); } } catch (_) {}
+    try { volProfile = computeVolumeProfile(multiData?.daily?.candles || []); if (volProfile) { volProfileResult = volumeProfileAdjustment(finalSignal, volProfile, vwap?.volumeTrend); if (volProfileResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + volProfileResult.adjust)); } } catch (_) {}
 
     let crossAsset = null, crossAssetResult = null;
     if (!bulkScan && symbolOrCoinId) {
-        try { crossAsset = await getCrossAsset(mode, symbolOrCoinId); if (crossAsset) { crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset); if (crossAssetResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + crossAssetResult.adjust)); } } catch (_) {}
+        try { crossAsset = await getCrossAsset(mode, symbolOrCoinId); if (crossAsset) { crossAssetResult = crossAssetAdjustment(finalSignal, crossAsset); if (crossAssetResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + crossAssetResult.adjust)); } } catch (_) {}
     }
 
     let gap = null;
@@ -254,7 +250,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             penny = await getPennyTierData(symbolOrCoinId);
             if (penny) {
                 pennyResult = pennyTierAdjustment(finalSignal, penny, tier);
-                if (pennyResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + pennyResult.adjust));
+                if (pennyResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + pennyResult.adjust));
                 if (pennyResult.cap < rawConfidence) rawConfidence = pennyResult.cap;
             }
         } catch (_) {}
@@ -266,7 +262,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             finraShort = await getFinraShort(symbolOrCoinId);
             if (finraShort) {
                 finraResult = finraShortAdjustment(finalSignal, finraShort, tier, priceChange1d);
-                if (finraResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + finraResult.adjust));
+                if (finraResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + finraResult.adjust));
             }
         } catch (_) {}
     }
@@ -277,7 +273,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             insider = await getOpenInsider(symbolOrCoinId);
             if (insider) {
                 insiderResult = openInsiderAdjustment(finalSignal, insider, tier);
-                if (insiderResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + insiderResult.adjust));
+                if (insiderResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + insiderResult.adjust));
             }
         } catch (_) {}
     }
@@ -288,7 +284,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             socialVel = await getSocialVelocity(symbolOrCoinId);
             if (socialVel) {
                 socialResult = socialVelocityAdjustment(finalSignal, socialVel);
-                if (socialResult.adjust) rawConfidence = Math.max(50, Math.min(88, rawConfidence + socialResult.adjust));
+                if (socialResult.adjust) rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + socialResult.adjust));
             }
         } catch (_) {}
     }
@@ -298,7 +294,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const patternKey = encodePattern({ signal: finalSignal, indicators: technicalPred.indicators, tier });
         const adj = patternAdjustment(patternKey);
         if (adj.cap != null && adj.cap < rawConfidence) { rawConfidence = adj.cap; patternResult = adj; }
-        else if (adj.adjust) { rawConfidence = Math.max(50, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
+        else if (adj.adjust) { rawConfidence = Math.max(thresh.commitFloorConfidence, Math.min(88, rawConfidence + adj.adjust)); patternResult = adj; }
     }
 
     const region = regionFor(symbolOrCoinId);
@@ -331,7 +327,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (penny?.squeezeRisk >= 0.5) widthBase += 4;
     if (socialVel?.label === 'extreme') widthBase += 3;
     const halfWidth = Math.round(widthBase / 2);
-    const lo = Math.max(50, calibratedConfidence - halfWidth);
+    const lo = Math.max(thresh.commitFloorConfidence, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
     const confidenceRange = (hi - lo) >= 4 ? { lo, hi } : null;
 

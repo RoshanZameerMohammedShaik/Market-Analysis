@@ -1,4 +1,4 @@
-import { scanStockHotPicks, scanCryptoHotPicks, MIN_HOT_CONFIDENCE } from '../hotpicks.js';
+import { scanStockHotPicks, scanCryptoHotPicks, getHotPicksFloor } from '../hotpicks.js';
 import { state, nextHotPicksId } from './state.js';
 import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
@@ -113,7 +113,7 @@ export async function loadHotPicks(onPick) {
             // first product. Don't pad with NEUTRAL filler.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No high-conviction picks ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — engine requires ${MIN_HOT_CONFIDENCE}%+ confidence on a BUY/SELL setup. Sit it out, or check back later.</p>
+                <p>No high-conviction picks ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — engine requires ${getHotPicksFloor()}%+ confidence on a BUY/SELL setup. Sit it out, or check back later.</p>
             </div>`;
             return;
         }

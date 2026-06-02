@@ -24,6 +24,7 @@ import { generatePrediction, generateMultiTimeframePrediction } from './analysis
 import { getMarketConditionsScore } from './market.js';
 import { UNIVERSE_CONFIG } from './markets.js';
 import { computeFullConfidence } from './confidence.js';
+import { getCalibrationThresholds, getCalibrationThresholdsSync } from './calibration-thresholds.js';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const stockCache = new Map(); // key -> { ts, picks }
@@ -116,6 +117,11 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 
     if (onProgress) onProgress(`Filtered to top ${filteredSymbols.length}. Fetching market conditions…`);
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
+    // Hot Picks floor learned from the live ledger. Awaited once per
+    // scan so the cache is warm; rankPicks then reads it without
+    // re-fetching per partial render.
+    const calThresh = await getCalibrationThresholds();
+    const hotFloor = calThresh.hotPicksFloor;
 
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${filteredSymbols.length} stocks…`);
 
@@ -175,29 +181,34 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         batchResults.forEach(r => {
             if (r.status === 'fulfilled' && r.value) results.push(r.value);
         });
-        if (onPartial) onPartial(rankPicks(results, maxPicks));
+        if (onPartial) onPartial(rankPicks(results, maxPicks, hotFloor));
         if (i + batchSize < filteredSymbols.length) await new Promise(r => setTimeout(r, 100));
     }
 
-    const finalPicks = rankPicks(results, maxPicks);
+    const finalPicks = rankPicks(results, maxPicks, hotFloor);
     cacheSet(stockCache, cacheKey, finalPicks);
     return finalPicks;
 }
 
-// Hot Picks = high-conviction commits only. Roshan asked for 55%+
-// floor (was 60%). Combined with the calibration adjustment in
-// confidence.js that pulls 50-59% confidence DOWN to match real
-// historical hit rate, "55%" on a Hot Picks card now means the
-// engine has historically been right ~55% of the time on similar
-// setups — not "claims 55, hits 46". BUY/SELL only; NEUTRAL and
-// NO_TRADE filtered out.
-export const MIN_HOT_CONFIDENCE = 55;
-function rankPicks(results, maxPicks) {
+// Hot Picks floor = LEARNED hotPicksFloor from
+// calibration-thresholds.js. That value is "the lowest confidence
+// at which empirical hit rate from the live ledger is at least
+// 55%". So "55% on a card" actually means "engine has been right
+// 55%+ on similar setups" — not a hardcoded UI cutoff. NEUTRAL
+// and NO_TRADE excluded entirely.
+//
+// Sync getter exposed so the empty-state UI message can show the
+// current floor without duplicating the constant.
+export function getHotPicksFloor() {
+    return getCalibrationThresholdsSync().hotPicksFloor;
+}
+
+function rankPicks(results, maxPicks, floor) {
     const buy = results
-        .filter(r => r.signal === 'BUY' && r.confidence >= MIN_HOT_CONFIDENCE)
+        .filter(r => r.signal === 'BUY' && r.confidence >= floor)
         .sort((a, b) => b.confidence - a.confidence);
     const sell = results
-        .filter(r => r.signal === 'SELL' && r.confidence >= MIN_HOT_CONFIDENCE)
+        .filter(r => r.signal === 'SELL' && r.confidence >= floor)
         .sort((a, b) => b.confidence - a.confidence);
     return [...buy, ...sell].slice(0, maxPicks);
 }
@@ -306,6 +317,8 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
 
     if (onProgress) onProgress(`Found ${coins.length} coins. Fetching market conditions...`);
     const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
+    const calThreshC = await getCalibrationThresholds();
+    const cryptoFloor = calThreshC.hotPicksFloor;
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${coins.length} cryptocurrencies...`);
 
     const results = [];
@@ -348,10 +361,10 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 change: coin.change24h || 0, _sparkline: sparklineData,
             });
             // Progressive update every ~10 coins so the UI can repaint.
-            if (onPartial && analyzed % 10 === 0) onPartial(rankPicks(results, maxPicks));
+            if (onPartial && analyzed % 10 === 0) onPartial(rankPicks(results, maxPicks, cryptoFloor));
         } catch (e) { continue; }
     }
-    const finalPicks = rankPicks(results, maxPicks);
+    const finalPicks = rankPicks(results, maxPicks, cryptoFloor);
     cacheSet(cryptoCache, cacheKey, finalPicks);
     return finalPicks;
 }
