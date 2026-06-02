@@ -849,10 +849,16 @@ body.side-panel-mia-open .mia-launcher {
     will-change: background-position;
 }
 [data-theme="light"] .flash-shimmer {
+    /* Light theme: dim end is a faded slate (matches --text-primary
+       on light = #0f172a). Bright end is the accent blue. The previous
+       version started at 45%-alpha blue which on white panel backgrounds
+       looked washed out / barely visible — the text seemed broken
+       rather than dim-on-purpose. Slate→accent reads as a clear
+       transition the user can actually see. */
     background-image: linear-gradient(
         100deg,
-        rgba(37, 99, 235, 0.45)  0%,
-        rgba(37, 99, 235, 0.45) 35%,
+        rgba(15, 23, 42, 0.55)  0%,
+        rgba(15, 23, 42, 0.55) 35%,
         rgba(37, 99, 235, 1.00) 65%,
         rgba(37, 99, 235, 1.00) 100%
     );
@@ -888,10 +894,13 @@ body.side-panel-mia-open .mia-launcher {
     text-shadow: none !important;
 }
 [data-theme="light"] .pre-shimmer {
+    /* Match the light .flash-shimmer dim end so swapping pre→flash
+       doesn't flicker. Slate-dark base (matches --text-primary on
+       light) blending into accent blue. */
     background-image: linear-gradient(
         100deg,
-        rgba(37, 99, 235, 0.45)  0%,
-        rgba(37, 99, 235, 0.45) 35%,
+        rgba(15, 23, 42, 0.55)  0%,
+        rgba(15, 23, 42, 0.55) 35%,
         rgba(37, 99, 235, 1.00) 65%,
         rgba(37, 99, 235, 1.00) 100%
     );

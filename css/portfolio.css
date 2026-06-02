@@ -501,22 +501,31 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
     overflow: hidden;
 }
 .portfolio-pl-summary {
+    /* Row layout with the chevron, calculator icon, label, and hint
+       all on the same line. wrap so the hint can drop below on
+       narrow widths. */
     padding: 10px 12px;
     cursor: pointer;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     user-select: none;
 }
 .portfolio-pl-summary::-webkit-details-marker { display: none; }
 .portfolio-pl-summary::before {
     content: '▸';
     font-size: 0.85rem;
-    margin-right: 4px;
     transition: transform 0.18s ease;
     display: inline-block;
+    color: var(--text-muted);
 }
 .portfolio-pl-section[open] .portfolio-pl-summary::before { transform: rotate(90deg); }
+.portfolio-pl-summary .pl-calc-icon {
+    color: var(--accent);
+    flex-shrink: 0;
+}
 .portfolio-pl-summary-text {
     font-weight: 700;
     color: var(--text-primary);
@@ -525,6 +534,8 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 .portfolio-pl-summary-hint {
     color: var(--text-muted);
     font-size: 0.74rem;
+    flex-basis: 100%;          /* push hint to its own line */
+    margin-left: 26px;          /* indent so hint aligns with label */
 }
 .portfolio-pl-host { padding: 0 8px 8px; }
 

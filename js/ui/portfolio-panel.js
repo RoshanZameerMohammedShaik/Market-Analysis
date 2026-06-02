@@ -40,6 +40,17 @@ const LAUNCHER_ICON_SVG = `
 </span>`;
 const PANEL_TITLE_ICON_SVG = LAUNCHER_ICON_SVG;
 
+// Calculator icon shown next to the "P&L Calculator" summary inside
+// the portfolio panel — Roshan asked for a small visual cue so the
+// section reads as a calculator, not just text.
+const PL_CALC_ICON_SVG = `
+<svg class="pl-calc-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="2"/>
+    <path d="M8 7 h8"/>
+    <path d="M8 12 h2 M12 12 h2 M16 12 h0"/>
+    <path d="M8 16 h2 M12 16 h2 M16 16 h0"/>
+</svg>`;
+
 export function initPortfolioPanel() {
     initPortfolio();
     ensurePanelMounted();
@@ -155,6 +166,7 @@ function renderPanel() {
             </div>
             <details class="portfolio-pl-section" id="portfolio-pl-section">
                 <summary class="portfolio-pl-summary">
+                    ${PL_CALC_ICON_SVG}
                     <span class="portfolio-pl-summary-text">P&amp;L Calculator</span>
                     <span class="portfolio-pl-summary-hint">Plan a trade even before loading a portfolio</span>
                 </summary>
