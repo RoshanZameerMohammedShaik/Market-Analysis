@@ -336,44 +336,37 @@ body {
 .app-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    /* Default: tighter max-width when Resources is hidden so the
-       single-column layout reads as centered, not stretched-edge-to-edge.
-       Resources-open expands to 1400px to accommodate the rail + main.
-       Each rule below overrides this when its state is active. */
+    /* Always centered at 1100px. Resources is now an overlay panel
+       (slides in from the left) instead of a grid column, so opening
+       it must NOT shift or resize the chart. P&L behaves the same
+       way from the right (see css/pl-toggle.css). */
     max-width: 1100px;
     margin: 0 auto;
     padding: 24px;
     gap: 24px;
 }
-@media (min-width: 1024px) {
-    /* Resources visible: full 1400px, two-column grid. */
-    body.resources-open .app-layout {
-        max-width: 1400px;
-    }
-    /* P&L panel docks as a third column from the right; expand max-width
-       to fit the wider total. */
-    .app-layout.pl-open,
-    body.pl-open .app-layout {
-        grid-template-columns: minmax(0, 1fr) 320px;
-        max-width: 1400px;
-    }
-}
-/* Resources panel (left rail) — hidden by default per Roshan's
-   request. Toggle button (resources-toggle, lives in body) shows /
-   hides the panel. When closed, layout collapses to single column. */
+/* Resources panel — slides in from the left as a fixed overlay so
+   opening / closing it never reflows the main content. Mirrors the
+   P&L sidebar pattern (see css/pl-toggle.css). */
 .glossary-rail {
-    display: none;
-    background: transparent;
-    border-radius: 12px;
+    position: fixed;
+    top: 65px;            /* sit below the sticky app-header */
+    left: 0;
+    bottom: 0;
+    width: min(280px, 92vw);
+    height: calc(100vh - 65px);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border-strong);
+    box-shadow: 16px 0 48px rgba(0, 0, 0, 0.35);
+    z-index: 450;
+    transform: translateX(-110%);
+    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
     overflow-y: auto;
-    max-height: calc(100vh - 48px);
-    position: sticky;
-    top: 24px;
+    padding: 16px;
 }
-/* The in-rail header is hidden because the floating .resources-toggle
-   pill (top-left, aligned with the tabs row) now serves as the visible
-   "Resources" label. Keeping the markup for screen readers but visually
-   collapsing it avoids a duplicate header above the rail body. */
+body.resources-open .glossary-rail { transform: translateX(0); }
+/* Hide the in-rail headline; the inline "Resources" pill in the
+   tabs row already labels the panel. Keep markup for screen readers. */
 .glossary-rail .resources-header {
     position: absolute;
     width: 1px; height: 1px;
@@ -382,22 +375,30 @@ body {
     border: 0;
 }
 .glossary-rail .resources-body {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 14px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
 }
-body.resources-open .glossary-rail {
-    display: block;
-}
-@media (min-width: 1024px) {
-    body.resources-open .app-layout {
-        grid-template-columns: 220px minmax(0, 1fr);
+/* Mobile / tablet: full-width sheet from the left, with a backdrop
+   that dims the chart so the slide-out reads. */
+@media (max-width: 1023px) {
+    .glossary-rail {
+        top: 0;
+        height: 100vh;
+        width: min(320px, 88vw);
     }
-    body.resources-open.pl-open .app-layout {
-        grid-template-columns: 220px minmax(0, 1fr) 320px;
+    body.resources-open::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(2px);
+        z-index: 440;
+        animation: resources-backdrop-in 0.3s ease;
     }
 }
+@keyframes resources-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* Toggle handle lives inline in the .tabs-row (mounted by glossary.js)
    so it sits on the same horizontal baseline as the .tab-group pills

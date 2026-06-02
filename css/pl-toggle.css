@@ -23,18 +23,11 @@
 #pl-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 #pl-toggle.active:hover { transform: translateY(-2px) rotate(-8deg) scale(1.05); }
 
-/* Layout: SINGLE column by default. The Resources rail (220px) only
-   appears when body.resources-open. P&L is a floating panel (sliding
-   sheet from the right) — not a grid column anymore.
-   Earlier this file forced `260px 1fr !important` on every desktop
-   load, which kept the glossary slot reserved even when Resources
-   was hidden — squeezing the main content. */
+/* Layout: ALWAYS a single, centered column. Both Resources (left)
+   and P&L (right) are now overlay panels that slide in over the
+   chart — never grid columns — so the chart stays put when either
+   one opens or closes. */
 .app-layout { grid-template-columns: minmax(0, 1fr) !important; }
-@media (min-width: 1024px) {
-    body.resources-open .app-layout {
-        grid-template-columns: 220px minmax(0, 1fr) !important;
-    }
-}
 
 /* P&L sidebar becomes a floating panel that slides from the right. */
 .pl-sidebar {
