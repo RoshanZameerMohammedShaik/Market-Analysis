@@ -1,0 +1,34 @@
+# Cloudflare Pages CDN cache rules.
+# Format: pattern, then header lines indented with two spaces.
+# Pages reads this at deploy time and applies the rules at the edge.
+
+# Static assets — long cache + immutable so the browser doesn't refetch
+# unchanged JS / CSS / SVG / fonts. The .pages.dev edge already does its
+# own caching; this just tells the user's browser the asset is safe to
+# reuse for a year.
+/css/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML and the manifest must NOT be cached aggressively — every push
+# we want users to see the new index.html / new manifest immediately.
+# 5-minute browser cache + revalidate-on-stale gives a good balance:
+# the worker push lands, the edge picks it up in under 60s, and the
+# user's next page load (within the next 5 min) gets the fresh HTML
+# even if their browser had a slightly older copy cached.
+/
+  Cache-Control: public, max-age=300, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=300, must-revalidate
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=300, must-revalidate
+
+# Model artifacts (calibration tables, LSTM weights, ledger jsonl)
+# update daily via the cron. 1-hour cache so the page picks up new
+# numbers within the hour without hammering the edge on every visit.
+/model/*
+  Cache-Control: public, max-age=3600, must-revalidate

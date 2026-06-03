@@ -1,0 +1,20 @@
+{
+    "name": "Market Analyzer",
+    "short_name": "Market Analyzer",
+    "description": "Calibrated BUY/SELL signals with multi-timeframe technicals, FinBERT sentiment, market context, and Mia — your in-app Market Intelligence Analyst.",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#000000",
+    "theme_color": "#000000",
+    "icons": [
+        {
+            "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23000'/><text x='50' y='62' text-anchor='middle' font-size='52' fill='%234a9eff'>📈</text></svg>",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ],
+    "categories": ["finance", "productivity"]
+}
