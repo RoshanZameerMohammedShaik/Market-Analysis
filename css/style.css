@@ -349,16 +349,19 @@ body.side-panel-portfolio-open .portfolio-launcher {
 }
 
 .header-actions {
-    /* Anchor to the header's own height so the gear sits on the same
-       horizontal baseline as the centered title, not on a separate
-       fixed-coordinate that drifts on different viewport widths. The
-       header has padding: 14px 24px and the title is 1.4rem — using
-       50% + translate centers the gear vertically against the title
-       no matter the rendered title height. */
+    /* Anchor BELOW the safe-area inset so the gear clears the iPhone
+       notch / dynamic island. Earlier `top: 50%` centered the gear
+       against the header's full height — but with safe-area-inset-top
+       padding added, half of that height is consumed by the notch,
+       so 50% landed the gear partially behind the dynamic island.
+       Using calc(safe-area-inset-top + 14px) puts the gear directly
+       below the notch on iPhone and at top: 14px on desktop (env
+       resolves to 0). transform: none so we anchor by the gear's
+       OWN top edge, not its center. */
     position: absolute;
-    top: 50%;
-    right: 24px;
-    transform: translateY(-50%);
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    right: max(24px, env(safe-area-inset-right, 24px));
+    transform: none;
     display: flex; gap: 8px; align-items: center;
     z-index: 200;
 }
