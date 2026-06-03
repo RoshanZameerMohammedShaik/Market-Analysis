@@ -43,15 +43,17 @@
     --scroll-track: #000000;
     --scroll-thumb: #262626;
     --scroll-thumb-hover: #4a9eff;
-    /* Depth tokens — light theme overrides these with real shadows
-       (CRED-style 3D feel); dark + aurora keep them as no-ops so the
-       same .card / button rules don't paint mud on dark surfaces. */
-    --shadow-card: none;
-    --shadow-card-hover: none;
-    --shadow-control: none;
-    --shadow-control-hover: none;
-    --shadow-inset-top: none;
-    --shadow-inset-bottom: none;
+    /* Depth tokens — dark theme uses deep-black outer shadows + a
+       faint inset-top white hairline so cards read as raised slabs of
+       dark glass. White-tinted outer shadows would look muddy on a
+       black page; pure-black shadows go subtly darker than the page,
+       with a hint of accent on hover for a "lit-from-above" feel. */
+    --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.6), 0 6px 14px rgba(0, 0, 0, 0.55), 0 18px 40px rgba(0, 0, 0, 0.45);
+    --shadow-card-hover: 0 1px 0 rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.65), 0 24px 50px rgba(var(--accent-rgb), 0.10);
+    --shadow-control: 0 1px 0 rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
+    --shadow-control-hover: 0 1px 0 rgba(0, 0, 0, 0.5), 0 4px 14px rgba(var(--accent-rgb), 0.18);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="light"] {
@@ -118,6 +120,15 @@
     --scroll-track: #100628;
     --scroll-thumb: #3d2270;
     --scroll-thumb-hover: #c084fc;
+    /* Aurora depth tokens — same approach as dark, but the accent
+       glow on hover uses the violet accent so cards lift with a
+       subtle purple wash, matching the rest of the theme. */
+    --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.55), 0 6px 16px rgba(0, 0, 0, 0.50), 0 20px 44px rgba(58, 18, 110, 0.55);
+    --shadow-card-hover: 0 1px 0 rgba(0, 0, 0, 0.55), 0 8px 22px rgba(0, 0, 0, 0.60), 0 26px 56px rgba(192, 132, 252, 0.18);
+    --shadow-control: 0 1px 0 rgba(0, 0, 0, 0.45), 0 2px 8px rgba(58, 18, 110, 0.45);
+    --shadow-control-hover: 0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 16px rgba(192, 132, 252, 0.25);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.40);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -131,38 +142,37 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Light-theme depth pass — CRED-style 3D feel.
+   Depth pass — applied across all themes.
 
-   Roshan's brief: the page should not look like "snow white"; surfaces
-   should have soft elevation, gentle shadows, and a slightly-cool
-   off-white feel — the kind of depth you get on the CRED app in India.
+   Roshan's brief: cards / buttons / pills should have soft elevation
+   so the page doesn't look flat. Each theme defines its own
+   --shadow-card / --shadow-control tokens up top:
+     dark   = deep-black outer + faint white inset top hairline
+     aurora = deep-black outer + violet hover glow
+     light  = layered slate shadows + bright white inset hairline
+   The painting selectors below are theme-agnostic; the visual changes
+   per theme via the tokens.
 
-   We don't add new selectors for surfaces; we just paint the existing
-   .signal-box / .chart-container / .hot-pick-card / etc. with the
-   --shadow-card / --shadow-control tokens declared up top. Dark and
-   aurora keep these tokens as `none` so the painting is a no-op there.
-
-   Also bump certain surface backgrounds slightly to break up the
-   "everything is the same white" feel — cards stay white, but the
-   panel + secondary surfaces sit a hair below to give a step.
+   Light-theme-only embellishments (top hairline ::before, white→pale
+   gradient on cards) live in a separate block lower down.
    ──────────────────────────────────────────────────────────────────── */
 
-[data-theme="light"] .signal-box,
-[data-theme="light"] .chart-container,
-[data-theme="light"] .hot-pick-card,
-[data-theme="light"] .scanner-details,
-[data-theme="light"] .price-target-card,
-[data-theme="light"] .pp-calc,
-[data-theme="light"] .portfolio-stat,
-[data-theme="light"] .accordion-item,
-[data-theme="light"] .empty-state,
-[data-theme="light"] .acc-cell,
-[data-theme="light"] .glos-section,
-[data-theme="light"] .resources-body {
+.signal-box,
+.chart-container,
+.hot-pick-card,
+.scanner-details,
+.price-target-card,
+.pp-calc,
+.portfolio-stat,
+.accordion-item,
+.empty-state,
+.acc-cell,
+.glos-section,
+.resources-body {
     box-shadow: var(--shadow-card);
 }
-[data-theme="light"] .hot-pick-card:hover,
-[data-theme="light"] .accordion-item:hover {
+.hot-pick-card:hover,
+.accordion-item:hover {
     box-shadow: var(--shadow-card-hover);
     transform: translateY(-2px);
 }
@@ -173,45 +183,48 @@ body {
    matches the .tab-group pills it lives next to (Stock Analysis /
    Crypto Analysis / Today / Tomorrow / Portfolio all read as the
    same elevated control row). */
-[data-theme="light"] .tab-group,
-[data-theme="light"] .resources-toggle,
-[data-theme="light"] .header-btn,
-[data-theme="light"] .scanner-filter,
-[data-theme="light"] .scanner-select,
-[data-theme="light"] .search-input,
-[data-theme="light"] .portfolio-action-btn,
-[data-theme="light"] .pp-calc input[type="number"],
-[data-theme="light"] .portfolio-cta,
-[data-theme="light"] .portfolio-launcher,
-[data-theme="light"] .refresh-btn,
-[data-theme="light"] #spikers-btn {
+.tab-group,
+.resources-toggle,
+.header-btn,
+.scanner-filter,
+.scanner-select,
+.search-input,
+.portfolio-action-btn,
+.pp-calc input[type="number"],
+.portfolio-cta,
+.portfolio-launcher,
+.refresh-btn,
+#spikers-btn {
     box-shadow: var(--shadow-control);
 }
-[data-theme="light"] .header-btn:hover,
-[data-theme="light"] .resources-toggle:hover,
-[data-theme="light"] .tab-group:hover,
-[data-theme="light"] .portfolio-launcher:hover,
-[data-theme="light"] .portfolio-action-btn:hover,
-[data-theme="light"] .portfolio-cta:hover,
-[data-theme="light"] .refresh-btn:hover,
-[data-theme="light"] #spikers-btn:hover {
+.header-btn:hover,
+.resources-toggle:hover,
+.tab-group:hover,
+.portfolio-launcher:hover,
+.portfolio-action-btn:hover,
+.portfolio-cta:hover,
+.refresh-btn:hover,
+#spikers-btn:hover {
     box-shadow: var(--shadow-control-hover);
 }
 /* The active tab inside .tab-group (e.g. "Stock Analysis", "Today")
    used to be flush against the group's surface. Lift it with a small
    own-shadow so the on-state reads as a pressed pill that's now
-   raised above the off pills next to it. */
-[data-theme="light"] .tab-btn.active {
-    box-shadow:
-        0 1px 0 rgba(15, 23, 42, 0.06),
-        0 4px 10px rgba(var(--accent-rgb), 0.18);
+   raised above the off pills next to it. Each theme tints the glow
+   with its own --accent-rgb. */
+.tab-btn.active {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 12px rgba(var(--accent-rgb), 0.30);
 }
-/* Portfolio launcher when its panel is open — accent border + glow
-   so it reads as the active control like .tab-btn.active. */
+[data-theme="light"] .tab-btn.active {
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06), 0 4px 10px rgba(var(--accent-rgb), 0.18);
+}
+/* Portfolio launcher when its panel is open — accent glow so it
+   reads as the active control like .tab-btn.active. */
+body.side-panel-portfolio-open .portfolio-launcher {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 14px rgba(var(--accent-rgb), 0.32);
+}
 [data-theme="light"] body.side-panel-portfolio-open .portfolio-launcher {
-    box-shadow:
-        0 1px 0 rgba(15, 23, 42, 0.06),
-        0 4px 12px rgba(var(--accent-rgb), 0.20);
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06), 0 4px 12px rgba(var(--accent-rgb), 0.20);
 }
 
 /* Inset highlight on top + soft inset bottom shadow on cards gives
