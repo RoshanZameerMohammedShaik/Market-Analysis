@@ -12,16 +12,18 @@
 @import url('notify.css');
 
 :root {
-    /* True-black dark mode. Page is pure #000; cards lift slightly
-       (#080808) so they're distinguishable from the background, but
-       still read as black. Borders sit just above the cards so the
-       grid doesn't dissolve. */
+    /* Dark mode: page stays true black, but cards/secondary surfaces
+       lift a few notches so they're visibly raised slabs against the
+       black backdrop. Pure-black-on-black shadows were invisible —
+       we now use white-tinted outer shadows (low alpha) PLUS a
+       brighter inset top hairline so each card looks like a piece of
+       dark glass with light catching the upper edge. */
     --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
-    --bg-card: #080808;
-    --bg-hover: #141414;
-    --border: #1a1a1a;
-    --border-strong: #262626;
+    --bg-secondary: #161616;
+    --bg-card: #121212;
+    --bg-hover: #1e1e1e;
+    --border: #262626;
+    --border-strong: #383838;
     --text-primary: #e8eef5;
     --text-secondary: #9fb0c4;
     --text-muted: #6c7a8c;
@@ -41,19 +43,39 @@
     --brand-grad-2: linear-gradient(135deg, #4a9eff, #a371f7);
     --brand-grad-shadow: rgba(74, 158, 255, 0.32);
     --scroll-track: #000000;
-    --scroll-thumb: #262626;
+    --scroll-thumb: #383838;
     --scroll-thumb-hover: #4a9eff;
-    /* Depth tokens — dark theme uses deep-black outer shadows + a
-       faint inset-top white hairline so cards read as raised slabs of
-       dark glass. White-tinted outer shadows would look muddy on a
-       black page; pure-black shadows go subtly darker than the page,
-       with a hint of accent on hover for a "lit-from-above" feel. */
-    --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.6), 0 6px 14px rgba(0, 0, 0, 0.55), 0 18px 40px rgba(0, 0, 0, 0.45);
-    --shadow-card-hover: 0 1px 0 rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.65), 0 24px 50px rgba(var(--accent-rgb), 0.10);
-    --shadow-control: 0 1px 0 rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
-    --shadow-control-hover: 0 1px 0 rgba(0, 0, 0, 0.5), 0 4px 14px rgba(var(--accent-rgb), 0.18);
-    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    /* Depth tokens — white-tinted outer shadows so the lifted edge of
+       each card glows softly off the pure-black backdrop instead of
+       disappearing. Inset top hairline (4-5% white) catches the
+       light source. The pairing — lighter card surface + white
+       outer halo + white inset top + thin black inset bottom — is
+       what reads as "raised dark glass" instead of flat slab.
+       Combined cards: outer halo + inset top + inset bottom in one
+       declaration so callers don't have to stack multiple shadow
+       tokens on each surface. */
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 1px 0 rgba(255, 255, 255, 0.04),
+        0 6px 16px rgba(255, 255, 255, 0.04),
+        0 14px 32px rgba(255, 255, 255, 0.05);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 1px 0 rgba(255, 255, 255, 0.05),
+        0 8px 22px rgba(255, 255, 255, 0.06),
+        0 20px 44px rgba(var(--accent-rgb), 0.18);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.07),
+        0 1px 0 rgba(255, 255, 255, 0.03),
+        0 2px 8px rgba(255, 255, 255, 0.04);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.05),
+        0 4px 14px rgba(var(--accent-rgb), 0.22);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] {
