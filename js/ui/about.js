@@ -91,9 +91,6 @@ function show() {
                         <div class="about-sec-body">${s.body}</div>
                     </details>`).join('')}
             </div>
-            <div class="about-foot">
-                <a href="https://github.com/RoshanZameerMohammedShaik/Market-Analysis" target="_blank" rel="noopener">Source on GitHub ↗</a>
-            </div>
         </div>`;
     document.body.appendChild(el);
     el.addEventListener('click', e => { if (e.target === el) close(); });
