@@ -1244,6 +1244,36 @@ body.resources-open .resources-toggle {
 }
 .scanner-filter { flex: 1; min-width: 200px; }
 .scanner-meta { font-size: 0.78rem; color: var(--text-muted); margin-left: auto; }
+/* Accuracy time-window control — small label + number + unit
+   dropdown, sized so the row stays compact. */
+.scanner-window {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+}
+.scanner-window-label { font-size: 0.78rem; color: var(--text-secondary); }
+.scanner-window-n {
+    width: 56px;
+    padding: 5px 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    text-align: right;
+    outline: none;
+    /* hide native number-input arrows so the field stays clean */
+    -moz-appearance: textfield;
+}
+.scanner-window-n::-webkit-outer-spin-button,
+.scanner-window-n::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.scanner-window-n:disabled { opacity: 0.5; }
+.scanner-window-n:focus { border-color: var(--accent); }
+.scanner-window-unit { padding: 5px 8px; font-size: 0.84rem; }
 .scanner-tablewrap {
     max-height: 600px;
     overflow: auto;

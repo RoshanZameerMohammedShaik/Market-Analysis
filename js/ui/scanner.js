@@ -97,12 +97,41 @@ function buildHistoryIndex(rows) {
 // row's first horizon resolves). When a horizon resolves, exactly
 // one of {hits, misses} bumps. Roshan's spec: "if right it will be
 // 12+1 otherwise if it's wrong then it will be 8+1 not for 12".
-function buildAccuracyIndex(rows) {
+// Read the user's window inputs and translate to a cutoff ISO date.
+// Returns null when "all time" is selected or when the input is
+// blank / invalid — meaning the aggregator runs against the full
+// history. Days/months/years are calendar-relative (subtracts from
+// today), not trading-day-relative — months use ~30.44 days, years
+// use 365 to keep arithmetic simple and stable.
+function computeAccuracyCutoff() {
+    const nEl = document.getElementById('scanner-window-n');
+    const uEl = document.getElementById('scanner-window-unit');
+    if (!uEl || uEl.value === 'all') return null;
+    const n = Number(nEl?.value);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const days = uEl.value === 'days' ? n
+              : uEl.value === 'months' ? n * 30.44
+              : uEl.value === 'years' ? n * 365
+              : 0;
+    if (days <= 0) return null;
+    const cutoff = new Date(Date.now() - days * 86400000);
+    return cutoff.toISOString().slice(0, 10);
+}
+
+// `window` (when provided) is the inclusive cutoff date in
+// 'YYYY-MM-DD' form. Predictions made BEFORE this date are dropped
+// from the aggregation. The cell's daysSpan is also clamped to the
+// window so the user sees "X/Y/Z/Nd" where Nd ≤ the window length.
+// Pass null to use all-time.
+function buildAccuracyIndex(rows, windowCutoffISO = null) {
     const out = {};
     const todayMs = Date.now();
     for (const r of rows) {
         if (!r.symbol || r.signal == null) continue;
         if (r.signal !== 'BUY' && r.signal !== 'SELL') continue;
+        // Time-window filter — drop predictions older than the cutoff.
+        // Comparison is lex-safe because dates are 'YYYY-MM-DD'.
+        if (windowCutoffISO && (!r.date || r.date < windowCutoffISO)) continue;
 
         const slot = (out[r.symbol] ||= {
             hits: 0,
@@ -226,7 +255,8 @@ async function startScan() {
 
     const history = await loadLedgerHistory();
     scanState.historyByKey = buildHistoryIndex(history);
-    scanState.accuracyBySymbol = buildAccuracyIndex(history);
+    scanState.allLedgerRows = history;            // kept for window re-aggregation
+    scanState.accuracyBySymbol = buildAccuracyIndex(history, computeAccuracyCutoff());
     refresh();
 
     const CONCURRENCY = 4;
@@ -493,6 +523,28 @@ export async function initScanner() {
 
     document.getElementById('scanner-filter')?.addEventListener('input', refresh);
     document.getElementById('scanner-signal-filter')?.addEventListener('change', refresh);
+
+    // Accuracy-window inputs: re-aggregate the per-symbol stats from
+    // the cached ledger rows (no engine rescan needed) and refresh
+    // the table. Disable the number input when "all time" is chosen
+    // since the value is meaningless there.
+    function reaggregateAccuracy() {
+        if (scanState.allLedgerRows) {
+            scanState.accuracyBySymbol = buildAccuracyIndex(scanState.allLedgerRows, computeAccuracyCutoff());
+        }
+        refresh();
+    }
+    const winN = document.getElementById('scanner-window-n');
+    const winU = document.getElementById('scanner-window-unit');
+    function syncWinInputState() {
+        if (!winN || !winU) return;
+        const isAll = winU.value === 'all';
+        winN.disabled = isAll;
+        if (isAll) winN.value = '';
+    }
+    winN?.addEventListener('input', reaggregateAccuracy);
+    winU?.addEventListener('change', () => { syncWinInputState(); reaggregateAccuracy(); });
+    syncWinInputState();
 
     document.querySelectorAll('.scanner-table thead th[data-sort]').forEach(th => {
         th.addEventListener('click', () => {

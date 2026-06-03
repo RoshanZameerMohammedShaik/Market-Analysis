@@ -179,6 +179,16 @@
                             <option value="NEUTRAL">DON'T BUY</option>
                             <option value="NO_TRADE">AVOID</option>
                         </select>
+                        <div class="scanner-window" title="Limit Prediction Accuracy to predictions made within this lookback window">
+                            <span class="scanner-window-label">Accuracy window:</span>
+                            <input type="number" id="scanner-window-n" class="scanner-window-n" min="1" step="1" value="" placeholder="all" aria-label="Lookback amount">
+                            <select id="scanner-window-unit" class="scanner-select scanner-window-unit" aria-label="Lookback unit">
+                                <option value="all">all time</option>
+                                <option value="days">days</option>
+                                <option value="months">months</option>
+                                <option value="years">years</option>
+                            </select>
+                        </div>
                         <span class="scanner-meta" id="scanner-meta"></span>
                     </div>
                     <div class="scanner-tablewrap">
