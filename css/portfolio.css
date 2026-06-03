@@ -725,11 +725,14 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 /* Mobile: panel goes full-width if both panels would overflow. The
    stack still works (second-opened sits to the left of first), but at
    small viewports there's no room for two — second push will scroll
-   the first off-screen. Acceptable for phones. */
+   the first off-screen. Acceptable for phones.
+   The old rule here also did `display: none` on .portfolio-launcher-label
+   but the icon span used to be NESTED INSIDE the label, so hiding the
+   label hid the whole button. HTML is now fixed (icon is a sibling)
+   and the phone breakpoint in style.css keeps the label visible. */
 @media (max-width: 720px) {
     .portfolio-panel { width: 96vw; }
-    .portfolio-launcher-label { display: none; }
-    .portfolio-launcher { padding: 6px 10px; }
+    .portfolio-launcher { padding: 6px 12px; }
 }
 
 /* Trade buttons in the chart header (next to the watchlist star). Sized

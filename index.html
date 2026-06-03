@@ -2,7 +2,15 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- iOS standalone (Add to Home Screen) niceties so the app reads as
+         a native PWA on iPhone, not a browser frame: hide the status bar
+         on dark backgrounds, use the in-app icon as the apple-touch-icon. -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Market Analyzer">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#ecf0f6" media="(prefers-color-scheme: light)">
     <title>Market Analyzer — Stock & Crypto Predictions</title>
     <meta name="description" content="Calibrated BUY/SELL signals with multi-timeframe technicals, FinBERT sentiment, market context, macro regime, sector-relative scoring, and Mia — your in-app Market Intelligence Analyst.">
     <link rel="stylesheet" href="css/style.css">
@@ -110,8 +118,9 @@
                         <button class="tab-btn active" data-timeframe="today">Today</button>
                         <button class="tab-btn" data-timeframe="tomorrow">Tomorrow</button>
                     </div>
-                    <button class="portfolio-launcher" id="portfolio-launcher" type="button" title="Open practice portfolio">
-                        <span class="portfolio-launcher-label">Portfolio<span class="portfolio-launcher-icon" id="portfolio-launcher-icon" aria-hidden="true"></span></span>
+                    <button class="portfolio-launcher" id="portfolio-launcher" type="button" title="Open practice portfolio" aria-label="Open practice portfolio">
+                        <span class="portfolio-launcher-label">Portfolio</span>
+                        <span class="portfolio-launcher-icon" id="portfolio-launcher-icon" aria-hidden="true"></span>
                     </button>
                 </div>
                 <div class="search-container">

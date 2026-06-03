@@ -1987,3 +1987,115 @@ body.resources-open .resources-toggle {
     .price-targets-grid { grid-template-columns: 1fr; }
     .breakdown-item { grid-template-columns: 100px 1fr 30px; gap: 8px; }
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   Phone breakpoint (≤540px) — iPhone 17 Pro logical width is 402pt.
+   Roshan's brief: "looks so squeezed in and looks like the web version
+   when added as a Safari home-screen shortcut". Address each squeeze
+   point: tabs row wrapping cleanly, Portfolio button visible (icon-
+   only on mobile is fine), search input full width, cards roomier,
+   Full Ledger table horizontally scrollable but readable, side panels
+   take full width with safe-area inset for the iPhone home-bar.
+   ──────────────────────────────────────────────────────────────────── */
+@media (max-width: 540px) {
+    /* Page surfaces — respect iPhone safe areas (notch + home bar) */
+    body { padding-bottom: env(safe-area-inset-bottom, 0); }
+    .app-layout {
+        padding: 10px max(10px, env(safe-area-inset-left, 10px))
+                 14px max(10px, env(safe-area-inset-right, 10px));
+        gap: 10px;
+    }
+    .app-header { padding: 10px 14px; }
+    .app-title { font-size: 1.05rem; letter-spacing: 0.3px; }
+    .app-title-portfolio-svg { width: 18px; height: 18px; }
+    .header-ecg { display: none; }    /* save horizontal space */
+    .header-actions { right: 10px; gap: 4px; }
+    .header-btn, .theme-toggle { width: 30px; height: 30px; }
+
+    /* Tabs row — wrap onto multiple lines without squishing */
+    .tabs-row { gap: 6px; margin-bottom: 8px; row-gap: 8px; }
+    .tab-group { padding: 3px; }
+    .tab-btn { padding: 6px 12px; font-size: 0.78rem; }
+    .resources-toggle { padding: 3px 10px 3px 8px; }
+    .resources-toggle-label { font-size: 0.78rem; padding: 5px 0; }
+
+    /* Portfolio launcher — show as compact pill with icon visible.
+       The pre-existing rule at portfolio.css:731 hid the LABEL on
+       phones, but the icon span was nested inside the label so the
+       whole button became invisible. The HTML is fixed (icon is now
+       a sibling of the label) and we keep the label visible too at
+       this size since there's room. */
+    .portfolio-launcher { padding: 6px 12px; font-size: 0.78rem; margin-left: 0; }
+    .portfolio-launcher-icon { width: 12px; height: 12px; }
+
+    /* Search row — input takes the full row, results dropdown is
+       100% wide so suggestions don't truncate awkwardly. */
+    .controls-section { margin-bottom: 12px; }
+    .search-container { width: 100%; }
+    .search-input { font-size: 0.9rem; padding: 10px 12px 10px 36px; }
+    .search-results { max-height: 60vh; }
+
+    /* Chart + signal cards — roomier interior so text doesn't crowd */
+    .chart-container { height: 280px; }
+    .chart-header { padding: 6px 0 10px; flex-wrap: wrap; gap: 8px; }
+    .signal-section { margin-bottom: 16px; }
+    .signal-box { padding: 16px; }
+    .signal-confidence { font-size: 1.1rem; }
+    .source-breakdown .breakdown-item {
+        grid-template-columns: 92px 1fr 28px;
+        gap: 6px;
+        font-size: 0.78rem;
+    }
+
+    /* Hot Picks grid — stay 2-up on phones (was auto-fill 160px which
+       would only fit one column on a 402pt screen). 2 columns reads
+       as a proper grid, not a stack. */
+    .hotpicks-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+    .hot-pick-card { padding: 10px; min-height: 120px; }
+    .hot-pick-symbol { font-size: 0.92rem; }
+    .hot-pick-confidence { font-size: 0.86rem; }
+    .penny-tabs { flex-wrap: wrap; gap: 4px; }
+
+    /* Full Ledger — let the table scroll horizontally inside its
+       wrapper so cells stay readable instead of getting crushed. */
+    .scanner-summary { padding: 10px 12px; }
+    .scanner-title { font-size: 0.92rem; }
+    .scanner-hint { display: none; }
+    .scanner-controls { padding: 10px 12px; gap: 6px; }
+    .scanner-filter { min-width: 140px; }
+    .scanner-window { flex-wrap: wrap; padding: 4px 6px; }
+    .scanner-window-n { width: 44px; }
+    .scanner-tablewrap { max-height: 70vh; -webkit-overflow-scrolling: touch; }
+    .scanner-table { font-size: 0.78rem; min-width: 640px; }
+    .scanner-table th, .scanner-table td { padding: 6px 8px; }
+    .acc-cell { min-width: 110px; }
+    .acc-frac { font-size: 0.78rem; }
+
+    /* Side panels (Mia + Portfolio) — full width on phones, anchor
+       to the bottom safe area so the iPhone home-indicator doesn't
+       overlap content. */
+    .mia-panel, .portfolio-panel {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .portfolio-panel-head, .mia-header { padding-top: max(10px, env(safe-area-inset-top, 10px)); }
+
+    /* Mia launcher — slightly smaller + nudged inward so it doesn't
+       crash the right edge or the home indicator. */
+    .mia-launcher { width: 48px; height: 48px; bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: 16px; }
+    .mia-launcher-logo { width: 36px; height: 26px; }
+
+    /* Resources panel as a left sheet — full width, safe-area top */
+    .glossary-rail { width: min(320px, 96vw); padding-top: max(16px, env(safe-area-inset-top, 16px)); }
+
+    /* Notification stack — narrow + safe-area top */
+    .ma-notify-container {
+        top: max(12px, env(safe-area-inset-top, 12px));
+        left: 12px;
+        width: calc(100vw - 24px);
+    }
+}
