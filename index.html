@@ -16,6 +16,126 @@
     <link rel="stylesheet" href="css/style.css">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
+    <!-- Splash overlay styles. Inline so they render BEFORE the
+         external stylesheet loads — without this the user sees a
+         flash of unstyled content on first paint. The shimmer class
+         that the splash title uses IS defined in css/mia.css and
+         will only become available once that file loads, so we
+         duplicate the minimum needed to make the title shimmer right
+         away. Once mia.css loads it just confirms the same animation. -->
+    <style>
+        #splash-overlay {
+            position: fixed; inset: 0;
+            background: #000000;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.32s ease;
+        }
+        #splash-overlay .splash-content {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transform: translateY(0) scale(1);
+            transition: transform 0.55s cubic-bezier(0.55, -0.2, 0.25, 1.4),
+                        opacity 0.4s ease;
+            will-change: transform;
+        }
+        #splash-overlay .splash-title {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: 0.6px;
+            color: #ffffff;
+            margin: 0;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.6);
+        }
+        /* Looping shimmer while the page is loading. Identical gradient
+           to the .shimmer class in css/mia.css — duplicated inline so
+           it works on first paint, before css/mia.css has loaded. */
+        #splash-overlay .splash-title.shimmer {
+            background-image: linear-gradient(
+                100deg,
+                rgba(255, 255, 255, 0.30) 0%,
+                rgba(255, 255, 255, 0.30) 42%,
+                rgba(255, 255, 255, 1.00) 50%,
+                rgba(255, 255, 255, 0.30) 58%,
+                rgba(255, 255, 255, 0.30) 100%
+            );
+            background-size: 300% 100%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            text-shadow: none;
+            animation: splash-sweep 5s linear infinite;
+        }
+        @keyframes splash-sweep {
+            0%   { background-position: 0% 0; }
+            100% { background-position: -300% 0; }
+        }
+        /* Stopped state: shimmer ends, text settles in 3D white with depth. */
+        #splash-overlay .splash-title.settled {
+            background-image: none;
+            -webkit-text-fill-color: #ffffff;
+            color: #ffffff;
+            text-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.5),
+                0 0 14px rgba(255, 255, 255, 0.18),
+                0 4px 18px rgba(0, 0, 0, 0.7),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+            animation: none;
+        }
+        /* Candle icon — hidden initially, fades + slides in after the
+           title settles, then both fly up to the header position. */
+        #splash-overlay .splash-icon {
+            display: inline-flex;
+            align-items: center;
+            opacity: 0;
+            transform: translateX(-12px) scale(0.6);
+            transition: opacity 0.32s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #splash-overlay .splash-icon.visible {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+        #splash-overlay .splash-icon-svg {
+            width: 28px; height: 28px;
+        }
+        #splash-overlay .splash-pf-candle {
+            fill: #4a9eff;
+            transform-origin: center bottom;
+            animation: splash-candle 1.6s ease-in-out infinite;
+        }
+        #splash-overlay .splash-pf-candle.candle-1 { animation-delay: 0s; }
+        #splash-overlay .splash-pf-candle.candle-2 { animation-delay: 0.15s; }
+        #splash-overlay .splash-pf-candle.candle-3 { animation-delay: 0.30s; }
+        #splash-overlay .splash-pf-candle.candle-4 { animation-delay: 0.45s; }
+        @keyframes splash-candle {
+            0%, 100% { transform: scaleY(0.85); }
+            50%      { transform: scaleY(1); }
+        }
+        #splash-overlay .splash-pf-arrow,
+        #splash-overlay .splash-pf-arrowhead {
+            stroke: #2dd28b;
+        }
+        /* The "BAMM" — splash content flies up to where the real
+           header sits. translateY -45vh moves it from screen center
+           to roughly the header band; the small scale-down makes it
+           feel like the title is "throwing itself" into place. */
+        #splash-overlay .splash-content.fly {
+            transform: translateY(-45vh) scale(0.62);
+        }
+        #splash-overlay.dismissing { opacity: 0; pointer-events: none; }
+        @media (prefers-reduced-motion: reduce) {
+            #splash-overlay .splash-content,
+            #splash-overlay .splash-icon { transition: none; }
+            #splash-overlay .splash-title.shimmer { animation: none; background-position: 50% 0; }
+        }
+    </style>
     <!-- Debug capture must run before any module loads so we catch
          page-load errors, ES-module parse failures, and early console
          output. Tiny IIFE that installs window.__debugBuffer and the
@@ -23,6 +143,29 @@
     <script src="js/debug-capture.js"></script>
 </head>
 <body>
+    <!-- Splash overlay. Renders BEFORE any JS module loads (this is
+         inline markup), so the user sees branding immediately on a
+         cold launch instead of a black screen. The shimmer loops
+         while the page is fetching JS/CSS; once window load fires,
+         a small inline script (at the end of <body>) stops the
+         shimmer, swings the whole composition up to the real header
+         position, and unmounts the overlay. */ -->
+    <div id="splash-overlay" class="splash-overlay">
+        <div class="splash-content">
+            <h1 class="splash-title shimmer">MARKET ANALYZER</h1>
+            <span class="splash-icon" aria-hidden="true">
+                <svg class="splash-icon-svg" viewBox="-1 -4 28 32" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="splash-pf-candle candle-1" x="0"   y="19" width="3.5" height="5"  rx="0.8"/>
+                    <rect class="splash-pf-candle candle-2" x="6"   y="15" width="3.5" height="9"  rx="0.8"/>
+                    <rect class="splash-pf-candle candle-3" x="12"  y="10" width="3.5" height="14" rx="0.8"/>
+                    <rect class="splash-pf-candle candle-4" x="18"  y="4"  width="3.5" height="20" rx="0.8"/>
+                    <path class="splash-pf-arrow" d="M1 17 Q11 11 21 -2" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path class="splash-pf-arrowhead" d="M17.5 -1 L21 -2 L21 1.5" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </span>
+        </div>
+    </div>
+
     <header class="app-header">
         <div class="header-content">
             <div class="app-title-wrap">
@@ -267,5 +410,50 @@
     <aside id="portfolio-panel" class="portfolio-panel" aria-hidden="true" aria-label="Practice portfolio"></aside>
 
     <script type="module" src="js/app.js"></script>
+    <!-- Splash choreography. Runs after the DOM is parsed but is
+         independent of the JS module load. The shimmer keeps looping
+         while we wait for `window.load` (everything fetched +
+         JavaScript ready). On load: stop shimmer → fade in candle
+         icon → "BAMM" fly to header → unmount splash overlay.
+         If load takes longer than 6s (slow network), we proceed
+         anyway so the splash doesn't trap the user forever. -->
+    <script>
+        (function () {
+            var overlay = document.getElementById('splash-overlay');
+            if (!overlay) return;
+            var title = overlay.querySelector('.splash-title');
+            var icon = overlay.querySelector('.splash-icon');
+            var content = overlay.querySelector('.splash-content');
+            var done = false;
+
+            function settle() {
+                if (done) return;
+                done = true;
+                // Step 1: stop shimmer, settle title in 3D white.
+                title.classList.remove('shimmer');
+                title.classList.add('settled');
+                // Step 2: ~250ms later, candle slides in.
+                setTimeout(function () { icon.classList.add('visible'); }, 250);
+                // Step 3: ~700ms later, BAMM — fly to header.
+                setTimeout(function () { content.classList.add('fly'); }, 700);
+                // Step 4: ~1.25s later, fade out the overlay.
+                setTimeout(function () { overlay.classList.add('dismissing'); }, 1250);
+                // Step 5: ~1.6s later, remove from DOM entirely so it
+                // can't intercept clicks or hold layout.
+                setTimeout(function () {
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                }, 1600);
+            }
+
+            if (document.readyState === 'complete') {
+                settle();
+            } else {
+                window.addEventListener('load', settle, { once: true });
+                // Hard timeout so a flaky network / slow script doesn't
+                // strand the user behind the splash forever.
+                setTimeout(settle, 6000);
+            }
+        })();
+    </script>
 </body>
 </html>
