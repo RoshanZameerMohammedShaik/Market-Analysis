@@ -93,10 +93,20 @@ _CRYPTO = [
     'WLD-USD', 'TON-USD',
 ]
 
+# Penny tier — same list as penny_universe.SYMBOLS (which mirrors
+# js/penny-universe.js). Optional import: if penny_universe.py isn't
+# present locally (older checkout), the main LSTM still trains, just
+# without the penny dynamics. The penny-tier LSTM (train_penny_lstm.py)
+# remains a separate model regardless.
+try:
+    from penny_universe import SYMBOLS as _PENNIES
+except ImportError:
+    _PENNIES = []
+
 SYMBOLS = (
     _MEGA_TECH + _COMM + _FIN + _HEALTH + _DISCRETIONARY + _STAPLES +
     _ENERGY + _INDUSTRIAL + _UTILITIES + _MATERIALS + _REAL_ESTATE +
-    _RETAIL_FAVS + _CRYPTO
+    _RETAIL_FAVS + _CRYPTO + list(_PENNIES)
 )
 # Dedupe preserving order.
 seen = set()

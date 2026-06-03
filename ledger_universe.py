@@ -17,6 +17,15 @@ except ImportError:
         'BTC-USD', 'ETH-USD', 'SOL-USD',
     ]
 
+# Penny universe — separate file (penny_universe.py) mirrors
+# js/penny-universe.js. Pennies are added to ALL_SYMBOLS so the daily
+# cron records and resolves predictions on them too. They also feed
+# the main LSTM (added to train_model.SYMBOLS in a separate edit).
+try:
+    from penny_universe import SYMBOLS as _PENNIES
+except ImportError:
+    _PENNIES = []
+
 # Mirror of js/markets.GLOBAL_POOL — kept in sync manually since the JS
 # file is the authoritative list for the browser.
 _GLOBAL_POOL = [
@@ -51,10 +60,10 @@ _GLOBAL_POOL = [
     'COL.AX','QAN.AX','ORG.AX','S32.AX','NCM.AX','SCG.AX','APA.AX','AMC.AX','CPU.AX','RMD.AX',
 ]
 
-# Dedupe across both sources.
+# Dedupe across all three sources.
 _seen = set()
 ALL_SYMBOLS = []
-for s in list(_US_AND_CRYPTO) + _GLOBAL_POOL:
+for s in list(_US_AND_CRYPTO) + _GLOBAL_POOL + list(_PENNIES):
     if s in _seen:
         continue
     _seen.add(s)

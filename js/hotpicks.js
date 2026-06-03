@@ -84,6 +84,16 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         if (!symbols.includes(sym)) symbols.push(sym);
     }
 
+    // Stream 3: penny pool. Tracked separately because the Phase 1
+    // ranking weight log10(volume) under-represents low-float pennies
+    // even when they're moving. Pennies get their own ranking pass
+    // (below) and a guaranteed slot allocation in the Phase 2 set.
+    const pennyPool = UNIVERSE_CONFIG.pennyPool || [];
+    for (const sym of pennyPool) {
+        if (!symbolMeta[sym]) symbolMeta[sym] = { symbol: sym };
+        if (!symbols.includes(sym)) symbols.push(sym);
+    }
+
     if (onProgress) onProgress(`Found ${symbols.length} candidates. Pre-filtering by momentum + volume…`);
 
     // Phase 1: pull lightweight quote data for all symbols at once.
@@ -100,20 +110,42 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         }
     }
 
-    // Score each symbol by a simple momentum + volume composite.
-    // |changePct| favors movers; volume favors liquid names.
-    const scored = symbols.map(sym => {
+    // Phase 1 ranking — split into two streams so pennies get a fair
+    // shot at Phase 2 slots. Liquid stream uses the original
+    // momentum + log10(volume) score (large-caps need volume to be
+    // credible). Penny stream uses a momentum-only score with a small
+    // float-bonus so a 30%-mover with 500K shares isn't ranked behind
+    // a 1%-mover with 50M shares.
+    const pennySet = new Set(pennyPool);
+    const liquidScored = [];
+    const pennyScored = [];
+    for (const sym of symbols) {
         const m = symbolMeta[sym] || {};
         const change = Math.abs(m.changePercent || 0);
         const vol = m.volume || m.regularMarketVolume || 0;
-        const volScore = vol > 0 ? Math.log10(vol + 1) : 0; // 6 = 1M, 7 = 10M, 8 = 100M
-        const score = change * 1.0 + volScore * 1.5;
-        return { sym, score };
-    }).filter(s => s.score > 0);
-
-    scored.sort((a, b) => b.score - a.score);
-    const TOP_N = 60;
-    const filteredSymbols = scored.slice(0, TOP_N).map(s => s.sym);
+        if (pennySet.has(sym)) {
+            // Penny score: raw |change| dominates; volume bonus is
+            // capped (log10 already plateaus, but we squash it more)
+            // so penny moves of 10-30% don't get out-ranked by
+            // boring large-cap moves of 1-2% on huge volume.
+            const volBonus = vol > 0 ? Math.min(2, Math.log10(vol + 1) / 4) : 0;
+            const score = change * 1.4 + volBonus;
+            if (score > 0) pennyScored.push({ sym, score });
+        } else {
+            const volScore = vol > 0 ? Math.log10(vol + 1) : 0;
+            const score = change * 1.0 + volScore * 1.5;
+            if (score > 0) liquidScored.push({ sym, score });
+        }
+    }
+    liquidScored.sort((a, b) => b.score - a.score);
+    pennyScored.sort((a, b) => b.score - a.score);
+    // Phase 2 budget: 45 liquid + 25 penny = 70 finalists.
+    const LIQUID_TOP = 45;
+    const PENNY_TOP = 25;
+    const filteredSymbols = [
+        ...liquidScored.slice(0, LIQUID_TOP).map(s => s.sym),
+        ...pennyScored.slice(0, PENNY_TOP).map(s => s.sym),
+    ];
 
     if (onProgress) onProgress(`Filtered to top ${filteredSymbols.length}. Fetching market conditions…`);
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));

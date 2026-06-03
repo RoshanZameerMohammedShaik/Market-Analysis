@@ -20,7 +20,7 @@
 // gradients smoothly across the percentage range — red < 45, amber
 // 45-70, green > 70 — interpolated, not stepped.
 
-import { GLOBAL_POOL, UNIVERSE_CONFIG } from '../markets.js';
+import { GLOBAL_POOL, UNIVERSE_CONFIG, PENNY_POOL } from '../markets.js';
 import { analyzeAndCache, peek } from '../analysis-cache.js';
 import { calculateRSI } from '../analysis.js';
 import { fmtPrice } from './format.js';
@@ -114,6 +114,10 @@ function buildUniverse() {
     const set = new Set();
     if (UNIVERSE_CONFIG?.useUSScreeners) for (const s of US_SEED) set.add(s);
     for (const s of GLOBAL_POOL) set.add(s);
+    // Include the penny universe so the Full Ledger covers them too.
+    // Same pool that hotpicks.js scans + the cron records — single
+    // source of truth via js/penny-universe.js.
+    for (const s of PENNY_POOL) set.add(s);
     return [...set];
 }
 

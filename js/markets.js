@@ -48,10 +48,22 @@ export const GLOBAL_POOL = [
 // (day_gainers / most_actives / etc.) so we don't need a static US list.
 // Setting `useUSScreeners: true` keeps that codepath active alongside the
 // global pool — the two streams are unioned in scanStockHotPicks.
+//
+// Penny pool is curated separately in js/penny-universe.js because
+// Yahoo's "aggressive_small_caps" screener under-represents the true
+// penny universe (sub-$1, sub-$5 names with low float). hotpicks.js
+// runs a SEPARATE Phase 1 pass on the penny pool that doesn't penalise
+// low-volume names so pennies actually surface.
+import { PENNY_POOL } from './penny-universe.js';
+
 export const UNIVERSE_CONFIG = {
     useUSScreeners: true,
     globalPool: GLOBAL_POOL,
+    pennyPool: PENNY_POOL,
 };
+
+// Re-export for callers that just want the penny list (scanner, etc).
+export { PENNY_POOL };
 
 // Backward-compat shim for js/news.js, which uses market.locale to pass
 // to Google News RSS. We're now global, so default to US-English locale
