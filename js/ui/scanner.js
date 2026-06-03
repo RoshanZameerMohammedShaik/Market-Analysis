@@ -366,18 +366,35 @@ function fmtAccuracy(symbol) {
     const color = accuracyColor(pct);
     const pending = a.total - graded;
     const tip = `${a.hits} hits · ${a.misses} misses · ${a.total} total predictions · ${a.daysSpan}d since first prediction · ${pending} still pending`;
-    // Each number is colored by what it MEANS, not by overall rate:
-    //   hits   → green   (good outcome)
-    //   misses → red     (bad outcome)
-    //   total  → accent  (neutral count of activity)
-    //   days   → muted   (purely temporal context)
-    // The Success Rate text + bar fill stay on the accuracyColor()
-    // gradient (red→amber→green by percentage) so the at-a-glance
-    // signal still comes from the bar's color.
+    // Each number's color reflects engine PERFORMANCE, not just the
+    // semantic label. Roshan's spec: if hits < misses, you can't paint
+    // hits green — that misrepresents a losing symbol. So we tint
+    // hits/misses by which side is winning, and total/days stay
+    // neutral (they're not verdicts).
+    //
+    //   hits   → green if hits >  misses (engine winning on this name)
+    //            amber if hits == misses (coin-flip)
+    //            red   if hits <  misses (engine losing — green hits would lie)
+    //   misses → red   if misses >  hits (engine losing — bad sign)
+    //            amber if misses == hits
+    //            grey  if misses <  hits (low miss-count is fine — don't shout)
+    //   total  → muted accent (neutral count of activity)
+    //   days   → muted grey  (purely temporal context)
+    //
+    // This way a cell like "5/12/17/30d" reads at a glance: green
+    // hits would have lied, so hits goes red; misses dominate, red.
+    // A cell like "12/8/20/30d" reads: hits dominate → hits green,
+    // misses small → grey. The separators + Success Rate bar still
+    // carry the gradient color so the overall verdict is unmistakable.
+    let hitsClass, missesClass;
+    if (a.hits > a.misses) { hitsClass = 'good'; missesClass = 'mute'; }
+    else if (a.hits < a.misses) { hitsClass = 'bad'; missesClass = 'bad'; }
+    else { hitsClass = 'mid'; missesClass = 'mid'; }   // tie
+
     return `
         <div class="acc-cell" title="${tip}">
             <div class="acc-frac">
-                <span class="acc-hits">${a.hits}</span><span class="acc-sep">/</span><span class="acc-misses">${a.misses}</span><span class="acc-sep">/</span><span class="acc-total">${a.total}</span><span class="acc-sep">/</span><span class="acc-days">${a.daysSpan}d</span>
+                <span class="acc-hits acc-tone-${hitsClass}">${a.hits}</span><span class="acc-sep">/</span><span class="acc-misses acc-tone-${missesClass}">${a.misses}</span><span class="acc-sep">/</span><span class="acc-total">${a.total}</span><span class="acc-sep">/</span><span class="acc-days">${a.daysSpan}d</span>
             </div>
             <div class="acc-pct" style="color:${color}">${pct.toFixed(0)}% Success Rate${pending ? ` · ${pending} pending` : ''}</div>
             <div class="acc-bar"><div class="acc-bar-fill" style="width:${pct.toFixed(1)}%; background:${color}"></div></div>

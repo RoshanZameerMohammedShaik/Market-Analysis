@@ -1389,18 +1389,19 @@ body.resources-open .resources-toggle {
     font-weight: 700;
     font-size: 0.86rem;
 }
-/* Per-number tint inside the hits/misses/total/days cell. Each number
-   carries its own meaning so each gets its own color:
-     hits   → green   (right calls)
-     misses → red     (wrong calls)
-     total  → accent  (neutral activity count)
-     days   → muted   (purely temporal context, not a verdict)
-   Slashes stay muted so they read as separators, not data. */
-.acc-hits   { color: var(--green); }
-.acc-misses { color: var(--red); }
-.acc-total  { color: var(--accent); }
-.acc-days   { color: var(--text-muted); font-weight: 600; }
-.acc-sep    { color: var(--text-muted); margin: 0 1px; opacity: 0.6; font-weight: 500; }
+/* Per-number tint inside the hits/misses/total/days cell. Hits +
+   misses use a tone-class set by the JS (.acc-tone-good / -mid /
+   -bad / -mute) so the colors reflect actual engine performance,
+   not just the static label. See fmtAccuracy() in scanner.js for
+   the rules. total + days are neutral (they're counts, not verdicts).
+   Slashes stay muted so they read as separators. */
+.acc-tone-good { color: var(--green); }
+.acc-tone-bad  { color: var(--red); }
+.acc-tone-mid  { color: var(--yellow); }     /* coin-flip: amber */
+.acc-tone-mute { color: var(--text-muted); }
+.acc-total     { color: var(--accent); opacity: 0.85; }
+.acc-days      { color: var(--text-muted); font-weight: 600; }
+.acc-sep       { color: var(--text-muted); margin: 0 1px; opacity: 0.6; font-weight: 500; }
 .acc-pct {
     font-size: 0.7rem;
     font-weight: 700;
