@@ -252,7 +252,14 @@ function formatPrice(p) {
 }
 
 function ensureWatchlistPanel() {
-    if (document.getElementById('watchlist-panel')) return;
+    // Guard against re-mounting. The injected element is
+    // #watchlist-section, NOT #watchlist-panel — the previous guard
+    // checked the wrong id, so refreshUI() / star-toggle / permission
+    // grant could each call ensureWatchlistPanel and stack a second
+    // (third, fourth) copy of the whole panel. That's what produced
+    // the duplicate "✓ Notifications enabled" line + duplicate cards
+    // Roshan saw after starring INTC.
+    if (document.getElementById('watchlist-section')) return;
     // Slot the panel after the scanner section so it lives in the same
     // power-user zone of the page and doesn't fight the chart for space.
     const after = document.getElementById('scanner-section') || document.querySelector('.hotpicks-section');
