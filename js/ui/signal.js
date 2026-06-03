@@ -86,7 +86,11 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const newsHTML = renderNews(newsData, sentiment);
     const pennyDashboardHTML = renderPennyDashboard(prediction);
     const attributionHTML = renderAttribution(prediction.attribution);
-    const horizonBandsHTML = renderHorizonBands(prediction.horizonBands);
+    // Horizon-bands strip removed — the per-symbol Prediction Accuracy
+    // column in the Full Ledger already shows past hit rate, and it's
+    // per-symbol rather than pooled across the whole universe like the
+    // strip was. Keeping the renderHorizonBands() function in case we
+    // ever want to bring it back, but not wiring it in.
 
     const technicalHTML = `
         <div class="technical-section">
@@ -191,7 +195,6 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="confidence-bar">
                 <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
             </div>
-            ${horizonBandsHTML}
             ${breakdownHTML}
             ${pennyDashboardHTML}
             <div class="insight-summary">${insightSummary}</div>

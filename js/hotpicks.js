@@ -28,6 +28,16 @@ import { getCalibrationThresholds, getCalibrationThresholdsSync } from './calibr
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const stockCache = new Map(); // key -> { ts, picks }
+
+// Exported so the manual ↻ Refresh button (in ui/core.js) can force a
+// fresh scan instead of returning the 5-minute cached result. Without
+// this, clicking Refresh within 5 min of the previous scan silently
+// re-rendered the same cards — meaning users couldn't see new penny
+// finalists right after a code update that expanded the universe.
+export function clearHotPicksCache() {
+    stockCache.clear();
+    cryptoCache.clear();
+}
 const cryptoCache = new Map();
 
 function cacheGet(map, key) {

@@ -4,6 +4,7 @@ import { initSearch, updatePlaceholder } from './search.js';
 import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
 import { loadHotPicks, initPennyFilterButtons } from './hotpicks.js';
+import { clearHotPicksCache } from '../hotpicks.js';
 import { initPLCalculator } from './pl.js';
 import { initPLToggle } from './pl-toggle.js';
 import { renderAccuracyStrip } from './accuracy.js';
@@ -81,6 +82,11 @@ export function init() {
         const btn = e.currentTarget;
         btn.classList.add('spinning');
         startTipsForLoading();
+        // Clear the 5-min cache so the click actually refetches —
+        // otherwise hitting Refresh within 5 min returns the same
+        // cards. Roshan caught this when adding pennies wasn't
+        // surfacing until the cache TTL expired.
+        clearHotPicksCache();
         loadHotPicks(onSelectFromCard).finally(() => {
             btn.classList.remove('spinning');
             stopTipsForLoading();
