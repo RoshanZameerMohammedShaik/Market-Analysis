@@ -2089,15 +2089,22 @@ body.resources-open .resources-toggle {
     .acc-cell { min-width: 110px; }
     .acc-frac { font-size: 0.78rem; }
 
-    /* Side panels (Mia + Portfolio) — full width on phones, anchor
-       to the bottom safe area so the iPhone home-indicator doesn't
-       overlap content. */
+    /* Side panels (Mia + Portfolio) — full width on phones. The panel
+       itself starts at top: 0 (covers the notch area) but the FIRST
+       child is the header which now carries safe-area-inset-top
+       padding, so the close button + title sit below the dynamic
+       island. Bottom padding clears the iPhone home indicator. */
     .mia-panel, .portfolio-panel {
         width: 100vw !important;
         max-width: 100vw !important;
         padding-bottom: env(safe-area-inset-bottom, 0);
     }
-    .portfolio-panel-head, .mia-header { padding-top: max(10px, env(safe-area-inset-top, 10px)); }
+    /* Side-panel headers — push below the iPhone notch so the close
+       buttons aren't trapped under the dynamic island. The class on
+       Mia is .mia-head (single 'head'), not .mia-header — earlier rule
+       targeted the wrong class so Mia's notch fix never took effect. */
+    .portfolio-panel-head,
+    .mia-head { padding-top: max(14px, env(safe-area-inset-top, 14px)); }
 
     /* Mia launcher — slightly smaller + nudged inward so it doesn't
        crash the right edge or the home indicator. */
