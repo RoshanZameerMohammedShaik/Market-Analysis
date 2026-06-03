@@ -146,6 +146,27 @@ def main():
     args = ap.parse_args()
 
     symbols = symbols_for_region(args.region)
+
+    # Hybrid penny pull: union the static symbols list with whatever
+    # Yahoo's penny screeners surface today. Only on US stocks (NYSE
+    # region) — non-US regions don't have penny screeners and crypto
+    # is its own thing. Failure is non-fatal; if the screener call
+    # 503s, the cron continues with the static list.
+    if args.region == 'NYSE':
+        try:
+            from penny_dynamic import fetch_dynamic_pennies
+            dynamic = fetch_dynamic_pennies(max_price=5.0)
+            seen = set(symbols)
+            added = 0
+            for s in dynamic:
+                if s not in seen:
+                    symbols.append(s)
+                    seen.add(s)
+                    added += 1
+            print(f'Dynamic pennies: {added} added on top of {len(symbols) - added} static.')
+        except Exception as e:
+            print(f'Dynamic penny fetch failed (continuing with static list): {e}')
+
     if not symbols:
         print(f'No symbols for region {args.region}')
         # Empty universe is a config bug, not a runtime issue — fail loud.

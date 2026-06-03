@@ -88,11 +88,37 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     // ranking weight log10(volume) under-represents low-float pennies
     // even when they're moving. Pennies get their own ranking pass
     // (below) and a guaranteed slot allocation in the Phase 2 set.
-    const pennyPool = UNIVERSE_CONFIG.pennyPool || [];
-    for (const sym of pennyPool) {
+    // Hybrid sourcing per Roshan's spec:
+    //   (a) STABLE — js/penny-universe.js, ~500 hand-curated symbols.
+    //   (b) DYNAMIC — Yahoo screeners (aggressive_small_caps,
+    //       day_gainers, day_losers, most_actives) filtered to <$5
+    //       at scan time, so live movers that aren't on the curated
+    //       list still surface today and get recorded in the ledger.
+    const stablePennyPool = UNIVERSE_CONFIG.pennyPool || [];
+    for (const sym of stablePennyPool) {
         if (!symbolMeta[sym]) symbolMeta[sym] = { symbol: sym };
         if (!symbols.includes(sym)) symbols.push(sym);
     }
+    // Dynamic — same Yahoo screeners as Stream 1, but we keep them
+    // SEPARATE here so we can apply the <$5 filter and tag the
+    // results as pennies (so Phase 1 routes them through the
+    // momentum-dominant ranking, not the volume-heavy liquid one).
+    const dynamicPennyScreeners = ['aggressive_small_caps', 'day_gainers', 'day_losers', 'most_actives'];
+    const dynamicPennyResults = await Promise.allSettled(dynamicPennyScreeners.map(s => fetchYahooScreener(s)));
+    const dynamicPennyAdded = new Set();
+    for (const r of dynamicPennyResults) {
+        if (r.status !== 'fulfilled' || !r.value) continue;
+        for (const q of r.value) {
+            if (!q.symbol) continue;
+            if (typeof q.price !== 'number' || q.price >= 5) continue;  // <$5 only
+            if (!symbolMeta[q.symbol]) symbolMeta[q.symbol] = q;
+            else symbolMeta[q.symbol] = { ...symbolMeta[q.symbol], ...q };
+            if (!symbols.includes(q.symbol)) symbols.push(q.symbol);
+            dynamicPennyAdded.add(q.symbol);
+        }
+    }
+    // Effective penny set for Phase 1 ranking + tagging.
+    const allPennies = new Set([...stablePennyPool, ...dynamicPennyAdded]);
 
     if (onProgress) onProgress(`Found ${symbols.length} candidates. Pre-filtering by momentum + volume…`);
 
@@ -116,14 +142,13 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     // credible). Penny stream uses a momentum-only score with a small
     // float-bonus so a 30%-mover with 500K shares isn't ranked behind
     // a 1%-mover with 50M shares.
-    const pennySet = new Set(pennyPool);
     const liquidScored = [];
     const pennyScored = [];
     for (const sym of symbols) {
         const m = symbolMeta[sym] || {};
         const change = Math.abs(m.changePercent || 0);
         const vol = m.volume || m.regularMarketVolume || 0;
-        if (pennySet.has(sym)) {
+        if (allPennies.has(sym)) {
             // Penny score: raw |change| dominates; volume bonus is
             // capped (log10 already plateaus, but we squash it more)
             // so penny moves of 10-30% don't get out-ranked by
