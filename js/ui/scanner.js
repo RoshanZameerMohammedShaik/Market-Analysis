@@ -274,14 +274,18 @@ async function startScan() {
                 scanState.progress.errors++;
             }
             scanState.progress.done++;
-            if (scanState.progress.done % 4 === 0) refresh();
+            // Streaming refresh: surgical patch only. Keeps the open
+            // drawer's DOM (animations + scroll) intact while new
+            // rows land in the background.
+            if (scanState.progress.done % 4 === 0) refresh('patch');
         }
     }
 
     const workers = Array.from({ length: CONCURRENCY }, () => worker());
     await Promise.all(workers);
     scanState.running = false;
-    refresh();
+    // Final tail patch — picks up whatever didn't hit the % 4 cadence.
+    refresh('patch');
 }
 
 // ── Filter / sort ────────────────────────────────────────────────────
@@ -460,7 +464,31 @@ function renderDrawer(row) {
         </div>`;
 }
 
-function renderRows() {
+// Build the inner HTML for a single data <tr> (no drawer attached).
+// Pulled out so streaming refreshes can patch only the rows that
+// changed without rewriting the whole tbody.
+function rowInnerHTML(r) {
+    return `<td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a></td>
+            <td class="scanner-region">${r.region || '-'}</td>
+            <td>${fmtSignal(r.signal)}</td>
+            <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
+            <td class="scanner-num">${typeof r.entry === 'number' ? r.entry.toFixed(2) : '-'}</td>
+            <td class="scanner-num">${r.indicators?.rsi != null ? r.indicators.rsi.toFixed(1) : '-'}</td>
+            <td class="scanner-acc">${fmtAccuracy(r.symbol)}</td>`;
+}
+
+// Earlier we did `tbody.innerHTML = rows.map(...).join('')` on every
+// 4-row streaming refresh, which destroyed and rebuilt the expanded
+// drawer's DOM each time — that's the flicker Roshan flagged when
+// streaming kept happening behind an open drawer. New strategy:
+//   - Empty/sort/filter changes still do a full rebuild (rare — only
+//     when the user types a filter or clicks a sort header).
+//   - Streaming-only refreshes (called as new rows finish analysis)
+//     do a SURGICAL patch: existing rows update in place, new rows
+//     get appended, and the expanded drawer is never touched.
+// `mode` is 'full' for a full rebuild or 'patch' for the surgical
+// stream update. Default is full so existing callers don't break.
+function renderRows(mode = 'full') {
     const tbody = document.getElementById('scanner-tbody');
     if (!tbody) return;
     const filtered = applyFilters(scanState.rows);
@@ -472,6 +500,50 @@ function renderRows() {
         tbody.innerHTML = `<tr><td colspan="7" class="scanner-empty">${msg}</td></tr>`;
         return;
     }
+
+    if (mode === 'patch') {
+        // Surgical update: walk existing rows, update changed cells,
+        // append any new symbols at the bottom. Drawer DOM is left
+        // alone so animations/scroll don't reset.
+        const existing = new Map();
+        for (const tr of tbody.querySelectorAll('tr.scanner-row')) {
+            existing.set(tr.dataset.symbol, tr);
+        }
+        for (const r of rows) {
+            const tr = existing.get(r.symbol);
+            const newHTML = rowInnerHTML(r);
+            if (tr) {
+                if (tr.innerHTML !== newHTML) tr.innerHTML = newHTML;
+                existing.delete(r.symbol);
+            } else {
+                // Append at the end so we don't disrupt the order
+                // of rows the user is looking at. (Sort changes go
+                // through the 'full' path which IS a rebuild.)
+                const newTr = document.createElement('tr');
+                newTr.className = 'scanner-row';
+                newTr.dataset.symbol = r.symbol;
+                newTr.innerHTML = newHTML;
+                tbody.appendChild(newTr);
+            }
+        }
+        // Clean up rows that should no longer be visible (e.g. the
+        // user changed the signal filter while a stream was running).
+        for (const stale of existing.values()) {
+            if (stale.dataset.symbol === expandedSymbol) {
+                expandedSymbol = null;   // also remove the orphan drawer below
+            }
+            stale.remove();
+        }
+        // If the expanded drawer's row was removed, drop the drawer.
+        const orphanDrawer = tbody.querySelector('tr.scanner-drawer-row');
+        if (orphanDrawer && !tbody.querySelector('tr.scanner-row.expanded')) {
+            orphanDrawer.remove();
+        }
+        return;
+    }
+
+    // mode === 'full': rebuild the whole tbody. Used for sort changes,
+    // filter changes, expand/collapse toggles, and the initial paint.
     tbody.innerHTML = rows.map(r => {
         const isExpanded = expandedSymbol === r.symbol;
         const drawerRow = isExpanded
@@ -479,13 +551,7 @@ function renderRows() {
             : '';
         return `
             <tr class="scanner-row ${isExpanded ? 'expanded' : ''}" data-symbol="${r.symbol}">
-                <td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a></td>
-                <td class="scanner-region">${r.region || '-'}</td>
-                <td>${fmtSignal(r.signal)}</td>
-                <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
-                <td class="scanner-num">${typeof r.entry === 'number' ? r.entry.toFixed(2) : '-'}</td>
-                <td class="scanner-num">${r.indicators?.rsi != null ? r.indicators.rsi.toFixed(1) : '-'}</td>
-                <td class="scanner-acc">${fmtAccuracy(r.symbol)}</td>
+                ${rowInnerHTML(r)}
             </tr>
             ${drawerRow}`;
     }).join('');
@@ -504,8 +570,11 @@ function updateMeta() {
     }
 }
 
-function refresh() {
-    renderRows();
+// `mode` defaults to 'full' for safety, but the streaming worker
+// passes 'patch' so an open drawer keeps its DOM intact across the
+// 4-row refresh cadence.
+function refresh(mode = 'full') {
+    renderRows(mode);
     updateMeta();
 }
 
