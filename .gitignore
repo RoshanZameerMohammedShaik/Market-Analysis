@@ -29,3 +29,16 @@ Thumbs.db
 # Local-only
 .test-screenshots/
 workers/yahoo-proxy/.wrangler/
+
+# Capacitor / Node — see BUILD_ANDROID_APK.md for setup. The android/
+# folder ITSELF should be committed (after `npx cap add android` runs
+# once on a Mac), but build outputs inside it are huge and rebuildable.
+node_modules/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.idea/
+android/*.iml
+android/app/release/
