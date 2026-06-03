@@ -43,18 +43,31 @@
     --scroll-track: #000000;
     --scroll-thumb: #262626;
     --scroll-thumb-hover: #4a9eff;
+    /* Depth tokens — light theme overrides these with real shadows
+       (CRED-style 3D feel); dark + aurora keep them as no-ops so the
+       same .card / button rules don't paint mud on dark surfaces. */
+    --shadow-card: none;
+    --shadow-card-hover: none;
+    --shadow-control: none;
+    --shadow-control-hover: none;
+    --shadow-inset-top: none;
+    --shadow-inset-bottom: none;
 }
 
 [data-theme="light"] {
-    --bg-primary: #f6f9fd;
-    --bg-secondary: #ffffff;
+    /* CRED-inspired: pale cool-grey page that's clearly NOT pure white,
+       elevated white cards lifting off it via layered shadows, deeper
+       border-strong for inset hairlines. The page background sits a
+       step darker than cards so the cards read as raised surfaces. */
+    --bg-primary: #ecf0f6;
+    --bg-secondary: #f4f7fb;
     --bg-card: #ffffff;
-    --bg-hover: #eef3fa;
-    --border: #e0e7f0;
-    --border-strong: #c8d2e0;
+    --bg-hover: #e6ecf3;
+    --border: #dde4ee;
+    --border-strong: #c5d0de;
     --text-primary: #0f172a;
     --text-secondary: #475569;
-    --text-muted: #94a3b8;
+    --text-muted: #8492a6;
     --accent: #2563eb;
     --accent-rgb: 37, 99, 235;
     --green: #059669;
@@ -66,9 +79,19 @@
     --brand-grad: linear-gradient(135deg, #2563eb 0%, #059669 100%);
     --brand-grad-2: linear-gradient(135deg, #2563eb, #7c3aed);
     --brand-grad-shadow: rgba(37, 99, 235, 0.3);
-    --scroll-track: #eef3fa;
-    --scroll-thumb: #c8d2e0;
+    --scroll-track: #e6ecf3;
+    --scroll-thumb: #c5d0de;
     --scroll-thumb-hover: #2563eb;
+    /* Light-theme-only depth tokens. Cards/buttons read these to
+       layer shadows; dark+aurora override them to no-op so the same
+       selectors don't paint shadows on dark backgrounds where they'd
+       just look muddy. */
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06), 0 12px 28px rgba(15, 23, 42, 0.05);
+    --shadow-card-hover: 0 2px 4px rgba(15, 23, 42, 0.06), 0 8px 18px rgba(15, 23, 42, 0.08), 0 18px 36px rgba(15, 23, 42, 0.07);
+    --shadow-control: 0 1px 2px rgba(15, 23, 42, 0.05), 0 2px 6px rgba(15, 23, 42, 0.06);
+    --shadow-control-hover: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.10);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(15, 23, 42, 0.04);
 }
 
 [data-theme="aurora"] {
@@ -107,6 +130,113 @@ body {
     transition: background 0.3s, color 0.3s;
 }
 
+/* ────────────────────────────────────────────────────────────────────
+   Light-theme depth pass — CRED-style 3D feel.
+
+   Roshan's brief: the page should not look like "snow white"; surfaces
+   should have soft elevation, gentle shadows, and a slightly-cool
+   off-white feel — the kind of depth you get on the CRED app in India.
+
+   We don't add new selectors for surfaces; we just paint the existing
+   .signal-box / .chart-container / .hot-pick-card / etc. with the
+   --shadow-card / --shadow-control tokens declared up top. Dark and
+   aurora keep these tokens as `none` so the painting is a no-op there.
+
+   Also bump certain surface backgrounds slightly to break up the
+   "everything is the same white" feel — cards stay white, but the
+   panel + secondary surfaces sit a hair below to give a step.
+   ──────────────────────────────────────────────────────────────────── */
+
+[data-theme="light"] .signal-box,
+[data-theme="light"] .chart-container,
+[data-theme="light"] .hot-pick-card,
+[data-theme="light"] .scanner-details,
+[data-theme="light"] .price-target-card,
+[data-theme="light"] .pp-calc,
+[data-theme="light"] .portfolio-stat,
+[data-theme="light"] .accordion-item,
+[data-theme="light"] .empty-state,
+[data-theme="light"] .acc-cell,
+[data-theme="light"] .glos-section,
+[data-theme="light"] .resources-body {
+    box-shadow: var(--shadow-card);
+}
+[data-theme="light"] .hot-pick-card:hover,
+[data-theme="light"] .accordion-item:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+}
+
+/* Buttons + tab pills + filters lift slightly off the page so they
+   don't sit flat against the surface they're on. Active/hover get a
+   stronger elevation. */
+[data-theme="light"] .tab-group,
+[data-theme="light"] .resources-toggle,
+[data-theme="light"] .header-btn,
+[data-theme="light"] .scanner-filter,
+[data-theme="light"] .scanner-select,
+[data-theme="light"] .search-input,
+[data-theme="light"] .portfolio-action-btn,
+[data-theme="light"] .pp-calc input[type="number"],
+[data-theme="light"] .portfolio-cta,
+[data-theme="light"] .refresh-btn,
+[data-theme="light"] #spikers-btn {
+    box-shadow: var(--shadow-control);
+}
+[data-theme="light"] .header-btn:hover,
+[data-theme="light"] .resources-toggle:hover,
+[data-theme="light"] .portfolio-action-btn:hover,
+[data-theme="light"] .portfolio-cta:hover,
+[data-theme="light"] .refresh-btn:hover,
+[data-theme="light"] #spikers-btn:hover {
+    box-shadow: var(--shadow-control-hover);
+}
+
+/* Inset highlight on top + soft inset bottom shadow on cards gives
+   the polished CRED card edge — a thin white line on top and a thin
+   shadow on bottom, like light catching a raised surface. */
+[data-theme="light"] .signal-box,
+[data-theme="light"] .hot-pick-card,
+[data-theme="light"] .chart-container,
+[data-theme="light"] .price-target-card,
+[data-theme="light"] .portfolio-stat,
+[data-theme="light"] .accordion-item {
+    border-color: var(--border);
+}
+[data-theme="light"] .signal-box::before,
+[data-theme="light"] .hot-pick-card::before {
+    /* Top hairline highlight — purely decorative, sits inside the
+       border so the corners stay clean. */
+    content: '';
+    position: absolute;
+    top: 0; left: 1px; right: 1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 1), transparent);
+    border-radius: inherit;
+    pointer-events: none;
+}
+[data-theme="light"] .signal-box,
+[data-theme="light"] .hot-pick-card { position: relative; }
+
+/* Subtle gradient on cards so they're not a flat slab of white.
+   Top a touch warmer than the bottom — light source from above. */
+[data-theme="light"] .hot-pick-card,
+[data-theme="light"] .signal-box,
+[data-theme="light"] .price-target-card,
+[data-theme="light"] .portfolio-stat {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+}
+
+/* Page-level surfaces step down from cards: secondary panels sit
+   slightly grey so cards on top read as raised. */
+[data-theme="light"] .signal-section,
+[data-theme="light"] .chart-section,
+[data-theme="light"] .hot-picks-section,
+[data-theme="light"] .scanner-section {
+    /* No background here; the parent --bg-primary is already the
+       cool-grey. Cards above will carry the depth visually. */
+}
+
 .app-header {
     /* sticky already counts as a positioned value, so the absolute
        .header-actions inside it anchors here (not to <body>). The
@@ -119,7 +249,12 @@ body {
     border-bottom: 1px solid var(--border);
     padding: 14px 24px;
 }
-[data-theme="light"] .app-header { background: rgba(246, 249, 253, 0.85); }
+[data-theme="light"] .app-header {
+    /* Match the new pale cool-grey page bg + a subtle bottom shadow
+       so the header reads as raised on top of the content below. */
+    background: rgba(236, 240, 246, 0.86);
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04), 0 4px 14px rgba(15, 23, 42, 0.04);
+}
 [data-theme="aurora"] .app-header { background: rgba(10, 4, 32, 0.85); }
 .header-content {
     max-width: 1400px; margin: 0 auto;
