@@ -366,9 +366,19 @@ function fmtAccuracy(symbol) {
     const color = accuracyColor(pct);
     const pending = a.total - graded;
     const tip = `${a.hits} hits · ${a.misses} misses · ${a.total} total predictions · ${a.daysSpan}d since first prediction · ${pending} still pending`;
+    // Each number is colored by what it MEANS, not by overall rate:
+    //   hits   → green   (good outcome)
+    //   misses → red     (bad outcome)
+    //   total  → accent  (neutral count of activity)
+    //   days   → muted   (purely temporal context)
+    // The Success Rate text + bar fill stay on the accuracyColor()
+    // gradient (red→amber→green by percentage) so the at-a-glance
+    // signal still comes from the bar's color.
     return `
         <div class="acc-cell" title="${tip}">
-            <div class="acc-frac">${a.hits}/${a.misses}/${a.total}/${a.daysSpan}d</div>
+            <div class="acc-frac">
+                <span class="acc-hits">${a.hits}</span><span class="acc-sep">/</span><span class="acc-misses">${a.misses}</span><span class="acc-sep">/</span><span class="acc-total">${a.total}</span><span class="acc-sep">/</span><span class="acc-days">${a.daysSpan}d</span>
+            </div>
             <div class="acc-pct" style="color:${color}">${pct.toFixed(0)}% Success Rate${pending ? ` · ${pending} pending` : ''}</div>
             <div class="acc-bar"><div class="acc-bar-fill" style="width:${pct.toFixed(1)}%; background:${color}"></div></div>
         </div>`;

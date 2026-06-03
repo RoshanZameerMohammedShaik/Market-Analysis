@@ -1387,9 +1387,20 @@ body.resources-open .resources-toggle {
 .acc-frac {
     font-family: var(--num-font);
     font-weight: 700;
-    color: var(--text-primary);
     font-size: 0.86rem;
 }
+/* Per-number tint inside the hits/misses/total/days cell. Each number
+   carries its own meaning so each gets its own color:
+     hits   → green   (right calls)
+     misses → red     (wrong calls)
+     total  → accent  (neutral activity count)
+     days   → muted   (purely temporal context, not a verdict)
+   Slashes stay muted so they read as separators, not data. */
+.acc-hits   { color: var(--green); }
+.acc-misses { color: var(--red); }
+.acc-total  { color: var(--accent); }
+.acc-days   { color: var(--text-muted); font-weight: 600; }
+.acc-sep    { color: var(--text-muted); margin: 0 1px; opacity: 0.6; font-weight: 500; }
 .acc-pct {
     font-size: 0.7rem;
     font-weight: 700;
