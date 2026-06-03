@@ -73,24 +73,77 @@ function buildHistoryIndex(rows) {
     return out;
 }
 
-// Per-symbol accuracy: count every resolved horizon row where
-// directionMatch is set (true or false), and how many were true.
-// "12/20 = 12 hits out of 20 resolved predictions for this symbol."
+// Per-symbol accuracy in the format Roshan asked for:
+//   hits / misses / total / days_since_first_prediction
+//
+// Definitions:
+//   total      = every committed (BUY/SELL) prediction-row for this
+//                symbol, across every prediction-date the cron ever
+//                made one. NEUTRAL/NO_TRADE rows excluded — they
+//                make no directional claim. Increments by +1 per
+//                new prediction the engine commits to.
+//   hits       = of those, how many had AT LEAST ONE resolved horizon
+//                hit the predicted direction. +1 per right call.
+//   misses     = had AT LEAST ONE resolved horizon AND none hit. +1
+//                per wrong call.
+//   pending    = total - (hits + misses). Predictions whose horizons
+//                haven't matured yet. Implicit; can be derived.
+//   daysSpan   = calendar days from the symbol's first prediction-date
+//                to today. Increments by +1 every day, regardless of
+//                whether a new prediction was made today.
+//
+// Invariant: hits + misses ≤ total. When a new prediction lands,
+// total bumps by 1 (not hits or misses — they only move once that
+// row's first horizon resolves). When a horizon resolves, exactly
+// one of {hits, misses} bumps. Roshan's spec: "if right it will be
+// 12+1 otherwise if it's wrong then it will be 8+1 not for 12".
 function buildAccuracyIndex(rows) {
     const out = {};
+    const todayMs = Date.now();
     for (const r of rows) {
-        if (!r.symbol || !r.horizons) continue;
-        // Only count predictions that committed to a direction. NEUTRAL
-        // and NO_TRADE setups don't make a directional claim, so
-        // counting them as "hits" or "misses" would be noise.
+        if (!r.symbol || r.signal == null) continue;
         if (r.signal !== 'BUY' && r.signal !== 'SELL') continue;
-        const slot = (out[r.symbol] ||= { hits: 0, total: 0 });
-        for (const k of Object.keys(r.horizons)) {
-            const h = r.horizons[k];
-            if (!h || h.directionMatch == null) continue;
-            slot.total++;
-            if (h.directionMatch) slot.hits++;
+
+        const slot = (out[r.symbol] ||= {
+            hits: 0,
+            misses: 0,
+            total: 0,
+            firstDate: null,
+        });
+        slot.total++;
+
+        // Track the earliest prediction date so daysSpan can grow
+        // forever even if the symbol stops being predicted.
+        if (r.date) {
+            if (!slot.firstDate || r.date < slot.firstDate) {
+                slot.firstDate = r.date;
+            }
         }
+
+        // Decide whether this ROW is resolved enough to score.
+        // Rule: if ANY horizon has directionMatch set, the row is
+        // graded — hit if any horizon hit, miss if none hit. This
+        // matches Roshan's "12 right + 8 wrong = 20 graded" mental
+        // model (one row → one verdict, not one row → 5 verdicts).
+        const horizons = r.horizons || {};
+        let anyResolved = false;
+        let anyHit = false;
+        for (const k of Object.keys(horizons)) {
+            const h = horizons[k];
+            if (!h || h.directionMatch == null) continue;
+            anyResolved = true;
+            if (h.directionMatch) { anyHit = true; break; }
+        }
+        if (!anyResolved) continue;
+        if (anyHit) slot.hits++;
+        else slot.misses++;
+    }
+    // Compute daysSpan now that we have firstDate per symbol.
+    for (const sym of Object.keys(out)) {
+        const slot = out[sym];
+        if (!slot.firstDate) { slot.daysSpan = 0; continue; }
+        const first = new Date(slot.firstDate + 'T00:00:00Z').getTime();
+        slot.daysSpan = Math.max(1, Math.round((todayMs - first) / 86400000));
     }
     return out;
 }
@@ -224,7 +277,9 @@ function getSortValue(row, key) {
     if (key === 'accuracy') {
         const a = scanState.accuracyBySymbol[row.symbol];
         if (!a || !a.total) return -1;       // no data sorts last on desc
-        return a.hits / a.total;
+        const graded = a.hits + a.misses;
+        if (graded === 0) return -1;          // all pending → also last on desc
+        return a.hits / graded;
     }
     return 0;
 }
@@ -269,14 +324,22 @@ function accuracyColor(pct) {
 function fmtAccuracy(symbol) {
     const a = scanState.accuracyBySymbol[symbol];
     if (!a || !a.total) {
-        return '<div class="acc-cell"><span class="acc-empty">no resolved predictions yet</span></div>';
+        return '<div class="acc-cell"><span class="acc-empty">no predictions yet</span></div>';
     }
-    const pct = (a.hits / a.total) * 100;
+    // Format: hits / misses / total / days
+    // Each number is dynamic and grows independently. Success Rate
+    // is computed against (hits + misses) — the GRADED set — not
+    // total, because pending predictions shouldn't drag the rate
+    // down (they haven't been judged yet).
+    const graded = a.hits + a.misses;
+    const pct = graded > 0 ? (a.hits / graded) * 100 : 0;
     const color = accuracyColor(pct);
+    const pending = a.total - graded;
+    const tip = `${a.hits} hits · ${a.misses} misses · ${a.total} total predictions · ${a.daysSpan}d since first prediction · ${pending} still pending`;
     return `
-        <div class="acc-cell">
-            <div class="acc-frac">${a.hits}/${a.total}</div>
-            <div class="acc-pct" style="color:${color}">${pct.toFixed(0)}% Success Rate</div>
+        <div class="acc-cell" title="${tip}">
+            <div class="acc-frac">${a.hits}/${a.misses}/${a.total}/${a.daysSpan}d</div>
+            <div class="acc-pct" style="color:${color}">${pct.toFixed(0)}% Success Rate${pending ? ` · ${pending} pending` : ''}</div>
             <div class="acc-bar"><div class="acc-bar-fill" style="width:${pct.toFixed(1)}%; background:${color}"></div></div>
         </div>`;
 }
