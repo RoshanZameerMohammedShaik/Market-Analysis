@@ -131,13 +131,21 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 }
 
 .portfolio-panel {
+    /* Same iPhone-PWA-correct treatment as Mia panel: 100dvh so the
+       collapsing toolbar doesn't clip, safe-area-inset-bottom padding
+       so the home indicator can't sit on top of the bottom-most row.
+       Header (.portfolio-panel-head) takes the safe-area-inset-top
+       below this rule. */
     position: fixed; top: 0; right: 0; bottom: 0;
     width: min(420px, 96vw);
+    height: 100dvh;
+    max-height: 100dvh;
     background: var(--bg-card);
     border-left: 1px solid var(--border-strong);
     box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
     display: flex; flex-direction: column;
     z-index: 600;
+    padding-bottom: env(safe-area-inset-bottom, 0);
     /* Translate fully off-screen when closed. Earlier the panel used
        `right: -440px` which was hard-coded to a single px value — when
        the user opened browser dev tools on the right (squeezing the
@@ -155,7 +163,10 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 
 .portfolio-panel-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 16px;
+    /* Top-padding clamps to env(safe-area-inset-top) on iPhone PWA so
+       the title + close button clear the Dynamic Island. max() keeps
+       the desktop default of 14px when env resolves to 0. */
+    padding: max(14px, env(safe-area-inset-top, 14px)) 16px 14px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-secondary);
 }
@@ -190,6 +201,12 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 .portfolio-panel-scroll {
     flex: 1;
     overflow-y: auto;
+    /* Bottom inner padding so the last row of holdings / actions
+       isn't covered by the iPhone home indicator. The panel itself
+       already gets safe-area-inset-bottom, but content INSIDE the
+       scroll container can scroll under the safe-area edge unless
+       we add explicit clearance here. */
+    padding-bottom: max(22px, env(safe-area-inset-bottom, 22px));
 }
 .portfolio-body { padding: 14px 16px 22px; }
 

@@ -6,13 +6,17 @@
 
 .ma-notify-container {
     position: fixed;
-    top: 16px;
-    left: 16px;
+    /* iPhone PWA: clamp to safe-area-inset-top so toasts don't tuck
+       under the Dynamic Island. max() preserves 16px on desktop where
+       env() resolves to 0. Same for left so the notch in landscape
+       doesn't push toasts under it. */
+    top: max(16px, env(safe-area-inset-top, 16px));
+    left: max(16px, env(safe-area-inset-left, 16px));
     z-index: 1200;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: min(380px, calc(100vw - 32px));
+    width: min(380px, calc(100vw - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
     pointer-events: none;     /* let clicks fall through container; per-toast re-enables */
 }
 .ma-notify {

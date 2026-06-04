@@ -36,7 +36,11 @@
     right: 0;
     bottom: 0;
     width: min(360px, 92vw);
-    height: calc(100vh - 65px);
+    /* dvh tracks the actual visible viewport on iOS Safari (URL bar
+       collapse). 65px subtraction reserves space for the sticky
+       header. Earlier `100vh` clipped past the visible area when
+       the toolbar was collapsed. */
+    height: calc(100dvh - 65px);
     background: var(--bg-card);
     border-left: 1px solid var(--border-strong) !important;
     border-top: none !important;

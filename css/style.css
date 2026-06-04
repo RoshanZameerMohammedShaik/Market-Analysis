@@ -438,12 +438,17 @@ body.side-panel-portfolio-open .portfolio-launcher {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 10px;
+    /* Bumped vertical padding from 6px → 10px so each menu row hits
+       ~44pt — Apple HIG floor for touch targets. The gear menu was
+       hard to tap accurately on iPhone before. Desktop is unaffected
+       (still feels compact). */
+    padding: 10px 12px;
+    min-height: 40px;
     background: transparent;
     border: none;
     border-radius: 6px;
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     text-align: left;
@@ -584,7 +589,16 @@ body.side-panel-portfolio-open .portfolio-launcher {
     left: 0;
     bottom: 0;
     width: min(300px, 92vw);
-    height: 100vh;
+    /* 100dvh (dynamic viewport height) instead of 100vh — on iOS
+       Safari the URL bar collapses on scroll, and 100vh is sticky
+       to the LARGER viewport state, which means content overflows
+       the visible area when the bar is open. dvh tracks the actual
+       visible height. inner padding clamps to safe-area-inset-top
+       so the headline isn't trapped under the Dynamic Island, and
+       inset-bottom so the home indicator doesn't sit on the last
+       glossary row. */
+    height: 100dvh;
+    max-height: 100dvh;
     background: var(--bg-card);
     border-right: 1px solid var(--border-strong);
     box-shadow: 16px 0 48px rgba(0, 0, 0, 0.35);
@@ -592,7 +606,11 @@ body.side-panel-portfolio-open .portfolio-launcher {
     transform: translateX(-110%);
     transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
     overflow-y: auto;
-    padding: 16px;
+    padding:
+        max(16px, env(safe-area-inset-top, 16px))
+        16px
+        max(16px, env(safe-area-inset-bottom, 16px))
+        16px;
 }
 body.resources-open .glossary-rail { transform: translateX(0); }
 /* In-rail header: "Resources" title on the left + close × on the
@@ -2038,8 +2056,11 @@ body.resources-open .resources-toggle {
     .app-title { font-size: 1.05rem; letter-spacing: 0.3px; }
     .app-title-portfolio-svg { width: 18px; height: 18px; }
     .header-ecg { display: none; }    /* save horizontal space */
-    .header-actions { right: 10px; gap: 4px; }
-    .header-btn, .theme-toggle { width: 30px; height: 30px; }
+    .header-actions { right: max(10px, env(safe-area-inset-right, 10px)); gap: 4px; }
+    /* Tap-target floor: 36×36 minimum on phones. Apple HIG says 44pt;
+       we cheat slightly because the gear/theme/portfolio icons are
+       reachable in a tight cluster and 44 each would crowd the row. */
+    .header-btn, .theme-toggle { width: 36px; height: 36px; }
 
     /* Tabs row — wrap onto multiple lines without squishing */
     .tabs-row { gap: 6px; margin-bottom: 8px; row-gap: 8px; }

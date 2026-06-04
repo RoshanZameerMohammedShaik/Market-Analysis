@@ -3,7 +3,13 @@
    --brand-grad-shadow which are defined per-theme in style.css. */
 
 .mia-launcher {
-    position: fixed; bottom: 22px; right: 22px;
+    position: fixed;
+    /* Clamp to safe-area-inset-bottom so the launcher stays clear of
+       iPhone's home indicator on PWA install. max() keeps 22px on
+       desktop where env() resolves to 0. Same for right inset in
+       landscape mode (notch on the right pushes content). */
+    bottom: max(22px, env(safe-area-inset-bottom, 22px));
+    right: max(22px, env(safe-area-inset-right, 22px));
     z-index: 700;
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
                 background 0.4s ease, box-shadow 0.4s ease,
@@ -143,14 +149,29 @@ body[data-launcher-vis="orb"] .mia-launcher {
 }
 
 .mia-panel {
+    /* Mobile-PWA-correct full-bleed: top: 0 with the inner header
+       carrying safe-area-inset-top padding, height: 100dvh (dynamic
+       viewport so Safari toolbar collapse doesn't clip), and a
+       safe-area-inset-bottom padding so the home indicator can't
+       cover the input/footer. The .mia-head element absorbs the
+       top inset via its own padding rule (audit P0 #1). */
     position: fixed; top: 0; right: -420px; bottom: 0;
     width: min(400px, 96vw);
+    height: 100dvh;
+    max-height: 100dvh;
     background: var(--bg-card);
     border-left: 1px solid var(--border-strong);
     box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
     display: flex; flex-direction: column;
     z-index: 600;
     transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+/* iPhone Dynamic Island clearance for Mia's panel header on mobile.
+   .mia-head sits at the top of the panel; without inset-top padding
+   the close button + title hide behind the pill on a PWA install. */
+.mia-head {
+    padding-top: max(14px, env(safe-area-inset-top, 14px));
 }
 /* When open, position based on the side-panel stack — first-opened sits
    at right:0, second-opened slides to right:width-of-first. The CSS var

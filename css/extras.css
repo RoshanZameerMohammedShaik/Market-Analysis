@@ -41,7 +41,10 @@ html[data-dev="1"] body { padding-top: 22px; }
 .tip-fade { animation: tip-fade-in 0.5s ease; }
 @keyframes tip-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-.glossary-rail { padding: 22px 18px; overflow-y: auto; height: calc(100vh - 65px); position: sticky; top: 65px; border-right: 1px solid var(--border); background: var(--bg-secondary); }
+/* Legacy sticky-rail rule kept for back-compat. The newer fixed-overlay
+   .glossary-rail in style.css uses 100dvh + safe-area inset and
+   overrides this when the rail is mounted as a side panel. Keeping
+   typography only — geometry comes from the newer rule. */
 .glos-section { margin-bottom: 22px; }
 .glos-title { font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
 .glos-intro { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 6px; padding: 10px 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border); }
