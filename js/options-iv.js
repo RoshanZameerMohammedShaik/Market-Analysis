@@ -100,3 +100,39 @@ export function optionsAdjustment(signal, options) {
     if (adjust < -4) adjust = -4;
     return { adjust, reasons };
 }
+
+// Score how UNUSUAL a symbol's options positioning is, for the options
+// activity scanner. Independent of any engine signal — this is "is the
+// options market doing something notable here?", not "does this agree
+// with our BUY". Returns { score, flags } or null when options are too
+// illiquid to read. Higher score = more anomalous positioning.
+//
+// Flags carry a directional `bias` so the UI can tint them: heavy puts
+// (high PCR) lean bearish positioning; heavy calls (low PCR) lean
+// bullish; elevated put-skew = hedging/fear; call-skew = euphoria.
+export function unusualOptionsScore(options) {
+    if (!options) return null;
+    const { pcr, skew, callVol, putVol } = options;
+    const totalVol = (callVol || 0) + (putVol || 0);
+    // Require a floor of total volume so we don't flag a thinly-traded
+    // chain where a single large order skews the ratio.
+    if (!Number.isFinite(totalVol) || totalVol < 500) return null;
+
+    const flags = [];
+    let score = 0;
+
+    if (Number.isFinite(pcr)) {
+        if (pcr >= 2.0) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)} — puts heavily crowded`, bias: 'bearish' }); }
+        else if (pcr >= 1.5) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)} — elevated put activity`, bias: 'bearish' }); }
+        else if (pcr <= 0.35) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)} — calls heavily crowded`, bias: 'bullish' }); }
+        else if (pcr <= 0.6) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)} — elevated call activity`, bias: 'bullish' }); }
+    }
+    if (Number.isFinite(skew)) {
+        if (skew >= 1.20) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)} — downside heavily bid (fear)`, bias: 'bearish' }); }
+        else if (skew >= 1.10) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)} — downside hedging bid`, bias: 'bearish' }); }
+        else if (skew <= 0.85) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)} — upside calls bid (euphoria)`, bias: 'bullish' }); }
+        else if (skew <= 0.90) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)} — upside calls bid`, bias: 'bullish' }); }
+    }
+    if (!flags.length) return null;  // nothing unusual
+    return { score, flags, pcr, skew, totalVol };
+}

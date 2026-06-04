@@ -1,0 +1,164 @@
+/* ────────────────────────────────────────────────────────────────────
+   New coverage surfaces (Jun-2026 pass):
+     · Sector heatmap
+     · Earnings calendar
+     · Unusual options activity scanner
+   All mount as collapsible <details> sections after the Full Ledger,
+   matching the Watchlist's visual language. Theme-aware via tokens.
+   ──────────────────────────────────────────────────────────────────── */
+
+.sector-heatmap-section,
+.earnings-cal-section,
+.options-scan-section {
+    margin: 14px 0;
+}
+
+/* Shared summary header treatment */
+.sector-heatmap-summary,
+.earnings-cal-summary,
+.options-scan-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.sector-heatmap-summary::-webkit-details-marker,
+.earnings-cal-summary::-webkit-details-marker,
+.options-scan-summary::-webkit-details-marker { display: none; }
+.sector-heatmap-title,
+.earnings-cal-title,
+.options-scan-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
+.sector-heatmap-hint,
+.earnings-cal-hint,
+.options-scan-hint { font-size: 0.76rem; color: var(--text-muted); flex: 1; min-width: 160px; }
+
+.sector-heatmap-refresh,
+.earnings-cal-refresh,
+.options-scan-refresh {
+    background: var(--bg-hover);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    width: 30px; height: 30px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+.sector-heatmap-refresh:hover,
+.earnings-cal-refresh:hover,
+.options-scan-refresh:hover { border-color: var(--accent); color: var(--accent); }
+
+.sector-heatmap-loading, .sector-heatmap-empty,
+.earnings-cal-loading, .earnings-cal-empty,
+.options-scan-loading, .options-scan-empty {
+    padding: 18px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+/* ── Sector heatmap grid ───────────────────────────────────────────── */
+.sector-heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    padding: 12px 4px 4px;
+}
+.sector-tile {
+    padding: 12px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    text-align: center;
+    transition: transform 0.15s ease;
+}
+.sector-tile:hover { transform: translateY(-2px); }
+.sector-tile-etf { font-family: var(--num-font); font-weight: 800; font-size: 0.78rem; opacity: 0.85; }
+.sector-tile-name { font-size: 0.72rem; margin: 3px 0 6px; line-height: 1.2; }
+.sector-tile-pct { font-family: var(--num-font); font-weight: 900; font-size: 1.05rem; }
+
+/* Diverging heat scale — red (weak) → neutral → green (strong). Tints
+   use rgba over the card bg so it reads in both light and dark themes. */
+.heat-strong-up   { background: rgba(45, 210, 139, 0.30); border-color: rgba(45, 210, 139, 0.5); }
+.heat-up          { background: rgba(45, 210, 139, 0.15); }
+.heat-flat        { background: var(--bg-hover); }
+.heat-down        { background: rgba(239, 68, 68, 0.15); }
+.heat-strong-down { background: rgba(239, 68, 68, 0.30); border-color: rgba(239, 68, 68, 0.5); }
+.heat-strong-up .sector-tile-pct, .heat-up .sector-tile-pct { color: var(--green); }
+.heat-strong-down .sector-tile-pct, .heat-down .sector-tile-pct { color: var(--red); }
+
+.sector-heatmap-legend {
+    display: flex; align-items: center; gap: 5px;
+    padding: 8px 6px 4px; font-size: 0.7rem; color: var(--text-muted);
+}
+.legend-swatch { width: 16px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend-label { margin: 0 4px; }
+
+/* ── Earnings calendar ─────────────────────────────────────────────── */
+.earnings-cal-list { padding: 8px 4px 4px; display: flex; flex-direction: column; gap: 6px; }
+.earnings-cal-row {
+    display: grid;
+    grid-template-columns: 70px 1fr auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.earnings-cal-row:hover { border-color: var(--accent); transform: translateX(2px); }
+.earnings-cal-when {
+    font-family: var(--num-font); font-weight: 800; font-size: 0.78rem;
+    text-align: center; padding: 3px 6px; border-radius: 999px;
+    background: var(--bg-hover); color: var(--text-secondary);
+}
+.earnings-cal-when.imminent { background: rgba(239, 68, 68, 0.18); color: var(--red); }
+.earnings-cal-when.soon { background: rgba(251, 191, 36, 0.18); color: var(--yellow); }
+.earnings-cal-sym { font-weight: 800; }
+.earnings-cal-name { font-size: 0.72rem; color: var(--text-muted); }
+.earnings-cal-sig {
+    font-size: 0.72rem; font-weight: 800; padding: 3px 9px; border-radius: 999px;
+}
+.earnings-cal-sig.buy { color: var(--green); background: var(--green-bg); }
+.earnings-cal-sig.sell { color: var(--red); background: var(--red-bg); }
+.earnings-cal-sig.neutral, .earnings-cal-sig.no_trade { color: var(--text-muted); background: var(--bg-hover); }
+.earnings-cal-conf { font-family: var(--num-font); font-weight: 800; font-size: 0.84rem; color: var(--text-secondary); }
+
+/* ── Unusual options activity scanner ──────────────────────────────── */
+.options-scan-list { padding: 8px 4px 4px; display: flex; flex-direction: column; gap: 6px; }
+.options-scan-row {
+    display: grid;
+    grid-template-columns: 70px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.options-scan-row:hover { border-color: var(--accent); transform: translateX(2px); }
+.options-scan-sym { font-weight: 800; }
+.options-scan-flags { display: flex; flex-wrap: wrap; gap: 5px; }
+.options-scan-flag {
+    font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--text-secondary);
+}
+.options-scan-flag.bullish { color: var(--green); background: var(--green-bg); border-color: transparent; }
+.options-scan-flag.bearish { color: var(--red); background: var(--red-bg); border-color: transparent; }
+.options-scan-metric { font-family: var(--num-font); font-size: 0.76rem; color: var(--text-muted); }
+.options-scan-score { font-family: var(--num-font); font-weight: 900; font-size: 1.0rem; text-align: right; }
+
+@media (max-width: 540px) {
+    .sector-heatmap-grid { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+    .earnings-cal-row { grid-template-columns: 56px 1fr auto; }
+    .earnings-cal-conf { display: none; }
+}

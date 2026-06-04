@@ -69,6 +69,39 @@ export function symbolSector(symbol) {
     return etf ? { etf, name: SECTOR_NAME[etf] } : null;
 }
 
+// The set of US large-caps we have a sector mapping for. Used as the
+// earnings-calendar scan universe — these are liquid names with reliable
+// Yahoo earnings dates, so the calendar stays fast and accurate rather
+// than scanning the entire global pool (which would be slow and many of
+// whose foreign listings lack clean earnings data on the free path).
+// Excludes synthetic dedupe keys like 'PYPL2' (a second mapping for a
+// ticker already present under its real symbol).
+const SYNTHETIC_KEYS = new Set(['PYPL2']);
+export function getSectorMappedSymbols() {
+    return Object.keys(SECTOR).filter(s => !SYNTHETIC_KEYS.has(s));
+}
+
+// Fetch the 5-day trend for EVERY sector ETF, for the sector heatmap.
+// Reuses the same 10-min per-ETF cache as getSectorAdjustment, so when
+// the heatmap and the per-symbol sector check run together only one
+// network call per ETF happens. Returns an array sorted strongest →
+// weakest, each entry { etf, name, pct5d }. ETFs that fail to fetch are
+// omitted rather than shown as zero (zero would imply "flat", which is
+// a real signal we don't want to fake).
+export async function getAllSectorTrends() {
+    const etfs = Object.keys(SECTOR_NAME);
+    const settled = await Promise.allSettled(etfs.map(etf => fetchEtfTrend(etf)));
+    const out = [];
+    settled.forEach((res, i) => {
+        const etf = etfs[i];
+        if (res.status === 'fulfilled' && res.value && Number.isFinite(res.value.pct5d)) {
+            out.push({ etf, name: SECTOR_NAME[etf], pct5d: res.value.pct5d });
+        }
+    });
+    out.sort((a, b) => b.pct5d - a.pct5d);
+    return out;
+}
+
 export async function getSectorAdjustment(symbol, signal) {
     const sec = symbolSector(symbol);
     if (!sec) return { adjust: 0, sector: null };

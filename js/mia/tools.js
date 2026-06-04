@@ -15,6 +15,7 @@ import {
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     controlOpenResources, controlOpenFullLedger, controlSetAccuracyWindow,
     controlAddToWatchlist, controlRemoveFromWatchlist, controlSetPriceAlert,
+    controlOpenSectorHeatmap, controlOpenEarningsCalendar, controlOpenOptionsScanner,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
@@ -457,6 +458,24 @@ const TOOLS = {
         args: '{}',
         run: async () => readWatchlist(),
         kind: 'read',
+    },
+    open_sector_heatmap: {
+        desc: 'open the Sector Heatmap panel AND return current 5-day relative strength for all 11 sectors. Use for "which sector is hot/leading/lagging today" or "where is money rotating". The returned trends array (sorted strongest→weakest) lets you narrate the answer in the same turn — quote those numbers, not memory.',
+        args: '{}',
+        run: async () => controlOpenSectorHeatmap(),
+        kind: 'control',
+    },
+    open_earnings_calendar: {
+        desc: 'open the Earnings Calendar AND return upcoming large-cap earnings (symbol, daysUntil, pre-earnings signal, confidence) within a window. Use for "who reports this week / soon" or "any earnings coming up for big names". Pass {windowDays} to widen/narrow (default 14). Quote from the returned upcoming array.',
+        args: '{"windowDays":14}',
+        run: async ({ windowDays } = {}) => controlOpenEarningsCalendar({ windowDays }),
+        kind: 'control',
+    },
+    open_options_scanner: {
+        desc: 'open the Unusual Options Activity scanner AND return symbols with anomalous options positioning (crowded puts/calls via PCR extremes, stretched IV skew). Use for "any unusual options flow" or "what are options markets signaling". Each row has flags with a bullish/bearish bias. Quote from the returned unusual array. Stock-only (no crypto options on the free feed).',
+        args: '{}',
+        run: async () => controlOpenOptionsScanner(),
+        kind: 'control',
     },
 };
 

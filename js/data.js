@@ -336,7 +336,14 @@ export async function fetchStockMultiTimeframe(symbol) {
         ? { ...fourHourRaw, candles: aggregateCandles(fourHourRaw.candles, 4) }
         : daily;
 
-    return { daily, weekly: weekly || daily, fourHour };
+    // Preserve the RAW 1h series (pre-4h-aggregation) so the intraday
+    // LSTM can run on true 1h bars for the "Today" horizon. fourHourRaw
+    // is the un-aggregated 1h fetch; we only aggregated a COPY into
+    // fourHour above. null when the 1h fetch failed — the engine falls
+    // back to the daily model for Today in that case.
+    const hourly = fourHourRaw && fourHourRaw.candles?.length ? fourHourRaw : null;
+
+    return { daily, weekly: weekly || daily, fourHour, hourly };
 }
 
 // ─── CRYPTO DATA ───────────────────────────────────────────────────────────────

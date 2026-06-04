@@ -11,6 +11,8 @@
 @import url('portfolio.css');
 @import url('notify.css');
 @import url('agentic-stage.css');
+@import url('signal-extras.css');
+@import url('surfaces.css');
 
 :root {
     /* Dark mode: page stays true black, but cards/secondary surfaces

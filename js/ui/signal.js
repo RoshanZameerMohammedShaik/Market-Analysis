@@ -3,9 +3,11 @@ import { fmtPriceTag, fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
-import { animateNumber } from './animate.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
 import { getCalibrationSource } from '../calibration.js';
+import { renderTrustPanel } from './trust-panel.js';
+import { renderConfidenceDial, animateDials } from './confidence-dial.js';
+import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -40,7 +42,6 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const signalDisplay = signal === 'NO_TRADE' ? 'AVOID'
         : signal === 'NEUTRAL' ? "DON'T BUY"
         : signal;
-    const confidenceClass = confidence >= 65 ? 'high' : confidence >= 50 ? 'medium' : 'low';
 
     let priceTargetHTML = '';
     if (priceTargets) {
@@ -179,12 +180,17 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
 
     const methodLabel = prediction.method || 'Technical + News + Multi-Timeframe';
 
+    const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
+    const trustHTML = renderTrustPanel(prediction);
+    // Per-symbol confidence-trend placeholder — filled async after paint
+    // from the live ledger (removed if there isn't enough history).
+    const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
+
     section.innerHTML = `
         <div class="signal-box ${signalClass} fade-in">
             <div class="signal-header">
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
                 <span class="signal-label ${signalClass}">${signalDisplay}</span>
-                <span class="signal-confidence" id="signal-conf-num">${confidence}%</span>
                 ${rangeHTML}
                 ${trendChip}
                 ${macroChip}
@@ -192,9 +198,11 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
             ${calibrationDelta ? `<div class="cal-delta-row">${calibrationDelta}</div>` : ''}
-            <div class="confidence-bar">
-                <div class="confidence-fill ${confidenceClass}" style="width: ${confidence}%"></div>
+            <div class="signal-dial-row">
+                ${dialHTML}
             </div>
+            ${trustHTML}
+            ${trendHTML}
             ${breakdownHTML}
             ${pennyDashboardHTML}
             <div class="insight-summary">${insightSummary}</div>
@@ -210,9 +218,14 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             </div>
         </div>`;
 
-    if (lastShownSymbol === state.currentSymbol && lastShownConfidence !== null && lastShownConfidence !== confidence) {
-        animateNumber(document.getElementById('signal-conf-num'), lastShownConfidence, confidence);
-    }
+    // The radial dial owns the confidence readout now. Sweep the arc +
+    // count up the number on every render (also covers re-runs where the
+    // value changed — the dial always animates from 0 to the new value,
+    // which reads as a deliberate "recomputing" beat).
+    animateDials(section);
+    // Fill the confidence-trend chart from the live ledger (async; the
+    // block self-removes if there isn't enough resolved history).
+    mountConfidenceTrend(section, state.currentSymbol);
     lastShownConfidence = confidence;
     lastShownSymbol = state.currentSymbol;
 

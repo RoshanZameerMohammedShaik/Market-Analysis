@@ -6,6 +6,9 @@ import { initCurrencyToggle } from './ui/currency-toggle.js';
 import { initSpikers } from './ui/spikers.js';
 import { initScanner } from './ui/scanner.js';
 import { initWatchlist } from './ui/watchlist.js';
+import { initSectorHeatmap } from './ui/sector-heatmap.js';
+import { initEarningsCalendar } from './ui/earnings-calendar.js';
+import { initOptionsScanner } from './ui/options-scanner.js';
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
 import { initDebugPanel } from './ui/debug-panel.js';
 import { prewarmWatchlist } from './analysis-cache.js';
@@ -18,6 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initCurrencyToggle();
     initScanner();
     initWatchlist();
+    // New coverage surfaces — all collapsed by default, lazy-load on open.
+    initSectorHeatmap();
+    initEarningsCalendar();
+    initOptionsScanner();
     initPortfolioPanel();
     // Floating Debug App panel — only mounts when dev mode is on.
     // Reads from the always-on debug-capture buffer that's already

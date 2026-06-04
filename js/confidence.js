@@ -45,8 +45,17 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // Compute tier first so we can pass it to the AI model.
     const tier = computeTier(multiData);
 
+    // For the "Today" horizon, prefer the intraday (1h-candle) LSTM and
+    // feed it the raw 1h series — it predicts the next intraday move,
+    // which is what "Today" actually asks. For "Tomorrow" (or when no 1h
+    // data is available) we keep the daily model on daily candles. The
+    // intraday model self-heals: if its weights file hasn't shipped yet,
+    // ai-model.js falls back to the daily model transparently.
+    const useIntraday = timeframe === 'today' && Array.isArray(multiData.hourly?.candles) && multiData.hourly.candles.length > 0;
+    const aiCandles = useIntraday ? multiData.hourly.candles : multiData.daily.candles;
+
     const [aiResult, newsItems, marketResult] = await Promise.allSettled([
-        getAIPrediction(multiData.daily.candles, { tier }),
+        getAIPrediction(aiCandles, { tier, intraday: useIntraday }),
         mode === 'stock' ? fetchStockNews(symbolOrCoinId).catch(() => []) : fetchCryptoNews(symbolOrCoinId).catch(() => []),
         getMarketConditionsScore(mode),
     ]);
@@ -74,7 +83,17 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // dynamic-only rule. Falls back to baseline only while the
     // ledger is too thin (< 50 resolved rows with breakdown data).
     let weights = await getLearnedWeights(ai.available);
-    weights = applyWeightShifts(weights, regime?.regime, trendRegime, attributionShifts());
+    // Regime-conditional weighting: scale the regime tilt by how STRONGLY
+    // the regime is expressed, instead of applying a fixed magnitude to
+    // any trend. A screaming trend (ADX 40) tilts toward momentum harder
+    // than a barely-trending tape (ADX 26); a VIX of 35 tilts toward the
+    // risk-off blend harder than a VIX of 23. Strengths are continuous in
+    // [0,1] so the shift fades smoothly rather than flipping on a binary
+    // threshold (which is what the old fixed-magnitude version did).
+    const adxVal = technicalPred.indicators?.adx;
+    const trendStrength = regimeStrengthFromAdx(adxVal, trendRegime);
+    const macroStrength = regimeStrengthFromVix(currentVix, regime?.regime);
+    weights = applyWeightShifts(weights, regime?.regime, trendRegime, attributionShifts(), { trendStrength, macroStrength });
 
     const weightedScore = ai.score * weights.ai + technicalScore * weights.technical + sentiment.score * weights.sentiment + market.score * weights.market;
 
@@ -124,6 +143,33 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             rawConfidence = Math.min(88, rawConfidence + unanimousBonus);
         }
     }
+
+    // Ensemble consensus. Dispersion (above) measures the SPREAD of
+    // source scores; consensus measures how many sources actually
+    // point the SAME DIRECTION as the committed signal — a different
+    // axis. Two sources at 55 and 88 have high dispersion but full
+    // agreement; a source at 30 against a BUY is a true contradiction
+    // that the spread metric under-weights. We surface the vote tally
+    // for the "model consensus N/M agree" trust display, and dock
+    // confidence specifically for CONTRADICTING sources (not merely
+    // abstaining ones). The dock magnitude reuses the learned
+    // dispersion penalty scale so we introduce no new magic numbers.
+    const consensus = computeConsensus(
+        { ai: ai.available ? ai.score : null, technical: technicalScore, sentiment: sentiment.score, market: market.score },
+        finalSignal,
+        thresh,
+    );
+    let contradictionPenalty = 0;
+    if ((finalSignal === 'BUY' || finalSignal === 'SELL') && consensus.against > 0 && consensus.total > 0) {
+        const maxLearnedPenalty = Math.max(0, ...(thresh.dispersionPenaltyBands || []).map(b => b.penalty || 0));
+        // Scale by the fraction of sources actively pointing the wrong
+        // way. One of four contradicting → ~1/4 of the max learned dock.
+        contradictionPenalty = Math.round(maxLearnedPenalty * (consensus.against / consensus.total));
+        if (contradictionPenalty > 0) {
+            rawConfidence = Math.max(thresh.commitFloorConfidence, rawConfidence - contradictionPenalty);
+        }
+    }
+    consensus.confidenceDock = contradictionPenalty;
 
     // Per-symbol live-ledger track-record bonus. If the engine has
     // a meaningful number of resolved predictions on THIS exact
@@ -365,6 +411,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (socialResult?.reasons?.length) socialResult.reasons.forEach(r => allReasons.push(`[Social] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
     if (unanimousBonus > 0) allReasons.push(`[Engine] All sources agree directionally — confidence boosted by ${unanimousBonus}`);
+    if (consensus && (finalSignal === 'BUY' || finalSignal === 'SELL') && consensus.total > 0) {
+        if (consensus.against > 0) allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} — ${consensus.against} pointing the other way${contradictionPenalty > 0 ? `, confidence reduced by ${contradictionPenalty}` : ''}`);
+        else if (consensus.for === consensus.total) allReasons.push(`[Consensus] All ${consensus.total} sources agree on ${finalSignal}`);
+        else allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} (rest neutral)`);
+    }
     if (trackRecord?.reason) allReasons.push(`[Track Record] ${trackRecord.reason}`);
 
     return {
@@ -378,6 +429,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         volTier,
         disagreementPenalty,
         unanimousBonus,
+        consensus,
         trackRecord,
         dispersion: Math.round(dispersion),
         regime: regime?.regime,
@@ -426,6 +478,42 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     };
 }
 
+// Tally how many ensemble sources agree / contradict / abstain
+// relative to the committed signal. A source "agrees" when it leans
+// the same direction past the learned agreement cutoff; "contradicts"
+// when it leans the OPPOSITE direction past the mirror cutoff;
+// otherwise it abstains (too close to neutral to count either way).
+// Returns { for, against, neutral, total, votes, ratioPct } where
+// `votes` is a per-source label map used by the UI trust panel.
+function computeConsensus(scores, signal, thresh) {
+    const bullCut = thresh?.unanimousAgreementCutoff ?? 55;
+    const bearCut = thresh?.sellAgreementCutoff ?? 45;
+    const votes = {};
+    let forN = 0, against = 0, neutral = 0, total = 0;
+    for (const [src, score] of Object.entries(scores)) {
+        if (score == null || !Number.isFinite(score)) { votes[src] = 'n/a'; continue; }
+        total++;
+        const leansBull = score > bullCut;
+        const leansBear = score < bearCut;
+        let label;
+        if (signal === 'BUY') label = leansBull ? 'agree' : leansBear ? 'against' : 'neutral';
+        else if (signal === 'SELL') label = leansBear ? 'agree' : leansBull ? 'against' : 'neutral';
+        else label = 'neutral';
+        votes[src] = label;
+        if (label === 'agree') forN++;
+        else if (label === 'against') against++;
+        else neutral++;
+    }
+    return {
+        for: forN,
+        against,
+        neutral,
+        total,
+        votes,
+        ratioPct: total ? Math.round((forN / total) * 100) : 0,
+    };
+}
+
 function convertSignalToScore(signal, confidence) {
     if (signal === 'BUY') return 50 + (confidence - 38) * (50 / 50);
     if (signal === 'SELL') return 50 - (confidence - 38) * (50 / 50);
@@ -454,13 +542,48 @@ function computePriceChange1d(multiData) {
     return ((last.close - prev.close) / prev.close) * 100;
 }
 
-function applyWeightShifts(base, macroRegime, trendRegime, attribution) {
+// Map ADX to a 0..1 trend-strength multiplier. The trend tilt should
+// ramp in across the ADX band the technical layer already uses to label
+// regime (>25 trending, <20 ranging). At the boundary the multiplier is
+// ~0 so we don't yank weights around on a marginal regime call; deep in
+// the regime it approaches 1 (full tilt). Returns 1 (neutral full
+// strength) when ADX is unavailable so behavior matches the old fixed
+// magnitude rather than silently zeroing the tilt.
+function regimeStrengthFromAdx(adx, trendRegime) {
+    if (!Number.isFinite(adx)) return 1;
+    if (trendRegime === 'trending') {
+        // ADX 25 → 0, ADX 45 → 1 (clamped).
+        return Math.max(0, Math.min(1, (adx - 25) / 20));
+    }
+    if (trendRegime === 'ranging') {
+        // ADX 20 → 0, ADX 8 → 1 (lower ADX = more firmly ranging).
+        return Math.max(0, Math.min(1, (20 - adx) / 12));
+    }
+    return 0; // transitional/unknown — no trend tilt
+}
+
+// Map VIX to a 0..1 macro-strength multiplier scaled by distance from
+// the neutral 16-22 band. VIX 22 → 0 ramping to VIX 35 → 1 (risk-off
+// intensity); VIX 16 → 0 ramping to VIX 10 → 1 (risk-on calm). Returns
+// 1 when VIX is unavailable (old fixed-magnitude behavior).
+function regimeStrengthFromVix(vix, macroRegime) {
+    if (!Number.isFinite(vix)) return 1;
+    if (macroRegime === 'risk-off') return Math.max(0, Math.min(1, (vix - 22) / 13));
+    if (macroRegime === 'risk-on') return Math.max(0, Math.min(1, (16 - vix) / 6));
+    return 0;
+}
+
+function applyWeightShifts(base, macroRegime, trendRegime, attribution, strengths = {}) {
     const out = { ...base };
+    // Strength multipliers in [0,1] (default 1 = old fixed behavior when
+    // the caller doesn't pass them, e.g. unit tests / legacy callers).
+    const ts = Number.isFinite(strengths.trendStrength) ? strengths.trendStrength : 1;
+    const ms = Number.isFinite(strengths.macroStrength) ? strengths.macroStrength : 1;
     let techShift = 0, sentShift = 0, mktShift = 0, aiShift = 0;
-    if (trendRegime === 'trending') { techShift += 0.05; sentShift -= 0.025; mktShift -= 0.025; }
-    else if (trendRegime === 'ranging') { techShift -= 0.05; sentShift += 0.025; mktShift += 0.025; }
-    if (macroRegime === 'risk-off') { sentShift -= 0.05; techShift += 0.025; mktShift += 0.025; }
-    else if (macroRegime === 'risk-on') { sentShift += 0.025; mktShift += 0.025; techShift -= 0.05; }
+    if (trendRegime === 'trending') { techShift += 0.05 * ts; sentShift -= 0.025 * ts; mktShift -= 0.025 * ts; }
+    else if (trendRegime === 'ranging') { techShift -= 0.05 * ts; sentShift += 0.025 * ts; mktShift += 0.025 * ts; }
+    if (macroRegime === 'risk-off') { sentShift -= 0.05 * ms; techShift += 0.025 * ms; mktShift += 0.025 * ms; }
+    else if (macroRegime === 'risk-on') { sentShift += 0.025 * ms; mktShift += 0.025 * ms; techShift -= 0.05 * ms; }
     if (attribution) { aiShift += attribution.ai || 0; techShift += attribution.technical || 0; sentShift += attribution.sentiment || 0; mktShift += attribution.market || 0; }
     aiShift = clampShift(aiShift); techShift = clampShift(techShift); sentShift = clampShift(sentShift); mktShift = clampShift(mktShift);
     if (out.ai > 0) out.ai = Math.max(0.05, base.ai + aiShift);

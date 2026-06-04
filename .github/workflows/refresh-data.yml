@@ -21,6 +21,7 @@ on:
           - backtest
           - retrain
           - retrain_penny
+          - retrain_intraday
           - penny_modules_backtest
           - both
 
@@ -48,15 +49,17 @@ jobs:
           do_backtest=false
           do_retrain=false
           do_retrain_penny=false
+          do_retrain_intraday=false
           do_penny_modules=false
           if [ "${{ github.event_name }}" = "schedule" ]; then
             if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; do_penny_modules=true; fi
             # Daily retrain slot — but only actually retrain if the gate
             # says there's enough new ground truth. should_retrain.py
-            # exits 0 to proceed, 1 to skip.
+            # exits 0 to proceed, 1 to skip. The intraday model retrains
+            # on the same gate (it's the same ground truth that moved).
             if [ "${{ github.event.schedule }}" = "30 4 * * *" ]; then
               if python tools/should_retrain.py; then
-                do_retrain=true; do_retrain_penny=true
+                do_retrain=true; do_retrain_penny=true; do_retrain_intraday=true
               else
                 echo "Retrain gate: not enough new resolutions — skipping retrain today."
               fi
@@ -67,6 +70,7 @@ jobs:
               backtest) do_backtest=true;;
               retrain) do_retrain=true;;
               retrain_penny) do_retrain_penny=true;;
+              retrain_intraday) do_retrain_intraday=true;;
               penny_modules_backtest) do_penny_modules=true;;
               both) do_backtest=true; do_retrain=true;;
             esac
@@ -74,6 +78,7 @@ jobs:
           echo "do_backtest=$do_backtest" >> $GITHUB_OUTPUT
           echo "do_retrain=$do_retrain" >> $GITHUB_OUTPUT
           echo "do_retrain_penny=$do_retrain_penny" >> $GITHUB_OUTPUT
+          echo "do_retrain_intraday=$do_retrain_intraday" >> $GITHUB_OUTPUT
           echo "do_penny_modules=$do_penny_modules" >> $GITHUB_OUTPUT
 
       - name: Run backtest
@@ -95,6 +100,10 @@ jobs:
       - name: Retrain penny-tier LSTM
         if: steps.decide.outputs.do_retrain_penny == 'true'
         run: python train_penny_lstm.py
+
+      - name: Retrain intraday (1h) LSTM
+        if: steps.decide.outputs.do_retrain_intraday == 'true'
+        run: python train_intraday.py
 
       - name: Stamp retrain marker
         # Records resolved-horizon count + timestamp so tomorrow's
@@ -121,6 +130,7 @@ jobs:
           if [ "${{ steps.decide.outputs.do_penny_modules }}" = "true" ]; then msg="$msg pennyback"; fi
           if [ "${{ steps.decide.outputs.do_retrain }}" = "true" ]; then msg="$msg retrain"; fi
           if [ "${{ steps.decide.outputs.do_retrain_penny }}" = "true" ]; then msg="$msg penny"; fi
+          if [ "${{ steps.decide.outputs.do_retrain_intraday }}" = "true" ]; then msg="$msg intraday"; fi
           msg="$msg [skip ci]"
           git status --short
           git commit -m "$msg"

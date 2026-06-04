@@ -3,6 +3,7 @@ import { state, nextHotPicksId } from './state.js';
 import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
 import { displayTicker } from './exchanges.js';
+import { bindLiveSparks, stopLiveSparks } from './live-spark.js';
 
 // Phase 8: Hot Picks penny sub-tabs.
 // `pennyMode` is one of: null (no filter), 'p10' (<$10), 'p5' (<$5), 'p1' (<$1).
@@ -56,6 +57,10 @@ function paintFilterButtons() {
 
 export async function loadHotPicks(onPick) {
     currentOnPick = onPick;
+    // Drop any live sparkline streams from the previous scan/mode before
+    // we rebuild the grid. renderCards() re-binds for the new card set;
+    // empty-state / error paths simply stay torn down.
+    stopLiveSparks();
     const requestId = nextHotPicksId();
     const grid = document.getElementById('hotpicks-grid');
     const title = document.getElementById('hotpicks-title');
@@ -142,6 +147,13 @@ function renderCards(grid, picks, withFooter) {
             : "DON'T BUY";
         const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
+        // Seed attribute for live-ticking sparklines (crypto only). The
+        // live-spark module reads this to start its rolling buffer from
+        // real data rather than a flat point. Only emitted when we have
+        // a usable series; stocks never get one (no live feed).
+        const sparkSeed = (sparkData && state.mode === 'crypto')
+            ? ` data-spark="${encodeURIComponent(JSON.stringify(sparkData.slice(-40)))}"`
+            : '';
         // Verbose labels per Roshan's spec:
         //   "56% Confidence"
         //   "5% Spike Expected ⚡"
@@ -162,7 +174,7 @@ function renderCards(grid, picks, withFooter) {
             ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
         return `
-        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}">
+        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}"${sparkSeed}>
             <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
@@ -184,6 +196,10 @@ function renderCards(grid, picks, withFooter) {
     } else {
         grid.innerHTML = cardsHtml;
     }
+    // (Re)bind live-ticking sparklines to the freshly-rendered crypto
+    // cards. No-op for stock cards (no live feed). Diffs against the
+    // currently-streaming set so re-renders don't leak Binance sockets.
+    bindLiveSparks(grid);
 }
 
 function bindCardClicks(grid, onPick) {

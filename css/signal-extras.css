@@ -1,0 +1,234 @@
+/* ────────────────────────────────────────────────────────────────────
+   Radial confidence dial + "Why trust this %?" panel.
+   Built in the Jun-2026 accuracy/confidence/UI pass.
+   Theme-aware via the same custom-property tokens as style.css.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* ── Confidence dial ───────────────────────────────────────────────── */
+.signal-dial-row {
+    display: flex;
+    justify-content: center;
+    margin: 14px 0 6px;
+}
+.conf-dial {
+    position: relative;
+    width: var(--dial-size, 120px);
+    height: var(--dial-size, 120px);
+}
+.conf-dial-svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(0deg);
+    overflow: visible;
+}
+.conf-dial-track {
+    fill: none;
+    stroke: var(--bg-hover);
+    stroke-width: 9;
+    stroke-linecap: round;
+}
+.conf-dial-value {
+    fill: none;
+    stroke-width: 9;
+    stroke-linecap: round;
+    /* eased sweep — matches the count-up duration */
+    transition: stroke-dashoffset 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    filter: drop-shadow(0 0 5px currentColor);
+}
+.conf-dial-value.high { stroke: var(--green); color: var(--green); }
+.conf-dial-value.mid  { stroke: var(--yellow, #fbbf24); color: var(--yellow, #fbbf24); }
+.conf-dial-value.low  { stroke: var(--red); color: var(--red); }
+
+.conf-dial-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    flex-wrap: wrap;
+    flex-direction: row;
+    line-height: 1;
+}
+.conf-dial-num {
+    font-family: var(--num-font);
+    font-size: 2.1rem;
+    font-weight: 900;
+    color: var(--text-primary);
+}
+.conf-dial-pct {
+    font-family: var(--num-font);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    align-self: flex-start;
+    margin-top: 6px;
+}
+.conf-dial-sub {
+    position: absolute;
+    bottom: 22%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+.conf-dial-sub.high { color: var(--green); }
+.conf-dial-sub.mid  { color: var(--yellow, #fbbf24); }
+.conf-dial-sub.low  { color: var(--red); }
+
+/* ── Trust panel ───────────────────────────────────────────────────── */
+.trust-panel {
+    margin: 8px 0 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.trust-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.trust-summary::-webkit-details-marker { display: none; }
+.trust-summary-text { flex: 1; }
+.trust-summary-chevron {
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+.trust-panel[open] .trust-summary-chevron { transform: rotate(90deg); }
+.trust-summary:hover { background: var(--bg-hover); }
+
+.trust-body {
+    padding: 4px 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.trust-block-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.trust-headline {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.trust-headline.thin { font-weight: 600; color: var(--text-secondary); }
+.trust-note {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-top: 6px;
+}
+
+.trust-votes { display: flex; flex-wrap: wrap; gap: 6px; }
+.trust-vote {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+}
+.trust-vote.agree   { color: var(--green); background: var(--green-bg); border-color: transparent; }
+.trust-vote.against { color: var(--red); background: var(--red-bg); border-color: transparent; }
+.trust-vote.neutral { color: var(--text-muted); }
+
+.trust-bands { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
+.trust-band {
+    display: grid;
+    grid-template-columns: 56px 1fr 42px 46px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+}
+.trust-band-label { color: var(--text-secondary); }
+.trust-band-track { height: 6px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+.trust-band-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+.trust-band-fill.high { background: var(--green); }
+.trust-band-fill.mid  { background: var(--yellow, #fbbf24); }
+.trust-band-fill.low  { background: var(--red); }
+.trust-band-rate { font-family: var(--num-font); font-weight: 800; text-align: right; }
+.trust-band-rate.high { color: var(--green); }
+.trust-band-rate.mid  { color: var(--yellow, #fbbf24); }
+.trust-band-rate.low  { color: var(--red); }
+.trust-band-n { font-size: 0.66rem; color: var(--text-muted); text-align: right; }
+
+@media (max-width: 540px) {
+    .conf-dial { width: 108px; height: 108px; }
+    .conf-dial-num { font-size: 1.8rem; }
+    .trust-band { grid-template-columns: 48px 1fr 38px 40px; gap: 6px; font-size: 0.72rem; }
+}
+
+/* ── Signal-flip pulse (watchlist row) ─────────────────────────────── */
+/* "The engine changed its mind" — the flipped row flashes a tinted glow
+   that fades out. Green-ish for bullish flips, red-ish for bearish. */
+@keyframes flip-pulse-up {
+    0%   { box-shadow: 0 0 0 0 rgba(45, 210, 139, 0.0); border-color: var(--border); }
+    20%  { box-shadow: 0 0 0 3px rgba(45, 210, 139, 0.5); border-color: var(--green); }
+    100% { box-shadow: 0 0 0 0 rgba(45, 210, 139, 0.0); border-color: var(--border); }
+}
+@keyframes flip-pulse-down {
+    0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); border-color: var(--border); }
+    20%  { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5); border-color: var(--red); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); border-color: var(--border); }
+}
+.watchlist-item.flip-pulse-up   { animation: flip-pulse-up 1.5s ease-out; }
+.watchlist-item.flip-pulse-down { animation: flip-pulse-down 1.5s ease-out; }
+
+/* ── Live sparkline tick flash (crypto Hot Picks) ──────────────────── */
+/* A whisper-soft pulse on the sparkline area each time a live trade
+   tick redraws the line — just enough to read as "alive". */
+@keyframes spark-tick-flash {
+    0%   { box-shadow: inset 0 0 0 0 rgba(var(--accent-rgb), 0.0); }
+    35%  { box-shadow: inset 0 0 12px 0 rgba(var(--accent-rgb), 0.12); }
+    100% { box-shadow: inset 0 0 0 0 rgba(var(--accent-rgb), 0.0); }
+}
+.hot-pick-card.spark-tick { animation: spark-tick-flash 0.6s ease-out; }
+.hot-pick-card .sparkline polyline { transition: all 0.5s ease; }
+
+/* ── Per-symbol confidence-trend mini chart ────────────────────────── */
+.ct-block {
+    margin: 10px 0;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.ct-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.ct-host { width: 100%; }
+.ct-svg { display: block; overflow: visible; }
+.ct-line { stroke: var(--accent); stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.ct-ref { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+.ct-dot.hit { fill: var(--green); }
+.ct-dot.miss { fill: var(--red); }
+.ct-dot.pending { fill: var(--text-muted); opacity: 0.6; }
+.ct-legend {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 6px; font-size: 0.68rem; color: var(--text-muted);
+}
+.ct-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-left: 6px; }
+.ct-legend-dot.hit { background: var(--green); }
+.ct-legend-dot.miss { background: var(--red); }
+.ct-legend-dot.pending { background: var(--text-muted); }

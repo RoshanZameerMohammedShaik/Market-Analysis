@@ -365,6 +365,24 @@ export const TOOL_DECLARATIONS = [
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
+        name: 'open_sector_heatmap',
+        description: 'Open the Sector Heatmap and get 5-day relative strength for all 11 sectors. Use for "which sector is hot/leading today" or "where is money rotating". Narrate from the returned trends.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'open_earnings_calendar',
+        description: 'Open the Earnings Calendar and get upcoming large-cap earnings with the engine\'s pre-earnings read. Use for "who reports this week / soon".',
+        parameters: {
+            type: T.OBJECT,
+            properties: { windowDays: { type: T.INTEGER, description: 'Lookback window in days (default 14)' } },
+        },
+    },
+    {
+        name: 'open_options_scanner',
+        description: 'Open the Unusual Options Activity scanner and get symbols with anomalous options positioning (crowded puts/calls, stretched IV skew). Use for "any unusual options flow today". Stock-only.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
         name: 'toggle_currency',
         description: 'Toggle USD ↔ INR display.',
         parameters: { type: T.OBJECT, properties: {} },

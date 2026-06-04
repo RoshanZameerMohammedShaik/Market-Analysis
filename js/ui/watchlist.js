@@ -23,6 +23,7 @@
 // plenty fresh.
 
 import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice } from './price-alerts.js';
+import { notify } from './notify.js';
 
 const LS_KEY = 'ma-watchlist-v1';
 const LS_LAST_SEEN = 'ma-watchlist-last-seen-v1';
@@ -115,17 +116,60 @@ async function getCurrentSignals() {
     return map;
 }
 
+// Display vocabulary — mirror signal.js so toasts read like the cards.
+function sigLabelFor(sig) {
+    return sig === 'NO_TRADE' ? 'AVOID'
+        : sig === 'NEUTRAL' ? "DON'T BUY"
+        : sig || 'unknown';
+}
+
+// "The engine changed its mind" moment. Fires TWO channels:
+//   1. An in-app toast (notify.js) — always works, no permission needed.
+//   2. A browser Notification — only if the user granted permission, so
+//      they get pinged even when the tab is backgrounded.
+// Also pulses the watchlist row so the change is visible in-context.
 function notifyChange(sym, oldSig, newSig, conf) {
+    const from = sigLabelFor(oldSig);
+    const to = sigLabelFor(newSig);
+    // Kind reflects the direction of the new call so the toast tint is
+    // meaningful: turning bullish = success, bearish = warn, avoid = error.
+    const kind = newSig === 'BUY' ? 'success'
+        : newSig === 'SELL' ? 'warn'
+        : newSig === 'NO_TRADE' ? 'error' : 'info';
+    try {
+        notify(`${sym}: ${from} → ${to} @ ${conf}% — the engine changed its mind`, { kind, autoCloseMs: 9000 });
+    } catch (_) {}
+    pulseRow(sym, newSig);
+
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
     try {
-        const body = `${oldSig || 'unknown'} → ${newSig} @ ${conf}% confidence`;
+        const body = `${from} → ${to} @ ${conf}% confidence`;
         new Notification(`Market Analyzer · ${sym}`, {
             body,
             tag: `ma-watch-${sym}`,
             silent: false,
         });
     } catch (_) {}
+}
+
+// Flash the watchlist row for a flipped symbol. The class is removed
+// after the animation so a later flip can re-trigger it. Guarded — the
+// row may not be mounted yet on the very first poll.
+function pulseRow(sym, newSig) {
+    const run = () => {
+        const row = document.querySelector(`.watchlist-item[data-symbol="${sym}"]`);
+        if (!row) return;
+        const cls = newSig === 'SELL' || newSig === 'NO_TRADE' ? 'flip-pulse-down' : 'flip-pulse-up';
+        row.classList.remove('flip-pulse-up', 'flip-pulse-down');
+        // Force reflow so re-adding the same class restarts the animation.
+        void row.offsetWidth;
+        row.classList.add(cls);
+        setTimeout(() => row.classList.remove(cls), 1600);
+    };
+    // refreshUI() runs right after pollOnce; defer the pulse so the row
+    // exists in its post-refresh state before we flash it.
+    setTimeout(run, 60);
 }
 
 async function pollOnce() {

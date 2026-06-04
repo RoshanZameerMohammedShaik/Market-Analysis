@@ -764,6 +764,39 @@ export async function controlSetPriceAlert({ symbol, above = null, below = null 
     return { ok: true, symbol: sym, above: a, below: b };
 }
 
+// ── New coverage surfaces (sector heatmap / earnings / options) ──────
+
+// Open the sector heatmap and return the current trends so Mia can
+// narrate "Energy is leading, +3.1% on 5d; Real Estate lagging".
+export async function controlOpenSectorHeatmap() {
+    const { openSectorHeatmap, getSectorTrendsForMia } = await import('../ui/sector-heatmap.js');
+    const ok = openSectorHeatmap();
+    announce({ text: 'Opening Sector Heatmap…', target: document.getElementById('sector-heatmap-section') });
+    const trends = await getSectorTrendsForMia();
+    return { ok, trends };
+}
+
+// Open the earnings calendar. Returns the upcoming-earnings rows
+// (symbol, daysUntil, signal, confidence) so Mia can answer
+// "who reports this week?" in the same turn.
+export async function controlOpenEarningsCalendar({ windowDays = 14 } = {}) {
+    const { openEarningsCalendar, getUpcomingEarningsForMia } = await import('../ui/earnings-calendar.js');
+    const ok = openEarningsCalendar();
+    announce({ text: 'Opening Earnings Calendar…', target: document.getElementById('earnings-cal-section') });
+    const rows = await getUpcomingEarningsForMia(windowDays);
+    return { ok, upcoming: rows };
+}
+
+// Open the unusual-options scanner. Returns the flagged rows so Mia can
+// summarize "TSLA shows crowded calls (PCR 0.4); heavy puts on XOM".
+export async function controlOpenOptionsScanner() {
+    const { openOptionsScanner, getUnusualOptionsForMia } = await import('../ui/options-scanner.js');
+    const ok = openOptionsScanner();
+    announce({ text: 'Opening Unusual Options Activity…', target: document.getElementById('options-scan-section') });
+    const rows = await getUnusualOptionsForMia();
+    return { ok, unusual: rows };
+}
+
 // Read the watchlist + any alerts currently set on each symbol.
 // Useful when Mia is asked "what alerts do I have?" or for grounding
 // before setting/clearing one.

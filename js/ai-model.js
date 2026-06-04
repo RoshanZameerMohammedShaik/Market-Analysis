@@ -14,6 +14,7 @@ import { loadGbtModel, predictGbt, isGbtLoaded } from './xgb-model.js';
 
 const MAIN_KEY = 'main';
 const PENNY_KEY = 'penny';
+const INTRADAY_KEY = 'intraday';
 
 // Cache parsed model JSON per tier so we don't refetch on every prediction.
 const modelCache = {};      // { main: {weights, config}, penny: {...} | 'unavailable' }
@@ -26,13 +27,19 @@ const loadingPromises = {}; // { main: Promise<bool>, penny: Promise<bool> }
 // only used RSI/MA/BB which need ≤21.)
 const LOOKBACK = 30;
 
+const MODEL_FILES = {
+    [MAIN_KEY]: './model/lstm_weights.json',
+    [PENNY_KEY]: './model/lstm_weights_penny.json',
+    [INTRADAY_KEY]: './model/lstm_weights_intraday.json',
+};
+
 async function loadModelForTier(tier) {
-    const key = tier === PENNY_KEY ? PENNY_KEY : MAIN_KEY;
+    const key = MODEL_FILES[tier] ? tier : MAIN_KEY;
     if (modelCache[key] === 'unavailable') return false;
     if (modelCache[key]) return true;
     if (loadingPromises[key]) return loadingPromises[key];
 
-    const file = key === PENNY_KEY ? './model/lstm_weights_penny.json' : './model/lstm_weights.json';
+    const file = MODEL_FILES[key] || MODEL_FILES[MAIN_KEY];
     loadingPromises[key] = (async () => {
         try {
             const res = await fetch(file);
@@ -285,19 +292,30 @@ function runLSTMWith(features, modelData) {
  * Otherwise → use main model (default + fallback).
  */
 export async function getAIPrediction(candles, opts = {}) {
-    const { tier = null } = opts;
+    const { tier = null, intraday = false } = opts;
     const wantPenny = tier === 'penny';
 
     let modelKey = MAIN_KEY;
     let modelOk = await loadModelForTier(MAIN_KEY);
-    if (wantPenny) {
+    // Intraday model takes precedence on the Today horizon (when caller
+    // passes intraday:true AND supplied 1h candles). It is NOT used for
+    // penny stocks — those keep their dedicated penny dynamics, which
+    // matter more than the intraday granularity for sub-$5 names.
+    if (intraday && !wantPenny) {
+        const intradayOk = await loadModelForTier(INTRADAY_KEY);
+        if (intradayOk) {
+            modelKey = INTRADAY_KEY;
+        }
+        // else fall back to main daily model — no regression if the
+        // intraday weights file hasn't shipped yet.
+    } else if (wantPenny) {
         const pennyOk = await loadModelForTier(PENNY_KEY);
         if (pennyOk) {
             modelKey = PENNY_KEY;
         }
         // else fall back to main — no regression on penny analyses if file missing.
     }
-    if (!modelOk && modelKey !== PENNY_KEY) {
+    if (!modelOk && modelKey === MAIN_KEY) {
         return { score: 50, available: false, reason: 'AI model not loaded' };
     }
 
@@ -329,7 +347,9 @@ export async function getAIPrediction(candles, opts = {}) {
     else if (probability < 0.4) signal = 'bearish';
     else signal = 'neutral';
 
-    const modelLabel = modelKey === PENNY_KEY ? 'Penny-LSTM' : 'LSTM';
+    const modelLabel = modelKey === PENNY_KEY ? 'Penny-LSTM'
+        : modelKey === INTRADAY_KEY ? 'Intraday-LSTM (1h)'
+        : 'LSTM';
     const reason = (gbtProb != null)
         ? `AI ensemble (${modelLabel} ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
         : `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move`;
