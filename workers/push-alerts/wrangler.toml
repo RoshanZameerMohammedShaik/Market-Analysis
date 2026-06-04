@@ -1,0 +1,42 @@
+# Cloudflare Worker: closed-tab Web Push price alerts.
+#
+# Runs a cron every minute, checks live prices for symbols users have
+# armed alerts on, and sends a Web Push notification (via VAPID) when a
+# threshold crosses — so the alert reaches the user even with the app
+# (and tab) fully closed.
+#
+# ── ONE-TIME SETUP (Roshan, authenticated CF account) ──────────────────
+#   1. Generate VAPID keys (see workers/push-alerts/README.md):
+#        npx web-push generate-vapid-keys
+#      → copy the PUBLIC key into js/push/push-client.js VAPID_PUBLIC_KEY,
+#        and set the PRIVATE key as a secret (step 3).
+#   2. Create the KV namespace and paste its id below:
+#        npx wrangler kv namespace create ALERTS_KV
+#        npx wrangler kv namespace create ALERTS_KV --preview
+#   3. Set secrets (never commit these):
+#        npx wrangler secret put VAPID_PRIVATE_KEY
+#        npx wrangler secret put VAPID_PUBLIC_KEY
+#        npx wrangler secret put VAPID_SUBJECT      # e.g. mailto:you@example.com
+#   4. Deploy:  npx wrangler deploy
+#   5. Copy the printed *.workers.dev URL into js/push/push-client.js PUSH_API.
+
+name = "market-analysis-push-alerts"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron: every minute. Crypto is real-time (Binance); stocks are ~15-min
+# delayed on the free data path, so a stock alert fires on slightly-stale
+# price — the architecture is fine, the data freshness is the limit.
+[triggers]
+crons = ["* * * * *"]
+
+# KV namespace for push subscriptions + per-subscription alert thresholds.
+# Replace BOTH ids after running the kv namespace create commands above.
+[[kv_namespaces]]
+binding = "ALERTS_KV"
+id = "REPLACE_WITH_KV_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+
+# Secrets (set via `wrangler secret put`, NOT here):
+#   VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT

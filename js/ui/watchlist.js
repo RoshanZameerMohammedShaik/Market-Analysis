@@ -22,8 +22,9 @@
 // market open and once at outcome resolution time, so 5 min is
 // plenty fresh.
 
-import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice } from './price-alerts.js';
+import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice, listAlerts } from './price-alerts.js';
 import { notify } from './notify.js';
+import { isPushConfigured, isPushSupported, enablePush, syncAlerts, getActiveSubscription, iosNeedsInstall } from '../push/push-client.js';
 
 const LS_KEY = 'ma-watchlist-v1';
 const LS_LAST_SEEN = 'ma-watchlist-last-seen-v1';
@@ -318,12 +319,33 @@ function ensureWatchlistPanel() {
                 <div class="watchlist-controls">
                     <button class="watchlist-perm-btn" id="watchlist-perm-btn">Enable browser notifications</button>
                     <span class="watchlist-perm-state" id="watchlist-perm-state"></span>
+                    <button class="watchlist-push-btn" id="watchlist-push-btn" hidden>🔔 Notify even when app is closed</button>
+                    <span class="watchlist-push-state" id="watchlist-push-state"></span>
                 </div>
                 <div class="watchlist-list" id="watchlist-list"></div>
             </details>
         </section>`;
     after.insertAdjacentHTML('afterend', html);
     document.getElementById('watchlist-perm-btn').addEventListener('click', requestPermission);
+    // Closed-tab push opt-in — only shown when the backend is configured
+    // (deployed worker URL present in push-client.js). Until then it stays
+    // hidden and tab-open alerts cover the user.
+    const pushBtn = document.getElementById('watchlist-push-btn');
+    const pushState = document.getElementById('watchlist-push-state');
+    if (pushBtn && isPushConfigured() && isPushSupported()) {
+        pushBtn.hidden = false;
+        getActiveSubscription().then(sub => {
+            if (sub) { pushBtn.style.display = 'none'; pushState.textContent = '✓ Closed-app alerts on'; pushState.classList.add('on'); }
+        });
+        pushBtn.addEventListener('click', async () => {
+            pushBtn.disabled = true;
+            pushState.textContent = 'Enabling…';
+            const r = await enableClosedTabPush();
+            pushState.textContent = r.msg;
+            if (r.ok) { pushBtn.style.display = 'none'; pushState.classList.add('on'); }
+            else pushBtn.disabled = false;
+        });
+    }
     const listEl = document.getElementById('watchlist-list');
     listEl.addEventListener('click', (e) => {
         // Don't navigate when the user is interacting with the alert form.
@@ -358,6 +380,11 @@ function ensureWatchlistPanel() {
         if ((aboveVal != null || belowVal != null) && 'Notification' in window && Notification.permission === 'default') {
             requestPermission();
         }
+        // Mirror the full alert set to the push backend so the alert also
+        // fires when the tab is CLOSED (cron + Web Push). Tab-open delivery
+        // via the Binance WS in price-alerts.js keeps working regardless —
+        // this is purely additive. No-op until push is configured + enabled.
+        syncPushAlerts();
     });
     // Live price tick → patch the row's price label in place. Avoids
     // re-rendering the whole list (which would blow away the user's
@@ -405,6 +432,34 @@ function refreshPermissionUI() {
     } else {
         btn.style.display = '';
         state.textContent = 'Click to allow signal-flip alerts.';
+    }
+}
+
+// Push the full set of armed alerts to the closed-tab push backend, IF
+// the user has enabled push (an active subscription exists). Silent /
+// best-effort: if push isn't configured or enabled, this is a no-op and
+// tab-open delivery (Binance WS) still covers the user. We re-send the
+// whole set (not a delta) so the backend's KV always mirrors local state.
+async function syncPushAlerts() {
+    try {
+        if (!isPushConfigured() || !isPushSupported()) return;
+        const sub = await getActiveSubscription();
+        if (!sub) return;   // user hasn't opted into closed-tab push
+        await syncAlerts(sub, listAlerts());
+    } catch (_) { /* best-effort */ }
+}
+
+// Opt the user into closed-tab push (permission + subscription), then
+// sync current alerts. Returns a short status the UI can surface.
+async function enableClosedTabPush() {
+    if (!isPushConfigured()) return { ok: false, msg: 'Closed-tab alerts aren\'t set up on this deployment yet.' };
+    if (iosNeedsInstall()) return { ok: false, msg: 'On iPhone, add this app to your Home Screen first — then enable closed-tab alerts.' };
+    try {
+        const sub = await enablePush();
+        await syncAlerts(sub, listAlerts());
+        return { ok: true, msg: 'Closed-tab alerts on — you\'ll be notified even with the app closed.' };
+    } catch (e) {
+        return { ok: false, msg: e.message || 'Couldn\'t enable closed-tab alerts.' };
     }
 }
 
