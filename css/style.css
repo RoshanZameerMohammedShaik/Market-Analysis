@@ -154,7 +154,20 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html, body {
+    height: 100%;
+    /* Lock horizontal overflow at the document root. The TradingView
+       embed iframe self-sizes to a desktop width on phones, which used
+       to force the body wider than the viewport. That made the
+       browser silently disable the mobile media queries (since body
+       was now > 540px) and rendered the desktop layout while the user
+       could only see the leftmost 402px — looking like "the screen
+       split, with the right half empty waiting for Mia." Clamping
+       overflow-x to hidden at html+body level means no child can
+       expand the document, and our @media rules fire reliably. */
+    overflow-x: hidden;
+    max-width: 100vw;
+}
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-primary);

@@ -44,6 +44,16 @@ body.side-panel-mia-open .mia-launcher {
     pointer-events: none;
     transform: scale(0.85);
 }
+/* EXCEPTION: in minimized voice mode (panel hidden, voice still
+   active), the launcher TURNS INTO the orb visualization — so it
+   MUST stay visible even if .side-panel-mia-open is technically
+   set. body.mia-voice-minimized takes precedence. Without this,
+   the user couldn't see the orb on mobile (Roshan's bug report). */
+body.mia-voice-minimized .mia-launcher {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: scale(1) !important;
+}
 .mia-launcher::before {
     content: '';
     position: absolute;
