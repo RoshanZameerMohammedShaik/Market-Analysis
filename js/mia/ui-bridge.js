@@ -946,6 +946,14 @@ export async function controlOpenEquityCurve({ symbol = null, horizonDays = 1 } 
     return res;
 }
 
+// Open the accuracy-by-setup report and return the structured
+// breakdown so Mia can answer "which setups does the engine read well".
+export async function controlOpenAccuracyReport({ horizonDays = 1 } = {}) {
+    const { openAccuracyReport } = await import('../ui/accuracy-report.js');
+    announce({ text: 'Breaking the engine\'s accuracy down by setup…', target: document.getElementById('accuracy-report-section') });
+    return await openAccuracyReport({ horizonDays });
+}
+
 // ── Macro regime read ────────────────────────────────────────────────
 // Standalone read of the macro regime (risk-on / risk-off / transition /
 // neutral) + its components (VIX level/trend, S&P 5d/10d, dollar). The

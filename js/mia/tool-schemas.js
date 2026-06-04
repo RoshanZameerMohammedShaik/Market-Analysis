@@ -556,10 +556,15 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'show_equity_curve',
-        description: 'Open the equity curve and get the dollar result of "if you\'d followed the engine" from a hypothetical $10k compounding every resolved BUY/SELL. Use for "does it actually make money / show me the proof". Optional symbol scopes to one ticker; horizonDays 1/3/5/10/20.',
+        description: 'Open the equity curve and get the dollar result of "if you\'d followed the engine" from a hypothetical $10k compounding every resolved BUY/SELL. Use for "does it actually make money / show me the proof". Optional symbol scopes to one ticker; horizonDays 1/3/5/10/20 (default 5).',
         parameters: {
             type: T.OBJECT,
             properties: { symbol: { type: T.STRING }, horizonDays: { type: T.INTEGER } },
         },
+    },
+    {
+        name: 'get_accuracy_by_setup',
+        description: 'Open the accuracy-by-setup report and get the engine\'s hit-rate broken down by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs baseline. Use for "which setups does the engine read best / when to trust it". No regime (trending/risk-on) split — not logged per prediction.',
+        parameters: { type: T.OBJECT, properties: { horizonDays: { type: T.INTEGER } } },
     },
 ];

@@ -18,7 +18,7 @@ import {
     controlOpenSectorHeatmap, controlOpenEarningsCalendar, controlOpenOptionsScanner,
     controlOpenPortfolioPanel, controlClosePortfolioPanel, controlInstantiatePortfolio,
     controlAddFunds, controlResetPortfolio, controlSetTimeTravel, controlClearTimeTravel,
-    readMacroRegime, controlOpenEquityCurve,
+    readMacroRegime, controlOpenEquityCurve, controlOpenAccuracyReport,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
@@ -540,9 +540,15 @@ const TOOLS = {
         kind: 'read',
     },
     show_equity_curve: {
-        desc: 'open the equity curve AND return the dollar result of "if you\'d followed the engine" — compounds every resolved BUY/SELL signal from a hypothetical $10k. Use for "does the engine actually make money / has it been profitable / show me the proof / track record in dollars". Pass {symbol} to scope to one ticker (else whole universe), {horizonDays} 1/3/5/10/20 (default 1). The returned summary has finalBalance, finalPct, trades, winRatePct — quote those. Frame it honestly as a simplified no-fee directional-edge simulation, not a brokerage backtest.',
-        args: '{"symbol":null,"horizonDays":1}',
+        desc: 'open the equity curve AND return the dollar result of "if you\'d followed the engine" — compounds every resolved BUY/SELL signal from a hypothetical $10k (fixed-fractional sizing). Use for "does the engine actually make money / has it been profitable / show me the proof / track record in dollars". Pass {symbol} to scope to one ticker (else whole universe), {horizonDays} 1/3/5/10/20 (default 5, where edge is strongest; 1-day is honestly negative). The returned summary has finalBalance, finalPct, trades, winRatePct, avgTradePct — quote those. Frame it honestly as a simplified no-fee directional-edge simulation, not a brokerage backtest.',
+        args: '{"symbol":null,"horizonDays":5}',
         run: async ({ symbol, horizonDays } = {}) => controlOpenEquityCurve({ symbol, horizonDays }),
+        kind: 'control',
+    },
+    get_accuracy_by_setup: {
+        desc: 'open the accuracy-by-setup report AND return the breakdown of the engine\'s hit-rate by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs its baseline. Use for "which setups does the engine read best / when should I trust it / is it better on oversold buys". Quote the buckets where hit-rate beats baseline. NOTE: there is NO trending/ranging or risk-on/off breakdown — that regime state isn\'t logged per prediction, so don\'t claim one.',
+        args: '{"horizonDays":1}',
+        run: async ({ horizonDays } = {}) => controlOpenAccuracyReport({ horizonDays }),
         kind: 'control',
     },
 };

@@ -10,7 +10,8 @@
 .sector-heatmap-section,
 .earnings-cal-section,
 .options-scan-section,
-.equity-curve-section {
+.equity-curve-section,
+.accuracy-report-section {
     margin: 14px 0;
 }
 
@@ -18,7 +19,8 @@
 .sector-heatmap-summary,
 .earnings-cal-summary,
 .options-scan-summary,
-.equity-curve-summary {
+.equity-curve-summary,
+.accuracy-report-summary {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -34,20 +36,24 @@
 .sector-heatmap-summary::-webkit-details-marker,
 .earnings-cal-summary::-webkit-details-marker,
 .options-scan-summary::-webkit-details-marker,
-.equity-curve-summary::-webkit-details-marker { display: none; }
+.equity-curve-summary::-webkit-details-marker,
+.accuracy-report-summary::-webkit-details-marker { display: none; }
 .sector-heatmap-title,
 .earnings-cal-title,
 .options-scan-title,
-.equity-curve-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
+.equity-curve-title,
+.accuracy-report-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
 .sector-heatmap-hint,
 .earnings-cal-hint,
 .options-scan-hint,
-.equity-curve-hint { font-size: 0.76rem; color: var(--text-muted); flex: 1; min-width: 160px; }
+.equity-curve-hint,
+.accuracy-report-hint { font-size: 0.76rem; color: var(--text-muted); flex: 1; min-width: 160px; }
 
 .sector-heatmap-refresh,
 .earnings-cal-refresh,
 .options-scan-refresh,
-.equity-curve-refresh {
+.equity-curve-refresh,
+.accuracy-report-refresh {
     background: var(--bg-hover);
     border: 1px solid var(--border);
     color: var(--text-secondary);
@@ -59,7 +65,8 @@
 .sector-heatmap-refresh:hover,
 .earnings-cal-refresh:hover,
 .options-scan-refresh:hover,
-.equity-curve-refresh:hover { border-color: var(--accent); color: var(--accent); }
+.equity-curve-refresh:hover,
+.accuracy-report-refresh:hover { border-color: var(--accent); color: var(--accent); }
 
 .sector-heatmap-loading, .sector-heatmap-empty,
 .earnings-cal-loading, .earnings-cal-empty,
@@ -104,6 +111,46 @@
 .eq-edge.down b { color: var(--red); }
 .eq-edge-note { font-size: 0.68rem; color: var(--text-muted); }
 .eq-caption { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 8px; }
+
+/* ── Accuracy-by-setup report ──────────────────────────────────────── */
+.accuracy-report-host { padding: 10px 4px 4px; }
+.accuracy-report-host .ar-loading, .accuracy-report-host .ar-empty {
+    padding: 18px 14px; text-align: center; color: var(--text-muted); font-size: 0.84rem;
+}
+.ar-overall { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 12px; }
+.ar-overall b { color: var(--text-primary); font-family: var(--num-font); }
+.ar-dim { margin-bottom: 14px; }
+.ar-dim-title {
+    font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); margin-bottom: 7px;
+}
+.ar-bucket {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 44px auto auto;
+    align-items: center; gap: 10px;
+    padding: 5px 0; font-size: 0.8rem;
+}
+.ar-bucket.thin { opacity: 0.5; }
+.ar-bucket-label { color: var(--text-secondary); }
+.ar-bucket-bar { height: 7px; background: var(--bg-hover); border-radius: 999px; overflow: hidden; }
+.ar-bucket-fill { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+.ar-bucket-fill.high { background: var(--green); }
+.ar-bucket-fill.mid  { background: var(--yellow, #fbbf24); }
+.ar-bucket-fill.low  { background: var(--red); }
+.ar-bucket-fill.na   { background: var(--text-muted); }
+.ar-bucket-rate { font-family: var(--num-font); font-weight: 800; text-align: right; }
+.ar-bucket-rate.high { color: var(--green); }
+.ar-bucket-rate.mid  { color: var(--yellow, #fbbf24); }
+.ar-bucket-rate.low  { color: var(--red); }
+.ar-bucket-n { font-size: 0.66rem; color: var(--text-muted); white-space: nowrap; }
+.ar-delta { font-size: 0.66rem; font-weight: 700; white-space: nowrap; }
+.ar-delta.up { color: var(--green); }
+.ar-delta.down { color: var(--red); }
+.ar-caption { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 6px; }
+@media (max-width: 540px) {
+    .ar-bucket { grid-template-columns: 1.2fr 1fr 40px; }
+    .ar-bucket-n, .ar-delta { display: none; }
+}
 
 /* ── Sector heatmap grid ───────────────────────────────────────────── */
 .sector-heatmap-grid {

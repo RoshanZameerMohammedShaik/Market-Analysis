@@ -181,6 +181,95 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, st
     };
 }
 
+// Accuracy broken down by SETUP CONTEXT — the indicator conditions
+// stored on each ledger row at prediction time. Answers "which setups
+// does the engine read well?" honestly, using only data we actually
+// logged (rsi, macd histogram, bb %b, signal direction).
+//
+// NOTE on regime: we deliberately do NOT claim a trending/ranging or
+// risk-on/off breakdown — ADX and the macro regime aren't stored per
+// row, so reconstructing them retroactively would be a guess. The
+// dimensions below are all derived from real logged fields.
+//
+// Each dimension returns buckets with { label, resolved, hits, hitRate,
+// enough } where `enough` flags >= MIN_N so the UI can dim thin buckets
+// instead of trusting a 3-sample rate. 1-day horizon.
+export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
+    const rows = await loadLedger();
+    const hKey = String(horizonDays);
+    const resolved = rows.filter(r =>
+        (r.signal === 'BUY' || r.signal === 'SELL') &&
+        r.horizons?.[hKey] && r.horizons[hKey].directionMatch !== undefined
+    );
+    if (resolved.length < 3) return { available: false, totalResolved: resolved.length };
+
+    // Generic bucketer: classify each row into a label, tally hit/total.
+    const tally = (classify) => {
+        const m = new Map();
+        for (const r of resolved) {
+            const label = classify(r);
+            if (label == null) continue;
+            const slot = m.get(label) || { resolved: 0, hits: 0 };
+            slot.resolved++;
+            if (r.horizons[hKey].directionMatch) slot.hits++;
+            m.set(label, slot);
+        }
+        return [...m.entries()].map(([label, s]) => ({
+            label,
+            resolved: s.resolved,
+            hits: s.hits,
+            hitRate: s.resolved ? Math.round((s.hits / s.resolved) * 100) : null,
+            enough: s.resolved >= minN,
+        }));
+    };
+
+    // Stable display order per dimension (not alphabetical noise).
+    const order = (arr, seq) => arr.sort((a, b) => seq.indexOf(a.label) - seq.indexOf(b.label));
+
+    const byDirection = order(tally(r => r.signal), ['BUY', 'SELL']);
+
+    const byRsi = order(tally(r => {
+        const v = r.indicators?.rsi;
+        if (!Number.isFinite(v)) return null;
+        if (v < 30) return 'Oversold (RSI<30)';
+        if (v > 70) return 'Overbought (RSI>70)';
+        return 'Neutral RSI';
+    }), ['Oversold (RSI<30)', 'Neutral RSI', 'Overbought (RSI>70)']);
+
+    const byMomentum = order(tally(r => {
+        const h = r.indicators?.macd?.histogram;
+        if (!Number.isFinite(h)) return null;
+        return h >= 0 ? 'Bullish momentum (MACD+)' : 'Bearish momentum (MACD−)';
+    }), ['Bullish momentum (MACD+)', 'Bearish momentum (MACD−)']);
+
+    const byBand = order(tally(r => {
+        const b = r.indicators?.bb?.percent_b;
+        if (!Number.isFinite(b)) return null;
+        if (b < 0.33) return 'Lower band (cheap)';
+        if (b > 0.67) return 'Upper band (extended)';
+        return 'Mid band';
+    }), ['Lower band (cheap)', 'Mid band', 'Upper band (extended)']);
+
+    const overall = {
+        resolved: resolved.length,
+        hits: resolved.filter(r => r.horizons[hKey].directionMatch).length,
+    };
+    overall.hitRate = Math.round((overall.hits / overall.resolved) * 100);
+
+    return {
+        available: true,
+        horizonDays,
+        minN,
+        overall,
+        dimensions: [
+            { key: 'direction', title: 'By signal direction', buckets: byDirection },
+            { key: 'rsi', title: 'By RSI zone at entry', buckets: byRsi },
+            { key: 'momentum', title: 'By MACD momentum', buckets: byMomentum },
+            { key: 'band', title: 'By Bollinger position', buckets: byBand },
+        ],
+    };
+}
+
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
