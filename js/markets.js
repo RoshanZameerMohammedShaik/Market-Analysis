@@ -55,22 +55,7 @@ export const GLOBAL_POOL = [
 // runs a SEPARATE Phase 1 pass on the penny pool that doesn't penalise
 // low-volume names so pennies actually surface.
 import { PENNY_POOL } from './penny-universe.js';
-
-// Crypto pool — mirrors train_model._CRYPTO so the Full Ledger scanner
-// (and any future crypto-specific UI) has a curated list to walk.
-// Yahoo Finance + Stooq + CoinGecko all accept the BASE-USD format; the
-// engine (computeFullConfidence) detects mode='crypto' from the
-// caller's flag, not from the symbol shape, so this list also feeds
-// the scanner's per-symbol full-pipeline run.
-export const CRYPTO_POOL = [
-    'BTC-USD', 'ETH-USD', 'BNB-USD', 'SOL-USD', 'XRP-USD', 'ADA-USD',
-    'DOGE-USD', 'AVAX-USD', 'TRX-USD', 'LINK-USD', 'MATIC-USD', 'DOT-USD',
-    'LTC-USD', 'BCH-USD', 'NEAR-USD', 'UNI-USD', 'XLM-USD', 'ETC-USD',
-    'APT-USD', 'OP-USD', 'ARB-USD', 'FIL-USD', 'ATOM-USD', 'AAVE-USD',
-    'MKR-USD', 'INJ-USD', 'LDO-USD', 'IMX-USD', 'GRT-USD', 'EGLD-USD',
-    'TIA-USD', 'STX-USD', 'SUI-USD', 'SEI-USD', 'PEPE-USD', 'SHIB-USD',
-    'WLD-USD', 'TON-USD',
-];
+import { CRYPTO_POOL } from './crypto-universe.js';
 
 export const UNIVERSE_CONFIG = {
     useUSScreeners: true,
@@ -80,7 +65,7 @@ export const UNIVERSE_CONFIG = {
 };
 
 // Re-export for callers that just want a specific list (scanner, etc).
-export { PENNY_POOL };
+export { PENNY_POOL, CRYPTO_POOL };
 
 // Backward-compat shim for js/news.js, which uses market.locale to pass
 // to Google News RSS. We're now global, so default to US-English locale

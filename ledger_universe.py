@@ -26,6 +26,17 @@ try:
 except ImportError:
     _PENNIES = []
 
+# Crypto universe — same hybrid pattern as pennies. crypto_universe.py
+# mirrors js/crypto-universe.js (~250 stable curated symbols across
+# majors / L1s / L2s / DeFi / meme / AI-DePIN / gaming / RWA-privacy).
+# train_model.SYMBOLS already had a 38-coin _CRYPTO list; this adds
+# the wider universe so the cron records all of them and the LSTM
+# trains on the full set.
+try:
+    from crypto_universe import SYMBOLS as _CRYPTO_EXTRA
+except ImportError:
+    _CRYPTO_EXTRA = []
+
 # Mirror of js/markets.GLOBAL_POOL — kept in sync manually since the JS
 # file is the authoritative list for the browser.
 _GLOBAL_POOL = [
@@ -63,7 +74,7 @@ _GLOBAL_POOL = [
 # Dedupe across all three sources.
 _seen = set()
 ALL_SYMBOLS = []
-for s in list(_US_AND_CRYPTO) + _GLOBAL_POOL + list(_PENNIES):
+for s in list(_US_AND_CRYPTO) + _GLOBAL_POOL + list(_PENNIES) + list(_CRYPTO_EXTRA):
     if s in _seen:
         continue
     _seen.add(s)

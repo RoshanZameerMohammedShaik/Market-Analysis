@@ -197,13 +197,20 @@ const US_SEED = [
 
 // Branch the universe by the active app mode. In 'stock' mode we
 // scan the US seed + global pool + curated penny list. In 'crypto'
-// mode we scan the crypto pool only — different asset class, the
-// engine treats it differently (no FINRA/options/news/sector
-// enrichments — the stock-only ones no-op for crypto).
-function buildUniverse(mode = 'stock') {
+// mode we walk the curated CRYPTO_POOL (~250) plus any coins
+// CoinGecko's /search/trending surfaces today (top 7-15) so meme/L2
+// pumps that aren't on the curated list still get analyzed and
+// recorded in the ledger.
+async function buildUniverse(mode = 'stock') {
     const set = new Set();
     if (mode === 'crypto') {
         for (const s of CRYPTO_POOL) set.add(s);
+        // Dynamic trending union — failure non-fatal, just go with
+        // the static list if CoinGecko 503s or the proxy is down.
+        try {
+            const dynamic = await fetchCoinGeckoTrending();
+            for (const s of dynamic) set.add(s);
+        } catch (_) { /* non-fatal */ }
     } else {
         if (UNIVERSE_CONFIG?.useUSScreeners) for (const s of US_SEED) set.add(s);
         for (const s of GLOBAL_POOL) set.add(s);
@@ -213,6 +220,29 @@ function buildUniverse(mode = 'stock') {
         for (const s of PENNY_POOL) set.add(s);
     }
     return [...set];
+}
+
+// Dynamic crypto trending — pulls CoinGecko's /search/trending and
+// returns BASE-USD symbols. Hits the same Yahoo proxy worker which
+// also handles CoinGecko URLs (it forwards anything not matched by a
+// specific endpoint). Falls back to direct CoinGecko fetch if the
+// proxy 502s. CoinGecko's free tier is generous (50 req/min); we
+// only call this on scan start, not per-symbol.
+async function fetchCoinGeckoTrending() {
+    const url = 'https://api.coingecko.com/api/v3/search/trending';
+    let data;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        data = await res.json();
+    } catch (_) {
+        return [];
+    }
+    if (!data?.coins) return [];
+    return data.coins
+        .map(c => c?.item?.symbol)
+        .filter(Boolean)
+        .map(s => `${String(s).toUpperCase()}-USD`);
 }
 
 // ── Scanning ─────────────────────────────────────────────────────────
@@ -266,7 +296,7 @@ async function startScan() {
     scanState.mode = mode;
     scanState.rows = [];           // ensure fresh start (was kept across reopens)
 
-    const symbols = buildUniverse(mode);
+    const symbols = await buildUniverse(mode);
     scanState.progress = { done: 0, total: symbols.length, errors: 0 };
 
     const history = await loadLedgerHistory();

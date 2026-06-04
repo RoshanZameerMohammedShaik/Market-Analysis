@@ -103,10 +103,19 @@ try:
 except ImportError:
     _PENNIES = []
 
+# Wider crypto universe — js/crypto-universe.js mirror. The local
+# _CRYPTO list above (38 majors) stays for back-compat; the wider
+# pool unions on top so the LSTM trains on meme / L2 / AI / DeFi
+# coins too.
+try:
+    from crypto_universe import SYMBOLS as _CRYPTO_EXTRA
+except ImportError:
+    _CRYPTO_EXTRA = []
+
 SYMBOLS = (
     _MEGA_TECH + _COMM + _FIN + _HEALTH + _DISCRETIONARY + _STAPLES +
     _ENERGY + _INDUSTRIAL + _UTILITIES + _MATERIALS + _REAL_ESTATE +
-    _RETAIL_FAVS + _CRYPTO + list(_PENNIES)
+    _RETAIL_FAVS + _CRYPTO + list(_PENNIES) + list(_CRYPTO_EXTRA)
 )
 # Dedupe preserving order.
 seen = set()
