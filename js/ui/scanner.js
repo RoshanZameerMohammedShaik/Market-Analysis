@@ -20,15 +20,18 @@
 // gradients smoothly across the percentage range — red < 45, amber
 // 45-70, green > 70 — interpolated, not stepped.
 
-import { GLOBAL_POOL, UNIVERSE_CONFIG, PENNY_POOL } from '../markets.js';
+import { GLOBAL_POOL, UNIVERSE_CONFIG, PENNY_POOL, CRYPTO_POOL } from '../markets.js';
 import { analyzeAndCache, peek } from '../analysis-cache.js';
 import { calculateRSI } from '../analysis.js';
 import { fmtPrice } from './format.js';
+import { state } from './state.js';
 
 let scanState = {
     started: false,
     running: false,
     aborted: false,
+    aborting: false,         // set when a mode-switch wants the running scan to stop
+    mode: null,              // 'stock' | 'crypto' — set by startScan(), used to gate restart
     rows: [],
     historyByKey: {},
     accuracyBySymbol: {},
@@ -192,14 +195,23 @@ const US_SEED = [
     'F','GM','RIVN','LCID','NIO','LI','XPEV','BABA','PDD','JD',
 ];
 
-function buildUniverse() {
+// Branch the universe by the active app mode. In 'stock' mode we
+// scan the US seed + global pool + curated penny list. In 'crypto'
+// mode we scan the crypto pool only — different asset class, the
+// engine treats it differently (no FINRA/options/news/sector
+// enrichments — the stock-only ones no-op for crypto).
+function buildUniverse(mode = 'stock') {
     const set = new Set();
-    if (UNIVERSE_CONFIG?.useUSScreeners) for (const s of US_SEED) set.add(s);
-    for (const s of GLOBAL_POOL) set.add(s);
-    // Include the penny universe so the Full Ledger covers them too.
-    // Same pool that hotpicks.js scans + the cron records — single
-    // source of truth via js/penny-universe.js.
-    for (const s of PENNY_POOL) set.add(s);
+    if (mode === 'crypto') {
+        for (const s of CRYPTO_POOL) set.add(s);
+    } else {
+        if (UNIVERSE_CONFIG?.useUSScreeners) for (const s of US_SEED) set.add(s);
+        for (const s of GLOBAL_POOL) set.add(s);
+        // Include the penny universe so the Full Ledger covers them too.
+        // Same pool that hotpicks.js scans + the cron records — single
+        // source of truth via js/penny-universe.js.
+        for (const s of PENNY_POOL) set.add(s);
+    }
     return [...set];
 }
 
@@ -246,11 +258,15 @@ function inferRegion(symbol) {
 
 async function startScan() {
     if (scanState.started) return;
+    const mode = state.mode === 'crypto' ? 'crypto' : 'stock';
     scanState.started = true;
     scanState.running = true;
     scanState.aborted = false;
+    scanState.aborting = false;
+    scanState.mode = mode;
+    scanState.rows = [];           // ensure fresh start (was kept across reopens)
 
-    const symbols = buildUniverse();
+    const symbols = buildUniverse(mode);
     scanState.progress = { done: 0, total: symbols.length, errors: 0 };
 
     const history = await loadLedgerHistory();
@@ -263,12 +279,17 @@ async function startScan() {
     let cursor = 0;
 
     async function worker() {
-        while (!scanState.aborted) {
+        while (!scanState.aborted && !scanState.aborting) {
             const i = cursor++;
             if (i >= symbols.length) return;
             const sym = symbols[i];
             try {
-                const row = await scanOne(sym);
+                // Pass the scan's locked mode so each per-symbol
+                // computeFullConfidence runs with the correct asset
+                // class. Earlier scanOne defaulted to 'stock' which
+                // is why crypto symbols were getting analyzed as
+                // stocks before the engine even saw them.
+                const row = await scanOne(sym, mode);
                 if (row) scanState.rows.push(row);
             } catch (_) {
                 scanState.progress.errors++;
@@ -615,6 +636,51 @@ export async function initScanner() {
 
     details.addEventListener('toggle', () => {
         if (details.open && !scanState.started) startScan();
+    });
+
+    // Mode tabs (Stock Analysis / Crypto Analysis) trigger a full
+    // scanner reset + restart. Without this the scanner shows
+    // whichever pool it started with, so users on the Crypto tab
+    // see stocks. We listen on the tab-button group rather than
+    // subscribing to a state event to avoid coupling. Same approach
+    // for the Today/Tomorrow timeframe tabs — different timeframe
+    // means the engine produces different verdicts.
+    function resetAndRestartScan() {
+        const wantedMode = state.mode === 'crypto' ? 'crypto' : 'stock';
+        // If a scan is in flight, signal the workers to bail out at
+        // their next loop iteration. The Promise.all in startScan
+        // resolves when all workers exit; since started stays true
+        // until after Promise.all resolves, we'd race a new scan
+        // against the old one. Wait for the abort to actually drain
+        // before restarting.
+        if (scanState.running) {
+            scanState.aborting = true;
+        }
+        // Only relevant if details is open — otherwise the scan was
+        // never started and a future open will pick up the new mode
+        // automatically since startScan reads state.mode at call time.
+        if (!details.open) return;
+        // If mode actually changed (or rerun was requested), tear
+        // down state and re-run.
+        if (scanState.mode === wantedMode && scanState.rows.length) return;
+        // Drain any in-flight scan first — give it 80ms to settle,
+        // then reset + start fresh.
+        const restart = () => {
+            scanState.started = false;
+            scanState.running = false;
+            scanState.aborting = false;
+            scanState.rows = [];
+            scanState.progress = { done: 0, total: 0, errors: 0 };
+            startScan();
+        };
+        if (scanState.running) setTimeout(restart, 120);
+        else restart();
+    }
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => setTimeout(resetAndRestartScan, 0));
+    });
+    document.querySelectorAll('[data-timeframe]').forEach(btn => {
+        btn.addEventListener('click', () => setTimeout(resetAndRestartScan, 0));
     });
 
     document.getElementById('scanner-filter')?.addEventListener('input', refresh);
