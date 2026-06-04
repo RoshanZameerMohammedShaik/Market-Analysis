@@ -22,7 +22,7 @@ import { setPennyFilter } from '../ui/hotpicks.js';
 import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { clearHistory as clearMiaHistory } from './memory.js';
-import { announce, pulseElementById } from './agent-pulse.js';
+import { announce, pulseElementById, typeIntoInput, pressButton, sleep, showAgentToast } from './agent-pulse.js';
 import { loadLedger } from '../ledger-reader.js';
 
 /**
@@ -72,27 +72,27 @@ function triggerSearchPick(symbol) {
     });
 }
 
-export function controlSwitchMode(mode) {
+export async function controlSwitchMode(mode) {
     const btn = document.querySelector(`[data-tab="${mode}"]`);
     if (!btn) throw new Error(`unknown mode tab: ${mode}`);
-    announce({ text: `Switching to ${mode}…`, target: btn });
-    btn.click();
+    showAgentToast(`Switching to ${mode}…`);
+    await pressButton(btn);
     return { ok: true, mode };
 }
 
-export function controlSwitchTimeframe(timeframe) {
+export async function controlSwitchTimeframe(timeframe) {
     const btn = document.querySelector(`[data-timeframe="${timeframe}"]`);
     if (!btn) throw new Error(`unknown timeframe: ${timeframe}`);
-    announce({ text: `Switching to ${timeframe}…`, target: btn });
-    btn.click();
+    showAgentToast(`Switching to ${timeframe}…`);
+    await pressButton(btn);
     return { ok: true, timeframe };
 }
 
-export function controlCycleTheme() {
+export async function controlCycleTheme() {
     const btn = document.getElementById('theme-toggle');
     if (!btn) throw new Error('theme toggle missing');
-    announce({ text: 'Switching theme…', target: btn });
-    btn.click();
+    showAgentToast('Switching theme…');
+    await pressButton(btn);
     return { ok: true, theme: state.theme };
 }
 
@@ -112,11 +112,11 @@ export function controlTogglePL() {
     return { ok: true, host: 'portfolio-panel' };
 }
 
-export function controlRefreshHotPicks() {
+export async function controlRefreshHotPicks() {
     const btn = document.getElementById('refresh-hotpicks');
     if (!btn) throw new Error('hot-picks refresh missing');
-    announce({ text: 'Refreshing Hot Picks…', target: btn });
-    btn.click();
+    showAgentToast('Refreshing Hot Picks…');
+    await pressButton(btn);
     return { ok: true };
 }
 
@@ -136,27 +136,27 @@ export function controlSetPennyFilter({ tier }) {
     return { ok: true, pennyTier: norm || 'all' };
 }
 
-export function controlOpenSpikers() {
+export async function controlOpenSpikers() {
     const btn = document.getElementById('spikers-btn');
     if (!btn) throw new Error('spikers button missing');
-    announce({ text: 'Opening Spikers…', target: btn });
-    btn.click();
+    showAgentToast('Opening Spikers…');
+    await pressButton(btn);
     return { ok: true };
 }
 
-export function controlOpenAbout() {
+export async function controlOpenAbout() {
     const btn = document.getElementById('about-btn');
     if (!btn) throw new Error('about button missing');
-    announce({ text: 'Opening About…', target: btn });
-    btn.click();
+    showAgentToast('Opening About…');
+    await pressButton(btn);
     return { ok: true };
 }
 
-export function controlToggleCurrency() {
+export async function controlToggleCurrency() {
     const btn = document.getElementById('currency-toggle');
     if (!btn) throw new Error('currency toggle missing');
-    announce({ text: 'Switching currency…', target: btn });
-    btn.click();
+    showAgentToast('Switching currency…');
+    await pressButton(btn);
     return { ok: true };
 }
 
@@ -214,6 +214,7 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice })
         host: 'pl-sidebar',
         title: 'P&L Calculator',
         subtitle,
+        variant: 'pl',
     });
 
     const invEl = document.getElementById('pl-investment');
@@ -221,12 +222,36 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice })
     const curEl = document.getElementById('pl-currentPrice');
     const calcBtn = document.getElementById('pl-calcBtn');
     if (!invEl || !buyEl || !curEl || !calcBtn) throw new Error('P&L calculator inputs not found');
-    announce({ text: 'Running P&L calculator…', target: calcBtn });
-    invEl.value = inv.toFixed(2);
-    buyEl.value = buy.toFixed(2);
-    curEl.value = cur.toFixed(2);
-    calcBtn.click();
-    setTimeout(() => pulseElementById('pl-result'), 200);
+
+    // Clear any stale values from a previous run so the typing reads as
+    // Mia filling a fresh form.
+    invEl.value = ''; buyEl.value = ''; curEl.value = '';
+
+    // Type each field in slowly, in order, at a visible speed — so the
+    // user literally watches Mia fill the calculator rather than seeing
+    // the numbers blink into place. A short toast precedes each field.
+    announce({ text: 'Entering your investment…', target: invEl });
+    await typeIntoInput(invEl, inv.toFixed(2), { perChar: 80 });
+    await sleep(220);
+    announce({ text: 'Entering the purchase price…', target: buyEl });
+    await typeIntoInput(buyEl, buy.toFixed(2), { perChar: 80 });
+    await sleep(220);
+    announce({ text: usedCurrent ? 'Filling in the live price…' : 'Entering the target price…', target: curEl });
+    await typeIntoInput(curEl, cur.toFixed(2), { perChar: 80 });
+    await sleep(320);
+
+    // Visibly press Calculate, then reveal the result — scroll it into
+    // view inside the (mid-screen, scrollable) stage card so the user
+    // sees the profit/loss land instead of it sitting below the fold.
+    announce({ text: 'Calculating…' });
+    await pressButton(calcBtn, { preDelay: 400 });
+    setTimeout(() => {
+        const resEl = document.getElementById('pl-result');
+        if (resEl) {
+            try { resEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+            pulseElementById('pl-result');
+        }
+    }, 250);
 
     const shares = inv / buy;
     const value = shares * cur;
@@ -265,9 +290,9 @@ export function controlScrollTo({ section }) {
     return { ok: true, section };
 }
 
-export function controlRunAnalysis() {
+export async function controlRunAnalysis() {
     const btn = document.getElementById('refresh-analysis');
-    if (btn) { announce({ text: 'Rerunning analysis…', target: btn }); btn.click(); return { ok: true, via: 'refresh' }; }
+    if (btn) { showAgentToast('Rerunning analysis…'); await pressButton(btn); return { ok: true, via: 'refresh' }; }
     // Fallback: re-trigger search pick if a symbol is loaded.
     if (state.currentSymbol) {
         return triggerSearchPick(state.currentSymbol).then(r => ({ ...r, via: 'search-rerun' }));
@@ -814,4 +839,114 @@ export async function readWatchlist() {
             alertBelow: a.below ?? null,
         };
     });
+}
+
+// ── Portfolio panel (open/close/instantiate/fund/reset) ──────────────
+
+export async function controlOpenPortfolioPanel() {
+    const { openPortfolioPanel } = await import('../ui/portfolio-panel.js');
+    announce({ text: 'Opening your practice portfolio…', target: document.getElementById('portfolio-launcher') });
+    openPortfolioPanel({ shimmerTitle: true });
+    return { ok: true };
+}
+
+export async function controlClosePortfolioPanel() {
+    const { closePortfolioPanel } = await import('../ui/portfolio-panel.js');
+    closePortfolioPanel();
+    return { ok: true };
+}
+
+// Create a fresh practice portfolio with a starting cash balance. The
+// amount is in `currency` (default USD); we resolve the FX rate to USD
+// so the ledger stays USD-denominated like the rest of the app.
+export async function controlInstantiatePortfolio({ amount, currency = 'USD' } = {}) {
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error('amount must be a positive number');
+    const cur = String(currency || 'USD').toUpperCase();
+    const { isInstantiated, instantiatePortfolio } = await import('../portfolio/state.js');
+    if (isInstantiated()) {
+        return { ok: false, alreadyExists: true, note: 'A practice portfolio already exists. Use add_funds to top it up, or reset_portfolio to start over.' };
+    }
+    const { getRateToUSD } = await import('../portfolio/fx.js');
+    const fxRateToUSD = await getRateToUSD(cur);
+    instantiatePortfolio({ currency: cur, amount: amt, fxRateToUSD });
+    // Surface it so the user sees the account that was just created.
+    try { const { openPortfolioPanel } = await import('../ui/portfolio-panel.js'); openPortfolioPanel({ shimmerTitle: true }); } catch (_) {}
+    announce({ text: `Created a practice portfolio with ${cur} ${amt.toLocaleString()}`, target: document.getElementById('portfolio-launcher') });
+    return { ok: true, currency: cur, amount: amt };
+}
+
+export async function controlAddFunds({ amount, currency = 'USD' } = {}) {
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error('amount must be a positive number');
+    const cur = String(currency || 'USD').toUpperCase();
+    const { isInstantiated, addFunds } = await import('../portfolio/state.js');
+    if (!isInstantiated()) {
+        return { ok: false, note: 'No practice portfolio yet — call instantiate_portfolio first.' };
+    }
+    const { getRateToUSD } = await import('../portfolio/fx.js');
+    const fxRateToUSD = await getRateToUSD(cur);
+    addFunds({ currency: cur, amount: amt, fxRateToUSD });
+    announce({ text: `Added ${cur} ${amt.toLocaleString()} to your practice portfolio`, target: document.getElementById('portfolio-launcher') });
+    return { ok: true, currency: cur, amount: amt };
+}
+
+// Reset wipes the practice portfolio. Destructive — Mia's tool desc
+// instructs her to confirm with the user before calling.
+export async function controlResetPortfolio() {
+    const { isInstantiated, resetPortfolio } = await import('../portfolio/state.js');
+    if (!isInstantiated()) return { ok: true, note: 'No portfolio to reset.' };
+    resetPortfolio();
+    announce({ text: 'Practice portfolio reset.', target: document.getElementById('portfolio-launcher') });
+    return { ok: true, reset: true };
+}
+
+// ── Time-travel (replay the engine on a past date) ───────────────────
+// The single most distinctive feature: sets state.timeTravelDate and
+// re-runs the engine on the currently-loaded symbol using only bars
+// available on that date. Requires a symbol to be loaded first.
+export async function controlSetTimeTravel({ date } = {}) {
+    if (!state.currentSymbol) throw new Error('Load a symbol first, then I can replay the engine on a past date for it.');
+    const iso = String(date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new Error('date must be YYYY-MM-DD');
+    const today = new Date().toISOString().slice(0, 10);
+    if (iso > today) throw new Error('date cannot be in the future');
+    state.timeTravelDate = iso;
+    // Reflect it in the time-travel button label if the UI is built.
+    const label = document.querySelector('#time-travel-btn .time-travel-label');
+    const btn = document.getElementById('time-travel-btn');
+    if (label) label.textContent = iso;
+    if (btn) btn.classList.add('active');
+    const refresh = document.getElementById('refresh-analysis');
+    announce({ text: `Replaying the engine on ${state.currentSymbol} as of ${iso}…`, target: refresh || 'signal-section' });
+    if (refresh) refresh.click();
+    setTimeout(() => pulseElementById('signal-section'), 800);
+    return { ok: true, symbol: state.currentSymbol, date: iso };
+}
+
+export async function controlClearTimeTravel() {
+    state.timeTravelDate = null;
+    const label = document.querySelector('#time-travel-btn .time-travel-label');
+    const btn = document.getElementById('time-travel-btn');
+    if (label) label.textContent = 'Live';
+    if (btn) btn.classList.remove('active');
+    const refresh = document.getElementById('refresh-analysis');
+    announce({ text: 'Back to live — re-running on current data…', target: refresh || 'signal-section' });
+    if (refresh) refresh.click();
+    return { ok: true, date: null };
+}
+
+// ── Macro regime read ────────────────────────────────────────────────
+// Standalone read of the macro regime (risk-on / risk-off / transition /
+// neutral) + its components (VIX level/trend, S&P 5d/10d, dollar). The
+// engine uses this internally but never surfaced it as its own tool.
+export async function readMacroRegime() {
+    const { getMacroRegime } = await import('../regime.js');
+    const r = await getMacroRegime();
+    return {
+        regime: r.regime,
+        vix: r.components?.vix ?? null,
+        sp500: r.components?.sp500 ?? null,
+        dollar: r.components?.dxy ?? null,
+    };
 }

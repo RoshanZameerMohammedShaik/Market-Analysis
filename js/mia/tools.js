@@ -16,6 +16,9 @@ import {
     controlOpenResources, controlOpenFullLedger, controlSetAccuracyWindow,
     controlAddToWatchlist, controlRemoveFromWatchlist, controlSetPriceAlert,
     controlOpenSectorHeatmap, controlOpenEarningsCalendar, controlOpenOptionsScanner,
+    controlOpenPortfolioPanel, controlClosePortfolioPanel, controlInstantiatePortfolio,
+    controlAddFunds, controlResetPortfolio, controlSetTimeTravel, controlClearTimeTravel,
+    readMacroRegime,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
@@ -117,7 +120,8 @@ const TOOLS = {
         kind: 'read',
     },
     analyze_symbol: {
-        desc: 'run full analysis on a symbol', args: '{"symbol":"AAPL","mode":"stock|crypto"}',
+        desc: 'run full analysis on ANY symbol (without loading it into the chart) and get the complete engine read — signal, confidence, source consensus, AND all the sub-module reads: squeeze, VWAP, timeframe agreement, volume profile, sector rotation, cross-asset, gap, recent spike, earnings, options positioning, derivs, peers, pattern, macro regime. Use to answer "what\'s the squeeze/options/regime read on TSLA" for a symbol the user isn\'t currently viewing.',
+        args: '{"symbol":"AAPL","mode":"stock|crypto"}',
         run: async ({ symbol, mode }) => {
             if (!symbol) return { error: 'symbol required' };
             const m = mode || state.mode;
@@ -126,8 +130,18 @@ const TOOLS = {
             return {
                 symbol: data.daily.symbol, name: data.daily.name, currentPrice: data.daily.currentPrice,
                 signal: result.signal, confidence: result.confidence, trendRegime: result.trendRegime,
-                breakdown: result.breakdown, priceTargets: result.priceTargets, multiHorizon: result.multiHorizon,
-                topReasons: result.reasons?.slice(0, 6),
+                regime: result.regime,
+                breakdown: result.breakdown, consensus: result.consensus,
+                priceTargets: result.priceTargets, multiHorizon: result.multiHorizon,
+                // Sub-module reads — already computed by the engine, previously
+                // dropped on the floor for non-loaded symbols. Now exposed so
+                // Mia can answer targeted questions about any ticker.
+                squeeze: result.squeeze, vwap: result.vwap, tfAgreement: result.tfAgreement,
+                volProfile: result.volProfile, rotation: result.rotation, crossAsset: result.crossAsset,
+                gap: result.gap, recentSpike: result.recentSpike, earnings: result.earnings,
+                options: result.options, derivs: result.derivs, peers: result.peers,
+                pattern: result.pattern, sector: result.sector, yields: result.yields,
+                topReasons: result.reasons?.slice(0, 8),
             };
         },
         kind: 'read',
@@ -476,6 +490,54 @@ const TOOLS = {
         args: '{}',
         run: async () => controlOpenOptionsScanner(),
         kind: 'control',
+    },
+    open_portfolio_panel: {
+        desc: 'open the practice-trading portfolio side panel (holdings, cash, P&L). Use when the user asks to see their portfolio / positions / practice account. This is the practice portfolio — SEPARATE from the watchlist.',
+        args: '{}',
+        run: async () => controlOpenPortfolioPanel(),
+        kind: 'control',
+    },
+    close_portfolio_panel: {
+        desc: 'close the portfolio side panel.',
+        args: '{}',
+        run: async () => controlClosePortfolioPanel(),
+        kind: 'control',
+    },
+    instantiate_portfolio: {
+        desc: 'create a fresh practice (paper-trading) portfolio with a starting cash balance. Use when a user with no portfolio asks to "start a practice account" / "give me $10k to trade". amount is in `currency` (default USD). No real money — clearly a simulation. Returns alreadyExists:true if one is already set up (then suggest add_funds or reset).',
+        args: '{"amount":10000,"currency":"USD"}',
+        run: async ({ amount, currency } = {}) => controlInstantiatePortfolio({ amount, currency }),
+        kind: 'action',
+    },
+    add_funds: {
+        desc: 'add cash to the existing practice portfolio. amount in `currency` (default USD). Returns a note if no portfolio exists yet (then call instantiate_portfolio).',
+        args: '{"amount":5000,"currency":"USD"}',
+        run: async ({ amount, currency } = {}) => controlAddFunds({ amount, currency }),
+        kind: 'action',
+    },
+    reset_portfolio: {
+        desc: 'wipe the practice portfolio back to empty. DESTRUCTIVE — always confirm with the user before calling ("This will erase your practice portfolio and all its positions — are you sure?"). Never call without explicit confirmation in the conversation.',
+        args: '{}',
+        run: async () => controlResetPortfolio(),
+        kind: 'action',
+    },
+    set_time_travel: {
+        desc: 'TIME-TRAVEL: replay the engine on the currently-loaded symbol as of a PAST date, using only the price bars that existed then — "what would the engine have said on 2025-01-15?". Requires a symbol to be loaded first. The chart truncates to that date and the signal re-runs (hypothetical, not logged). Use for "what would you have called NVDA back in March" type questions.',
+        args: '{"date":"2025-03-10"}',
+        run: async ({ date } = {}) => controlSetTimeTravel({ date }),
+        kind: 'control',
+    },
+    clear_time_travel: {
+        desc: 'exit time-travel mode and re-run the engine on current live data.',
+        args: '{}',
+        run: async () => controlClearTimeTravel(),
+        kind: 'control',
+    },
+    get_macro_regime: {
+        desc: 'read the current MACRO REGIME — risk-on / risk-off / transition / neutral — plus its components (VIX level & 5d trend, S&P 500 5d/10d move, US dollar 5d move). Use for "what\'s the market regime / is it risk-on or risk-off / how\'s the macro backdrop". This is the same regime the engine factors into every signal.',
+        args: '{}',
+        run: async () => readMacroRegime(),
+        kind: 'read',
     },
 };
 

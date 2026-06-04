@@ -445,4 +445,113 @@ export const TOOL_DECLARATIONS = [
             required: ['symbol', 'side', 'mode'],
         },
     },
+
+    // ── Previously text-path-only; mirrored here so VOICE Mia can call
+    //    them too (watchlist, alerts, full ledger, resources, deep news).
+    {
+        name: 'evaluate_news_for_symbol',
+        description: 'Deep news read for a symbol: pulls full article text for the top headlines and weights sentiment by source credibility tier. Use when the user wants a thorough "what\'s the news really saying" rather than a quick headline scan.',
+        parameters: { type: T.OBJECT, properties: { symbol: { type: T.STRING } }, required: ['symbol'] },
+    },
+    {
+        name: 'open_full_ledger',
+        description: 'Open the Full Ledger panel, optionally filtered to a symbol/signal and with an accuracy window. Pass expand:true to open a symbol\'s inline analysis.',
+        parameters: {
+            type: T.OBJECT,
+            properties: {
+                symbol: { type: T.STRING }, expand: { type: T.BOOLEAN },
+                signal: { type: T.STRING, description: 'BUY, SELL, NEUTRAL, NO_TRADE' },
+                accuracyWindow: { type: T.STRING, description: 'e.g. "30 days", "3 months", "1 year", "all"' },
+            },
+        },
+    },
+    {
+        name: 'set_accuracy_window',
+        description: 'Set the Full Ledger Prediction-Accuracy time window. Accepts "30 days", "3 months", "1 year", or "all".',
+        parameters: { type: T.OBJECT, properties: { window: { type: T.STRING } }, required: ['window'] },
+    },
+    {
+        name: 'open_resources',
+        description: 'Open the Resources side panel (glossary / indicator definitions). Pair with a spoken definition.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'add_to_watchlist',
+        description: 'Star a symbol to the watchlist (separate from the practice portfolio). Idempotent.',
+        parameters: { type: T.OBJECT, properties: { symbol: { type: T.STRING } }, required: ['symbol'] },
+    },
+    {
+        name: 'remove_from_watchlist',
+        description: 'Unstar a symbol from the watchlist. Idempotent.',
+        parameters: { type: T.OBJECT, properties: { symbol: { type: T.STRING } }, required: ['symbol'] },
+    },
+    {
+        name: 'set_price_alert',
+        description: 'Set a price alert above and/or below thresholds for a symbol (crypto realtime; auto-stars it). Pass nulls to clear. Confirm before setting.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { symbol: { type: T.STRING }, above: { type: T.NUMBER }, below: { type: T.NUMBER } },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'get_watchlist',
+        description: 'Read the watchlist + any active price alerts. Use before adding/removing/alerting to recap state.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'close_pl_calculator',
+        description: 'Close the P&L calculator agentic stage.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+
+    // ── New surfaces wired this pass (portfolio mgmt, time-travel, regime).
+    {
+        name: 'open_portfolio_panel',
+        description: 'Open the practice-trading portfolio panel (holdings, cash, P&L). Separate from the watchlist.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'close_portfolio_panel',
+        description: 'Close the portfolio side panel.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'instantiate_portfolio',
+        description: 'Create a fresh practice (paper) portfolio with a starting cash balance. Use for "start me a practice account with $10k". No real money.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { amount: { type: T.NUMBER }, currency: { type: T.STRING, description: 'default USD' } },
+            required: ['amount'],
+        },
+    },
+    {
+        name: 'add_funds',
+        description: 'Add cash to the existing practice portfolio.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { amount: { type: T.NUMBER }, currency: { type: T.STRING, description: 'default USD' } },
+            required: ['amount'],
+        },
+    },
+    {
+        name: 'reset_portfolio',
+        description: 'Wipe the practice portfolio. DESTRUCTIVE — confirm with the user first; never call without explicit confirmation.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'set_time_travel',
+        description: 'Time-travel: replay the engine on the currently-loaded symbol as of a past date (YYYY-MM-DD), using only bars available then. Requires a symbol loaded first.',
+        parameters: { type: T.OBJECT, properties: { date: { type: T.STRING, description: 'YYYY-MM-DD' } }, required: ['date'] },
+    },
+    {
+        name: 'clear_time_travel',
+        description: 'Exit time-travel mode and re-run on live data.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'get_macro_regime',
+        description: 'Read the current macro regime (risk-on / risk-off / transition / neutral) plus VIX, S&P 500, and dollar components. Use for "what\'s the market regime / is it risk-on".',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
 ];

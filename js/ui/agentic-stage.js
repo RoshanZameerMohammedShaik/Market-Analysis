@@ -85,7 +85,7 @@ function buildOverlay({ title, subtitle }) {
  * its center. Returns when the entrance animation completes. Sets
  * body.mia-agentic-active so the launcher orb stays visible.
  */
-export async function openAgenticStage({ host, title, subtitle } = {}) {
+export async function openAgenticStage({ host, title, subtitle, variant } = {}) {
     closeAgenticStage();   // idempotent — close any prior stage first
     const hostEl = (typeof host === 'string') ? document.getElementById(host) : host;
     if (!hostEl) throw new Error(`agentic stage: host element not found (${host})`);
@@ -96,6 +96,7 @@ export async function openAgenticStage({ host, title, subtitle } = {}) {
     activeHost = hostEl;
 
     const overlay = buildOverlay({ title, subtitle });
+    if (variant) overlay.classList.add(`agentic-variant-${variant}`);
     document.body.appendChild(overlay);
     overlay.querySelector('[data-stage-host]').appendChild(hostEl);
     // Mark the host so its CSS can override layout for the centered

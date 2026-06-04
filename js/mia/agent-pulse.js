@@ -60,3 +60,74 @@ export function announce({ text, target }) {
         }
     }
 }
+
+// ── Agentic-motion toolkit ───────────────────────────────────────────
+// Shared helpers that make Mia's tool actions LOOK like she's doing
+// them — performing each step at a visible, human-perceptible speed
+// rather than mutating the DOM instantly. Used by the P&L agentic
+// flow and (via runAgenticSteps) by other control tools.
+
+const REDUCED_MOTION = (() => {
+    try { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (_) { return false; }
+})();
+
+export const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Type a value into an input character-by-character at a visible speed,
+// firing `input` events so any listeners (validation, formatting) react
+// as if a human typed it. Adds a `.mia-typing` class for a caret/glow
+// cue. Resolves when the full value is entered. Honors reduced-motion
+// by setting the value instantly.
+export async function typeIntoInput(input, value, { perChar = 75, focus = true } = {}) {
+    if (!input) return;
+    const str = String(value);
+    if (focus) { try { input.focus({ preventScroll: false }); } catch (_) {} }
+    scrollIntoViewIfNeeded(input);
+    if (REDUCED_MOTION) {
+        input.value = str;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return;
+    }
+    input.classList.add('mia-typing');
+    input.value = '';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    for (let i = 0; i < str.length; i++) {
+        input.value = str.slice(0, i + 1);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // Slight jitter so it reads as organic typing, not a metronome.
+        await sleep(perChar + Math.round((Math.random() - 0.5) * 24));
+    }
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.classList.remove('mia-typing');
+    // Brief "field filled" flash so the user sees the value land.
+    input.classList.add('mia-field-filled');
+    setTimeout(() => input.classList.remove('mia-field-filled'), 650);
+}
+
+// Visibly "press" a button: highlight it, pause so the user sees the
+// intent, then click. Returns after the click fires.
+export async function pressButton(btn, { preDelay = 350 } = {}) {
+    if (!btn) return;
+    scrollIntoViewIfNeeded(btn);
+    btn.classList.add('mia-agent-target');
+    if (!REDUCED_MOTION) await sleep(preDelay);
+    pulseElement(btn);
+    btn.click();
+    setTimeout(() => btn.classList.remove('mia-agent-target'), 900);
+}
+
+// Run an ordered list of { text, run } steps, announcing each with a
+// toast and pausing between them so the sequence is legible as a
+// deliberate agent workflow rather than an instant state jump.
+export async function runAgenticSteps(steps, { gap = 500 } = {}) {
+    for (const step of steps) {
+        if (!step) continue;
+        if (step.text) showAgentToast(step.text);
+        if (typeof step.run === 'function') {
+            // eslint-disable-next-line no-await-in-loop
+            await step.run();
+        }
+        if (!REDUCED_MOTION) await sleep(gap);
+    }
+}

@@ -302,6 +302,56 @@ body.mia-agentic-active .mia-launcher:not(.mia-launcher-orb) {
     }
 }
 
+/* P&L variant — Roshan's spec: a compact MID-SCREEN card, not a tall
+   full-height sheet. Narrower + content-height so it reads as a focused
+   floating calculator the user watches Mia fill, centered in the
+   viewport. The inputs get a touch more breathing room so the slow
+   typing is legible. */
+.agentic-variant-pl .agentic-stage-card {
+    width: min(380px, 100%);
+    max-height: min(640px, 86dvh);
+}
+.agentic-variant-pl #pl-sidebar.agentic-stage-mounted .pl-field { margin-bottom: 12px; }
+.agentic-variant-pl #pl-sidebar.agentic-stage-mounted input[type="number"] {
+    font-size: 1.05rem;
+    letter-spacing: 0.5px;
+}
+
+/* Mia "typing into a field" cue — a glowing focus ring + a blinking
+   caret edge while typeIntoInput() streams characters in. */
+.mia-typing {
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.55), 0 0 14px rgba(124, 58, 237, 0.4) !important;
+    border-color: #7c3aed !important;
+    animation: mia-typing-caret 0.7s steps(1) infinite;
+}
+@keyframes mia-typing-caret {
+    0%, 100% { caret-color: #c084fc; }
+    50%      { caret-color: transparent; }
+}
+/* "Field just got filled" confirmation flash. */
+.mia-field-filled {
+    animation: mia-field-filled-flash 0.65s ease-out;
+}
+@keyframes mia-field-filled-flash {
+    0%   { box-shadow: 0 0 0 2px rgba(45, 210, 139, 0.0); }
+    35%  { box-shadow: 0 0 0 2px rgba(45, 210, 139, 0.7), 0 0 16px rgba(45, 210, 139, 0.5); }
+    100% { box-shadow: 0 0 0 2px rgba(45, 210, 139, 0.0); }
+}
+/* "Mia is about to press this" target highlight on a button. */
+.mia-agent-target {
+    position: relative;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.55), 0 0 22px rgba(124, 58, 237, 0.45) !important;
+    animation: mia-agent-target-pulse 0.9s ease-in-out infinite;
+}
+@keyframes mia-agent-target-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mia-typing, .mia-field-filled, .mia-agent-target { animation: none !important; }
+}
+
 /* Reduced motion — strip the aurora drift, particle rise, and
    card spring; keep the static layout so it's still readable. */
 @media (prefers-reduced-motion: reduce) {
