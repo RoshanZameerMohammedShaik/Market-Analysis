@@ -13,9 +13,12 @@ import {
     controlSetPennyFilter, controlOpenSpikers, controlOpenAbout,
     controlToggleCurrency, controlScrollTo, controlPLCalculate,
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
+    controlOpenResources, controlOpenFullLedger, controlSetAccuracyWindow,
+    controlAddToWatchlist, controlRemoveFromWatchlist, controlSetPriceAlert,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
+    readWatchlist,
 } from './ui-bridge.js';
 import { compute } from './math-tool.js';
 import {
@@ -217,9 +220,19 @@ const TOOLS = {
         run: ({ section }) => controlScrollTo({ section }), kind: 'control',
     },
     pl_calculate: {
-        desc: 'open P&L calculator and run a calculation. currentPrice is optional — omit to use the loaded symbol\'s live price. returns shares, currentValue, plDollar, plPct.',
+        desc: 'open the P&L calculator panel (Portfolio side panel, P&L Calculator section), auto-fill the inputs, click Calculate. currentPrice is optional — omit to use the loaded symbol\'s live price. Returns shares, currentValue, plDollar, plPct.\n\nCONVERSATION FLOW (Roshan\'s spec): after this returns, your reply MUST: (1) state the P&L outcome in plain English ("$250 profit, +12.3%"), (2) ask if they want to run another scenario. If user says NO on the next turn, call close_pl_calculator to collapse the panel and return focus to your chat. If user says YES, ask for the new inputs (investment / buy / target) and call this tool again.',
         args: '{"investment":1000,"buyPrice":150,"currentPrice":175}',
         run: ({ investment, buyPrice, currentPrice }) => controlPLCalculate({ investment, buyPrice, currentPrice }),
+        kind: 'control',
+    },
+    close_pl_calculator: {
+        desc: 'collapse the P&L Calculator section inside the Portfolio panel after a calc-conversation finishes. Use ONLY after the user has explicitly said "no more" / "that\'s it" / equivalent in response to "want to run another scenario?". Does not close the Portfolio panel itself — just collapses the calc <details>.',
+        args: '{}',
+        run: () => {
+            const section = document.getElementById('portfolio-pl-section');
+            if (section && section.open) section.open = false;
+            return { ok: true };
+        },
         kind: 'control',
     },
     find_spikers: {
@@ -339,6 +352,48 @@ const TOOLS = {
             return await fn(symbol, quote);
         },
         kind: 'action',
+    },
+    open_resources: {
+        desc: 'open the Resources side panel (left rail) showing the glossary, FAQ, and indicator definitions. Use when the user asks "what is RSI" / "explain MACD" / similar — pair with a verbal definition in your reply.',
+        args: '{}',
+        run: () => controlOpenResources(),
+        kind: 'control',
+    },
+    open_full_ledger: {
+        desc: 'open the Full Ledger panel and optionally focus a specific symbol. Pass {symbol} to filter to that ticker, {expand: true} to also open its inline analysis drawer, {signal: "BUY"} to filter by direction, {accuracyWindow: "30 days"} to scope the per-symbol accuracy column to a recency window. Use this for any question that requires showing the ledger ("show me how the engine has done on NVDA the last week").',
+        args: '{"symbol":"NVDA","expand":true,"accuracyWindow":"30 days"}',
+        run: ({ symbol, expand, signal, accuracyWindow } = {}) => controlOpenFullLedger({ symbol, expand, signal, accuracyWindow }),
+        kind: 'control',
+    },
+    set_accuracy_window: {
+        desc: 'set the Full Ledger\'s Prediction Accuracy time-window filter. Accepts "30 days", "3 months", "1 year", or "all". When you call this, the engine\'s hit/miss/total counts in the ledger column re-aggregate across only predictions made within the window.',
+        args: '{"window":"30 days"}',
+        run: ({ window } = {}) => controlSetAccuracyWindow(window),
+        kind: 'control',
+    },
+    add_to_watchlist: {
+        desc: 'star a symbol to the user\'s watchlist (idempotent — safe to call when already starred). After adding, suggest setting a price alert if relevant.',
+        args: '{"symbol":"AAPL"}',
+        run: async ({ symbol }) => controlAddToWatchlist({ symbol }),
+        kind: 'action',
+    },
+    remove_from_watchlist: {
+        desc: 'unstar a symbol from the user\'s watchlist (idempotent).',
+        args: '{"symbol":"AAPL"}',
+        run: async ({ symbol }) => controlRemoveFromWatchlist({ symbol }),
+        kind: 'action',
+    },
+    set_price_alert: {
+        desc: 'set a browser price alert above and/or below thresholds for a symbol. Auto-stars the symbol if not already on the watchlist. Pass null on either side to leave it open. Pass {symbol, above:null, below:null} to clear all alerts on that symbol. Confirm with the user before setting — never set silently.',
+        args: '{"symbol":"BTC-USD","above":75000,"below":60000}',
+        run: async ({ symbol, above, below } = {}) => controlSetPriceAlert({ symbol, above, below }),
+        kind: 'action',
+    },
+    get_watchlist: {
+        desc: 'read the user\'s current watchlist with last-known prices and any active alerts. Useful before adding/removing/setting alerts so you can recap state to the user.',
+        args: '{}',
+        run: async () => readWatchlist(),
+        kind: 'read',
     },
 };
 

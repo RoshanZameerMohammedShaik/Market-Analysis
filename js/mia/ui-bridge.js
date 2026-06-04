@@ -610,3 +610,159 @@ export async function controlCopyToClipboard({ text }) {
         return { ok: true, length: s.length, fallback: true };
     }
 }
+
+// ── New tools (P0 from MIA_TOOL_AUDIT.md) ─────────────────────────────
+
+// Open the Resources slide-in panel (left rail). The toggle button has
+// id #resources-toggle; clicking it flips the body.resources-open state.
+export function controlOpenResources() {
+    const toggle = document.getElementById('resources-toggle');
+    if (!toggle) throw new Error('resources toggle missing');
+    if (!document.body.classList.contains('resources-open')) {
+        announce({ text: 'Opening Resources…', target: toggle });
+        toggle.click();
+    }
+    return { ok: true };
+}
+
+// Open the Full Ledger panel (the <details> at #scanner-section).
+// Optionally pass a symbol — we'll set the filter to surface the row
+// and (if expand=true) auto-toggle that row's inline analysis drawer.
+export function controlOpenFullLedger({ symbol = null, expand = false, signal = null, accuracyWindow = null } = {}) {
+    const section = document.querySelector('#scanner-section .scanner-details');
+    if (!section) throw new Error('Full Ledger section missing');
+    if (!section.open) section.open = true;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    announce({ text: 'Opening Full Ledger…', target: section });
+    if (signal) {
+        const sigSel = document.getElementById('scanner-signal-filter');
+        if (sigSel) {
+            const norm = String(signal).toUpperCase();
+            sigSel.value = ['BUY', 'SELL', 'NEUTRAL', 'NO_TRADE'].includes(norm) ? norm : '';
+            sigSel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+    if (symbol) {
+        const filter = document.getElementById('scanner-filter');
+        if (filter) {
+            filter.value = String(symbol).toUpperCase();
+            filter.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    if (accuracyWindow) {
+        controlSetAccuracyWindow(accuracyWindow);
+    }
+    if (symbol && expand) {
+        // Wait one frame for the filter to apply, then click the row to
+        // expand its inline drawer.
+        requestAnimationFrame(() => {
+            const row = document.querySelector(`.scanner-row[data-symbol="${String(symbol).toUpperCase()}"]`);
+            if (row) row.click();
+        });
+    }
+    return { ok: true, symbol, expanded: !!(symbol && expand) };
+}
+
+// Set the Full Ledger's accuracy time-window filter. Accepts either an
+// object { n, unit } or a shorthand string like "30 days" / "3 months"
+// / "1 year" / "all". Mia uses this to scope hit-rate to a specific
+// recency window when the user asks "how accurate has the engine been
+// in the last 30 days?"
+export function controlSetAccuracyWindow(input) {
+    const nEl = document.getElementById('scanner-window-n');
+    const uEl = document.getElementById('scanner-window-unit');
+    if (!nEl || !uEl) throw new Error('Accuracy window inputs missing');
+    let n = null, unit = 'all';
+    if (typeof input === 'string') {
+        const s = input.toLowerCase().trim();
+        if (s === 'all' || s === 'all time' || s === 'forever') {
+            unit = 'all';
+        } else {
+            const m = s.match(/^(\d+)\s*(d|day|days|m|mo|month|months|y|yr|year|years)$/);
+            if (!m) throw new Error(`unrecognized window: "${input}". Try "30 days", "3 months", "1 year", or "all".`);
+            n = Number(m[1]);
+            const u = m[2];
+            unit = (u.startsWith('d') ? 'days' : u.startsWith('m') ? 'months' : 'years');
+        }
+    } else if (input && typeof input === 'object') {
+        n = Number(input.n) || null;
+        const u = String(input.unit || '').toLowerCase();
+        unit = ['days', 'months', 'years', 'all'].includes(u) ? u : (n ? 'days' : 'all');
+    }
+    uEl.value = unit;
+    uEl.dispatchEvent(new Event('change', { bubbles: true }));
+    if (unit !== 'all' && n) {
+        nEl.value = String(n);
+        nEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    return { ok: true, unit, n };
+}
+
+// Watchlist add — toggles the star ON for a symbol. Idempotent: calling
+// when already starred is a no-op (returns watched: true with reason).
+export async function controlAddToWatchlist({ symbol }) {
+    const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
+    const sym = String(symbol || '').toUpperCase().trim();
+    if (!sym) throw new Error('symbol required');
+    if (isWatched(sym)) return { ok: true, watched: true, alreadyWatched: true };
+    toggleWatch(sym);
+    announce({ text: `${sym} added to watchlist ⭐`, target: document.getElementById('watchlist-section') });
+    return { ok: true, watched: true };
+}
+
+// Watchlist remove — opposite of add.
+export async function controlRemoveFromWatchlist({ symbol }) {
+    const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
+    const sym = String(symbol || '').toUpperCase().trim();
+    if (!sym) throw new Error('symbol required');
+    if (!isWatched(sym)) return { ok: true, watched: false, alreadyRemoved: true };
+    toggleWatch(sym);
+    announce({ text: `${sym} removed from watchlist`, target: document.getElementById('watchlist-section') });
+    return { ok: true, watched: false };
+}
+
+// Set a price alert above/below threshold. The watchlist UI supports
+// this via inputs but Mia couldn't drive it. Accepts either or both
+// (one above only, one below only, or both bracketing). Pass null to
+// clear that side.
+export async function controlSetPriceAlert({ symbol, above = null, below = null }) {
+    const { setAlert, clearAlert } = await import('../ui/price-alerts.js');
+    const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
+    const sym = String(symbol || '').toUpperCase().trim();
+    if (!sym) throw new Error('symbol required');
+    if (above == null && below == null) {
+        clearAlert(sym);
+        announce({ text: `Alerts cleared on ${sym}` });
+        return { ok: true, cleared: true };
+    }
+    // Auto-watchlist symbols that get an alert — keeping alerts on
+    // un-watched names creates UI orphans.
+    if (!isWatched(sym)) toggleWatch(sym);
+    const a = above != null ? Number(above) : null;
+    const b = below != null ? Number(below) : null;
+    setAlert(sym, { above: a, below: b });
+    const parts = [];
+    if (a != null) parts.push(`above $${a}`);
+    if (b != null) parts.push(`below $${b}`);
+    announce({ text: `Alert set on ${sym}: ${parts.join(' or ')}`, target: document.getElementById('watchlist-section') });
+    return { ok: true, symbol: sym, above: a, below: b };
+}
+
+// Read the watchlist + any alerts currently set on each symbol.
+// Useful when Mia is asked "what alerts do I have?" or for grounding
+// before setting/clearing one.
+export async function readWatchlist() {
+    const { getWatchlistSymbols } = await import('../ui/watchlist.js');
+    const { listAlerts, getLastPrice } = await import('../ui/price-alerts.js');
+    const symbols = getWatchlistSymbols();
+    const alerts = listAlerts();
+    return symbols.map(sym => {
+        const a = alerts[sym] || {};
+        return {
+            symbol: sym,
+            lastPrice: getLastPrice(sym) ?? null,
+            alertAbove: a.above ?? null,
+            alertBelow: a.below ?? null,
+        };
+    });
+}
