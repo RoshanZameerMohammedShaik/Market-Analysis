@@ -107,33 +107,63 @@ function totalN(curve) {
     return curve.reduce((s, b) => s + (b.count || 0), 0);
 }
 
+const MIN_BUCKET_N = 30;   // confidence floor before we trust a bucket
+
+// Candidate bucket keys for a confidence, finest first:
+//   1. the 5pp bucket the value lands in (e.g. 53 → "50-55")
+//   2. its 10pp parent (e.g. "50-60") as a roll-up when the 5pp bucket
+//      is too thin (n < MIN_BUCKET_N).
+// recalibrate_from_ledger.py writes 5pp keys; the 10pp parent is
+// synthesized here by merging the two 5pp children at read time.
+function bucketKeys5(rawConfidence) {
+    const lo5 = Math.max(40, Math.min(95, Math.floor(rawConfidence / 5) * 5));
+    const lo10 = Math.max(40, Math.min(90, Math.floor(rawConfidence / 10) * 10));
+    return {
+        fine: `${lo5}-${lo5 + 5}`,
+        parentChildren: [`${lo10}-${lo10 + 5}`, `${lo10 + 5}-${lo10 + 10}`],
+    };
+}
+
+// Merge an array of {n, actual} slots into one n-weighted {actual, n}.
+function mergeSlots(slots) {
+    const valid = slots.filter(s => s && s.n);
+    if (!valid.length) return null;
+    const totalN = valid.reduce((s, x) => s + x.n, 0);
+    const weighted = valid.reduce((s, x) => s + x.actual * x.n, 0) / totalN;
+    return { actual: weighted, n: totalN };
+}
+
+// Resolve a confidence against a bucket-map: try the 5pp bucket; if it's
+// below the sample floor, roll up to the 10pp parent (both 5pp children
+// merged). Returns {actual, n} or null. `mapGetter(key)` returns the
+// slot for a bucket key, or an array of slots to merge (BUY+SELL case).
+function resolveBucket(rawConfidence, mapGetter) {
+    const { fine, parentChildren } = bucketKeys5(rawConfidence);
+    const fineSlot = mergeSlots([].concat(mapGetter(fine)));
+    if (fineSlot && fineSlot.n >= MIN_BUCKET_N) return fineSlot;
+    // Roll up to 10pp parent.
+    const parentSlots = parentChildren.flatMap(k => [].concat(mapGetter(k)));
+    const parent = mergeSlots(parentSlots);
+    if (parent && parent.n >= MIN_BUCKET_N) return parent;
+    // Neither clears the floor — return the finer one if it exists at all
+    // (caller still applies its own >=30 gate via the returned n).
+    return fineSlot || parent || null;
+}
+
 function liveBucketLookup(rawConfidence) {
-    // Returns {actual, n} from live_calibration.byHorizon[horizon][signal][bucket]
-    // for the closest matching bucket, or null. We use horizon=1 by default
-    // since today's signal corresponds to the +1d outcome for calibration.
+    // Returns {actual, n} from live_calibration.byHorizon[1][BUY|SELL][bucket].
+    // Averages BUY+SELL. 5pp bucket with 10pp roll-up fallback.
     if (!liveCalibration?.byHorizon) return null;
     const h1 = liveCalibration.byHorizon['1'];
     if (!h1) return null;
-    const lo = Math.max(40, Math.min(90, Math.floor(rawConfidence / 10) * 10));
-    const bucket = `${lo}-${lo + 10}`;
-    // Average across BUY/SELL when both exist; falls back to whichever has data.
-    const buy = h1.BUY?.[bucket];
-    const sell = h1.SELL?.[bucket];
-    const slots = [buy, sell].filter(s => s && s.n);
-    if (!slots.length) return null;
-    const totalN = slots.reduce((s, x) => s + x.n, 0);
-    const weighted = slots.reduce((s, x) => s + x.actual * x.n, 0) / totalN;
-    return { actual: weighted, n: totalN };
+    return resolveBucket(rawConfidence, (key) => [h1.BUY?.[key], h1.SELL?.[key]]);
 }
 
 function liveRegionLookup(rawConfidence, region) {
     if (!liveCalibration?.byRegion || !region) return null;
     const buckets = liveCalibration.byRegion[region];
     if (!buckets) return null;
-    const lo = Math.max(40, Math.min(90, Math.floor(rawConfidence / 10) * 10));
-    const slot = buckets[`${lo}-${lo + 10}`];
-    if (!slot || !slot.n) return null;
-    return { actual: slot.actual, n: slot.n };
+    return resolveBucket(rawConfidence, (key) => buckets[key]);
 }
 
 // Lazy-load on first calibrate() call. Previously calibration was
@@ -208,30 +238,16 @@ export function getLiveCalibration() { return liveCalibration; }
 // horizons yet (we need at least 30 samples per horizon to be honest).
 export function getHorizonCalibrations(rawConfidence, signal) {
     if (!liveCalibration?.byHorizon) return null;
-    const lo = Math.max(40, Math.min(90, Math.floor(rawConfidence / 10) * 10));
-    const bucket = `${lo}-${lo + 10}`;
     const out = [];
     for (const [hStr, perSignal] of Object.entries(liveCalibration.byHorizon)) {
         if (!perSignal) continue;
-        // Match the signal first; fall back to the other side if our side
-        // hasn't accumulated enough yet (better than nothing).
-        const slots = [];
-        const matchedKey = signal === 'BUY' ? 'BUY' : signal === 'SELL' ? 'SELL' : null;
-        if (matchedKey) {
-            const s = perSignal[matchedKey]?.[bucket];
-            if (s && s.n >= 30) slots.push(s);
-        }
-        // Always also include the opposite side so light-traffic horizons
-        // still report something — the average across both is honest as
-        // long as we count it as "engine accuracy" not "BUY accuracy".
-        for (const k of ['BUY', 'SELL']) {
-            if (k === matchedKey) continue;
-            const s = perSignal[k]?.[bucket];
-            if (s && s.n >= 30) slots.push(s);
-        }
-        if (!slots.length) continue;
-        const totalN = slots.reduce((acc, s) => acc + s.n, 0);
-        const weightedActual = slots.reduce((acc, s) => acc + s.actual * s.n, 0) / totalN;
+        // 5pp bucket with 10pp roll-up, averaging BUY+SELL (engine
+        // accuracy, not BUY-only). resolveBucket handles the
+        // fine→parent fallback; we then apply the n>=30 honesty gate.
+        const merged = resolveBucket(rawConfidence, (key) => [perSignal.BUY?.[key], perSignal.SELL?.[key]]);
+        if (!merged || merged.n < MIN_BUCKET_N) continue;
+        const totalN = merged.n;
+        const weightedActual = merged.actual;
         out.push({
             horizonDays: parseInt(hStr, 10),
             hitRate: Math.round(weightedActual),

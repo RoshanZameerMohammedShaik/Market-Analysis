@@ -54,9 +54,17 @@ def load_all_rows():
 
 
 def bucket_for(confidence: int) -> str:
-    """40-50, 50-60, 60-70, 70-80, 80-90, 90-100."""
-    lo = max(40, min(90, (confidence // 10) * 10))
-    return f'{lo}-{lo + 10}'
+    """5-point buckets: 40-45, 45-50, ... 90-95, 95-100.
+
+    Finer resolution than the old 10pp bands. The engine produces most
+    of its output in the 45-60 range, and on the live ledger those 5pp
+    buckets each have 600-1000 resolved samples — plenty above the n>=30
+    confidence floor. Sparse high-confidence 5pp buckets (e.g. 65-70 with
+    n<30) are handled by the JS reader's roll-up: it tries the 5pp bucket
+    first, then falls back to the 10pp parent, then to backtest. Keep
+    this lookup in sync with js/calibration.js bucket math (5-step). """
+    lo = max(40, min(95, (confidence // 5) * 5))
+    return f'{lo}-{lo + 5}'
 
 
 def aggregate(rows):
