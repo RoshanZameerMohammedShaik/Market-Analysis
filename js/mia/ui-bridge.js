@@ -182,7 +182,7 @@ function ensurePLOpen() {
     }
 }
 
-export function controlPLCalculate({ investment, buyPrice, currentPrice }) {
+export async function controlPLCalculate({ investment, buyPrice, currentPrice }) {
     const inv = Number(investment);
     const buy = Number(buyPrice);
     if (!Number.isFinite(inv) || inv <= 0) throw new Error('investment must be a positive number');
@@ -199,7 +199,23 @@ export function controlPLCalculate({ investment, buyPrice, currentPrice }) {
         }
     }
 
-    ensurePLOpen();
+    // Open the agentic stage and pull #pl-sidebar into the centered
+    // glass card. Roshan's spec: aurora-blurred backdrop + rising
+    // white particles + Mia stays minimized as the orb. Subsequent
+    // pl_calculate calls (multi-scenario flow) re-use the same stage
+    // since openAgenticStage() is idempotent — it closes any prior
+    // stage before opening the new one.
+    const { openAgenticStage } = await import('../ui/agentic-stage.js');
+    const sym = usedCurrent && state.currentSymbol ? state.currentSymbol : null;
+    const subtitle = sym
+        ? `Calculating profit/loss on ${sym} at the live price.`
+        : 'Calculating profit/loss for your scenario.';
+    await openAgenticStage({
+        host: 'pl-sidebar',
+        title: 'P&L Calculator',
+        subtitle,
+    });
+
     const invEl = document.getElementById('pl-investment');
     const buyEl = document.getElementById('pl-buyPrice');
     const curEl = document.getElementById('pl-currentPrice');

@@ -226,9 +226,14 @@ const TOOLS = {
         kind: 'control',
     },
     close_pl_calculator: {
-        desc: 'collapse the P&L Calculator section inside the Portfolio panel after a calc-conversation finishes. Use ONLY after the user has explicitly said "no more" / "that\'s it" / equivalent in response to "want to run another scenario?". Does not close the Portfolio panel itself — just collapses the calc <details>.',
+        desc: 'close the P&L Calculator agentic stage (the centered glass card with aurora backdrop). Returns the calculator card to the Portfolio panel and dismisses the stage. Use ONLY after the user has explicitly said "no more" / "that\'s it" / equivalent in response to "want to run another scenario?". Mia\'s minimized orb stays visible the whole time.',
         args: '{}',
-        run: () => {
+        run: async () => {
+            const { closeAgenticStage, isAgenticStageOpen } = await import('../ui/agentic-stage.js');
+            if (isAgenticStageOpen()) closeAgenticStage();
+            // Also collapse the Portfolio panel's <details> so the next
+            // open of P&L starts fresh (and the panel itself stays open
+            // for the user to see other portfolio bits).
             const section = document.getElementById('portfolio-pl-section');
             if (section && section.open) section.open = false;
             return { ok: true };

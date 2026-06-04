@@ -1,0 +1,310 @@
+/* Agentic stage overlay — the centered glass card with aurora + white
+   rising particles that appears when Mia performs an agentic action
+   (P&L calc, future tools). Driven by js/ui/agentic-stage.js.
+
+   Design refs Roshan called out: pl-calculator repo style
+   (white dots rising on a blue gradient with a glass panel) but
+   "blurred + animated + super agentic and powerful." */
+
+.agentic-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(20px, env(safe-area-inset-top, 20px))
+             max(20px, env(safe-area-inset-right, 20px))
+             max(20px, env(safe-area-inset-bottom, 20px))
+             max(20px, env(safe-area-inset-left, 20px));
+    animation: agentic-fade-in 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.agentic-stage.dismissing {
+    animation: agentic-fade-out 0.28s ease-in forwards;
+    pointer-events: none;
+}
+@keyframes agentic-fade-in {
+    from { opacity: 0; backdrop-filter: blur(0px); }
+    to   { opacity: 1; backdrop-filter: blur(18px); }
+}
+@keyframes agentic-fade-out {
+    to { opacity: 0; }
+}
+
+/* Backdrop: aurora gradient + dim overlay so the page reads as
+   blurred-and-tinted, not just dimmed. Two layers on top of each
+   other: a moving aurora ribbon + a flat dim wash. The ::backdrop
+   pseudo doesn't exist for non-dialog elements, so we layer manually. */
+.agentic-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.62);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+    z-index: 0;
+}
+.agentic-stage-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: auto;     /* clicking the bg dismisses the stage */
+}
+
+/* Aurora ribbon — radial gradients in violet/blue/teal that swim
+   slowly across the bg. Three layered radials at different positions
+   and speeds give the multi-band aurora feel. */
+.agentic-aurora {
+    position: absolute;
+    inset: -20%;
+    background:
+        radial-gradient(ellipse 60% 40% at 30% 35%, rgba(124, 58, 237, 0.55), transparent 60%),
+        radial-gradient(ellipse 55% 35% at 70% 60%, rgba(37, 99, 235, 0.50), transparent 60%),
+        radial-gradient(ellipse 50% 30% at 50% 80%, rgba(45, 210, 139, 0.30), transparent 60%);
+    filter: blur(40px);
+    animation: agentic-aurora-drift 14s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes agentic-aurora-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(-6%, 4%) scale(1.06); }
+    66%      { transform: translate(5%, -3%) scale(1.08); }
+}
+
+/* White particles rising — small dots traveling bottom→top with
+   randomized delays/durations from the JS. Each particle starts
+   below the viewport and ends above it, fading in then out. */
+.agentic-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.agentic-particle {
+    position: absolute;
+    bottom: -12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    opacity: 0;
+    animation-name: agentic-particle-rise;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+    will-change: transform, opacity;
+}
+@keyframes agentic-particle-rise {
+    0%   { transform: translateY(0)    scale(0.6); opacity: 0; }
+    8%   { opacity: 0.9; }
+    50%  { transform: translateY(-50vh) scale(1);   opacity: 0.95; }
+    92%  { opacity: 0.7; }
+    100% { transform: translateY(-110vh) scale(0.4); opacity: 0; }
+}
+
+/* Centered glass card holding the relocated host element. Frosted
+   look with a soft border highlight that catches the aurora behind
+   it. Sized to comfortably fit the P&L card; flexible enough for
+   future tools (alert setup, screenshot preview, etc.). */
+.agentic-stage-card {
+    position: relative;
+    z-index: 2;
+    width: min(440px, 100%);
+    max-height: 92vh;
+    overflow-y: auto;
+    background: linear-gradient(180deg, rgba(20, 20, 35, 0.78), rgba(10, 10, 25, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 22px;
+    box-shadow:
+        0 28px 80px rgba(0, 0, 0, 0.55),
+        0 12px 32px rgba(124, 58, 237, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    padding: 22px 22px 24px;
+    backdrop-filter: blur(22px) saturate(1.1);
+    -webkit-backdrop-filter: blur(22px) saturate(1.1);
+    animation: agentic-card-in 0.5s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+@keyframes agentic-card-in {
+    from { transform: translateY(24px) scale(0.92); opacity: 0; }
+    to   { transform: translateY(0) scale(1);       opacity: 1; }
+}
+[data-theme="light"] .agentic-stage-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 251, 0.95));
+    border-color: rgba(15, 23, 42, 0.12);
+    box-shadow:
+        0 28px 80px rgba(15, 23, 42, 0.30),
+        0 12px 32px rgba(37, 99, 235, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Header ribbon: "Mia is working" pill + title + close button. */
+.agentic-stage-header {
+    margin-bottom: 18px;
+    position: relative;
+}
+.agentic-stage-mia {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 8px;
+    background: rgba(192, 132, 252, 0.16);
+    border: 1px solid rgba(192, 132, 252, 0.4);
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #c084fc;
+    margin-bottom: 8px;
+}
+.agentic-stage-mia-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #c084fc;
+    box-shadow: 0 0 8px rgba(192, 132, 252, 0.8);
+    animation: agentic-mia-pulse 1.4s ease-in-out infinite;
+}
+@keyframes agentic-mia-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.3); opacity: 0.7; }
+}
+[data-theme="light"] .agentic-stage-mia { background: rgba(124, 58, 237, 0.10); border-color: rgba(124, 58, 237, 0.32); color: #7c3aed; }
+[data-theme="light"] .agentic-stage-mia-dot { background: #7c3aed; box-shadow: 0 0 8px rgba(124, 58, 237, 0.55); }
+
+.agentic-stage-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.25;
+    letter-spacing: 0.2px;
+}
+.agentic-stage-subtitle {
+    margin: 4px 0 0;
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+.agentic-stage-close {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.agentic-stage-close:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+[data-theme="light"] .agentic-stage-close {
+    background: rgba(15, 23, 42, 0.04);
+    border-color: rgba(15, 23, 42, 0.12);
+}
+[data-theme="light"] .agentic-stage-close:hover {
+    background: rgba(15, 23, 42, 0.08);
+}
+
+/* Host slot — the relocated card lives here. Drop the original
+   sidebar/panel chrome since the agentic-stage-card already provides
+   the frame. */
+.agentic-stage-host {
+    /* Card classes that get relocated apply .agentic-stage-mounted
+       — see CSS overrides below. */
+}
+
+/* When .pl-sidebar (the P&L calculator card) is hosted inside the
+   stage, strip its own border + bg + position so it reads as part
+   of the glass card, not a card-inside-a-card. */
+#pl-sidebar.agentic-stage-mounted {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    height: auto !important;
+    max-height: none !important;
+}
+#pl-sidebar.agentic-stage-mounted .pl-sidebar-header {
+    /* Header is provided by .agentic-stage-header — hide the host's
+       own duplicate. */
+    display: none;
+}
+
+/* Mia launcher behavior while agentic stage is active.
+
+   When voice is NOT minimized but an agentic stage IS active, we
+   don't have a real <canvas> orb running (that's voice-only). So
+   we paint a CSS-only "agentic orb" — accent-tinted gradient disc
+   with a slow breath pulse + multi-color glow — to communicate
+   "Mia is actively working" without needing audio data. The
+   real voice canvas takes over if voice ALSO happens to be on.
+
+   Lifted above the stage's z-index (1400) so the orb stays
+   clickable even though the user's focus is on the centered card. */
+body.mia-agentic-active .mia-launcher {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: scale(1) !important;
+    z-index: 1500 !important;
+}
+body.mia-agentic-active .mia-launcher:not(.mia-launcher-orb) {
+    /* Painterly orb: layered radial gradients in the brand palette
+       (violet → blue → teal) drifting through the disc, with a soft
+       outer glow. Reads as "active + agentic" without needing the
+       voice canvas. */
+    background:
+        radial-gradient(circle at 30% 28%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.0) 38%),
+        radial-gradient(circle at 70% 75%, rgba(192, 132, 252, 0.55) 0%, rgba(192, 132, 252, 0.0) 55%),
+        radial-gradient(circle at 30% 80%, rgba(45, 210, 139, 0.4) 0%, rgba(45, 210, 139, 0.0) 60%),
+        linear-gradient(135deg, #4a9eff 0%, #7c3aed 100%);
+    box-shadow:
+        0 8px 24px rgba(124, 58, 237, 0.45),
+        0 0 0 0 rgba(192, 132, 252, 0.55),
+        inset 0 2px 3px rgba(255, 255, 255, 0.55),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.20);
+    animation: agentic-orb-pulse 1.8s ease-in-out infinite;
+}
+@keyframes agentic-orb-pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow:
+            0 8px 24px rgba(124, 58, 237, 0.45),
+            0 0 0 0 rgba(192, 132, 252, 0.55),
+            inset 0 2px 3px rgba(255, 255, 255, 0.55),
+            inset 0 -3px 6px rgba(0, 0, 0, 0.20);
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow:
+            0 12px 32px rgba(124, 58, 237, 0.6),
+            0 0 0 12px rgba(192, 132, 252, 0),
+            inset 0 2px 3px rgba(255, 255, 255, 0.65),
+            inset 0 -3px 6px rgba(0, 0, 0, 0.20);
+    }
+}
+
+/* Reduced motion — strip the aurora drift, particle rise, and
+   card spring; keep the static layout so it's still readable. */
+@media (prefers-reduced-motion: reduce) {
+    .agentic-stage,
+    .agentic-stage.dismissing,
+    .agentic-aurora,
+    .agentic-particle,
+    .agentic-stage-card,
+    .agentic-stage-mia-dot { animation: none; }
+    .agentic-particle { display: none; }
+}
