@@ -47,11 +47,20 @@ const TOOLS = {
                 if (priceUSD == null || !Number.isFinite(priceUSD)) {
                     return { error: `No live price available for ${sym}.` };
                 }
+                // Crypto symbols on this platform are always
+                // suffixed -USD (BTC-USD, ETH-USD, etc.) — that's
+                // the only reliable structural marker for "this
+                // symbol is crypto." The previous regex matched
+                // any 3-4 letter all-caps ticker and called it
+                // Binance, which produced "Intel from Binance" for
+                // INTC and "Binance" attribution on every US stock.
+                // Roshan caught it in a real voice session.
+                const isCrypto = /-USDT?$/.test(sym);
                 return {
                     symbol: sym,
                     priceUSD,
                     fetchedAt: new Date().toISOString(),
-                    source: sym.match(/USDT?$|^[A-Z]{3,4}$/) ? 'binance' : 'stooq',
+                    source: isCrypto ? 'binance' : 'stooq',
                 };
             } catch (e) {
                 return { error: e.message || 'Failed to fetch live price.' };
