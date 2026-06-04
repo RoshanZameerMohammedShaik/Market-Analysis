@@ -40,6 +40,7 @@ import { isConfigured, loadSettings } from './settings.js';
 import { openLiveSession, startMicCapture, createAudioOutputQueue, VOICE_LIVE_MODELS } from './voice-live.js';
 import { runTool } from './tools.js';
 import { TOOL_DECLARATIONS } from './tool-schemas.js';
+import * as miaSound from './sound.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const TTS_AVAILABLE = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
@@ -606,6 +607,10 @@ function stopLiveVoice() {
 }
 
 function closeVoice() {
+    // Soft falling cue as the session ends (best-effort; gated by mute +
+    // not-speaking inside the sound engine). Fire before we tear down so
+    // it isn't suppressed by a lingering speaking flag.
+    try { miaSound.setSpeaking(false); miaSound.listeningOff(); } catch (_) {}
     session.open = false;
     session.minimized = false;
     session.autoLoop = false;
@@ -802,6 +807,7 @@ function releaseMic() {
 }
 
 function setOrbState(s) {
+    const prev = session.state;
     session.state = s;
     const orb = document.getElementById('mia-voice-orb');
     if (orb) orb.dataset.state = s;
@@ -810,6 +816,32 @@ function setOrbState(s) {
     const launcher = document.getElementById('mia-launcher');
     if (launcher && launcher.classList.contains('mia-launcher-orb')) {
         launcher.dataset.orbState = s;
+    }
+    // Sound design hook. This is the single voice-state chokepoint, so
+    // it's the right place to drive the audio cues. Crucially:
+    //   - 'speaking' tells the sound engine to SUPPRESS everything (we
+    //     never talk over Mia's actual voice) and stops the thinking loop.
+    //   - leaving 'speaking' clears the gate so ticks/thinking resume.
+    //   - 'thinking' starts the bubble loop (between utterances, while she
+    //     reasons / runs tools — this is allowed in voice mode).
+    //   - 'listening' fires the soft rising cue + ensures the loop is off.
+    if (prev !== s) {
+        try {
+            if (s === 'speaking') {
+                miaSound.setSpeaking(true);
+                miaSound.stopThinking();
+            } else {
+                if (prev === 'speaking') miaSound.setSpeaking(false);
+                if (s === 'thinking') {
+                    miaSound.startThinking();
+                } else if (s === 'listening') {
+                    miaSound.stopThinking();
+                    miaSound.listeningOn();
+                } else if (s === 'idle') {
+                    miaSound.stopThinking();
+                }
+            }
+        } catch (_) { /* sound is best-effort, never break voice */ }
     }
 }
 function setStatus(msg, opts = {}) {

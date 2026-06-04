@@ -24,6 +24,11 @@ const DEFAULT = {
     // the dashboard limits. Setting still exists in storage so a future
     // power-user "force browser TTS" toggle has somewhere to land.
     voiceLive: true,
+    // Voice-mode sound design (thinking shimmer, tool ticks, listening
+    // cues). Synthesized in-browser by js/mia/sound.js. Default ON;
+    // muted via the toggle in Mia's settings. Suppressed automatically
+    // while Mia's voice is actively speaking.
+    soundEnabled: true,
 };
 
 function migrateLegacy() {

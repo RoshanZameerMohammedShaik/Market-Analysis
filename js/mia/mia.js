@@ -18,6 +18,7 @@ import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } fro
 import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
 import { setLauncherVis } from '../ui/launcher-vis.js';
+import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick } from './sound.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -497,6 +498,12 @@ async function doSend() {
     activeStream = { renderer, status: 'thinking…' };
     let acc = '';
     const toolResults = [];
+    // Soft "dubudbud" thinking shimmer while Mia generates / runs tools.
+    // Stopped the instant the first text delta arrives (she's answering
+    // now, not thinking) and unconditionally in the finally block. The
+    // text path never speaks, so the sound engine's speaking-gate is a
+    // no-op here.
+    startThinking();
 
     try {
         const system = buildSystemPrompt() + '\n\n' + buildContextBlock(currentSignal);
@@ -509,6 +516,8 @@ async function doSend() {
             if (ev.type !== 'delta') continue;
             const delta = ev.text;
             if (!delta) continue;
+            // First real text → she's answering, not thinking. Hush the loop.
+            if (!acc) stopThinking();
             acc += delta;
             renderer.push(delta);
         }
@@ -600,6 +609,7 @@ async function doSend() {
         saveHistory(updated);
         renderThread(updated);
     } finally {
+        stopThinking();   // safety: ensure the loop never strands on
         setSendState('idle');
         activeAbort = null;
         activeStream = null;
@@ -686,8 +696,10 @@ function renderSettings() {
             <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Auto-fallback</span><span class="mia-setting-val">${s.fallbackEnabled ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Voice</span><span class="mia-setting-val">${s.voiceLive ? 'Gemini Live (auto-fallback to browser TTS)' : 'Browser TTS only'}</span></div>
+            <div class="mia-setting-row"><span>Sounds</span><span class="mia-setting-val">${s.soundEnabled !== false ? 'on' : 'off'}</span></div>
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
             <button class="mia-save-btn" id="mia-toggle-fallback">${s.fallbackEnabled ? 'Disable' : 'Enable'} auto-fallback</button>
+            <button class="mia-save-btn" id="mia-toggle-sound">${s.soundEnabled !== false ? 'Mute' : 'Unmute'} Mia sounds</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
@@ -696,6 +708,12 @@ function renderSettings() {
     document.getElementById('mia-back').addEventListener('click', renderChat);
     document.getElementById('mia-resetup').addEventListener('click', () => { clearSettings(); renderRoot(); });
     document.getElementById('mia-toggle-fallback').addEventListener('click', () => { saveSettings({ fallbackEnabled: !s.fallbackEnabled }); renderSettings(); });
+    document.getElementById('mia-toggle-sound').addEventListener('click', () => {
+        const next = !isSoundEnabled();
+        setSoundEnabled(next);          // persists + silences any active loop
+        if (next) { try { soundTick(); } catch (_) {} }   // little confirmation pop on enable
+        renderSettings();
+    });
     document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ geminiKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });
     document.getElementById('mia-clear-models').addEventListener('click', async () => { try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); } });
 }

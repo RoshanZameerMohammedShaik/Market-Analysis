@@ -66,6 +66,17 @@ export function announce({ text, target }) {
 // them — performing each step at a visible, human-perceptible speed
 // rather than mutating the DOM instantly. Used by the P&L agentic
 // flow and (via runAgenticSteps) by other control tools.
+//
+// They also make her actions SOUND agentic: pressButton + the
+// per-field completion in typeIntoInput emit a soft tick. The sound
+// engine self-gates (mute + not-speaking), so we call it unconditionally
+// and let sound.js decide whether to actually emit. Lazy dynamic import
+// keeps agent-pulse free of a hard dependency on the audio layer.
+let _sound = null;
+function soundTick() {
+    if (_sound) { try { _sound.tick(); } catch (_) {} return; }
+    import('./sound.js').then(m => { _sound = m; try { m.tick(); } catch (_) {} }).catch(() => {});
+}
 
 const REDUCED_MOTION = (() => {
     try { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -103,6 +114,8 @@ export async function typeIntoInput(input, value, { perChar = 75, focus = true }
     // Brief "field filled" flash so the user sees the value land.
     input.classList.add('mia-field-filled');
     setTimeout(() => input.classList.remove('mia-field-filled'), 650);
+    // Soft pop as the field lands (not per-keystroke — that'd be maddening).
+    soundTick();
 }
 
 // Visibly "press" a button: highlight it, pause so the user sees the
@@ -113,6 +126,7 @@ export async function pressButton(btn, { preDelay = 350 } = {}) {
     btn.classList.add('mia-agent-target');
     if (!REDUCED_MOTION) await sleep(preDelay);
     pulseElement(btn);
+    soundTick();
     btn.click();
     setTimeout(() => btn.classList.remove('mia-agent-target'), 900);
 }
