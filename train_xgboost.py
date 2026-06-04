@@ -31,7 +31,7 @@ except ImportError as e:
         "xgboost not installed. Run: pip install -r requirements.txt"
     ) from e
 
-from shared_features import compute_flat_features
+from shared_features import compute_flat_features, FEATURES as SHARED_FEATURES
 from train_model import SYMBOLS, PERIOD
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
     out = {
         'method': 'XGBoost portable trees + isotonic calibration',
-        'n_features': 8,
+        'n_features': SHARED_FEATURES,   # 11 — from shared_features (was hard-coded 8)
         'base_score': base_score,
         'n_trees': len(portable_trees),
         'trees': portable_trees,

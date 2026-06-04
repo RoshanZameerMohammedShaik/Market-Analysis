@@ -19,7 +19,12 @@ const PENNY_KEY = 'penny';
 const modelCache = {};      // { main: {weights, config}, penny: {...} | 'unavailable' }
 const loadingPromises = {}; // { main: Promise<bool>, penny: Promise<bool> }
 
-const LOOKBACK = 21;
+// Lookback bars fetched BEFORE the sequence window so trailing
+// indicators have history. ADX needs ~2*period (28) bars of warm-up
+// before its first real value, so 30 gives the first sequence bar a
+// real ADX instead of the neutral fallback. (Was 21 when the model
+// only used RSI/MA/BB which need ≤21.)
+const LOOKBACK = 30;
 
 async function loadModelForTier(tier) {
     const key = tier === PENNY_KEY ? PENNY_KEY : MAIN_KEY;
@@ -126,7 +131,7 @@ export function computeFeatures(candles, configOverride) {
             momentum = (close[j] - close[j - 5]) / (close[j - 5] + 1e-8);
         }
 
-        features.push([
+        const row = [
             priceChange * 10,
             highLowRange * 10,
             rsi,
@@ -135,10 +140,87 @@ export function computeFeatures(candles, configOverride) {
             maRatio21 * 10,
             bbPosition,
             momentum * 5,
-        ]);
+        ];
+
+        // Features 9-11 (ADX / MFI / ATR%) only emitted when the loaded
+        // model declares it expects them. An 8-feature model file →
+        // featureCount 8 → we stop here. An 11-feature model → we append
+        // the three extras. This keeps inference correct against EITHER
+        // a still-deployed 8-feature model or a freshly-retrained
+        // 11-feature one — no dimension-mismatch window. See
+        // shared_features.py VERSION SAFETY note.
+        const featureCount = cfg.features || cfg.input_size || 8;
+        if (featureCount >= 11) {
+            row.push(adxAt(high, low, close, j) / 100);
+            row.push(mfiAt(high, low, close, volume, j) / 100);
+            row.push(Math.min(atrPctAt(high, low, close, j), 0.5) * 2);
+        }
+
+        features.push(row);
     }
 
     return features;
+}
+
+// ── Per-bar indicator helpers (mirror shared_features.py exactly) ──────────
+
+// Wilder ADX over the trailing window ending at bar j. 0..100.
+function adxAt(high, low, close, j, period = 14) {
+    const start = j - (2 * period);
+    if (start < 1) return 20.0;
+    let trSum = 0, plusSum = 0, minusSum = 0;
+    for (let i = start + 1; i <= start + period; i++) {
+        const up = high[i] - high[i - 1];
+        const dn = low[i - 1] - low[i];
+        const tr = Math.max(high[i] - low[i], Math.abs(high[i] - close[i - 1]), Math.abs(low[i] - close[i - 1]));
+        trSum += tr;
+        plusSum += (up > dn && up > 0) ? up : 0;
+        minusSum += (dn > up && dn > 0) ? dn : 0;
+    }
+    const dx = [];
+    for (let i = start + period + 1; i <= j; i++) {
+        const up = high[i] - high[i - 1];
+        const dn = low[i - 1] - low[i];
+        const tr = Math.max(high[i] - low[i], Math.abs(high[i] - close[i - 1]), Math.abs(low[i] - close[i - 1]));
+        trSum = trSum - trSum / period + tr;
+        plusSum = plusSum - plusSum / period + ((up > dn && up > 0) ? up : 0);
+        minusSum = minusSum - minusSum / period + ((dn > up && dn > 0) ? dn : 0);
+        const plusDi = trSum === 0 ? 0 : 100 * plusSum / trSum;
+        const minusDi = trSum === 0 ? 0 : 100 * minusSum / trSum;
+        const sumDi = plusDi + minusDi;
+        dx.push(sumDi === 0 ? 0 : 100 * Math.abs(plusDi - minusDi) / sumDi);
+    }
+    if (!dx.length) return 20.0;
+    const seed = Math.min(period, dx.length);
+    let adx = dx.slice(0, seed).reduce((s, v) => s + v, 0) / seed;
+    for (let i = period; i < dx.length; i++) adx = (adx * (period - 1) + dx[i]) / period;
+    return adx;
+}
+
+// Money Flow Index over the trailing window ending at bar j. 0..100.
+function mfiAt(high, low, close, volume, j, period = 14) {
+    if (j < period) return 50.0;
+    let posFlow = 0, negFlow = 0;
+    for (let i = j - period + 1; i <= j; i++) {
+        const tp = (high[i] + low[i] + close[i]) / 3;
+        const tpPrev = (high[i - 1] + low[i - 1] + close[i - 1]) / 3;
+        const mf = tp * volume[i];
+        if (tp > tpPrev) posFlow += mf;
+        else if (tp < tpPrev) negFlow += mf;
+    }
+    if (negFlow === 0) return posFlow > 0 ? 100.0 : 50.0;
+    const ratio = posFlow / negFlow;
+    return 100 - (100 / (1 + ratio));
+}
+
+// ATR as a fraction of price over the trailing window ending at bar j.
+function atrPctAt(high, low, close, j, period = 14) {
+    if (j < period) return 0.02;
+    let trSum = 0;
+    for (let i = j - period + 1; i <= j; i++) {
+        trSum += Math.max(high[i] - low[i], Math.abs(high[i] - close[i - 1]), Math.abs(low[i] - close[i - 1]));
+    }
+    return (trSum / period) / (close[j] + 1e-8);
 }
 
 function sigmoid(x) { return 1 / (1 + Math.exp(-Math.max(-500, Math.min(500, x)))); }

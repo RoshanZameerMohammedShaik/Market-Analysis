@@ -151,6 +151,7 @@ def export_model(model, path, extra_meta=None):
     export = {
         'config': {
             'input_size': FEATURES,
+            'features': FEATURES,   # explicit — JS reads cfg.features to size its input
             'hidden_size': model.lstm.hidden_size,
             'num_layers': model.lstm.num_layers,
             'sequence_length': SEQUENCE_LENGTH,

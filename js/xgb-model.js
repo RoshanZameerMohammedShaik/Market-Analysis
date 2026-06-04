@@ -79,15 +79,20 @@ function isotonicStep(cal, raw) {
 }
 
 /**
- * Predict probability of upward move from an 8-feature vector. Returns null
- * when model not loaded. Output is a calibrated probability in [0, 1].
+ * Predict probability of upward move from a feature vector. The vector
+ * must have AT LEAST model.n_features elements (8 for old models, 11
+ * after the ADX/MFI/ATR expansion). Extra trailing elements are
+ * ignored by the trees, so an 11-element vector against an old
+ * 8-feature model is safe — it just doesn't use the new dims until
+ * the XGBoost model also retrains. Returns null when model not loaded.
+ * Output is a calibrated probability in [0, 1].
  */
-export function predictGbt(features8) {
+export function predictGbt(featureRow) {
     if (status !== 'loaded' || !model) return null;
-    if (!Array.isArray(features8) || features8.length < model.n_features) return null;
+    if (!Array.isArray(featureRow) || featureRow.length < model.n_features) return null;
     let sum = model.base_score || 0;
     for (const tree of model.trees) {
-        sum += traverseTree(tree, features8);
+        sum += traverseTree(tree, featureRow);
     }
     const raw = sigmoid(sum);
     if (!model.calibrators?.length) return raw;

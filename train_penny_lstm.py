@@ -24,6 +24,11 @@ import json
 import os
 import sys
 
+# Single source of truth for feature math — penny LSTM uses the SAME
+# 11-feature definition as the main model so the browser's tier-aware
+# inference (js/ai-model.js) sends identical features to both.
+from shared_features import compute_sequences, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
+
 # Penny universe — expanded by sector and known low-float / squeeze names.
 # Survivorship bias is a real concern; we mitigate by including delisted-by-now
 # tickers that yfinance still has historical data for.
@@ -42,8 +47,8 @@ SYMBOLS = list(set(
 ))
 
 PERIOD = '5y'
-SEQUENCE_LENGTH = 20
-FEATURES = 8
+SEQUENCE_LENGTH = SHARED_SEQLEN   # 20 — from shared_features
+FEATURES = SHARED_FEATURES        # 11 — from shared_features (was hard-coded 8)
 HIDDEN_SIZE = 32
 NUM_LAYERS = 2
 EPOCHS = 50
@@ -56,49 +61,10 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'lstm_weights_penny.json')
 
 
 def compute_features(df):
-    """Same feature extraction as train_model.py to keep browser inference compatible."""
-    if hasattr(df.columns, 'levels'):
-        df.columns = df.columns.get_level_values(0)
-    close = df['Close'].values.flatten().astype(float)
-    high = df['High'].values.flatten().astype(float)
-    low = df['Low'].values.flatten().astype(float)
-    volume = df['Volume'].values.flatten().astype(float)
-
-    features, labels = [], []
-    for i in range(SEQUENCE_LENGTH, len(close) - 1):
-        window = []
-        for j in range(i - SEQUENCE_LENGTH, i):
-            price_change = (close[j] - close[j-1]) / close[j-1] if j > 0 else 0
-            high_low_range = (high[j] - low[j]) / close[j]
-            if j >= 14:
-                gains = sum(max(0, close[k] - close[k-1]) for k in range(j-13, j+1))
-                losses = sum(max(0, close[k-1] - close[k]) for k in range(j-13, j+1))
-                rsi = gains / (gains + losses + 1e-8)
-            else:
-                rsi = 0.5
-            vol_start = max(0, j - 20)
-            avg_vol = np.mean(volume[vol_start:j+1]) if vol_start < j else volume[j]
-            vol_ratio = min(volume[j] / (avg_vol + 1e-8), 5.0) / 5.0
-            sma9 = np.mean(close[j-8:j+1]) if j >= 9 else close[j]
-            ma_ratio_9 = (close[j] - sma9) / (sma9 + 1e-8)
-            sma21 = np.mean(close[j-20:j+1]) if j >= 21 else close[j]
-            ma_ratio_21 = (close[j] - sma21) / (sma21 + 1e-8)
-            if j >= 20:
-                bb_window = close[j-19:j+1]
-                bb_mean = np.mean(bb_window)
-                bb_std = np.std(bb_window) + 1e-8
-                bb_position = max(-1, min(1, (close[j] - bb_mean) / (2 * bb_std)))
-            else:
-                bb_position = 0
-            momentum = (close[j] - close[j-5]) / (close[j-5] + 1e-8) if j >= 5 else 0
-            window.append([
-                price_change * 10, high_low_range * 10, rsi, vol_ratio,
-                ma_ratio_9 * 10, ma_ratio_21 * 10, bb_position, momentum * 5,
-            ])
-        features.append(window)
-        next_change = (close[i + 1] - close[i]) / close[i]
-        labels.append(1 if next_change > 0 else 0)
-    return features, labels
+    """Delegates to shared_features — single source of truth, 11 features
+    (8 original + ADX + MFI + ATR%). Was a hand-copied duplicate that
+    risked drifting from the main model and the JS runtime."""
+    return compute_sequences(df, SEQUENCE_LENGTH)
 
 
 def fetch_and_prepare_data():
@@ -178,7 +144,7 @@ def train_and_export():
     state = model.state_dict()
     weights = {k: t.cpu().numpy().tolist() for k, t in state.items()}
     export = {
-        'config': { 'input_size': FEATURES, 'hidden_size': HIDDEN_SIZE, 'num_layers': NUM_LAYERS, 'sequence_length': SEQUENCE_LENGTH },
+        'config': { 'input_size': FEATURES, 'features': FEATURES, 'hidden_size': HIDDEN_SIZE, 'num_layers': NUM_LAYERS, 'sequence_length': SEQUENCE_LENGTH },
         'weights': weights,
         'tier': 'penny',
     }

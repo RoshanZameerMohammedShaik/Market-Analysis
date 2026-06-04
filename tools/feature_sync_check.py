@@ -1,10 +1,15 @@
 """
 Cross-check that js/ai-model.js and shared_features.py compute identical
-8-feature vectors on synthetic OHLCV. Fails CI if they drift.
+11-feature vectors on synthetic OHLCV. Fails CI if they drift.
 
-The approach: shell out to node, run a tiny harness that imports
-computeFeatures from js/ai-model.js and prints JSON. Compare to the
-Python output cell-by-cell.
+The approach: shell out to node, run a tiny harness that imports the REAL
+computeFeatures from js/ai-model.js (passing a config that declares 11
+features) and prints JSON. Compare to the Python output cell-by-cell.
+
+Calling the real computeFeatures — instead of the old inlined duplicate —
+means this test actually exercises the shipping code path, including the
+new ADX/MFI/ATR helpers. If the JS and Python implementations of those
+drift, this fails.
 """
 import json
 import math
@@ -16,101 +21,19 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shared_features import compute_features_at, SEQUENCE_LENGTH, LOOKBACK
+from shared_features import compute_features_at, SEQUENCE_LENGTH, LOOKBACK, FEATURES
 
 NODE_HARNESS = r"""
 import { computeFeatures } from '../js/ai-model.js';
 
-// Set a fake config that matches training defaults
-import * as ai from '../js/ai-model.js';
-// We don't load the real model, but computeFeatures gates on modelConfig.
-// Manually inject a config for the test by calling loadModel — we'll skip
-// that and instead duplicate the constants directly.
-
 const raw = process.argv[2];
 const candles = JSON.parse(raw);
 
-// computeFeatures requires modelConfig to be set; without loadModel() it's null.
-// For the sync test we just inline the same defaults the LSTM uses:
-const seqLen = 20;
-const LOOKBACK = 21;
-if (candles.length < seqLen + LOOKBACK) {
-    console.log(JSON.stringify(null));
-    process.exit(0);
-}
-
-// Re-implement the loop to avoid needing the model loaded.
-const allCandles = candles.slice(-(seqLen + LOOKBACK));
-const close = allCandles.map(c => c.close);
-const high = allCandles.map(c => c.high);
-const low = allCandles.map(c => c.low);
-const volume = allCandles.map(c => c.volume || 0);
-
-const features = [];
-for (let idx = 0; idx < seqLen; idx++) {
-    const j = allCandles.length - seqLen + idx;
-    const priceChange = j > 0 ? (close[j] - close[j - 1]) / (close[j - 1] + 1e-8) : 0;
-    const highLowRange = (high[j] - low[j]) / (close[j] + 1e-8);
-
-    let rsi = 0.5;
-    if (j >= 14) {
-        let gains = 0, losses = 0;
-        for (let k = j - 13; k <= j; k++) {
-            const diff = close[k] - close[k - 1];
-            if (diff > 0) gains += diff; else losses -= diff;
-        }
-        rsi = gains / (gains + losses + 1e-8);
-    }
-
-    let volRatio = 0.2;
-    if (j >= 20) {
-        let sum = 0;
-        for (let k = j - 20; k <= j; k++) sum += volume[k];
-        const avgVol = sum / 21;
-        volRatio = Math.min(volume[j] / (avgVol + 1e-8), 5.0) / 5.0;
-    }
-
-    let maRatio9 = 0;
-    if (j >= 9) {
-        let sum = 0;
-        for (let k = j - 8; k <= j; k++) sum += close[k];
-        const sma9 = sum / 9;
-        maRatio9 = (close[j] - sma9) / (sma9 + 1e-8);
-    }
-
-    let maRatio21 = 0;
-    if (j >= 21) {
-        let sum = 0;
-        for (let k = j - 20; k <= j; k++) sum += close[k];
-        const sma21 = sum / 21;
-        maRatio21 = (close[j] - sma21) / (sma21 + 1e-8);
-    }
-
-    let bbPosition = 0;
-    if (j >= 20) {
-        let sum = 0;
-        for (let k = j - 19; k <= j; k++) sum += close[k];
-        const bbMean = sum / 20;
-        let variance = 0;
-        for (let k = j - 19; k <= j; k++) variance += (close[k] - bbMean) ** 2;
-        const bbStd = Math.sqrt(variance / 20) + 1e-8;
-        bbPosition = Math.max(-1, Math.min(1, (close[j] - bbMean) / (2 * bbStd)));
-    }
-
-    let momentum = 0;
-    if (j >= 5) momentum = (close[j] - close[j - 5]) / (close[j - 5] + 1e-8);
-
-    features.push([
-        priceChange * 10,
-        highLowRange * 10,
-        rsi,
-        volRatio,
-        maRatio9 * 10,
-        maRatio21 * 10,
-        bbPosition,
-        momentum * 5,
-    ]);
-}
+// Pass a config that declares 11 features + the standard sequence length,
+// so computeFeatures emits the full ADX/MFI/ATR-extended vector through
+// the REAL shipping code path (no inlined duplicate).
+const cfg = { sequence_length: 20, features: 11 };
+const features = computeFeatures(candles, cfg);
 console.log(JSON.stringify(features));
 """
 
@@ -185,7 +108,10 @@ def main():
     max_diff = 0.0
     worst = None
     for i, (p_row, j_row) in enumerate(zip(py, js)):
-        for k in range(8):
+        if len(p_row) != len(j_row):
+            print(f'FAIL: row {i} width mismatch py={len(p_row)} js={len(j_row)}')
+            sys.exit(1)
+        for k in range(len(p_row)):
             diff = abs(p_row[k] - j_row[k])
             if diff > max_diff:
                 max_diff = diff

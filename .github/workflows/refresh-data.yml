@@ -2,8 +2,14 @@ name: Refresh model data
 
 on:
   schedule:
+    # Daily backtest + penny-modules backtest at 04:00 UTC.
     - cron: '0 4 * * *'
-    - cron: '30 4 * * 0'
+    # Daily retrain attempt at 04:30 UTC — GATED by tools/should_retrain.py
+    # which only proceeds if >=64 new resolved horizons accumulated since
+    # the last retrain (or >=7 days passed). Repo is public so Actions
+    # minutes are unlimited; the gate exists for signal quality, not cost.
+    # Was '30 4 * * 0' (Sunday only) before the daily-conditional change.
+    - cron: '30 4 * * *'
   workflow_dispatch:
     inputs:
       task:
@@ -45,7 +51,16 @@ jobs:
           do_penny_modules=false
           if [ "${{ github.event_name }}" = "schedule" ]; then
             if [ "${{ github.event.schedule }}" = "0 4 * * *" ]; then do_backtest=true; do_penny_modules=true; fi
-            if [ "${{ github.event.schedule }}" = "30 4 * * 0" ]; then do_retrain=true; do_retrain_penny=true; fi
+            # Daily retrain slot — but only actually retrain if the gate
+            # says there's enough new ground truth. should_retrain.py
+            # exits 0 to proceed, 1 to skip.
+            if [ "${{ github.event.schedule }}" = "30 4 * * *" ]; then
+              if python tools/should_retrain.py; then
+                do_retrain=true; do_retrain_penny=true
+              else
+                echo "Retrain gate: not enough new resolutions — skipping retrain today."
+              fi
+            fi
           fi
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             case "${{ github.event.inputs.task }}" in
@@ -80,6 +95,13 @@ jobs:
       - name: Retrain penny-tier LSTM
         if: steps.decide.outputs.do_retrain_penny == 'true'
         run: python train_penny_lstm.py
+
+      - name: Stamp retrain marker
+        # Records resolved-horizon count + timestamp so tomorrow's
+        # should_retrain.py measures NEW resolutions from this point.
+        # Only runs when a retrain actually happened.
+        if: steps.decide.outputs.do_retrain == 'true'
+        run: python tools/mark_retrain.py
 
       - name: Commit refreshed artifacts
         run: |
