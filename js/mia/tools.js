@@ -18,7 +18,7 @@ import {
     controlOpenSectorHeatmap, controlOpenEarningsCalendar, controlOpenOptionsScanner,
     controlOpenPortfolioPanel, controlClosePortfolioPanel, controlInstantiatePortfolio,
     controlAddFunds, controlResetPortfolio, controlSetTimeTravel, controlClearTimeTravel,
-    readMacroRegime,
+    readMacroRegime, controlOpenEquityCurve,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
@@ -538,6 +538,12 @@ const TOOLS = {
         args: '{}',
         run: async () => readMacroRegime(),
         kind: 'read',
+    },
+    show_equity_curve: {
+        desc: 'open the equity curve AND return the dollar result of "if you\'d followed the engine" — compounds every resolved BUY/SELL signal from a hypothetical $10k. Use for "does the engine actually make money / has it been profitable / show me the proof / track record in dollars". Pass {symbol} to scope to one ticker (else whole universe), {horizonDays} 1/3/5/10/20 (default 1). The returned summary has finalBalance, finalPct, trades, winRatePct — quote those. Frame it honestly as a simplified no-fee directional-edge simulation, not a brokerage backtest.',
+        args: '{"symbol":null,"horizonDays":1}',
+        run: async ({ symbol, horizonDays } = {}) => controlOpenEquityCurve({ symbol, horizonDays }),
+        kind: 'control',
     },
 };
 

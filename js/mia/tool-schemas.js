@@ -554,4 +554,12 @@ export const TOOL_DECLARATIONS = [
         description: 'Read the current macro regime (risk-on / risk-off / transition / neutral) plus VIX, S&P 500, and dollar components. Use for "what\'s the market regime / is it risk-on".',
         parameters: { type: T.OBJECT, properties: {} },
     },
+    {
+        name: 'show_equity_curve',
+        description: 'Open the equity curve and get the dollar result of "if you\'d followed the engine" from a hypothetical $10k compounding every resolved BUY/SELL. Use for "does it actually make money / show me the proof". Optional symbol scopes to one ticker; horizonDays 1/3/5/10/20.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { symbol: { type: T.STRING }, horizonDays: { type: T.INTEGER } },
+        },
+    },
 ];

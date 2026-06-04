@@ -9,14 +9,16 @@
 
 .sector-heatmap-section,
 .earnings-cal-section,
-.options-scan-section {
+.options-scan-section,
+.equity-curve-section {
     margin: 14px 0;
 }
 
 /* Shared summary header treatment */
 .sector-heatmap-summary,
 .earnings-cal-summary,
-.options-scan-summary {
+.options-scan-summary,
+.equity-curve-summary {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -31,17 +33,21 @@
 }
 .sector-heatmap-summary::-webkit-details-marker,
 .earnings-cal-summary::-webkit-details-marker,
-.options-scan-summary::-webkit-details-marker { display: none; }
+.options-scan-summary::-webkit-details-marker,
+.equity-curve-summary::-webkit-details-marker { display: none; }
 .sector-heatmap-title,
 .earnings-cal-title,
-.options-scan-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
+.options-scan-title,
+.equity-curve-title { font-weight: 800; font-size: 0.95rem; color: var(--text-primary); }
 .sector-heatmap-hint,
 .earnings-cal-hint,
-.options-scan-hint { font-size: 0.76rem; color: var(--text-muted); flex: 1; min-width: 160px; }
+.options-scan-hint,
+.equity-curve-hint { font-size: 0.76rem; color: var(--text-muted); flex: 1; min-width: 160px; }
 
 .sector-heatmap-refresh,
 .earnings-cal-refresh,
-.options-scan-refresh {
+.options-scan-refresh,
+.equity-curve-refresh {
     background: var(--bg-hover);
     border: 1px solid var(--border);
     color: var(--text-secondary);
@@ -52,16 +58,52 @@
 }
 .sector-heatmap-refresh:hover,
 .earnings-cal-refresh:hover,
-.options-scan-refresh:hover { border-color: var(--accent); color: var(--accent); }
+.options-scan-refresh:hover,
+.equity-curve-refresh:hover { border-color: var(--accent); color: var(--accent); }
 
 .sector-heatmap-loading, .sector-heatmap-empty,
 .earnings-cal-loading, .earnings-cal-empty,
-.options-scan-loading, .options-scan-empty {
+.options-scan-loading, .options-scan-empty,
+.equity-curve-host .eq-loading, .equity-curve-host .eq-empty {
     padding: 18px 14px;
     text-align: center;
     color: var(--text-muted);
     font-size: 0.84rem;
 }
+
+/* ── Equity curve ──────────────────────────────────────────────────── */
+.equity-curve-controls {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 12px 4px 4px;
+}
+.eq-symbol-input, .eq-horizon-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 0.82rem;
+}
+.eq-symbol-input { flex: 1; min-width: 140px; }
+.equity-curve-host { padding: 8px 4px 4px; }
+.eq-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.eq-stat-label { font-size: 0.74rem; color: var(--text-muted); }
+.eq-stat-big { font-family: var(--num-font); font-weight: 900; font-size: 1.8rem; line-height: 1.1; }
+.eq-stat-big.up { color: var(--green); }
+.eq-stat-big.down { color: var(--red); }
+.eq-stat-sub { font-size: 0.78rem; font-weight: 700; margin-top: 2px; }
+.eq-stat-sub.up { color: var(--green); }
+.eq-stat-sub.down { color: var(--red); }
+.eq-svg { display: block; margin: 6px 0; overflow: visible; }
+.eq-baseline { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+.eq-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.eq-area { opacity: 0.12; }
+.eq-edge { font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px; }
+.eq-edge b { font-family: var(--num-font); }
+.eq-edge.up b { color: var(--green); }
+.eq-edge.down b { color: var(--red); }
+.eq-edge-note { font-size: 0.68rem; color: var(--text-muted); }
+.eq-caption { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 8px; }
 
 /* ── Sector heatmap grid ───────────────────────────────────────────── */
 .sector-heatmap-grid {

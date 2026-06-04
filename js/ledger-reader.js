@@ -101,6 +101,86 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
     return { available: true, symbol: sym, markers };
 }
 
+// "If you'd followed the engine" — a hypothetical equity curve.
+//
+// Walks the resolved ledger in chronological order and accrues the
+// return of every directional call at the chosen horizon, as if each
+// signal were one trade:
+//   BUY  → trade return = +pctMove   (you go long, you earn the move)
+//   SELL → trade return = -pctMove   (you go short, you earn the inverse)
+// pctMove is the % price change from entry to the horizon close, already
+// stored per row. directionMatch is the engine's own hit flag; we don't
+// rely on it for P&L (we use the signed move) but expose hit stats too.
+//
+// POSITION SIZING — fixed fractional. Each trade deploys a constant
+// `fraction` of the *current* balance (default 25%), so the curve
+// reflects the engine's directional EDGE without the volatility-drag
+// artifact you get from betting 100% of the account on every one of
+// ~2,000 sequential near-coinflip trades (that pins any such series to
+// ~zero and tells you nothing about edge — it's a sizing pathology, not
+// a verdict on the signals). Fixed-fractional is the standard, honest
+// way to visualize a signal's cumulative edge; the per-trade average
+// return (avgTradePct, sizing-independent) is also returned as the
+// purest edge stat. We surface avg-per-trade + win rate alongside the
+// dollar figure so the proof never rests on the arbitrary sizing alone.
+//
+// Returns { available, points:[{date, balance, equityPct}], trades,
+// wins, winRatePct, avgTradePct, finalPct, finalBalance, horizonDays,
+// startBalance, fraction } or available:false when the ledger is thin.
+// `symbol` optional (scopes to one ticker); omit for the whole universe.
+export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, startBalance = 10000, fraction = 0.25 } = {}) {
+    const rows = await loadLedger();
+    if (!rows.length) return { available: false, points: [] };
+    const hKey = String(horizonDays);
+    const f = Math.max(0.01, Math.min(1, Number(fraction) || 0.25));
+    let scoped = rows.filter(r =>
+        (r.signal === 'BUY' || r.signal === 'SELL') &&
+        r.horizons?.[hKey] &&
+        Number.isFinite(r.horizons[hKey].pctMove) &&
+        r.horizons[hKey].directionMatch !== undefined
+    );
+    if (symbol) {
+        const sym = String(symbol).toUpperCase();
+        scoped = scoped.filter(r => r.symbol === sym);
+    }
+    // Chronological by prediction date so the curve reads left→right in time.
+    scoped.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.predictedAt).localeCompare(String(b.predictedAt)));
+    if (scoped.length < 3) return { available: false, points: [], trades: scoped.length };
+
+    let balance = startBalance;
+    let wins = 0;
+    let retSum = 0;
+    const points = [{ date: scoped[0].date, balance: +balance.toFixed(2), equityPct: 0 }];
+    for (const r of scoped) {
+        const h = r.horizons[hKey];
+        const move = h.pctMove / 100;              // pctMove is in percent
+        const tradeReturn = r.signal === 'BUY' ? move : -move;
+        retSum += tradeReturn;
+        balance *= (1 + f * tradeReturn);          // fixed-fractional sizing
+        if (h.directionMatch) wins++;
+        points.push({
+            date: r.date,
+            balance: +balance.toFixed(2),
+            equityPct: +(((balance - startBalance) / startBalance) * 100).toFixed(2),
+        });
+    }
+    return {
+        available: true,
+        symbol: symbol ? String(symbol).toUpperCase() : 'all',
+        horizonDays,
+        startBalance,
+        fraction: f,
+        trades: scoped.length,
+        wins,
+        winRatePct: Math.round((wins / scoped.length) * 100),
+        // Pure, sizing-independent edge: mean signed return per trade.
+        avgTradePct: +((retSum / scoped.length) * 100).toFixed(3),
+        finalBalance: +balance.toFixed(2),
+        finalPct: +(((balance - startBalance) / startBalance) * 100).toFixed(2),
+        points,
+    };
+}
+
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {

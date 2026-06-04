@@ -9,6 +9,7 @@ import { initWatchlist } from './ui/watchlist.js';
 import { initSectorHeatmap } from './ui/sector-heatmap.js';
 import { initEarningsCalendar } from './ui/earnings-calendar.js';
 import { initOptionsScanner } from './ui/options-scanner.js';
+import { initEquityCurve } from './ui/equity-curve.js';
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
 import { initDebugPanel } from './ui/debug-panel.js';
 import { prewarmWatchlist } from './analysis-cache.js';
@@ -25,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSectorHeatmap();
     initEarningsCalendar();
     initOptionsScanner();
+    initEquityCurve();
     initPortfolioPanel();
     // Floating Debug App panel — only mounts when dev mode is on.
     // Reads from the always-on debug-capture buffer that's already

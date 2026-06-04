@@ -936,6 +936,16 @@ export async function controlClearTimeTravel() {
     return { ok: true, date: null };
 }
 
+// Open the equity curve ("did following the engine pay off?") and
+// return the dollar summary so Mia can state it in the same turn.
+// Optional symbol scopes it to one ticker; horizonDays picks the horizon.
+export async function controlOpenEquityCurve({ symbol = null, horizonDays = 1 } = {}) {
+    const { openEquityCurve } = await import('../ui/equity-curve.js');
+    announce({ text: 'Replaying every engine signal through a hypothetical $10k…', target: document.getElementById('equity-curve-section') });
+    const res = await openEquityCurve({ symbol, horizonDays });
+    return res;
+}
+
 // ── Macro regime read ────────────────────────────────────────────────
 // Standalone read of the macro regime (risk-on / risk-off / transition /
 // neutral) + its components (VIX level/trend, S&P 5d/10d, dollar). The
