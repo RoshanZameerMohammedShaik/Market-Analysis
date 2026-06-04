@@ -22,7 +22,7 @@
 //     Screen as a PWA (Apple rule, iOS 16.4+). Normal Safari tabs won't.
 
 // Filled in after the push-alerts worker is deployed. Empty = push off.
-const PUSH_API = '';
+const PUSH_API = 'https://market-analysis-push-alerts.roshanzameer7866.workers.dev';
 
 let _swReg = null;
 let _vapidKey = null;

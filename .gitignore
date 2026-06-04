@@ -29,6 +29,7 @@ Thumbs.db
 # Local-only
 .test-screenshots/
 workers/yahoo-proxy/.wrangler/
+workers/push-alerts/.wrangler/
 
 # Capacitor / Node — see BUILD_ANDROID_APK.md for setup. The android/
 # folder ITSELF should be committed (after `npx cap add android` runs

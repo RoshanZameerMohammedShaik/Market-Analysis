@@ -35,8 +35,8 @@ crons = ["* * * * *"]
 # Replace BOTH ids after running the kv namespace create commands above.
 [[kv_namespaces]]
 binding = "ALERTS_KV"
-id = "REPLACE_WITH_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "9e996cd207d6490ea53b4126e3f33c33"
+preview_id = "5906112e57374bceaee4374fe0e192ea"
 
 # Secrets (set via `wrangler secret put`, NOT here):
 #   VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, VAPID_SUBJECT
