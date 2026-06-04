@@ -4,6 +4,63 @@
    Theme-aware via the same custom-property tokens as style.css.
    ──────────────────────────────────────────────────────────────────── */
 
+/* ── "Engine Signals" chart-header toggle + on-chart legend ──────────── */
+.engine-signals-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.engine-signals-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.engine-signals-toggle.active {
+    color: #fff;
+    background: var(--brand-grad-2, linear-gradient(135deg, #4a9eff, #7c3aed));
+    border-color: transparent;
+    box-shadow: 0 4px 14px var(--brand-grad-shadow, rgba(124, 58, 237, 0.35));
+}
+.engine-signals-toggle.disabled { opacity: 0.45; cursor: not-allowed; }
+.engine-signals-toggle.disabled:hover { border-color: var(--border); color: var(--text-secondary); }
+.est-label { font-family: var(--num-font); }
+
+.chart-signals-legend {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    pointer-events: none;
+    flex-wrap: wrap;
+    max-width: calc(100% - 20px);
+}
+.chart-signals-legend.tier-high { border-color: rgba(34, 197, 94, 0.5); }
+.chart-signals-legend.tier-low { border-color: rgba(239, 68, 68, 0.5); }
+.chart-signals-legend .csl-dot { width: 8px; height: 8px; border-radius: 50%; }
+.chart-signals-legend .csl-dot.hit { background: #22c55e; }
+.chart-signals-legend .csl-txt b { color: var(--text-primary); font-family: var(--num-font); }
+.chart-signals-legend .csl-sub { color: var(--text-muted); font-size: 0.66rem; }
+@media (max-width: 540px) {
+    .chart-signals-legend .csl-sub { display: none; }
+}
+
 /* ── Confidence dial ───────────────────────────────────────────────── */
 .signal-dial-row {
     display: flex;

@@ -65,6 +65,42 @@ export async function readSymbolConfidenceTrend({ symbol, limit = 30 } = {}) {
     return { available: true, symbol: sym, points };
 }
 
+// Past engine signals for ONE symbol, shaped for drawing as markers on
+// the price chart. Each entry: { date (YYYY-MM-DD), time (UNIX secs),
+// entry (price), signal (BUY/SELL/NEUTRAL/NO_TRADE), confidence,
+// outcome ('hit'|'miss'|null), pctMove }. Only directional calls
+// (BUY/SELL) are returned by default since those are the ones worth
+// marking on the chart; NEUTRAL/NO_TRADE are sit-outs.
+export async function readSymbolSignalMarkers({ symbol, directionalOnly = true } = {}) {
+    const rows = await loadLedger();
+    if (!rows.length || !symbol) return { available: false, markers: [] };
+    const sym = String(symbol).toUpperCase();
+    const scoped = rows
+        .filter(r => r.symbol === sym && r.date && Number.isFinite(r.entry))
+        .filter(r => !directionalOnly || r.signal === 'BUY' || r.signal === 'SELL')
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (!scoped.length) return { available: false, markers: [] };
+    const markers = scoped.map(r => {
+        const h1 = r.horizons?.['1'];
+        let outcome = null;
+        if (h1 && h1.directionMatch !== undefined) outcome = h1.directionMatch ? 'hit' : 'miss';
+        // lightweight-charts wants `time` as a UTC day stamp; our candle
+        // series uses UNIX-seconds, so convert the YYYY-MM-DD date the
+        // same way (midnight UTC) for a clean alignment to the bar.
+        const time = Math.floor(Date.parse(`${r.date}T00:00:00Z`) / 1000);
+        return {
+            date: r.date,
+            time,
+            entry: r.entry,
+            signal: r.signal,
+            confidence: r.confidence,
+            outcome,
+            pctMove: h1?.pctMove ?? null,
+        };
+    });
+    return { available: true, symbol: sym, markers };
+}
+
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
