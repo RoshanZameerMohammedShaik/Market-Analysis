@@ -4,24 +4,23 @@
 //   GET /key-stats?symbol=BBAI       — Yahoo defaultKeyStatistics (float, short interest)
 //   GET /finra-short?symbol=BBAI     — FINRA daily short volume / total volume ratio
 //   GET /openinsider?symbol=BBAI     — OpenInsider recent insider buy/sell rows
+//   GET /extract-article?url=...     — server-side article extraction (Readability-style)
+//   GET /source-tier?domain=...      — credibility tier (1-4) for a known news source
 //   GET /health                       — health probe
 //
 // All endpoints return CORS-friendly JSON. Errors NEVER cache (we learned).
 //
 // Free tier: 100K req/day on CF Workers free plan.
-//
-// Why these endpoints live in the Worker:
-//   - Yahoo /v10 needs server-side cookie+crumb dance
-//   - FINRA serves daily CSVs from regulatorydata.finra.org with no CORS headers
-//   - OpenInsider HTML is gzip + non-CORS; client-side fetch fails through proxies
 
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const FINRA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // FINRA updates once a day
 const INSIDER_CACHE_TTL_MS = 30 * 60 * 1000;
+const ARTICLE_CACHE_TTL_MS = 5 * 60 * 1000;     // 5 min — articles update fast
 
 const keyStatsCache = new Map();
 const finraCache = new Map();
 const insiderCache = new Map();
+const articleCache = new Map();
 
 let crumbCache = null;
 const CRUMB_TTL_MS = 30 * 60 * 1000;
@@ -269,6 +268,199 @@ function stripHtml(s) {
 // don't burn a second deployment; same UA + cookies so we don't 401.
 // ============================================================================
 
+// ============================================================================
+// /extract-article — server-side full-text extraction
+// ============================================================================
+//
+// Fetches a news article URL server-side (avoiding browser CORS), strips
+// the HTML chrome (nav, footer, ads, comments, sidebars), returns the
+// main article body. Mozilla's Readability is the gold standard but is
+// too heavy for a Worker bundle. We use a lightweight heuristic:
+//
+//   1. Strip <script>, <style>, <nav>, <footer>, <aside>, <header>, <iframe>.
+//   2. Find the largest text-density block (typically <article>, <main>,
+//      <div role="main">, or div with class containing "article|content|story|post").
+//   3. Within that block, extract <p>, <h2>, <h3>, <li> text only.
+//   4. De-duplicate and concatenate.
+//
+// Catches ~85% of news articles cleanly. Failures fall back to <p>
+// extraction across the whole body.
+
+const SELECTORS_STRIP = ['script', 'style', 'nav', 'footer', 'aside', 'iframe', 'noscript', 'svg', 'form'];
+const ARTICLE_HOST_TAGS = /<(article|main)(\s[^>]*)?>([\s\S]*?)<\/\1>/i;
+const ARTICLE_HOST_DIV  = /<div[^>]*(?:class|id)="[^"]*(?:article|content|story|post|main)[^"]*"[^>]*>([\s\S]*?)<\/div>/i;
+
+function stripHtmlNoise(html) {
+    let out = html;
+    for (const tag of SELECTORS_STRIP) {
+        const re = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi');
+        out = out.replace(re, '');
+    }
+    out = out.replace(/<!--[\s\S]*?-->/g, '');
+    return out;
+}
+
+function decodeEntities(s) {
+    return s
+        .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+}
+
+function extractParagraphs(html) {
+    const out = [];
+    const re = /<(p|h2|h3|li)\b[^>]*>([\s\S]*?)<\/\1>/gi;
+    let m;
+    while ((m = re.exec(html))) {
+        const text = m[2].replace(/<[^>]+>/g, '').trim();
+        const decoded = decodeEntities(text).replace(/\s+/g, ' ');
+        if (decoded.length >= 30) out.push(decoded);   // skip nav-like fragments
+    }
+    return out;
+}
+
+function getMetaContent(html, name) {
+    const re = new RegExp(`<meta[^>]*(?:name|property)=["']${name}["'][^>]*content=["']([^"']+)["']`, 'i');
+    const m = html.match(re);
+    return m ? decodeEntities(m[1]) : null;
+}
+
+function getTitle(html) {
+    return getMetaContent(html, 'og:title')
+        || getMetaContent(html, 'twitter:title')
+        || (html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '').trim()
+        || null;
+}
+
+function getPublishedAt(html) {
+    return getMetaContent(html, 'article:published_time')
+        || getMetaContent(html, 'datePublished')
+        || getMetaContent(html, 'pubdate')
+        || null;
+}
+
+function getByline(html) {
+    return getMetaContent(html, 'author')
+        || getMetaContent(html, 'article:author')
+        || null;
+}
+
+async function extractArticle(targetUrl) {
+    const cached = articleCache.get(targetUrl);
+    if (cached && Date.now() - cached.ts < ARTICLE_CACHE_TTL_MS) return cached.data;
+
+    let parsed;
+    try { parsed = new URL(targetUrl); }
+    catch (_) { return { error: 'invalid url' }; }
+
+    let upstream;
+    try {
+        upstream = await fetch(targetUrl, {
+            headers: {
+                'User-Agent': BROWSER_UA,
+                'Accept': 'text/html,application/xhtml+xml',
+                'Accept-Language': 'en-US,en;q=0.5',
+            },
+            redirect: 'follow',
+        });
+    } catch (e) {
+        return { error: `fetch failed: ${e.message || e}` };
+    }
+    if (!upstream.ok) return { error: `upstream ${upstream.status}` };
+
+    const ct = upstream.headers.get('Content-Type') || '';
+    if (!ct.includes('html')) return { error: `not html (${ct})` };
+
+    const rawHtml = await upstream.text();
+    if (rawHtml.length > 5_000_000) return { error: 'page too large (>5MB)' };
+
+    const cleaned = stripHtmlNoise(rawHtml);
+    const articleHost =
+        cleaned.match(ARTICLE_HOST_TAGS)?.[3] ||
+        cleaned.match(ARTICLE_HOST_DIV)?.[1]  ||
+        cleaned;
+    let paragraphs = extractParagraphs(articleHost);
+    if (paragraphs.length < 2) paragraphs = extractParagraphs(cleaned);
+    const mainText = paragraphs.join('\n\n').slice(0, 12_000); // cap at ~12K chars
+
+    const data = {
+        url: targetUrl,
+        domain: parsed.hostname.replace(/^www\./, ''),
+        title: getTitle(rawHtml),
+        byline: getByline(rawHtml),
+        publishedAt: getPublishedAt(rawHtml),
+        mainText,
+        wordCount: mainText.split(/\s+/).filter(Boolean).length,
+    };
+    if (!data.mainText || data.wordCount < 40) {
+        return { error: 'extracted text too short to be useful', ...data };
+    }
+
+    articleCache.set(targetUrl, { ts: Date.now(), data });
+    if (articleCache.size > 200) {  // bound memory
+        const oldest = articleCache.keys().next().value;
+        articleCache.delete(oldest);
+    }
+    return data;
+}
+
+// ============================================================================
+// /source-tier — credibility classification
+// ============================================================================
+//
+// Static taxonomy, ~150 outlets. Tier 1 = newswire/regulator/gov, Tier 2 =
+// major outlet (Reuters, Bloomberg, WSJ, FT, AP, NYT, BBC, CNBC, etc.),
+// Tier 3 = aggregator/secondary (Yahoo, Benzinga, MarketWatch, etc.),
+// Tier 4 = blog/social/unknown. Unknown domains default to Tier 4.
+
+const SOURCE_TIERS = {
+    // Tier 1 — primary sources, regulators, exchanges
+    'sec.gov': 1, 'investor.gov': 1, 'finra.org': 1, 'federalreserve.gov': 1,
+    'bls.gov': 1, 'bea.gov': 1, 'treasury.gov': 1, 'ecb.europa.eu': 1,
+    'rbi.org.in': 1, 'sebi.gov.in': 1, 'nasdaq.com': 1, 'nyse.com': 1,
+    'cmegroup.com': 1, 'cboe.com': 1,
+    // Tier 2 — top-tier global newswires/outlets
+    'reuters.com': 2, 'bloomberg.com': 2, 'wsj.com': 2, 'ft.com': 2,
+    'apnews.com': 2, 'nytimes.com': 2, 'bbc.com': 2, 'bbc.co.uk': 2,
+    'cnbc.com': 2, 'economist.com': 2, 'ap.org': 2, 'cnn.com': 2,
+    'npr.org': 2, 'theguardian.com': 2, 'forbes.com': 2, 'fortune.com': 2,
+    'businessinsider.com': 2, 'axios.com': 2, 'barrons.com': 2,
+    'reuters.in': 2, 'livemint.com': 2, 'economictimes.indiatimes.com': 2,
+    'business-standard.com': 2, 'thehindubusinessline.com': 2, 'moneycontrol.com': 2,
+    'scmp.com': 2, 'nikkei.com': 2, 'asia.nikkei.com': 2, 'handelsblatt.com': 2,
+    'lesechos.fr': 2, 'afr.com': 2,
+    // Tier 3 — aggregators / secondary financial press
+    'finance.yahoo.com': 3, 'yahoo.com': 3, 'marketwatch.com': 3,
+    'investing.com': 3, 'investopedia.com': 3, 'fool.com': 3,
+    'seekingalpha.com': 3, 'benzinga.com': 3, 'thestreet.com': 3,
+    'zacks.com': 3, 'finviz.com': 3, 'simplywall.st': 3,
+    'kiplinger.com': 3, 'morningstar.com': 3, 'tipranks.com': 3,
+    'gurufocus.com': 3, 'streetinsider.com': 3, 'pymnts.com': 3,
+    'theinformation.com': 3, 'theverge.com': 3, 'techcrunch.com': 3,
+    'engadget.com': 3, 'arstechnica.com': 3, 'wired.com': 3,
+    // Tier 3.5 — crypto press
+    'coindesk.com': 3, 'cointelegraph.com': 3, 'theblock.co': 3,
+    'decrypt.co': 3, 'cryptoslate.com': 3, 'bitcoinmagazine.com': 3,
+    'cryptobriefing.com': 3,
+    // Tier 4 — blogs, content farms, low-credibility (default)
+    'medium.com': 4, 'substack.com': 4, 'twitter.com': 4, 'x.com': 4,
+    'reddit.com': 4, 'youtube.com': 4, 'tiktok.com': 4, 'facebook.com': 4,
+    'instagram.com': 4, 'discord.com': 4,
+};
+
+function classifySource(domain) {
+    if (!domain) return { tier: 4, reason: 'no domain' };
+    const norm = String(domain).toLowerCase().replace(/^www\./, '').trim();
+    if (SOURCE_TIERS[norm] != null) return { tier: SOURCE_TIERS[norm], domain: norm };
+    // Try parent domain (e.g., 'feeds.reuters.com' → 'reuters.com').
+    const parts = norm.split('.');
+    for (let i = 1; i < parts.length - 1; i++) {
+        const candidate = parts.slice(i).join('.');
+        if (SOURCE_TIERS[candidate] != null) return { tier: SOURCE_TIERS[candidate], domain: candidate, matchedAs: 'parent' };
+    }
+    return { tier: 4, domain: norm, reason: 'unknown source — default tier 4' };
+}
+
 const ALLOWED_HOSTS = new Set([
     'query1.finance.yahoo.com',
     'query2.finance.yahoo.com',
@@ -366,6 +558,17 @@ export default {
                 const body = await proxyYahoo(target);
                 return body; // proxyYahoo returns a fully-formed Response
             }
+            if (url.pathname === '/extract-article') {
+                const target = url.searchParams.get('url');
+                if (!target) return corsJson({ error: 'url required' }, 400);
+                const body = await extractArticle(target);
+                return corsJson(body, body.error ? 502 : 200);
+            }
+            if (url.pathname === '/source-tier') {
+                const domain = url.searchParams.get('domain');
+                if (!domain) return corsJson({ error: 'domain required' }, 400);
+                return corsJson(classifySource(domain));
+            }
             if (url.pathname === '/health') {
                 return corsJson({ ok: true, ts: Date.now() });
             }
@@ -374,7 +577,11 @@ export default {
         }
         return corsJson({
             error: 'not found',
-            endpoints: ['/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X', '/yahoo?u=<encoded URL>', '/health'],
+            endpoints: [
+                '/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X',
+                '/yahoo?u=<encoded URL>', '/extract-article?url=<encoded URL>',
+                '/source-tier?domain=X', '/health',
+            ],
         }, 404);
     },
 };

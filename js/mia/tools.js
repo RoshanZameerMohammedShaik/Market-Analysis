@@ -166,6 +166,55 @@ const TOOLS = {
         run: ({ symbol, mode = 'stock', companyName = '' }) => fetchNewsAndSentiment({ symbol, mode, companyName }),
         kind: 'read',
     },
+    evaluate_news_for_symbol: {
+        desc: 'Deep news + rumor analysis for a symbol. Returns the top headlines WITH FULL-TEXT BODIES extracted from each article + source-tier classification (1 = newswire/regulator, 2 = major outlet like Reuters/Bloomberg/WSJ, 3 = aggregator/secondary, 4 = blog/social). Use ONLY when the user asks about a specific rumor, catalyst, or "what is driving this stock" — not for routine sentiment checks (use get_news_and_sentiment for those). When you call this, READ THE FULL TEXT and quote/paraphrase specific facts. Discount Tier-3/4 sources unless multiple corroborate. NEVER state a claim from this without naming the source domain inline ("per reuters.com").',
+        args: '{"symbol":"AAPL","mode":"stock|crypto","topN":3}',
+        run: async ({ symbol, mode = 'stock', companyName = '', topN = 3 }) => {
+            if (!symbol) return { error: 'symbol required' };
+            // Reuse the existing news fetch path so we don't duplicate
+            // RSS / breaker / dedupe logic. Then enrich each top-N
+            // headline with full-text + source tier in parallel.
+            const newsModule = await import('../news.js');
+            const newsItems = mode === 'crypto'
+                ? await newsModule.fetchCryptoNews(symbol).catch(() => [])
+                : await newsModule.fetchStockNews(symbol, companyName).catch(() => []);
+            if (!newsItems.length) {
+                return { symbol, mode, articles: [], note: 'No recent news found.' };
+            }
+            const N = Math.min(Math.max(1, Number(topN) || 3), 6);
+            const target = newsItems.slice(0, N);
+            const { fetchFullArticle, tierForUrl } = await import('../article-extractor.js');
+            const enriched = await Promise.all(target.map(async (item) => {
+                const [article, tierInfo] = await Promise.all([
+                    item.url ? fetchFullArticle(item.url).catch(() => null) : Promise.resolve(null),
+                    item.url ? tierForUrl(item.url).catch(() => null) : Promise.resolve(null),
+                ]);
+                return {
+                    title: item.title,
+                    url: item.url || null,
+                    source: item.source || null,
+                    publishedAt: article?.publishedAt || (item.date instanceof Date ? item.date.toISOString() : item.date) || null,
+                    byline: article?.byline || null,
+                    sourceTier: tierInfo?.tier ?? 4,
+                    sourceDomain: tierInfo?.domain ?? null,
+                    sourceLabel: tierInfo?.tier === 1 ? 'primary/regulator'
+                              : tierInfo?.tier === 2 ? 'major-outlet'
+                              : tierInfo?.tier === 3 ? 'aggregator/secondary'
+                              : 'blog/social/unknown',
+                    fullText: article?.mainText || null,
+                    wordCount: article?.wordCount || 0,
+                    extractionFailed: !article || !article.mainText,
+                };
+            }));
+            return {
+                symbol,
+                mode,
+                articles: enriched,
+                guidance: 'Read the fullText carefully — quote specific facts and name the source domain inline. Discount Tier-3/4 unless corroborated by Tier-1/2.',
+            };
+        },
+        kind: 'read',
+    },
     get_macro_series: {
         desc: 'FRED macro: DFF, DGS10, DGS2, T10Y2Y, UNRATE, CPIAUCSL, PCEPILFE, M2SL, WALCL, DCOILWTICO, GOLDAMGBD228NLBM',
         args: '{"series":"DGS10","lookbackMonths":6}',

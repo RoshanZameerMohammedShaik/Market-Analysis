@@ -89,12 +89,45 @@ export async function analyzeNewsSentiment(newsItems) {
     }
 
     const items = newsItems.slice(0, 8);
-    const titles = items.map(n => n.title);
-    let sentimentResults = await analyzeWithFinBERT(titles);
-    let method = 'ai';
+
+    // PHASE 2: enrich top-3 most-recent articles with full body text +
+    // source-tier classification. The remaining 5 stay headline-only
+    // to keep extraction cost bounded (3 × ~200ms = ~600ms added to
+    // the per-symbol analysis path; acceptable for on-demand). Each
+    // extraction failure silently falls back to that item's headline.
+    const { fetchFullArticle, tierForUrl, tierWeight } = await import('./article-extractor.js');
+    const sortedByRecency = items
+        .map((it, idx) => ({ it, idx, when: +(new Date(it.date instanceof Date ? it.date : it.date || 0)) }))
+        .sort((a, b) => b.when - a.when);
+    const enrichTargets = new Set(sortedByRecency.slice(0, 3).map(x => x.idx));
+
+    const enrichedTexts = new Array(items.length).fill(null);
+    const tiers = new Array(items.length).fill(null);
+    await Promise.all(items.map(async (item, i) => {
+        // Source-tier always fetched (cheap; cached 24h).
+        if (item.url) {
+            tiers[i] = await tierForUrl(item.url).catch(() => null);
+        }
+        // Full-text only for top-3 by recency.
+        if (enrichTargets.has(i) && item.url) {
+            const article = await fetchFullArticle(item.url).catch(() => null);
+            if (article?.mainText) {
+                // Cap text fed to FinBERT — FinBERT max input is 512
+                // tokens (~2000 chars); we use the LEAD (first 1800
+                // chars) where the article's thesis usually lives.
+                enrichedTexts[i] = article.mainText.slice(0, 1800);
+            }
+        }
+    }));
+
+    // Build the FinBERT input array: full-text-lead where available,
+    // else headline. FinBERT scores each independently.
+    const inputs = items.map((n, i) => enrichedTexts[i] || n.title);
+    let sentimentResults = await analyzeWithFinBERT(inputs);
+    let method = enrichedTexts.some(Boolean) ? 'ai-fulltext' : 'ai';
     if (!sentimentResults) {
         method = 'keyword';
-        sentimentResults = titles.map(t => [keywordSentiment(t)]);
+        sentimentResults = inputs.map(t => [keywordSentiment(t)]);
     }
 
     const analyzed = [];
@@ -105,8 +138,16 @@ export async function analyzeNewsSentiment(newsItems) {
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const sentiment = method === 'ai' ? parseFinBERTResult(sentimentResults[i]) : sentimentResults[i][0];
-        const weight = recencyWeight(item.date instanceof Date ? item.date : new Date(item.date));
+        const sentiment = (method === 'keyword')
+            ? sentimentResults[i][0]
+            : parseFinBERTResult(sentimentResults[i]);
+        // Combined weight: recency × source-tier. A Tier-1 story from
+        // 2 hours ago should carry more weight than a Tier-4 social
+        // post from 30 minutes ago. tierWeight ranges 1.0 (Tier 1) →
+        // 0.20 (Tier 4), so Tier-4 stories effectively get 80% docked.
+        const recency = recencyWeight(item.date instanceof Date ? item.date : new Date(item.date));
+        const tierMul = tiers[i]?.tier ? tierWeight(tiers[i].tier) : tierWeight(4);
+        const weight = recency * tierMul;
         weightedScoreSum += sentiment.score * weight;
         totalWeight += weight;
         if (sentiment.label === 'positive') positiveCount++;
@@ -117,7 +158,11 @@ export async function analyzeNewsSentiment(newsItems) {
             source: item.source,
             url: item.url || null,
             sentiment,
-            recencyWeight: +weight.toFixed(2),
+            recencyWeight: +recency.toFixed(2),
+            sourceTier: tiers[i]?.tier ?? 4,
+            sourceDomain: tiers[i]?.domain ?? null,
+            tierWeight: +tierMul.toFixed(2),
+            usedFullText: !!enrichedTexts[i],
         });
     }
 
