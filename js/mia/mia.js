@@ -17,6 +17,7 @@ import { initVoice, attachVoiceButton } from './voice.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
+import { setLauncherVis } from '../ui/launcher-vis.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -178,6 +179,10 @@ function togglePanel() {
         // .open class + aria-hidden via the registered onLayout
         // callback; we just need to render inside.
         openSidePanel('mia');
+        // Hide the launcher while chat panel is open in chat mode —
+        // we'd be competing with the panel header otherwise. Voice
+        // mode and agentic stage override this back to 'orb'.
+        setLauncherVis('hidden');
         renderRoot();
         // Toggle → send-button morph runs in parallel with the panel
         // slide-in. The morph helper grabs the send-button's rect on
@@ -195,6 +200,7 @@ function togglePanel() {
         // is still mounted and we can read its rect.
         morphSendToToggle();
         closeSidePanel('mia');
+        setLauncherVis('visible');
     }
 }
 function renderRoot() {

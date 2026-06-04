@@ -35,6 +35,7 @@ import { buildSystemPrompt, buildContextBlock } from './prompt.js';
 import { loadHistory, saveHistory } from './memory.js';
 import { renderThread, actionVerbFor } from './mia.js';
 import { openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
+import { setLauncherVis } from '../ui/launcher-vis.js';
 import { isConfigured, loadSettings } from './settings.js';
 import { openLiveSession, startMicCapture, createAudioOutputQueue, VOICE_LIVE_MODELS } from './voice-live.js';
 import { runTool } from './tools.js';
@@ -625,6 +626,11 @@ function closeVoice() {
     setOrbState('idle');
     setStatus('Mia');
     setTranscript('');
+    // After voice fully closes, return launcher to whatever mode the
+    // chat panel state implies. If panel is still open (user wants
+    // to keep chatting in chat-mode after voice ends), launcher
+    // stays hidden. If panel is closed, launcher becomes visible.
+    setLauncherVis(isSidePanelOpen('mia') ? 'hidden' : 'visible');
     // Note: we don't close the Mia panel itself when voice closes —
     // user might want to drop back to chat in the same panel. They
     // close the panel separately via the chat ✕ button.
@@ -645,6 +651,7 @@ function minimizeVoice() {
     closeSidePanel('mia');
     document.body.classList.add('mia-voice-minimized');
     setLauncherOrbMode(true);
+    setLauncherVis('orb');
 }
 
 function restoreVoice() {
@@ -660,6 +667,10 @@ function restoreVoice() {
     if (overlay) overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.remove('mia-voice-minimized');
     setLauncherOrbMode(false);
+    // Voice panel is open in voice-active mode — hide the launcher
+    // (the panel is the focus). When voice closes entirely, the
+    // closeVoice path will set this back to 'visible'.
+    setLauncherVis('hidden');
     // Re-setup the canvas in case the panel re-rendered while minimized.
     setupCanvas();
     startCanvasLoop();

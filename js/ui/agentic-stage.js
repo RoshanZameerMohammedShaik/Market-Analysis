@@ -26,12 +26,15 @@
 //   - Reduced-motion users skip the aurora + particles; the card
 //     just appears centered.
 
+import { setLauncherVis, getLauncherVis } from './launcher-vis.js';
+
 const STAGE_ID = 'mia-agentic-stage';
 const PARTICLE_COUNT = 24;
 let activeOriginParent = null;
 let activeOriginNext = null;     // sibling reference for re-insertion
 let activeHost = null;
 let escHandler = null;
+let priorLauncherVis = null;     // restored on close so we don't strand the launcher
 
 function reducedMotion() {
     try { return matchMedia('(prefers-reduced-motion: reduce)').matches; }
@@ -100,9 +103,13 @@ export async function openAgenticStage({ host, title, subtitle } = {}) {
     // the glass card).
     hostEl.classList.add('agentic-stage-mounted');
 
-    // Body class drives both the backdrop dim AND the launcher orb
-    // visibility — see .mia-launcher rules in css/mia.css.
+    // Body class drives the backdrop dim. Launcher visibility is
+    // owned by launcher-vis.js — capture the prior state so we can
+    // restore it on close, then force orb mode so the user always
+    // sees Mia "working" while the agentic stage is up.
     document.body.classList.add('mia-agentic-active');
+    priorLauncherVis = getLauncherVis();
+    setLauncherVis('orb');
 
     // Close button + Esc + click-outside dismiss.
     overlay.querySelector('.agentic-stage-close').addEventListener('click', closeAgenticStage);
@@ -137,6 +144,15 @@ export function closeAgenticStage() {
         escHandler = null;
     }
     document.body.classList.remove('mia-agentic-active');
+    // Restore launcher visibility to whatever it was before we forced
+    // orb mode. If voice took over while we were running, prior is
+    // already 'orb' and stays that way; if user was in chat mode,
+    // prior was 'hidden' and the chat panel is still showing; if
+    // there was no prior state, default 'visible' so the launcher
+    // never gets stranded invisible.
+    if (priorLauncherVis) setLauncherVis(priorLauncherVis);
+    else setLauncherVis('visible');
+    priorLauncherVis = null;
 
     // Put the host element back where it came from, BEFORE removing
     // the overlay — otherwise the hostEl reference becomes orphaned.

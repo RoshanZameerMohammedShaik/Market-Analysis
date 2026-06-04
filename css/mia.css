@@ -39,23 +39,29 @@
    front of you, and the launcher visually competes with the panel
    header. Stays visible when only Portfolio is open (so user can
    still tap to launch Mia from there). */
-body.side-panel-mia-open .mia-launcher {
+/* Launcher visibility — driven by the data-launcher-vis attribute on
+   body, NOT by the body.side-panel-mia-open class chain.
+
+   Why we changed: the old "hide on side-panel-mia-open / show on
+   voice-minimized OR agentic-active" CSS exception chain was brittle.
+   When the agentic stage closed but voice or panel state was mid-
+   transition, the cascade left the launcher hidden — Roshan caught
+   this in a real session ("I see the main screen but not your panel
+   or toggle"). Now JS owns visibility via a single attribute:
+     data-launcher-vis="hidden"   → hide (panel open + chat mode)
+     data-launcher-vis="orb"      → orb mode (voice minimized or agentic)
+     anything else / missing      → default visible disc.
+   Voice and agentic-stage modules write the attribute directly so
+   the close paths can't desync. */
+body[data-launcher-vis="hidden"] .mia-launcher {
     opacity: 0;
     pointer-events: none;
     transform: scale(0.85);
 }
-/* EXCEPTION: in minimized voice mode OR when an agentic-stage is
-   active (Mia is performing a multi-step action like the P&L calc),
-   the launcher TURNS INTO the orb visualization — so it MUST stay
-   visible even if .side-panel-mia-open is technically set.
-   body.mia-voice-minimized + body.mia-agentic-active take
-   precedence. Without this, the user couldn't see the orb on
-   mobile (Roshan's bug report). */
-body.mia-voice-minimized .mia-launcher,
-body.mia-agentic-active .mia-launcher {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    transform: scale(1) !important;
+body[data-launcher-vis="orb"] .mia-launcher {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
 }
 .mia-launcher::before {
     content: '';
