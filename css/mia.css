@@ -167,18 +167,17 @@ body[data-launcher-vis="orb"] .mia-launcher {
     transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     padding-bottom: env(safe-area-inset-bottom, 0);
 }
-/* iPhone Dynamic Island clearance for Mia's panel header on mobile.
-   .mia-head sits at the top of the panel; without inset-top padding
-   the close button + title hide behind the pill on a PWA install. */
-.mia-head {
-    padding-top: max(14px, env(safe-area-inset-top, 14px));
-}
 /* When open, position based on the side-panel stack — first-opened sits
    at right:0, second-opened slides to right:width-of-first. The CSS var
    is set by side-panel-stack.js via document.documentElement.style. */
 .mia-panel.open { right: var(--mia-stack-right, 0px); }
 
-.mia-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
+/* iPhone Dynamic Island clearance MUST live in this shorthand, not a
+   separate padding-top rule above it — a later `padding:` shorthand
+   silently resets padding-top, which is exactly what hid the close
+   button + title behind the pill on a PWA install. So the top inset is
+   baked directly into the shorthand here (the authoritative, last rule). */
+.mia-head { display: flex; align-items: center; justify-content: space-between; padding: max(14px, env(safe-area-inset-top, 14px)) 16px 14px; border-bottom: 1px solid var(--border); background: var(--bg-secondary); }
 .mia-head-title { display: flex; align-items: center; gap: 12px; }
 .mia-avatar {
     display: inline-flex; align-items: center; justify-content: center;
@@ -656,7 +655,11 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-voice-stage {
     flex: 1;
     display: flex; flex-direction: column; align-items: center; gap: 18px;
-    padding: 14px 16px 24px;
+    /* Top inset clears the iPhone Dynamic Island — the voice overlay is
+       absolute/inset:0 over the panel, so its min/close buttons sit at the
+       very top and would otherwise hide behind the pill on a PWA install
+       (same class of bug as .mia-head). */
+    padding: max(14px, env(safe-area-inset-top, 14px)) 16px 24px;
     overflow: hidden;
 }
 
