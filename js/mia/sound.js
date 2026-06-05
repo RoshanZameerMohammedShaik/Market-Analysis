@@ -132,6 +132,17 @@ export function tick() {
     blip(280 + Math.random() * 30, t, 0.28, 0.14);
 }
 
+// Soft three-note rising "done" chime — fires when an answer finishes or
+// a key result lands (P&L total, equity curve). A gentle resolve, not a
+// fanfare: warm rounded blips up a major triad. Gated like everything else.
+export function complete() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(523, t, 0.42, 0.16);          // C5
+    blip(659, t + 0.10, 0.42, 0.18);   // E5
+    blip(784, t + 0.20, 0.46, 0.30);   // G5 — slightly longer tail to "settle"
+}
+
 // Two-note rising cue when voice starts listening; falling when it stops.
 export function listeningOn() {
     if (!canEmit()) return;

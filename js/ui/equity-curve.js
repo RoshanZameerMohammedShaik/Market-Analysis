@@ -90,6 +90,8 @@ async function loadInto(host, { force = false, symbol = null, horizonDays = 1 } 
         const data = await readEngineEquityCurve({ symbol, horizonDays, startBalance: START });
         host.innerHTML = renderResult(data);
         loaded = true;
+        // Soft "done" chime as the proof-in-dollars lands (self-gated).
+        if (data?.available) import('../mia/sound.js').then(m => m.complete()).catch(() => {});
     } catch (_) {
         host.innerHTML = '<div class="eq-empty">Failed to build the equity curve.</div>';
     } finally {

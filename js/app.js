@@ -11,6 +11,7 @@ import { initEarningsCalendar } from './ui/earnings-calendar.js';
 import { initOptionsScanner } from './ui/options-scanner.js';
 import { initEquityCurve } from './ui/equity-curve.js';
 import { initAccuracyReport } from './ui/accuracy-report.js';
+import { initInstallPrompt } from './ui/install-prompt.js';
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
 import { initDebugPanel } from './ui/debug-panel.js';
 import { prewarmWatchlist } from './analysis-cache.js';
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initOptionsScanner();
     initEquityCurve();
     initAccuracyReport();
+    initInstallPrompt();
     initPortfolioPanel();
     // Floating Debug App panel — only mounts when dev mode is on.
     // Reads from the always-on debug-capture buffer that's already

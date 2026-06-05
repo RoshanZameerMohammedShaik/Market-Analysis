@@ -112,6 +112,45 @@
 .eq-edge-note { font-size: 0.68rem; color: var(--text-muted); }
 .eq-caption { font-size: 0.68rem; color: var(--text-muted); line-height: 1.4; margin-top: 8px; }
 
+/* ── PWA install prompt (bottom-center card) ───────────────────────── */
+.install-prompt {
+    position: fixed;
+    left: 50%;
+    bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    transform: translate(-50%, 140%);
+    z-index: 9000;
+    width: min(440px, calc(100vw - 28px));
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(var(--accent-rgb), 0.18);
+    padding: 14px 16px;
+    opacity: 0;
+    transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.34s ease;
+}
+.install-prompt.visible { transform: translate(-50%, 0); opacity: 1; }
+.install-prompt.leaving { transform: translate(-50%, 140%); opacity: 0; }
+.install-prompt-body { display: flex; align-items: center; gap: 12px; }
+.install-prompt-icon { font-size: 1.6rem; flex-shrink: 0; }
+.install-prompt-text { flex: 1; min-width: 0; }
+.install-prompt-title { font-weight: 800; font-size: 0.92rem; color: var(--text-primary); }
+.install-prompt-sub { font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; margin-top: 2px; }
+.install-prompt-share { white-space: nowrap; font-weight: 700; color: var(--text-secondary); }
+.install-prompt-btn {
+    flex-shrink: 0;
+    background: var(--brand-grad-2, linear-gradient(135deg, #4a9eff, #7c3aed));
+    color: #fff; border: none; border-radius: 10px;
+    padding: 9px 16px; font-weight: 800; font-size: 0.84rem; cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.install-prompt-btn:hover { transform: translateY(-1px); }
+.install-prompt-x {
+    position: absolute; top: 6px; right: 8px;
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 2px 6px;
+}
+.install-prompt-x:hover { color: var(--text-primary); }
+
 /* ── Accuracy-by-setup report ──────────────────────────────────────── */
 .accuracy-report-host { padding: 10px 4px 4px; }
 .accuracy-report-host .ar-loading, .accuracy-report-host .ar-empty {

@@ -18,7 +18,7 @@ import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } fro
 import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
 import { setLauncherVis } from '../ui/launcher-vis.js';
-import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick } from './sound.js';
+import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick, complete as soundComplete } from './sound.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -543,6 +543,9 @@ async function doSend() {
             updated.push({ role: 'assistant', content: 'Hmm, I drew a blank on that one — could you ask again?' });
         } else {
             updated.push({ role: 'assistant', content: flagged });
+            // Soft "done" chime when a real answer lands (text path only;
+            // the sound engine self-gates while voice TTS is speaking).
+            try { soundComplete(); } catch (_) {}
         }
         saveHistory(updated);
         renderThread(updated);

@@ -251,6 +251,8 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice })
             try { resEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
             pulseElementById('pl-result');
         }
+        // Soft "done" chime as the P&L total lands (self-gated by sound.js).
+        import('./sound.js').then(m => m.complete()).catch(() => {});
     }, 250);
 
     const shares = inv / buy;

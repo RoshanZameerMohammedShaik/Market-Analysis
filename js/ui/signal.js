@@ -8,6 +8,7 @@ import { getCalibrationSource } from '../calibration.js';
 import { renderTrustPanel } from './trust-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
+import { sharePredictionCard } from './share-card.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -195,6 +196,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 ${trendChip}
                 ${macroChip}
                 ${calibrationBadge}
+                <button class="refresh-btn small" id="share-prediction" title="Share this prediction as an image">⤴</button>
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
             ${calibrationDelta ? `<div class="cal-delta-row">${calibrationDelta}</div>` : ''}
@@ -226,6 +228,14 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     // Fill the confidence-trend chart from the live ledger (async; the
     // block self-removes if there isn't enough resolved history).
     mountConfidenceTrend(section, state.currentSymbol);
+    // Share button → render + share/download a branded prediction PNG.
+    // Closure-captures the current prediction so there's no global state.
+    const shareBtn = section.querySelector('#share-prediction');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+            sharePredictionCard(prediction, state.currentSymbol).catch(() => {});
+        });
+    }
     lastShownConfidence = confidence;
     lastShownSymbol = state.currentSymbol;
 
