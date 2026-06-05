@@ -46,18 +46,20 @@ export default {
                 const sub = body?.subscription;
                 const alerts = body?.alerts || {};
                 if (!sub?.endpoint) return json({ error: 'subscription.endpoint required' }, 400);
-                const key = `sub:${await hashEndpoint(sub.endpoint)}`;
-                await env.ALERTS_KV.put(key, JSON.stringify({
-                    subscription: sub, alerts, updatedAt: Date.now(),
-                }));
-                return json({ ok: true, stored: Object.keys(alerts).length });
+                const id = await hashEndpoint(sub.endpoint);
+                const reg = await loadRegistry(env);
+                reg[id] = { subscription: sub, alerts, updatedAt: Date.now() };
+                await saveRegistry(env, reg);
+                return json({ ok: true, stored: Object.keys(alerts).length, subscribers: Object.keys(reg).length });
             }
 
             if (url.pathname === '/unsubscribe' && request.method === 'POST') {
                 const body = await request.json();
                 const endpoint = body?.endpoint;
                 if (!endpoint) return json({ error: 'endpoint required' }, 400);
-                await env.ALERTS_KV.delete(`sub:${await hashEndpoint(endpoint)}`);
+                const id = await hashEndpoint(endpoint);
+                const reg = await loadRegistry(env);
+                if (reg[id]) { delete reg[id]; await saveRegistry(env, reg); }
                 return json({ ok: true });
             }
 
@@ -72,6 +74,25 @@ export default {
         ctx.waitUntil(checkAllAlerts(env));
     },
 };
+
+// ── subscription registry (ONE KV key) ────────────────────────────────
+// All subscriptions live under a single key so the per-minute cron costs
+// exactly ONE read (and a write only when something fires), instead of a
+// list() + N gets. KV free tier: 100K reads/day but only 1K LIST/day —
+// the original list()-every-minute design blew the LIST quota (1,440/day)
+// regardless of subscriber count. Single-key get() avoids list() entirely.
+// Map shape: { [endpointHash]: { subscription, alerts, updatedAt } }.
+const REGISTRY_KEY = 'registry';
+
+async function loadRegistry(env) {
+    try {
+        const raw = await env.ALERTS_KV.get(REGISTRY_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch (_) { return {}; }
+}
+async function saveRegistry(env, reg) {
+    await env.ALERTS_KV.put(REGISTRY_KEY, JSON.stringify(reg));
+}
 
 // ── price fetching ───────────────────────────────────────────────────
 
@@ -107,33 +128,29 @@ async function fetchLivePrice(symbol) {
 // ── cron: check every subscription's armed thresholds ──────────────────
 
 async function checkAllAlerts(env) {
-    // List all subscription keys (free KV: list returns up to 1000/page;
-    // this app's scale is tiny, one page is plenty).
-    const list = await env.ALERTS_KV.list({ prefix: 'sub:' });
-    if (!list.keys.length) return;
+    // ONE read per tick — the whole registry under a single key. No list().
+    const reg = await loadRegistry(env);
+    const ids = Object.keys(reg);
+    if (!ids.length) return;
 
-    // Collect the union of symbols across all subs so we fetch each price
-    // ONCE per cron tick rather than per-subscription.
-    const records = [];
+    // Union of symbols across all subs so each price is fetched ONCE per
+    // tick, not per-subscriber.
     const symbolSet = new Set();
-    for (const k of list.keys) {
-        const raw = await env.ALERTS_KV.get(k.name);
-        if (!raw) continue;
-        let rec;
-        try { rec = JSON.parse(raw); } catch (_) { continue; }
-        if (!rec?.alerts || !Object.keys(rec.alerts).length) continue;
-        records.push({ key: k.name, rec });
-        for (const sym of Object.keys(rec.alerts)) symbolSet.add(sym);
+    for (const id of ids) {
+        const alerts = reg[id]?.alerts;
+        if (alerts) for (const sym of Object.keys(alerts)) symbolSet.add(sym);
     }
-    if (!records.length) return;
+    if (!symbolSet.size) return;
 
     const prices = {};
     await Promise.all([...symbolSet].map(async (sym) => {
         prices[sym] = await fetchLivePrice(sym);
     }));
 
-    for (const { key, rec } of records) {
-        let changed = false;
+    let dirty = false;   // only write the registry back if something changed
+    for (const id of ids) {
+        const rec = reg[id];
+        if (!rec?.alerts) continue;
         let removeSub = false;
         for (const [sym, thr] of Object.entries(rec.alerts)) {
             const price = prices[sym];
@@ -152,15 +169,15 @@ async function checkAllAlerts(env) {
                 // One-shot: clear the side that fired so it doesn't repeat.
                 if (fired.dir === 'above') thr.above = null; else thr.below = null;
                 if (thr.above == null && thr.below == null) delete rec.alerts[sym];
-                changed = true;
+                dirty = true;
             }
         }
-        if (removeSub) { await env.ALERTS_KV.delete(key); continue; }
-        if (changed) {
-            if (Object.keys(rec.alerts).length === 0) await env.ALERTS_KV.delete(key);
-            else { rec.updatedAt = Date.now(); await env.ALERTS_KV.put(key, JSON.stringify(rec)); }
-        }
+        if (removeSub) { delete reg[id]; dirty = true; continue; }
+        // Drop subs that have no armed alerts left so the registry stays lean.
+        if (rec.alerts && Object.keys(rec.alerts).length === 0) { delete reg[id]; dirty = true; }
     }
+
+    if (dirty) await saveRegistry(env, reg);
 }
 
 function formatPrice(p) {
