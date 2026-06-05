@@ -22,10 +22,52 @@ this file to 11 does NOT break inference against an still-deployed
 11-feature lstm_weights.json. Self-healing, no mismatch window.
 """
 import math
+import time
 import numpy as np
 
 SEQUENCE_LENGTH = 20
 FEATURES = 11
+
+
+def robust_download(symbol, *, period=None, interval='1d', start=None, end=None,
+                    retries=3, throttle=0.4, **kwargs):
+    """yfinance download with bounded retry + throttle, so Yahoo rate-limiting
+    DEGRADES GRACEFULLY instead of hanging for hours.
+
+    The cron's train_walkforward.py once ran 3h17m then failed because the
+    plain `yf.download` loop over ~530 symbols hit Yahoo throttling and
+    yfinance's internal retry/backoff stacked up per symbol. This wraps the
+    call so each symbol gets at most `retries` attempts with exponential
+    backoff, and a tiny `throttle` sleep BETWEEN symbols spreads the request
+    rate so we trip the limiter far less often. Returns an empty DataFrame-ish
+    None on persistent failure; callers already handle empties by skipping.
+
+    Imported lazily so non-training code paths don't require yfinance.
+    """
+    import yfinance as yf  # lazy — only training/backtest scripts need it
+    last_err = None
+    for attempt in range(retries):
+        try:
+            if start is not None or end is not None:
+                df = yf.download(symbol, start=start, end=end, interval=interval,
+                                 progress=False, **kwargs)
+            else:
+                df = yf.download(symbol, period=period, interval=interval,
+                                 progress=False, **kwargs)
+            # Polite spacing between symbols — the single biggest lever for
+            # not getting rate-limited across a 500-symbol sweep.
+            if throttle:
+                time.sleep(throttle)
+            return df
+        except Exception as e:  # noqa: BLE001 — yfinance raises a grab-bag
+            last_err = e
+            # Exponential backoff: 1s, 2s, 4s — gives a transient throttle
+            # time to clear without the multi-hour pileup the old loop hit.
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt)
+    if last_err is not None:
+        raise last_err
+    return None
 # 30 bars of warm-up before the sequence window so ADX (~2*period=28
 # bars) has a real value at the first sequence bar. Was 21 when the
 # model used only RSI/MA/BB. Mirrors js/ai-model.js LOOKBACK.

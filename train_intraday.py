@@ -33,7 +33,7 @@ import torch
 import torch.nn as nn
 import yfinance as yf
 
-from shared_features import SEQUENCE_LENGTH, FEATURES, LOOKBACK, compute_sequences
+from shared_features import SEQUENCE_LENGTH, FEATURES, LOOKBACK, compute_sequences, robust_download
 from train_model import PriceLSTM, SYMBOLS, EPOCHS, BATCH_SIZE, LEARNING_RATE
 
 # Yahoo caps 1h history at ~730 calendar days. Stay just under it.
@@ -57,8 +57,8 @@ def fetch_and_prepare():
     skipped = 0
     for symbol in SYMBOLS:
         try:
-            df = yf.download(symbol, period=INTRADAY_PERIOD, interval=INTRADAY_INTERVAL, progress=False)
-            if len(df) < MIN_BARS:
+            df = robust_download(symbol, period=INTRADAY_PERIOD, interval=INTRADAY_INTERVAL)
+            if df is None or len(df) < MIN_BARS:
                 skipped += 1
                 continue
             features, labels = compute_sequences(df, SEQUENCE_LENGTH)

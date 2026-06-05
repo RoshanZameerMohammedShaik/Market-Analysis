@@ -28,6 +28,13 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    # Hard backstop: a single run must never burn hours. When Yahoo
+    # rate-limits the yfinance fetch, the old loop degraded into a
+    # multi-hour hang (one run took 3h17m before failing). robust_download
+    # in shared_features.py now bounds per-symbol retries/throttle, and
+    # THIS cap guarantees the job dies fast instead of squatting a runner
+    # if throttling is severe. A healthy retrain finishes in ~20 min.
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:

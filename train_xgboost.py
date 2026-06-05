@@ -31,7 +31,7 @@ except ImportError as e:
         "xgboost not installed. Run: pip install -r requirements.txt"
     ) from e
 
-from shared_features import compute_flat_features, FEATURES as SHARED_FEATURES
+from shared_features import compute_flat_features, robust_download, FEATURES as SHARED_FEATURES
 from train_model import SYMBOLS, PERIOD
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,8 +48,8 @@ def fetch_dataset():
     skipped = 0
     for symbol in SYMBOLS:
         try:
-            df = yf.download(symbol, period=PERIOD, interval='1d', progress=False)
-            if len(df) < 50:
+            df = robust_download(symbol, period=PERIOD, interval='1d')
+            if df is None or len(df) < 50:
                 skipped += 1
                 continue
             X, y = compute_flat_features(df)

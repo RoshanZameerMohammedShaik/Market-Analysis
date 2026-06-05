@@ -20,7 +20,7 @@ import os
 # Single source of truth for feature math + counts. train_model used to
 # hand-roll its own copy; now it delegates so the LSTM, XGBoost,
 # backtest, and JS runtime can't drift apart.
-from shared_features import compute_sequences, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
+from shared_features import compute_sequences, robust_download, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
 
 
 # ─── CONFIG ────────────────────────────────────────────────────────────────────
@@ -162,8 +162,8 @@ def fetch_and_prepare_data():
     skipped = 0
     for symbol in SYMBOLS:
         try:
-            df = yf.download(symbol, period=PERIOD, interval='1d', progress=False)
-            if len(df) < SEQUENCE_LENGTH + 50:
+            df = robust_download(symbol, period=PERIOD, interval='1d')
+            if df is None or len(df) < SEQUENCE_LENGTH + 50:
                 skipped += 1
                 continue
 

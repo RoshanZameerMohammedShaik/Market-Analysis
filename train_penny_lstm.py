@@ -27,7 +27,7 @@ import sys
 # Single source of truth for feature math — penny LSTM uses the SAME
 # 11-feature definition as the main model so the browser's tier-aware
 # inference (js/ai-model.js) sends identical features to both.
-from shared_features import compute_sequences, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
+from shared_features import compute_sequences, robust_download, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
 
 # Penny universe — expanded by sector and known low-float / squeeze names.
 # Survivorship bias is a real concern; we mitigate by including delisted-by-now
@@ -73,8 +73,8 @@ def fetch_and_prepare_data():
     skipped = 0
     for symbol in SYMBOLS:
         try:
-            df = yf.download(symbol, period=PERIOD, interval='1d', progress=False)
-            if len(df) < SEQUENCE_LENGTH + 50:
+            df = robust_download(symbol, period=PERIOD, interval='1d')
+            if df is None or len(df) < SEQUENCE_LENGTH + 50:
                 skipped += 1; continue
             features, labels = compute_features(df)
             all_features.extend(features)

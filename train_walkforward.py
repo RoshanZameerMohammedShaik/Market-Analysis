@@ -24,6 +24,7 @@ import yfinance as yf
 
 from shared_features import (
     SEQUENCE_LENGTH, FEATURES, compute_sequences, compute_features_at, extract_ohlcv,
+    robust_download,
 )
 from train_model import PriceLSTM, EPOCHS, BATCH_SIZE, LEARNING_RATE, SYMBOLS, PERIOD
 
@@ -42,8 +43,8 @@ def fetch_per_symbol():
     print(f"Fetching {len(SYMBOLS)} symbols...")
     for symbol in SYMBOLS:
         try:
-            df = yf.download(symbol, period=PERIOD, interval='1d', progress=False)
-            if len(df) < SEQUENCE_LENGTH + 50:
+            df = robust_download(symbol, period=PERIOD, interval='1d')
+            if df is None or len(df) < SEQUENCE_LENGTH + 50:
                 print(f"  {symbol}: insufficient data, skipping")
                 continue
             features, labels = compute_sequences(df)
