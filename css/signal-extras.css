@@ -142,6 +142,25 @@
 .conf-dial-sub.mid  { color: var(--yellow, #fbbf24); }
 .conf-dial-sub.low  { color: var(--red); }
 
+/* ── Today's-call live status line ─────────────────────────────────── */
+.call-status {
+    margin: 6px 0 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    border-left-width: 3px;
+}
+.call-status.good { border-left-color: var(--green); }
+.call-status.bad  { border-left-color: var(--red); }
+.call-status.neutral { border-left-color: var(--text-muted); }
+.call-status-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.call-status-label { font-weight: 800; font-size: 0.9rem; color: var(--text-primary); }
+.call-status.good .call-status-label { color: var(--green); }
+.call-status.bad .call-status-label { color: var(--red); }
+.call-status-locked { font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+.call-status-detail { font-size: 0.78rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+
 /* ── Trust panel ───────────────────────────────────────────────────── */
 .trust-panel {
     margin: 8px 0 4px;

@@ -315,6 +315,15 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-suggest-list { display: flex; flex-direction: column; gap: 6px; }
 .mia-suggest { text-align: left; padding: 8px 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.82rem; transition: all 0.15s; }
 .mia-suggest:hover { border-color: var(--accent); color: var(--accent); }
+/* "Brief me" is the hero proactive action — gradient-tinted so it reads as
+   the primary thing to try, distinct from the example prompts below it. */
+.mia-suggest-brief {
+    font-weight: 700;
+    color: #fff;
+    background: var(--brand-grad-2, linear-gradient(135deg, #4a9eff, #7c3aed));
+    border-color: transparent;
+}
+.mia-suggest-brief:hover { color: #fff; filter: brightness(1.08); transform: translateY(-1px); }
 
 .mia-msg { display: flex; }
 .mia-msg.user { justify-content: flex-end; }

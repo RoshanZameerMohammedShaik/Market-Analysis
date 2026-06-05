@@ -138,6 +138,19 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         # permanently stuck on bootstrap defaults. Now persisted.
         'weightedScore': pred.get('weightedScore'),
         'dispersion': pred.get('dispersion'),
+        # Minimal source breakdown the JS source-weight learner reads. The
+        # Python cron is TECHNICALS-ONLY (it has no AI/sentiment/market
+        # sources — those live only in the browser engine), so we honestly
+        # populate ONLY the technical source with the engine's own 0-100
+        # score and leave the others null. source-weights.js skips null
+        # sources, so it learns the technical source's real hit-rate and
+        # holds the rest at baseline — grounded, not faked. (A full 4-source
+        # breakdown would require the browser engine to write the ledger,
+        # which isn't possible against a git-committed file on free infra.)
+        'breakdown': {
+            'technical': {'score': pred.get('weightedScore')},
+            'ai': None, 'sentiment': None, 'market': None,
+        },
         # Directional expected-move distance (price) this call implies, so
         # record_outcomes can grade capturedPct against the row's OWN stored
         # target — no JS<->Python re-derivation. None for non-directional /

@@ -9,13 +9,54 @@ import { renderTrustPanel } from './trust-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 import { sharePredictionCard } from './share-card.js';
+import { lockCall, getLockedCall, computeStatus } from './daily-lock.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
 
 export function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
-    const { signal, confidence, confidenceRange, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime, regime, sector, earnings } = prediction;
+
+    // TODAY'S LOCKED CALL: the engine recomputes live, but the prediction
+    // of record is the FIRST one made today and it HOLDS all day. Lock it
+    // (no-op if already locked today), then display the LOCKED signal /
+    // confidence / targets as the hero — never the drifting live recompute.
+    // The live read instead drives a STATUS line below ("on track" /
+    // "target reached" / "stopped"). One number to act on; the live price
+    // tells you how it's playing out, not a competing call. We only lock
+    // genuine analyses (skip when prediction has no signal).
+    const lockSym = state.currentSymbol;
+    if (lockSym && prediction?.signal) lockCall(lockSym, prediction);
+    const locked = lockSym ? getLockedCall(lockSym) : null;
+    // Build the view object: locked values win for the decision fields
+    // (signal, confidence, the predicted high/low targets); everything else
+    // (reasons, breakdown, news, support/resistance/ATR context) comes from
+    // the live computation since those are explanatory, not the commitment.
+    let view = prediction;
+    if (locked) {
+        let pinnedTargets = prediction.priceTargets;
+        if (pinnedTargets && locked.predictedHigh != null && locked.predictedLow != null && Number.isFinite(locked.entry) && locked.entry > 0) {
+            // Pin the headline high/low to the locked values + recompute
+            // their % against the locked entry, so the predicted range the
+            // user acts on doesn't drift with live price. Keep the live
+            // currentPrice so the card still shows where price is NOW.
+            pinnedTargets = {
+                ...pinnedTargets,
+                predictedHigh: locked.predictedHigh,
+                predictedLow: locked.predictedLow,
+                highPercent: +(((locked.predictedHigh - locked.entry) / locked.entry) * 100).toFixed(2),
+                lowPercent: +(((locked.predictedLow - locked.entry) / locked.entry) * 100).toFixed(2),
+            };
+        }
+        view = {
+            ...prediction,
+            signal: locked.signal,
+            confidence: locked.confidence,
+            priceTargets: pinnedTargets,
+        };
+    }
+
+    const { signal, confidence, confidenceRange, rawConfidence, calibrationApplied, reasons, priceTargets, trendRegime, regime, sector, earnings } = view;
     // Native currency of the symbol (USD for US tickers, INR for .NS,
     // GBP for .L, JPY for .T, etc). Threaded into every fmtPrice call
     // below so the formatter knows whether to FX-convert or render as-is.
@@ -181,6 +222,26 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
 
     const methodLabel = prediction.method || 'Technical + News + Multi-Timeframe';
 
+    // Live status of today's locked call (on-track / target-reached /
+    // stopped), computed from the current price vs the LOCKED targets. This
+    // is how the prediction "moves" now — as a status of the held call, not
+    // a new prediction. Only when we have a lock + a live price to compare.
+    let statusHTML = '';
+    if (locked && Number.isFinite(state.currentPrice)) {
+        const st = computeStatus(locked, Number(state.currentPrice));
+        if (st) {
+            const lockedTime = (() => { try { return new Date(locked.lockedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (_) { return ''; } })();
+            statusHTML = `
+                <div class="call-status ${st.tone}" title="Live status of today's locked call">
+                    <div class="call-status-row">
+                        <span class="call-status-label">${st.label}</span>
+                        <span class="call-status-locked">today's call · locked ${lockedTime}</span>
+                    </div>
+                    <div class="call-status-detail">${st.detail}</div>
+                </div>`;
+        }
+    }
+
     const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
     const trustHTML = renderTrustPanel(prediction);
     // Per-symbol confidence-trend placeholder — filled async after paint
@@ -203,6 +264,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="signal-dial-row">
                 ${dialHTML}
             </div>
+            ${statusHTML}
             ${trustHTML}
             ${trendHTML}
             ${breakdownHTML}
@@ -233,7 +295,9 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const shareBtn = section.querySelector('#share-prediction');
     if (shareBtn) {
         shareBtn.addEventListener('click', () => {
-            sharePredictionCard(prediction, state.currentSymbol).catch(() => {});
+            // Share the LOCKED view (what's on screen / today's call), not
+            // the drifting live recompute, so the card matches the card.
+            sharePredictionCard(view, state.currentSymbol).catch(() => {});
         });
     }
     lastShownConfidence = confidence;

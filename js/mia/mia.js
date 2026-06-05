@@ -375,6 +375,7 @@ export function renderThread(history) {
                 <p>Hi, I’m <strong>Mia</strong>. Ask me anything — I can call the engine, pull external sources, and drive the app for you.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
+                    <button class="mia-suggest mia-suggest-brief" data-prompt="Brief me on the market right now. Check my watchlist for any signals that flipped, today's top hot picks, the current macro regime, and any notable upcoming earnings. Give me a tight, scannable morning briefing — lead with what changed or what's most actionable, use the tools to ground every number, and keep it to a few short sections. Don't dump raw tool output; synthesize it like an analyst checking in.">☀️ Brief me — what's moving right now</button>
                     <button class="mia-suggest">Deep-dive NVDA: signal, news, and your read.</button>
                     <button class="mia-suggest">Filter Hot Picks to under $5.</button>
                     <button class="mia-suggest">If I put $1,000 in TSLA at $200, P&L at $250?</button>
@@ -384,7 +385,10 @@ export function renderThread(history) {
         thread.querySelectorAll('.mia-suggest').forEach(btn => {
             btn.addEventListener('click', () => {
                 const input = document.getElementById('mia-input');
-                input.value = btn.textContent;
+                // A chip may carry a richer hidden instruction via data-prompt
+                // (e.g. "Brief me" expands to a full briefing directive Mia
+                // orchestrates her own tools to fulfil); else use its label.
+                input.value = btn.dataset.prompt || btn.textContent;
                 onPrimaryAction();
             });
         });
