@@ -546,7 +546,7 @@ const TOOLS = {
         kind: 'control',
     },
     get_accuracy_by_setup: {
-        desc: 'open the accuracy-by-setup report AND return the breakdown of the engine\'s hit-rate by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs its baseline. Use for "which setups does the engine read best / when should I trust it / is it better on oversold buys". Quote the buckets where hit-rate beats baseline. NOTE: there is NO trending/ranging or risk-on/off breakdown — that regime state isn\'t logged per prediction, so don\'t claim one.',
+        desc: 'open the accuracy-by-setup report AND return the breakdown of the engine\'s hit-rate by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs its baseline. The overall block also has avgCapturedPct = on average what % of the PREDICTED PRICE MOVE the engine actually captured (a quality measure distinct from up/down direction — null on older rows from before target-grading). Use for "which setups does the engine read best / when should I trust it / does it hit its targets". Quote buckets where hit-rate beats baseline, and avgCapturedPct for "how close does it get to its targets". NOTE: there is NO trending/ranging or risk-on/off breakdown — that regime state isn\'t logged per prediction, so don\'t claim one.',
         args: '{"horizonDays":1}',
         run: async ({ horizonDays } = {}) => controlOpenAccuracyReport({ horizonDays }),
         kind: 'control',

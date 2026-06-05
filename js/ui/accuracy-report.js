@@ -41,15 +41,24 @@ function renderReport(data) {
             <div class="ar-dim-title">${d.title}</div>
             ${d.buckets.length ? d.buckets.map(b => bucketRow(b, o.hitRate)).join('') : '<div class="ar-dim-empty">No data.</div>'}
         </div>`).join('');
+    // Target-capture line — only shown once enough rows carry a stored
+    // target (new rows). Two distinct truths: direction (did it go the
+    // right way) AND capture (how much of the predicted move it got).
+    const captureLine = (Number.isFinite(o.avgCapturedPct) && o.capturedSampleN >= 10)
+        ? `<div class="ar-capture">…and captured <b>${o.avgCapturedPct}%</b> of the predicted move on average <span class="ar-capture-n">(${o.capturedSampleN} graded vs. their target)</span></div>`
+        : '';
     return `
         <div class="ar-overall">
-            Engine baseline: <b>${o.hitRate}%</b> over ${o.resolved} resolved ${data.horizonDays}-day calls.
-            Each setup below is measured against that baseline — green setups are where the engine has the most edge.
+            Engine baseline: <b>${o.hitRate}%</b> right direction over ${o.resolved} resolved ${data.horizonDays}-day calls.
+            ${captureLine}
+            Each setup below is measured against the direction baseline — green setups are where the engine has the most edge.
         </div>
         ${dims}
         <div class="ar-caption">
-            Broken down by the indicator context logged at prediction time. We don't show a market-regime split
-            (trending/ranging, risk-on/off) because that state isn't stored per prediction — showing it would be a guess.
+            Direction = did price close the way we called it. Capture = how much of the predicted price move it actually
+            reached (graded against each call's own stored target; blank on older rows from before target-grading).
+            We don't show a market-regime split (trending/ranging, risk-on/off) — that state isn't stored per prediction,
+            so showing it would be a guess.
         </div>`;
 }
 

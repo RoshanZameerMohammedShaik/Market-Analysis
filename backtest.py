@@ -145,6 +145,50 @@ def volume_spike(volumes, threshold=1.5):
     return {'spike': ratio > threshold, 'ratio': ratio}
 
 
+def atr(candles, period=14):
+    """Average True Range over the candle dicts. Mirrors js/analysis.js
+    calculateATR exactly (Wilder smoothing). candles: list of dicts with
+    high/low/close. Returns None if not enough bars."""
+    if len(candles) < period + 1:
+        return None
+    trs = []
+    for i in range(1, len(candles)):
+        high = candles[i]['high']
+        low = candles[i]['low']
+        prev_close = candles[i - 1]['close']
+        trs.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
+    a = sum(trs[:period]) / period
+    for i in range(period, len(trs)):
+        a = (a * (period - 1) + trs[i]) / period
+    return a
+
+
+def expected_move_for(candles, signal, confidence):
+    """Directional expected-move DISTANCE (in price) the engine is implicitly
+    predicting, mirroring the ATR-based target math in js/analysis.js
+    calculatePriceTargets. This is stored on the ledger row so record_outcomes
+    can grade capturedPct = actual_move / expected_move WITHOUT re-deriving
+    anything (no JS<->Python drift — the row stores the number it's graded on).
+
+    We use the daily-horizon ATR multiplier (0.8) since the 1d horizon is the
+    primary scored one, and the confidence-scaled factor from the JS BUY/SELL
+    branches. Returns a POSITIVE distance, or None when ATR is unavailable."""
+    a = atr(candles, 14)
+    if not a or a <= 0:
+        return None
+    expected_move = a * 0.8  # timeframe='today' multiplier (js analysis.js:537)
+    cf = confidence / 100.0
+    if signal == 'BUY':
+        # predictedHigh = current + expectedMove*(0.8 + cf*0.7)  (js:542)
+        dist = expected_move * (0.8 + cf * 0.7)
+    elif signal == 'SELL':
+        # predictedLow = current - expectedMove*(0.8 + cf*0.7)  (js:546)
+        dist = expected_move * (0.8 + cf * 0.7)
+    else:
+        dist = expected_move * 0.6
+    return round(dist, 4)
+
+
 def generate_prediction(candles):
     if len(candles) < 30:
         return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
@@ -223,7 +267,15 @@ def generate_prediction(candles):
         signal = 'NO_TRADE'
 
     indicators = {'rsi': rsi_v, 'macd': macd_v, 'bb': bb_v}
-    return {'signal': signal, 'confidence': confidence, 'indicators': indicators}
+    # Directional expected-move distance this prediction implies, stored on
+    # the row so record_outcomes can grade capturedPct without re-deriving
+    # the target (drift-proof: the row carries the number it's graded on).
+    # Only meaningful for directional calls; None for NEUTRAL/NO_TRADE.
+    expected_move = None
+    if signal in ('BUY', 'SELL'):
+        expected_move = expected_move_for(candles, signal, confidence)
+    return {'signal': signal, 'confidence': confidence, 'indicators': indicators,
+            'expectedMove': expected_move}
 
 
 def classify_tier(price, avg_volume):

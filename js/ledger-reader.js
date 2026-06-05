@@ -255,6 +255,12 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
         hits: resolved.filter(r => r.horizons[hKey].directionMatch).length,
     };
     overall.hitRate = Math.round((overall.hits / overall.resolved) * 100);
+    // Avg target-capture across rows that carry it (new, target-stored rows).
+    const capRows = resolved.filter(r => Number.isFinite(r.horizons[hKey].capturedPct));
+    overall.avgCapturedPct = capRows.length
+        ? Math.round(capRows.reduce((s, r) => s + r.horizons[hKey].capturedPct, 0) / capRows.length)
+        : null;
+    overall.capturedSampleN = capRows.length;
 
     return {
         available: true,
@@ -283,9 +289,16 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const lim = Math.max(1, Math.min(50, Number(limit) || 10));
     const recent = scoped.slice(-lim);
     let resolvedN = 0, hits = 0;
+    // capturedPct quality (only on rows that carry it — new rows with a
+    // stored target; legacy rows are null and excluded from the average).
+    let capN = 0, capSum = 0;
     for (const r of recent) {
         const h1 = r.horizons?.['1'];
-        if (h1) { resolvedN++; if (h1.directionMatch) hits++; }
+        if (h1) {
+            resolvedN++;
+            if (h1.directionMatch) hits++;
+            if (Number.isFinite(h1.capturedPct)) { capN++; capSum += h1.capturedPct; }
+        }
     }
     return {
         available: true,
@@ -295,6 +308,10 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
         resolved1d: resolvedN,
         hits1d: hits,
         hitRate1dPct: resolvedN ? Math.round((hits / resolvedN) * 100) : null,
+        // Avg % of the predicted move captured (quality, not just direction).
+        // null until enough rows carry a stored target.
+        avgCapturedPct: capN ? Math.round(capSum / capN) : null,
+        capturedSampleN: capN,
         recent,
     };
 }

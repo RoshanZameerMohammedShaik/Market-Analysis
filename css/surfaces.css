@@ -119,6 +119,9 @@
 }
 .ar-overall { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 12px; }
 .ar-overall b { color: var(--text-primary); font-family: var(--num-font); }
+.ar-capture { margin: 6px 0; font-size: 0.82rem; color: var(--text-secondary); }
+.ar-capture b { color: var(--accent); font-family: var(--num-font); }
+.ar-capture-n { font-size: 0.68rem; color: var(--text-muted); }
 .ar-dim { margin-bottom: 14px; }
 .ar-dim-title {
     font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;

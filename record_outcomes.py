@@ -130,12 +130,49 @@ def resolve_horizon(row: dict, h_days: int, bars):
         # NO_TRADE — engine abstained, there's nothing to score against.
         direction_match = None
 
+    # ── Target-capture quality (capturedPct + rangeHit) ──────────────────
+    # directionMatch is binary (did it go the right way at all). capturedPct
+    # adds QUALITY: of the move the engine implicitly predicted (expectedMove,
+    # stored on the row at prediction time), what fraction did price actually
+    # capture IN THE PREDICTED DIRECTION? Measured against the window's best
+    # favorable excursion (high for BUY, low for SELL) — "did it reach the
+    # target zone at any point", not just where it happened to close.
+    #
+    # Cap at 100 (reaching/exceeding the target is a full win, overshoot isn't
+    # extra credit), floor at 0 (wrong-direction = 0%, directionMatch already
+    # carries the up/down truth). null when the row predates target storage or
+    # is non-directional — we don't fabricate it for legacy rows.
+    captured_pct = None
+    range_hit = None
+    expected_move = row.get('expectedMove')
+    if signal in ('BUY', 'SELL') and isinstance(expected_move, (int, float)) and expected_move > 0:
+        if not direction_match:
+            # Directionally wrong (closed the wrong way) = a miss, full stop.
+            # We do NOT credit a trivial intraday wiggle in the right
+            # direction on a call that ultimately closed against us — that
+            # would let losing calls show a misleading "3% captured".
+            captured_pct = 0
+            range_hit = 'wrong_dir'
+        else:
+            # Direction was right — measure how much of the predicted move
+            # the best favorable excursion captured (high for BUY, low for
+            # SELL): "did it reach the target zone at any point in the window".
+            if signal == 'BUY':
+                favorable = (window_high - entry) if window_high is not None else move
+            else:  # SELL — favorable excursion is downward
+                favorable = (entry - window_low) if window_low is not None else -move
+            raw = max(0.0, favorable / expected_move)
+            captured_pct = int(round(min(1.0, raw) * 100))
+            range_hit = 'reached' if raw >= 1.0 else 'inside'
+
     return {
         'actualClose': round(actual_close, 4),
         'actualHigh': round(window_high, 4) if window_high is not None else None,
         'actualLow': round(window_low, 4) if window_low is not None else None,
         'pctMove': round(pct_move, 3),
         'directionMatch': direction_match,
+        'capturedPct': captured_pct,
+        'rangeHit': range_hit,
     }
 
 

@@ -131,6 +131,11 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         'entry': round(entry_price, 4),
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
+        # Directional expected-move distance (price) this call implies, so
+        # record_outcomes can grade capturedPct against the row's OWN stored
+        # target — no JS<->Python re-derivation. None for non-directional /
+        # ATR-unavailable rows; those simply get capturedPct=null.
+        'expectedMove': pred.get('expectedMove'),
         'indicators': pred.get('indicators') or {},
         'horizons': {str(h): None for h in HORIZONS_DAYS},
     }
