@@ -61,8 +61,7 @@ export function renderConfidenceDial({ value, signal, label = 'confidence', size
                       data-dial-fill="${(ARC_LEN - sweep).toFixed(2)}" />
             </svg>
             <div class="conf-dial-center">
-                <span class="conf-dial-num" data-dial-num data-dial-target="${v}">0</span>
-                <span class="conf-dial-pct">%</span>
+                <span class="conf-dial-readout"><span class="conf-dial-num" data-dial-num data-dial-target="${v}">0</span><span class="conf-dial-pct">%</span></span>
                 ${sublabel ? `<span class="conf-dial-sub ${tier}">${sublabel}</span>` : ''}
             </div>
         </div>`;

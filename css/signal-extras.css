@@ -102,24 +102,30 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 1px;
-    flex-wrap: wrap;
-    flex-direction: row;
+    flex-direction: column;
     line-height: 1;
+}
+/* Number + % are ONE inline group so the % stays glued to the number as
+   a small superscript, rather than being a flex sibling that aligns to
+   the top of the (tall) flex line and floats up near the arc. */
+.conf-dial-readout {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
 }
 .conf-dial-num {
     font-family: var(--num-font);
     font-size: 2.1rem;
     font-weight: 900;
     color: var(--text-primary);
+    line-height: 1;
 }
 .conf-dial-pct {
     font-family: var(--num-font);
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-muted);
-    align-self: flex-start;
-    margin-top: 6px;
+    margin-left: 2px;
 }
 .conf-dial-sub {
     position: absolute;
