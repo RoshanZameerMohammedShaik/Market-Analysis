@@ -90,11 +90,18 @@ def aggregate(rows):
             if outcome.get('directionMatch'):
                 slot['hits'] += 1
 
-            rslot = by_region[region][bkt]
-            rslot['n'] += 1
-            rslot['pred_sum'] += confidence
-            if outcome.get('directionMatch'):
-                rslot['hits'] += 1
+            # by_region is NOT keyed by signal, and the JS reader
+            # (calibration.js liveRegionLookup) uses it to calibrate
+            # BUY/SELL confidence. NEUTRAL's directionMatch means "stayed
+            # flat" — a different success criterion — so blending it in
+            # contaminated the directional region calibration. Restrict
+            # by_region to directional calls only.
+            if signal in ('BUY', 'SELL'):
+                rslot = by_region[region][bkt]
+                rslot['n'] += 1
+                rslot['pred_sum'] += confidence
+                if outcome.get('directionMatch'):
+                    rslot['hits'] += 1
 
     return by_horizon, by_region, total_resolved
 

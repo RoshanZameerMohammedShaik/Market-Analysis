@@ -205,8 +205,10 @@ function learnDispersionPenalties(rows) {
 
 async function recomputeFromLedger() {
     const rows = await loadLedger();
+    // != null so NO_TRADE rows (directionMatch:null) don't inflate the
+    // learn-gate count; only genuinely-resolved directional/neutral rows count.
     const resolvedCount = rows.filter(r =>
-        r.horizons?.['1']?.directionMatch !== undefined
+        r.horizons?.['1']?.directionMatch != null
     ).length;
 
     if (resolvedCount < MIN_RESOLVED_TO_LEARN) {

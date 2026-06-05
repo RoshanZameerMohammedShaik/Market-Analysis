@@ -59,7 +59,10 @@ export async function readSymbolConfidenceTrend({ symbol, limit = 30 } = {}) {
     const points = recent.map(r => {
         const h1 = r.horizons?.['1'];
         let outcome = null;
-        if (h1 && h1.directionMatch !== undefined) outcome = h1.directionMatch ? 'hit' : 'miss';
+        // != null catches BOTH undefined (unresolved) AND null (NO_TRADE,
+        // which resolve_outcomes writes as directionMatch:null). Without
+        // this, a NO_TRADE/unresolved row plotted as a red "miss" dot.
+        if (h1 && h1.directionMatch != null) outcome = h1.directionMatch ? 'hit' : 'miss';
         return { date: r.date, confidence: r.confidence, signal: r.signal, outcome };
     });
     return { available: true, symbol: sym, points };
@@ -83,7 +86,10 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
     const markers = scoped.map(r => {
         const h1 = r.horizons?.['1'];
         let outcome = null;
-        if (h1 && h1.directionMatch !== undefined) outcome = h1.directionMatch ? 'hit' : 'miss';
+        // != null catches BOTH undefined (unresolved) AND null (NO_TRADE,
+        // which resolve_outcomes writes as directionMatch:null). Without
+        // this, a NO_TRADE/unresolved row plotted as a red "miss" dot.
+        if (h1 && h1.directionMatch != null) outcome = h1.directionMatch ? 'hit' : 'miss';
         // lightweight-charts wants `time` as a UTC day stamp; our candle
         // series uses UNIX-seconds, so convert the YYYY-MM-DD date the
         // same way (midnight UTC) for a clean alignment to the bar.
@@ -137,7 +143,7 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, st
         (r.signal === 'BUY' || r.signal === 'SELL') &&
         r.horizons?.[hKey] &&
         Number.isFinite(r.horizons[hKey].pctMove) &&
-        r.horizons[hKey].directionMatch !== undefined
+        r.horizons[hKey].directionMatch != null
     );
     if (symbol) {
         const sym = String(symbol).toUpperCase();
@@ -199,7 +205,7 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
     const hKey = String(horizonDays);
     const resolved = rows.filter(r =>
         (r.signal === 'BUY' || r.signal === 'SELL') &&
-        r.horizons?.[hKey] && r.horizons[hKey].directionMatch !== undefined
+        r.horizons?.[hKey] && r.horizons[hKey].directionMatch != null
     );
     if (resolved.length < 3) return { available: false, totalResolved: resolved.length };
 

@@ -425,6 +425,12 @@ const TOOLS = {
             if (!isInstantiated()) throw new Error('No practice portfolio loaded. User must instantiate one first.');
             const sd = String(side || '').toUpperCase();
             if (sd !== 'BUY' && sd !== 'SELL') throw new Error('side must be BUY or SELL.');
+            // Voice path: the Live schema can't mark `value` conditionally
+            // required, so the model can call amountUSD/units with no value.
+            // Guard here so we never dispatch a zero/undefined-size trade.
+            if (mode !== 'all' && !(Number(value) > 0)) {
+                throw new Error('A positive value is required for mode "amountUSD" or "units".');
+            }
             const quote = mode === 'all' ? { mode: 'all' } : { mode, value };
             const fn = sd === 'BUY' ? portfolioBuy : portfolioSell;
             return await fn(symbol, quote);

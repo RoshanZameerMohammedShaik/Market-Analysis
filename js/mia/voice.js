@@ -319,22 +319,31 @@ function wireOverlayEvents() {
     document.getElementById('mia-voice-orb').addEventListener('click', onOrbTap);
     // The Mia launcher is the entry point AND the minimized handle —
     // tapping it while a session is minimized re-opens the panel.
-    document.getElementById('mia-launcher')?.addEventListener('click', (e) => {
-        if (session.minimized && session.open) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-            // While minimized, the launcher acts as both the orb (interrupt
-            // mid-sentence) AND the restore handle. If Mia is actively
-            // speaking or thinking, treat the tap as an interrupt — same
-            // as tapping the main orb. If she's listening or idle, just
-            // restore the panel so the user can see what's going on.
-            if (session.state === 'speaking' || session.state === 'thinking') {
-                onOrbTap();
-            } else {
-                restoreVoice();
+    // GUARD against re-attaching: wireOverlayEvents runs on every
+    // renderChat/overlay re-mount, and #mia-launcher is persistent — without
+    // a dedup flag the listener stacked, so one tap fired N times (and the
+    // extra onOrbTap()->startListening() calls raced the SR teardown). Match
+    // the dataset-flag pattern wireLauncherHoldToVoice already uses.
+    const launcher = document.getElementById('mia-launcher');
+    if (launcher && !launcher.dataset.voiceTapWired) {
+        launcher.dataset.voiceTapWired = '1';
+        launcher.addEventListener('click', (e) => {
+            if (session.minimized && session.open) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                // While minimized, the launcher acts as both the orb (interrupt
+                // mid-sentence) AND the restore handle. If Mia is actively
+                // speaking or thinking, treat the tap as an interrupt — same
+                // as tapping the main orb. If she's listening or idle, just
+                // restore the panel so the user can see what's going on.
+                if (session.state === 'speaking' || session.state === 'thinking') {
+                    onOrbTap();
+                } else {
+                    restoreVoice();
+                }
             }
-        }
-    }, true); // capture phase so we beat the chat-toggle handler
+        }, true); // capture phase so we beat the chat-toggle handler
+    }
     wireLauncherHoldToVoice();
 }
 

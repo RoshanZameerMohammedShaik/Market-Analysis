@@ -731,6 +731,9 @@ function currencySymbol(c) {
 // every notification across the app to use the same top-left pattern
 // with a green drain bar.
 function toast(msg, kind) {
-    const map = { error: 'error', warn: 'warn', success: 'success', info: 'info' };
+    // Callers pass 'pos'/'neg' (profit/loss) throughout this module; without
+    // mapping them they all fell through to neutral 'info' and lost their
+    // green/red tint. Map pos→success, neg→error.
+    const map = { pos: 'success', neg: 'error', error: 'error', warn: 'warn', success: 'success', info: 'info' };
     notify(msg, { kind: map[kind] || 'info' });
 }

@@ -267,6 +267,19 @@ def generate_prediction(candles):
         signal = 'NO_TRADE'
 
     indicators = {'rsi': rsi_v, 'macd': macd_v, 'bb': bb_v}
+    # weightedScore: the 0-100 bull scale (50 = neutral) the JS learner
+    # (calibration-thresholds.js) needs to derive buy/sell SCORE thresholds.
+    # The ledger previously stored only signal+confidence, so the learner saw
+    # no weightedScore on any row and was STUCK on bootstrap (60/40) forever.
+    # norm in [-1,+1] maps linearly: +1 -> 100 bullish, -1 -> 0 bearish.
+    weighted_score = round(50 + norm * 50, 2)
+    # dispersion: a 0-80 "evidence disagreement" proxy so the learner's
+    # dispersion-penalty bands have data. The JS engine measures spread across
+    # 4 named sources; this Python engine has only bull/bear tallies, so we
+    # use the share of evidence that pulled AGAINST the net direction —
+    # higher = more conflicted. Scaled to the learner's 0-80 bucket range.
+    conflicting = min(bull, bear)
+    dispersion = round((conflicting / total) * 80, 1) if total else 0
     # Directional expected-move distance this prediction implies, stored on
     # the row so record_outcomes can grade capturedPct without re-deriving
     # the target (drift-proof: the row carries the number it's graded on).
@@ -275,6 +288,7 @@ def generate_prediction(candles):
     if signal in ('BUY', 'SELL'):
         expected_move = expected_move_for(candles, signal, confidence)
     return {'signal': signal, 'confidence': confidence, 'indicators': indicators,
+            'weightedScore': weighted_score, 'dispersion': dispersion,
             'expectedMove': expected_move}
 
 

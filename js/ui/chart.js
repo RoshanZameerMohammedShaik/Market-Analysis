@@ -20,6 +20,17 @@ function setEngineSignalsOn(on) {
     try { localStorage.setItem(ENGINE_SIGNALS_KEY, on ? '1' : '0'); } catch (_) {}
 }
 
+// Live lightweight-charts instance + its ResizeObserver, held so we can
+// dispose them before each re-render. Without this, every loadChart()
+// (symbol change, theme cycle, signals toggle) orphaned a chart instance
+// + an observing ResizeObserver → steady memory/observer leak.
+let _localChart = null;
+let _localChartRO = null;
+function teardownLocalChart() {
+    if (_localChartRO) { try { _localChartRO.disconnect(); } catch (_) {} _localChartRO = null; }
+    if (_localChart) { try { _localChart.remove(); } catch (_) {} _localChart = null; }
+}
+
 const TV_CRYPTO_MAP = {
     BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', SOL: 'BINANCE:SOLUSDT',
     XRP: 'BINANCE:XRPUSDT', DOGE: 'BINANCE:DOGEUSDT', ADA: 'BINANCE:ADAUSDT',
@@ -86,6 +97,7 @@ export function loadChart() {
         symbol = TV_CRYPTO_MAP[sym] || `BINANCE:${sym}USDT`;
     }
 
+    teardownLocalChart();   // dispose any prior lightweight-charts instance + observer
     container.innerHTML = '';
     chartHeader.classList.remove('hidden');
 
@@ -172,7 +184,7 @@ async function renderLocalChart(symbol, container, opts = {}) {
 
         container.innerHTML = '<div id="tv-local-chart" style="width:100%;height:100%;"></div>';
         const host = container.querySelector('#tv-local-chart');
-        const chart = LWC.createChart(host, {
+        _localChart = LWC.createChart(host, {
             layout: { background: { color: themeColors.bg }, textColor: themeColors.text },
             grid: { vertLines: { color: themeColors.grid }, horzLines: { color: themeColors.grid } },
             timeScale: { timeVisible: false, secondsVisible: false, borderColor: themeColors.border },
@@ -180,6 +192,7 @@ async function renderLocalChart(symbol, container, opts = {}) {
             crosshair: { mode: 1 },
             autoSize: true,
         });
+        const chart = _localChart;   // local alias; teardownLocalChart disposes it on next render
         const candleSeries = chart.addCandlestickSeries({
             upColor: '#22c55e', downColor: '#ef4444',
             borderUpColor: '#22c55e', borderDownColor: '#ef4444',
@@ -239,8 +252,8 @@ async function renderLocalChart(symbol, container, opts = {}) {
         chart.timeScale().fitContent();
         // Auto-resize when the panel layout changes (e.g. Mia / Portfolio
         // panels open and shift the main column width).
-        const ro = new ResizeObserver(() => chart.applyOptions({ autoSize: true }));
-        ro.observe(host);
+        _localChartRO = new ResizeObserver(() => chart.applyOptions({ autoSize: true }));
+        _localChartRO.observe(host);
     } catch (e) {
         container.innerHTML = `<div class="error-message">Couldn't load chart: ${e.message}</div>`;
     }

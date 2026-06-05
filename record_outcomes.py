@@ -91,7 +91,13 @@ def fetch_window(symbol: str, start_iso: str, days_needed: int):
         closes = [c[0] if isinstance(c, list) else c for c in closes]
         highs = [h[0] if isinstance(h, list) else h for h in highs]
         lows = [l[0] if isinstance(l, list) else l for l in lows]
-    return list(closes), list(highs), list(lows)
+    # Align the three series to a common length. They're extracted
+    # independently and a column-shape skew (rare MultiIndex edge) would
+    # otherwise let resolve_horizon grade a capturedPct against a shorter
+    # high/low window than the close it compares to — a wrong-but-plausible
+    # number that the idempotent rewrite would then freeze permanently.
+    n = min(len(closes), len(highs), len(lows))
+    return list(closes[:n]), list(highs[:n]), list(lows[:n])
 
 
 def resolve_horizon(row: dict, h_days: int, bars):
@@ -100,8 +106,10 @@ def resolve_horizon(row: dict, h_days: int, bars):
         return None
     closes, highs, lows = bars
     # bars[0] is the prediction-day close (or the next available bar);
-    # we want the close at index h_days from the prediction day.
-    if len(closes) <= h_days:
+    # we want the close at index h_days from the prediction day. Gate on
+    # ALL THREE series so window_high/window_low are graded over the same
+    # matured window as the close (not a truncated slice).
+    if len(closes) <= h_days or len(highs) <= h_days or len(lows) <= h_days:
         return None  # window not matured
 
     entry = row['entry']

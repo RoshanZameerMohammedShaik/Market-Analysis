@@ -56,7 +56,7 @@ function computeHitRates(rows) {
 
     for (const row of rows) {
         const h1 = row.horizons?.['1'];
-        if (!h1 || h1.directionMatch === undefined) continue;
+        if (!h1 || h1.directionMatch == null) continue;  // != null: also skip NO_TRADE nulls
         const bd = row.breakdown;
         if (!bd) continue;
         // Only look at directionally-committed signals.

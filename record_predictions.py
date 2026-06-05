@@ -131,6 +131,13 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         'entry': round(entry_price, 4),
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
+        # weightedScore (0-100 bull scale) + dispersion (0-80 evidence
+        # conflict): the JS learner (calibration-thresholds.js) reads these
+        # off each row to derive buy/sell SCORE thresholds + dispersion
+        # penalties. They were never stored before, so the learner was
+        # permanently stuck on bootstrap defaults. Now persisted.
+        'weightedScore': pred.get('weightedScore'),
+        'dispersion': pred.get('dispersion'),
         # Directional expected-move distance (price) this call implies, so
         # record_outcomes can grade capturedPct against the row's OWN stored
         # target — no JS<->Python re-derivation. None for non-directional /

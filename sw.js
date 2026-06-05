@@ -27,8 +27,10 @@ self.addEventListener('push', (event) => {
         // Re-alert even if a notification with the same tag exists, so a
         // fresh cross is never silently swallowed.
         renotify: true,
-        icon: './icons/icon-192.png',
-        badge: './icons/icon-192.png',
+        // No icon/badge file: the app ships its icon as an inline SVG
+        // data-URI (no binary PNGs in the repo), and a missing ./icons/
+        // path renders a broken glyph. Omitting lets the platform use its
+        // default browser icon, which looks intentional rather than broken.
         data: data.data || {},
     };
     event.waitUntil(self.registration.showNotification(title, options));
