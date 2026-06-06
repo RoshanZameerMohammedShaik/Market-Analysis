@@ -122,13 +122,21 @@ async function scoreOne({ symbol, name, price, candles, mode, regime, sectorAdj,
     };
 }
 
+// ONE physical-reach rule, shared by feasibility AND projection so they
+// can't contradict: a same-session move can plausibly stretch to ~3 daily
+// ATRs (3-sigma intraday), capped at 80%.
+function physicalMaxPct(scored) {
+    return Math.min(80, scored.atrPct * 3);
+}
+
 function feasibleForBucket(scored, bucket) {
     if (!scored) return false;
-    // ATR-feasibility: bucket midpoint must be within ~2x of one daily ATR
-    // for the move to be plausible same-session.
-    const midPct = bucket.maxPct === Infinity ? bucket.minPct * 1.4 : (bucket.minPct + Math.min(bucket.maxPct, 80)) / 2;
-    if (scored.atrPct * 2 < midPct) return false;
-    return true;
+    // Feasible only if the candidate can physically REACH the band's floor.
+    // Previously the gate used ATR×2-vs-midpoint while the projection used
+    // ATR×3, so they disagreed — a candidate could pass the gate yet project
+    // a % outside its own bucket (e.g. ">50%" showing "+15%"). Now both use
+    // physicalMaxPct, and the test is "can it reach bucket.minPct".
+    return physicalMaxPct(scored) >= bucket.minPct;
 }
 
 /**
@@ -234,10 +242,19 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
     top.sort((a, b) => b.rawProbability - a.rawProbability);
     const calibratedAvailable = getCalibrationStatus() === 'loaded';
     const finalized = top.map(s => {
-        // Project a target near bucket midpoint, capped to ATR·3 (3-sigma intraday).
+        // Project a target that ALWAYS lands inside the selected bucket band.
+        // Aim near the midpoint, clamp to [minPct, min(maxPct, physicalMax)],
+        // and floor at the band minimum so the shown % can never fall below
+        // the bucket the user filtered for. physicalMax uses the SAME ATR×3
+        // rule as feasibleForBucket, so gate and projection agree.
+        const physMax = physicalMaxPct(s);
         const desiredPct = bucket.maxPct === Infinity ? bucket.minPct + 5 : (bucket.minPct + Math.min(bucket.maxPct, 80)) / 2;
-        const physicallyMaxPct = Math.min(80, s.atrPct * 3);
-        const projectedPct = Math.min(desiredPct, physicallyMaxPct);
+        const bandCap = Math.min(bucket.maxPct === Infinity ? 80 : bucket.maxPct, physMax);
+        // If physical reach can't even hit the floor, this candidate doesn't
+        // belong in the band — drop it (defense-in-depth; feasibleForBucket
+        // already filtered, but keep the projection self-consistent).
+        if (bandCap < bucket.minPct) return null;
+        const projectedPct = Math.max(bucket.minPct, Math.min(desiredPct, bandCap));
         const targetPrice = s.price * (1 + projectedPct / 100);
         // Confidence: clamp to 38..82 then calibrate.
         const rawConfidence = Math.round(38 + s.rawProbability * 44);
@@ -256,5 +273,6 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
         };
     });
 
-    return finalized;
+    // Drop any candidate the band-projection excluded (returned null).
+    return finalized.filter(Boolean);
 }
