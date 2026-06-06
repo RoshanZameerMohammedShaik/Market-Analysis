@@ -27,6 +27,7 @@ import os
 from collections import defaultdict
 
 from ledger_universe import HORIZONS_DAYS, REGIONS
+from shared_features import ENGINE_VERSION
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEDGER_DIR = os.path.join(SCRIPT_DIR, 'model', 'ledger')
@@ -72,11 +73,31 @@ def aggregate(rows):
     by_region = defaultdict(lambda: defaultdict(lambda: {'n': 0, 'pred_sum': 0.0, 'hits': 0}))
 
     total_resolved = 0
+    # Provenance accounting: how many resolved horizons we KEEP (current
+    # engine) vs SKIP (older engine logic). Surfaced so a logic change that
+    # discards the historical record is loud, never silent.
+    skipped_old_engine = 0
+    skipped_resolved = 0
     for r in rows:
         signal = r.get('signal')
         confidence = r.get('confidence', 0)
         region = r.get('region', 'NYSE')
         if signal not in ('BUY', 'SELL', 'NEUTRAL'):
+            continue
+        # Version gate: only rows produced by the engine that's running now
+        # count toward the calibration the user sees. Rows from a prior
+        # engine (or unversioned rows pre-dating this scheme) are EXCLUDED so
+        # a scoring change — like the 1-day mean-reversion rebalance — rebuilds
+        # its track record from scratch instead of inheriting the old, now-
+        # wrong hit-rate. New 1-day buckets refill within days (1d resolves
+        # daily); longer horizons take proportionally longer, which is honest:
+        # we don't claim an edge we haven't re-observed under the new logic.
+        row_version = r.get('engineVersion', 'unversioned')
+        if row_version != ENGINE_VERSION:
+            skipped_old_engine += 1
+            for _h, _o in (r.get('horizons') or {}).items():
+                if _o is not None:
+                    skipped_resolved += 1
             continue
         bkt = bucket_for(confidence)
 
@@ -103,7 +124,7 @@ def aggregate(rows):
                 if outcome.get('directionMatch'):
                     rslot['hits'] += 1
 
-    return by_horizon, by_region, total_resolved
+    return by_horizon, by_region, total_resolved, skipped_old_engine, skipped_resolved
 
 
 def to_rate(slot):
@@ -119,10 +140,21 @@ def to_rate(slot):
 
 def main():
     rows = load_all_rows()
-    by_horizon, by_region, total_resolved = aggregate(rows)
+    by_horizon, by_region, total_resolved, skipped_old_engine, skipped_resolved = aggregate(rows)
 
     out = {
         'generatedAt': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+        # The engine logic these numbers describe. The trust panel reads this
+        # to honestly label the track record as belonging to the current
+        # engine (and to show "rebuilding under updated engine" when the
+        # current-engine sample is still thin after a logic change).
+        'engineVersion': ENGINE_VERSION,
+        # How much history was set aside because it came from an older engine.
+        # When this is large and totalResolvedHorizons is small, the track
+        # record is mid-rebuild — the UI says so rather than implying the new
+        # engine has a long proven history.
+        'skippedOldEngineRows': skipped_old_engine,
+        'skippedOldEngineResolved': skipped_resolved,
         'byHorizon': {},
         'byRegion': {},
         'totalRowsConsidered': len(rows),
@@ -140,7 +172,13 @@ def main():
     with open(OUTPUT_PATH, 'w') as f:
         json.dump(out, f, indent=2)
     print(f"Wrote {OUTPUT_PATH}")
-    print(f"  Considered: {len(rows)} rows, resolved: {total_resolved} horizons")
+    print(f"  Engine version: {ENGINE_VERSION}")
+    print(f"  Considered: {len(rows)} rows, resolved (current engine): {total_resolved} horizons")
+    if skipped_old_engine:
+        print(f"  Skipped {skipped_old_engine} rows ({skipped_resolved} resolved horizons) from older/unversioned engines.")
+        if total_resolved < skipped_resolved:
+            print(f"  NOTE: track record is mid-rebuild under the new engine "
+                  f"({total_resolved} vs {skipped_resolved} retired). 1d buckets refill fastest.")
 
 
 if __name__ == '__main__':

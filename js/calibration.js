@@ -24,8 +24,14 @@ let lastSourceUsed = null;        // for telemetry: which strata answered last c
 
 export async function loadCalibration() {
     if (calibrationStatus !== 'unloaded') return calibration;
+    // Each source loads INDEPENDENTLY. A failure in one (e.g. a malformed
+    // backtest_results.json — historically it shipped bare `NaN` tokens that
+    // throw in JSON.parse) must NOT take down the other. Previously both were
+    // in one try/catch, so a backtest parse error bailed before live
+    // calibration loaded — silently disabling ALL live-ledger calibration and
+    // dropping confidence back to raw. Isolating them prevents that cascade.
     try {
-        // Backtest calibration (primary source today; fallback once live has data).
+        // Backtest calibration (fallback once live has data).
         const res = await fetch('./model/backtest_results.json');
         if (res.ok) {
             const data = await res.json();
@@ -34,20 +40,20 @@ export async function loadCalibration() {
             calibrationByVolTier = data?.overall?.calibration_by_vol_tier || null;
             calibrationRecency = data?.overall?.calibration_recency_weighted || null;
         }
-
-        // Live calibration from the ledger pipeline (Step 3 output).
-        // Optional — file may not exist yet on fresh deploys.
-        try {
-            const lr = await fetch('./model/live_calibration.json');
-            if (lr.ok) liveCalibration = await lr.json();
-        } catch (_) { /* ledger not seeded yet */ }
-
-        calibrationStatus = (calibration || liveCalibration) ? 'loaded' : 'unavailable';
-        return calibration;
-    } catch (_) {
-        calibrationStatus = 'unavailable';
-        return null;
+    } catch (e) {
+        // Leave backtest curves null; live calibration below can still load.
+        console.warn('Backtest calibration failed to load (continuing with live):', e);
     }
+
+    // Live calibration from the ledger pipeline (Step 3 output).
+    // Optional — file may not exist yet on fresh deploys.
+    try {
+        const lr = await fetch('./model/live_calibration.json');
+        if (lr.ok) liveCalibration = await lr.json();
+    } catch (_) { /* ledger not seeded yet */ }
+
+    calibrationStatus = (calibration || liveCalibration) ? 'loaded' : 'unavailable';
+    return calibration;
 }
 
 export function getCalibrationStatus() { return calibrationStatus; }
@@ -240,6 +246,28 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
     }
     lastSourceUsed = 'raw'; lastSampleN = 0;
     return rawConfidence;
+}
+
+// Track-record rebuild status. After an engine logic change, recalibrate_
+// from_ledger.py excludes prior-engine rows (version gate), so the live
+// calibration is rebuilt from scratch under the new engine. This surfaces
+// that state to the UI so it can say "track record rebuilding under the
+// updated engine" instead of either (a) implying a long proven history that
+// belongs to the OLD engine, or (b) implying this is a brand-new app with no
+// history at all. Returns null until live calibration loads.
+//   rebuilding = the new engine's resolved sample is still smaller than the
+//   retired one (we're in the catch-up window). 1-day buckets refill fastest
+//   because 1d horizons resolve daily.
+export function getTrackRecordStatus() {
+    if (!liveCalibration) return null;
+    const current = liveCalibration.totalResolvedHorizons || 0;
+    const retired = liveCalibration.skippedOldEngineResolved || 0;
+    return {
+        engineVersion: liveCalibration.engineVersion || null,
+        currentResolved: current,
+        retiredResolved: retired,
+        rebuilding: retired > 0 && current < retired,
+    };
 }
 
 export function getCalibrationSource() { return lastSourceUsed; }

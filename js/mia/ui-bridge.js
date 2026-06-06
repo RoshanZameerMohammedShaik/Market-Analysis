@@ -575,11 +575,25 @@ export async function readLiveCalibration() {
         const res = await fetch('./model/live_calibration.json');
         if (!res.ok) return { available: false, note: 'Live calibration not generated yet.' };
         const data = await res.json();
+        const resolved = data.totalResolvedHorizons || 0;
+        const retired = data.skippedOldEngineResolved || 0;
+        // Honest rebuilding state: when a scoring change retired the prior
+        // engine's record and the new engine hasn't re-accumulated samples,
+        // tell Mia so it explains "rebuilding under the updated engine"
+        // instead of presenting an empty byHorizon table as if it were data
+        // (Mia must never quote ungrounded numbers).
+        const rebuilding = retired > 0 && resolved < retired;
         return {
             available: true,
+            engineVersion: data.engineVersion || null,
+            rebuilding,
+            retiredResolvedHorizons: retired,
+            note: rebuilding
+                ? `The engine's scoring was just updated (${data.engineVersion || 'new version'}). Its live calibration is rebuilding: ${retired} resolved outcomes from the previous engine were set aside because they no longer reflect how it calls now, and ${resolved} have resolved under the new engine so far. Per-horizon hit-rates reappear as fresh calls resolve (1-day fills fastest). Until then, confidence falls back to the backtest calibration.`
+                : undefined,
             generatedAt: data.generatedAt,
             totalRowsConsidered: data.totalRowsConsidered,
-            totalResolvedHorizons: data.totalResolvedHorizons,
+            totalResolvedHorizons: resolved,
             byHorizon: data.byHorizon,
             byRegion: data.byRegion,
         };

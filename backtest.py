@@ -25,16 +25,42 @@ import datetime
 import numpy as np
 import yfinance as yf
 
-from shared_features import extract_ohlcv, compute_features_at, compute_adx
+from shared_features import extract_ohlcv, compute_features_at, compute_adx, ENGINE_VERSION
 from train_model import SYMBOLS, PERIOD
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
 RESULTS_PATH = os.path.join(MODEL_DIR, 'backtest_results.json')
+# ENGINE_VERSION is defined in shared_features (dependency-light) and
+# imported above so the engine and the calibration aggregator share ONE
+# source of truth. Bump it there when directional scoring changes.
 
 # Recency-weighted calibration half-life (days). Most recent observations
 # dominate; ~5 half-lives back the weight is ~3%.
 RECENCY_HALFLIFE_DAYS = 30.0
+
+
+def _json_safe(obj):
+    """Recursively replace non-finite floats (NaN, +/-Infinity) with None so
+    the output is valid JSON. numpy can produce NaN from quantiles/means over
+    windows that contain a NaN return, and json.dump's default allow_nan=True
+    would emit a bare `NaN` token that browsers refuse to parse. Also coerces
+    numpy scalar types to native Python so json can serialize them."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    # numpy scalars (np.float64 etc.) -> native, then finite-check
+    if isinstance(obj, np.floating):
+        f = float(obj)
+        return f if math.isfinite(f) else None
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    return obj
 
 
 def rsi(closes, period=14):
@@ -317,7 +343,7 @@ def generate_prediction(candles):
         expected_move = expected_move_for(candles, signal, confidence)
     return {'signal': signal, 'confidence': confidence, 'indicators': indicators,
             'weightedScore': weighted_score, 'dispersion': dispersion,
-            'expectedMove': expected_move}
+            'expectedMove': expected_move, 'engineVersion': ENGINE_VERSION}
 
 
 def classify_tier(price, avg_volume):
@@ -735,5 +761,12 @@ if __name__ == '__main__':
         'per_symbol': per_symbol,
     }
     with open(RESULTS_PATH, 'w') as f:
-        json.dump(results, f, indent=2)
+        # allow_nan=False forces an error instead of emitting bare NaN/Infinity
+        # tokens, which are INVALID JSON: the browser's JSON.parse throws on
+        # them, and that single throw was killing ALL of calibration.js's
+        # loadCalibration() (it bailed before even loading live calibration —
+        # so confidence silently fell back to raw/uncalibrated). We sanitize
+        # first (NaN/Inf -> null), THEN dump strictly so any future non-finite
+        # leak fails the cron loudly instead of shipping unparseable JSON.
+        json.dump(_json_safe(results), f, indent=2, allow_nan=False)
     print(f"\n✓ Results written to {RESULTS_PATH}")

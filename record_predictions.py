@@ -131,6 +131,13 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         'entry': round(entry_price, 4),
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
+        # Provenance: which engine logic produced this call. recalibrate_from_
+        # ledger.py + the trust panel aggregate ONLY current-engine rows, so a
+        # scoring change (e.g. the 1d mean-reversion rebalance) rebuilds its
+        # track record from scratch instead of inheriting the prior engine's
+        # hit-rate. See backtest.ENGINE_VERSION. Falls back to a sentinel for
+        # the (impossible) case where the engine didn't stamp one.
+        'engineVersion': pred.get('engineVersion', 'unversioned'),
         # weightedScore (0-100 bull scale) + dispersion (0-80 evidence
         # conflict): the JS learner (calibration-thresholds.js) reads these
         # off each row to derive buy/sell SCORE thresholds + dispersion

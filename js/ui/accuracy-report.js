@@ -33,6 +33,9 @@ function bucketRow(b, overallRate) {
 
 function renderReport(data) {
     if (!data || !data.available) {
+        if (data?.rebuilding) {
+            return `<div class="ar-empty">The engine was just improved, so its accuracy breakdown is rebuilding under the new logic. ${data.retiredRows} earlier predictions came from the previous engine — and since the update changed which setups it reads well, those numbers no longer apply and are set aside. The breakdown reappears as fresh calls resolve.</div>`;
+        }
         return `<div class="ar-empty">Not enough resolved predictions yet to break accuracy down by setup${data?.totalResolved ? ` (${data.totalResolved} so far)` : ''}.</div>`;
     }
     const o = data.overall;

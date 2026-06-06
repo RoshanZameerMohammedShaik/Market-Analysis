@@ -169,13 +169,13 @@
       "buckets": {
         "BUY-50-60": {
           "n": 217117,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         },
         "BUY-60-70": {
           "n": 26008,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         },
         "BUY-70-80": {
           "n": 161,
@@ -184,18 +184,18 @@
         },
         "BUY-any": {
           "n": 243286,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         },
         "SELL-50-60": {
           "n": 214875,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         },
         "SELL-60-70": {
           "n": 36012,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         },
         "SELL-70-80": {
           "n": 130,
@@ -204,8 +204,8 @@
         },
         "SELL-any": {
           "n": 251017,
-          "q70_pct": NaN,
-          "mean_abs_return_pct": NaN
+          "q70_pct": null,
+          "mean_abs_return_pct": null
         }
       },
       "method": "split-conformal residual quantile of |daily return %|"
@@ -1438,9 +1438,9 @@
     },
     "pnl": {
       "trades": 494303,
-      "total_return": NaN,
+      "total_return": null,
       "sharpe": 0.0,
-      "max_drawdown": NaN
+      "max_drawdown": null
     }
   },
   "per_symbol": {
@@ -3929,13 +3929,13 @@
           },
           "BUY-60-70": {
             "n": 30,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 257,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 280,
@@ -3984,9 +3984,9 @@
       },
       "pnl": {
         "trades": 570,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ASML": {
@@ -5191,8 +5191,8 @@
           },
           "SELL-50-60": {
             "n": 218,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 22,
@@ -5201,8 +5201,8 @@
           },
           "SELL-any": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -5231,9 +5231,9 @@
       },
       "pnl": {
         "trades": 503,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PLTR": {
@@ -5335,8 +5335,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 226,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 21,
@@ -5345,8 +5345,8 @@
           },
           "BUY-any": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 248,
@@ -5382,9 +5382,9 @@
       },
       "pnl": {
         "trades": 525,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SHOP": {
@@ -5472,8 +5472,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 243,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -5482,8 +5482,8 @@
           },
           "BUY-any": {
             "n": 280,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 260,
@@ -5523,9 +5523,9 @@
       },
       "pnl": {
         "trades": 562,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "NET": {
@@ -5874,8 +5874,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 233,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 38,
@@ -5889,8 +5889,8 @@
           },
           "BUY-any": {
             "n": 272,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 274,
@@ -5934,9 +5934,9 @@
       },
       "pnl": {
         "trades": 574,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "WDAY": {
@@ -6419,8 +6419,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 226,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 34,
@@ -6429,8 +6429,8 @@
           },
           "BUY-any": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 227,
@@ -6470,9 +6470,9 @@
       },
       "pnl": {
         "trades": 523,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MDB": {
@@ -8758,8 +8758,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 228,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 19,
@@ -8768,8 +8768,8 @@
           },
           "BUY-any": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 236,
@@ -8813,9 +8813,9 @@
       },
       "pnl": {
         "trades": 509,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MTCH": {
@@ -10786,8 +10786,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 199,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -10796,8 +10796,8 @@
           },
           "BUY-any": {
             "n": 236,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 271,
@@ -10837,9 +10837,9 @@
       },
       "pnl": {
         "trades": 543,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HOOD": {
@@ -10941,8 +10941,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 236,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 18,
@@ -10951,8 +10951,8 @@
           },
           "BUY-any": {
             "n": 254,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 231,
@@ -10988,9 +10988,9 @@
       },
       "pnl": {
         "trades": 520,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "COF": {
@@ -14261,8 +14261,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 206,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 14,
@@ -14271,8 +14271,8 @@
           },
           "BUY-any": {
             "n": 220,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 252,
@@ -14312,9 +14312,9 @@
       },
       "pnl": {
         "trades": 487,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MRK": {
@@ -16412,8 +16412,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 246,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 20,
@@ -16422,8 +16422,8 @@
           },
           "BUY-any": {
             "n": 266,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 214,
@@ -16468,9 +16468,9 @@
       },
       "pnl": {
         "trades": 499,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ZTS": {
@@ -16538,8 +16538,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 265,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 21,
@@ -16548,8 +16548,8 @@
           },
           "BUY-any": {
             "n": 286,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 235,
@@ -16589,9 +16589,9 @@
       },
       "pnl": {
         "trades": 532,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "IDXX": {
@@ -18583,8 +18583,8 @@
           },
           "SELL-50-60": {
             "n": 266,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 32,
@@ -18593,8 +18593,8 @@
           },
           "SELL-any": {
             "n": 298,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -18619,9 +18619,9 @@
       },
       "pnl": {
         "trades": 549,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LULU": {
@@ -19239,8 +19239,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 200,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 29,
@@ -19249,8 +19249,8 @@
           },
           "BUY-any": {
             "n": 229,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 265,
@@ -19290,9 +19290,9 @@
       },
       "pnl": {
         "trades": 531,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "TGT": {
@@ -21042,8 +21042,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 237,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 10,
@@ -21052,8 +21052,8 @@
           },
           "BUY-any": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 253,
@@ -21093,9 +21093,9 @@
       },
       "pnl": {
         "trades": 523,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RCL": {
@@ -21445,8 +21445,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -21455,8 +21455,8 @@
           },
           "BUY-any": {
             "n": 289,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 207,
@@ -21504,9 +21504,9 @@
       },
       "pnl": {
         "trades": 525,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DRI": {
@@ -21873,8 +21873,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 242,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 31,
@@ -21883,8 +21883,8 @@
           },
           "BUY-any": {
             "n": 273,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 242,
@@ -21932,9 +21932,9 @@
       },
       "pnl": {
         "trades": 540,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EBAY": {
@@ -32928,8 +32928,8 @@
           },
           "SELL-50-60": {
             "n": 291,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 20,
@@ -32943,8 +32943,8 @@
           },
           "SELL-any": {
             "n": 312,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -32969,9 +32969,9 @@
       },
       "pnl": {
         "trades": 587,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DOW": {
@@ -33060,8 +33060,8 @@
           },
           "SELL-50-60": {
             "n": 239,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 19,
@@ -33070,8 +33070,8 @@
           },
           "SELL-any": {
             "n": 258,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -33096,9 +33096,9 @@
       },
       "pnl": {
         "trades": 545,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DD": {
@@ -37566,8 +37566,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 51,
@@ -37581,8 +37581,8 @@
           },
           "BUY-any": {
             "n": 304,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 269,
@@ -37634,9 +37634,9 @@
       },
       "pnl": {
         "trades": 611,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LI": {
@@ -37733,8 +37733,8 @@
           },
           "SELL-50-60": {
             "n": 243,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 39,
@@ -37743,8 +37743,8 @@
           },
           "SELL-any": {
             "n": 282,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -37769,9 +37769,9 @@
       },
       "pnl": {
         "trades": 556,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BABA": {
@@ -37868,8 +37868,8 @@
           },
           "SELL-50-60": {
             "n": 232,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 24,
@@ -37878,8 +37878,8 @@
           },
           "SELL-any": {
             "n": 256,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -37908,9 +37908,9 @@
       },
       "pnl": {
         "trades": 515,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "JD": {
@@ -37993,8 +37993,8 @@
           },
           "SELL-50-60": {
             "n": 268,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 26,
@@ -38003,8 +38003,8 @@
           },
           "SELL-any": {
             "n": 294,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -38033,9 +38033,9 @@
       },
       "pnl": {
         "trades": 580,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PDD": {
@@ -38560,13 +38560,13 @@
           },
           "BUY-60-70": {
             "n": 40,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 285,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 260,
@@ -38614,9 +38614,9 @@
       },
       "pnl": {
         "trades": 578,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MARA": {
@@ -38713,8 +38713,8 @@
           },
           "SELL-50-60": {
             "n": 201,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 33,
@@ -38723,8 +38723,8 @@
           },
           "SELL-any": {
             "n": 234,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -38745,9 +38745,9 @@
       },
       "pnl": {
         "trades": 540,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RIOT": {
@@ -39867,13 +39867,13 @@
           },
           "BUY-60-70": {
             "n": 30,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 290,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 288,
@@ -39913,9 +39913,9 @@
       },
       "pnl": {
         "trades": 604,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AFRM": {
@@ -40138,8 +40138,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 215,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 25,
@@ -40148,8 +40148,8 @@
           },
           "BUY-any": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 230,
@@ -40189,9 +40189,9 @@
       },
       "pnl": {
         "trades": 502,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "OPEN": {
@@ -40279,8 +40279,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 219,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 25,
@@ -40289,8 +40289,8 @@
           },
           "BUY-any": {
             "n": 244,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 247,
@@ -40326,9 +40326,9 @@
       },
       "pnl": {
         "trades": 522,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "KSS": {
@@ -40702,8 +40702,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 21,
@@ -40712,8 +40712,8 @@
           },
           "BUY-any": {
             "n": 261,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 260,
@@ -40758,9 +40758,9 @@
       },
       "pnl": {
         "trades": 546,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "UBER": {
@@ -40849,8 +40849,8 @@
           },
           "SELL-50-60": {
             "n": 285,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 23,
@@ -40859,8 +40859,8 @@
           },
           "SELL-any": {
             "n": 308,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -40889,9 +40889,9 @@
       },
       "pnl": {
         "trades": 571,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DASH": {
@@ -40980,8 +40980,8 @@
           },
           "SELL-50-60": {
             "n": 233,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 31,
@@ -40990,8 +40990,8 @@
           },
           "SELL-any": {
             "n": 264,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41016,9 +41016,9 @@
       },
       "pnl": {
         "trades": 532,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BIRD": {
@@ -41138,8 +41138,8 @@
           },
           "SELL-60-70": {
             "n": 45,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-70-80": {
             "n": 1,
@@ -41148,8 +41148,8 @@
           },
           "SELL-any": {
             "n": 264,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -41174,9 +41174,9 @@
       },
       "pnl": {
         "trades": 536,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CVNA": {
@@ -47341,8 +47341,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 262,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 39,
@@ -47351,8 +47351,8 @@
           },
           "BUY-any": {
             "n": 301,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 220,
@@ -47388,9 +47388,9 @@
       },
       "pnl": {
         "trades": 542,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "QUBT": {
@@ -47507,8 +47507,8 @@
           },
           "SELL-50-60": {
             "n": 245,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 45,
@@ -47517,8 +47517,8 @@
           },
           "SELL-any": {
             "n": 290,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -47543,9 +47543,9 @@
       },
       "pnl": {
         "trades": 587,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "QBTS": {
@@ -47655,8 +47655,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 242,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 29,
@@ -47665,8 +47665,8 @@
           },
           "BUY-any": {
             "n": 271,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 236,
@@ -47698,9 +47698,9 @@
       },
       "pnl": {
         "trades": 539,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "POET": {
@@ -47951,13 +47951,13 @@
           },
           "BUY-60-70": {
             "n": 21,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 227,
@@ -47997,9 +47997,9 @@
       },
       "pnl": {
         "trades": 505,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SOUN": {
@@ -48096,8 +48096,8 @@
           },
           "SELL-50-60": {
             "n": 189,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 21,
@@ -48106,8 +48106,8 @@
           },
           "SELL-any": {
             "n": 210,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -48132,9 +48132,9 @@
       },
       "pnl": {
         "trades": 448,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AISP": {
@@ -48871,8 +48871,8 @@
           },
           "SELL-50-60": {
             "n": 183,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 36,
@@ -48881,8 +48881,8 @@
           },
           "SELL-any": {
             "n": 219,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -48907,9 +48907,9 @@
       },
       "pnl": {
         "trades": 486,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CRKN": {
@@ -49463,8 +49463,8 @@
           },
           "SELL-50-60": {
             "n": 278,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 51,
@@ -49473,8 +49473,8 @@
           },
           "SELL-any": {
             "n": 329,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -49503,9 +49503,9 @@
       },
       "pnl": {
         "trades": 602,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RIGL": {
@@ -49744,8 +49744,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 214,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -49754,8 +49754,8 @@
           },
           "BUY-any": {
             "n": 251,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 271,
@@ -49800,9 +49800,9 @@
       },
       "pnl": {
         "trades": 565,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ARBE": {
@@ -49905,8 +49905,8 @@
           },
           "SELL-50-60": {
             "n": 254,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 39,
@@ -49915,8 +49915,8 @@
           },
           "SELL-any": {
             "n": 293,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -49945,9 +49945,9 @@
       },
       "pnl": {
         "trades": 580,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "OPRA": {
@@ -50338,8 +50338,8 @@
           },
           "SELL-50-60": {
             "n": 228,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 43,
@@ -50353,8 +50353,8 @@
           },
           "SELL-any": {
             "n": 272,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -50387,9 +50387,9 @@
       },
       "pnl": {
         "trades": 570,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MITK": {
@@ -50619,8 +50619,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 179,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 26,
@@ -50629,8 +50629,8 @@
           },
           "BUY-any": {
             "n": 205,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 180,
@@ -50662,9 +50662,9 @@
       },
       "pnl": {
         "trades": 403,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AVPT": {
@@ -50769,8 +50769,8 @@
           },
           "BUY-60-70": {
             "n": 24,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-70-80": {
             "n": 1,
@@ -50779,8 +50779,8 @@
           },
           "BUY-any": {
             "n": 270,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 239,
@@ -50820,9 +50820,9 @@
       },
       "pnl": {
         "trades": 538,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BKKT": {
@@ -51700,8 +51700,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 216,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 51,
@@ -51710,8 +51710,8 @@
           },
           "BUY-any": {
             "n": 267,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 245,
@@ -51751,9 +51751,9 @@
       },
       "pnl": {
         "trades": 554,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "INVE": {
@@ -51986,8 +51986,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 243,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 17,
@@ -51996,8 +51996,8 @@
           },
           "BUY-any": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 244,
@@ -52037,9 +52037,9 @@
       },
       "pnl": {
         "trades": 520,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "KSCP": {
@@ -52145,8 +52145,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 170,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 30,
@@ -52160,8 +52160,8 @@
           },
           "BUY-any": {
             "n": 202,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 217,
@@ -52193,9 +52193,9 @@
       },
       "pnl": {
         "trades": 449,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LASE": {
@@ -52581,8 +52581,8 @@
           },
           "SELL-50-60": {
             "n": 246,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 23,
@@ -52591,8 +52591,8 @@
           },
           "SELL-any": {
             "n": 269,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -52621,9 +52621,9 @@
       },
       "pnl": {
         "trades": 572,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MDXG": {
@@ -53137,8 +53137,8 @@
           },
           "SELL-50-60": {
             "n": 275,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 75,
@@ -53147,8 +53147,8 @@
           },
           "SELL-any": {
             "n": 350,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -53181,9 +53181,9 @@
       },
       "pnl": {
         "trades": 636,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "NCRA": {
@@ -53614,8 +53614,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 242,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 43,
@@ -53624,8 +53624,8 @@
           },
           "BUY-any": {
             "n": 285,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 216,
@@ -53665,9 +53665,9 @@
       },
       "pnl": {
         "trades": 540,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PHIO": {
@@ -53755,8 +53755,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 39,
@@ -53765,8 +53765,8 @@
           },
           "BUY-any": {
             "n": 299,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 257,
@@ -53814,9 +53814,9 @@
       },
       "pnl": {
         "trades": 592,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PRPL": {
@@ -54532,8 +54532,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 289,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 42,
@@ -54542,8 +54542,8 @@
           },
           "BUY-any": {
             "n": 331,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 208,
@@ -54587,9 +54587,9 @@
       },
       "pnl": {
         "trades": 568,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RECT": {
@@ -54675,8 +54675,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 105,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 12,
@@ -54690,8 +54690,8 @@
           },
           "BUY-any": {
             "n": 118,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 86,
@@ -54723,9 +54723,9 @@
       },
       "pnl": {
         "trades": 223,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "REPL": {
@@ -56295,8 +56295,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 118,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 22,
@@ -56310,8 +56310,8 @@
           },
           "BUY-any": {
             "n": 141,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 159,
@@ -56347,9 +56347,9 @@
       },
       "pnl": {
         "trades": 349,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HOTH": {
@@ -56760,8 +56760,8 @@
           },
           "SELL-50-60": {
             "n": 295,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 59,
@@ -56770,8 +56770,8 @@
           },
           "SELL-any": {
             "n": 354,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -56804,9 +56804,9 @@
       },
       "pnl": {
         "trades": 627,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EYPT": {
@@ -57689,8 +57689,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 292,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -57699,8 +57699,8 @@
           },
           "BUY-any": {
             "n": 329,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 218,
@@ -57753,9 +57753,9 @@
       },
       "pnl": {
         "trades": 606,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "XBIO": {
@@ -58311,8 +58311,8 @@
           },
           "SELL-50-60": {
             "n": 262,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 40,
@@ -58321,8 +58321,8 @@
           },
           "SELL-any": {
             "n": 302,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -58347,9 +58347,9 @@
       },
       "pnl": {
         "trades": 542,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ALDX": {
@@ -58437,8 +58437,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 279,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 41,
@@ -58447,8 +58447,8 @@
           },
           "BUY-any": {
             "n": 320,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 229,
@@ -58496,9 +58496,9 @@
       },
       "pnl": {
         "trades": 578,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ALLR": {
@@ -58638,8 +58638,8 @@
           },
           "SELL-50-60": {
             "n": 156,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 24,
@@ -58648,8 +58648,8 @@
           },
           "SELL-any": {
             "n": 180,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -58678,9 +58678,9 @@
       },
       "pnl": {
         "trades": 532,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ALLO": {
@@ -58783,8 +58783,8 @@
           },
           "SELL-50-60": {
             "n": 241,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 35,
@@ -58793,8 +58793,8 @@
           },
           "SELL-any": {
             "n": 276,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -58823,9 +58823,9 @@
       },
       "pnl": {
         "trades": 561,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AMIX": {
@@ -58907,8 +58907,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 103,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 14,
@@ -58917,8 +58917,8 @@
           },
           "BUY-any": {
             "n": 117,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 104,
@@ -58946,9 +58946,9 @@
       },
       "pnl": {
         "trades": 234,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ANEB": {
@@ -59362,8 +59362,8 @@
           },
           "SELL-50-60": {
             "n": 245,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 32,
@@ -59372,8 +59372,8 @@
           },
           "SELL-any": {
             "n": 277,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -59406,9 +59406,9 @@
       },
       "pnl": {
         "trades": 572,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ARQT": {
@@ -59797,13 +59797,13 @@
           },
           "BUY-60-70": {
             "n": 34,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 266,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 243,
@@ -59843,9 +59843,9 @@
       },
       "pnl": {
         "trades": 546,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ATOS": {
@@ -60069,8 +60069,8 @@
           },
           "SELL-50-60": {
             "n": 251,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 25,
@@ -60079,8 +60079,8 @@
           },
           "SELL-any": {
             "n": 276,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -60105,9 +60105,9 @@
       },
       "pnl": {
         "trades": 558,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AUUD": {
@@ -60366,8 +60366,8 @@
           },
           "SELL-50-60": {
             "n": 248,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 35,
@@ -60376,8 +60376,8 @@
           },
           "SELL-any": {
             "n": 283,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -60406,9 +60406,9 @@
       },
       "pnl": {
         "trades": 534,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BCRX": {
@@ -61349,8 +61349,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 245,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 38,
@@ -61359,8 +61359,8 @@
           },
           "BUY-any": {
             "n": 283,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 270,
@@ -61404,9 +61404,9 @@
       },
       "pnl": {
         "trades": 614,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BTAI": {
@@ -61494,8 +61494,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -61504,8 +61504,8 @@
           },
           "BUY-any": {
             "n": 277,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 222,
@@ -61553,9 +61553,9 @@
       },
       "pnl": {
         "trades": 536,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BTCY": {
@@ -62087,8 +62087,8 @@
           },
           "SELL-50-60": {
             "n": 259,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 44,
@@ -62097,8 +62097,8 @@
           },
           "SELL-any": {
             "n": 303,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -62127,9 +62127,9 @@
       },
       "pnl": {
         "trades": 569,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CCCC": {
@@ -62217,8 +62217,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 281,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 48,
@@ -62227,8 +62227,8 @@
           },
           "BUY-any": {
             "n": 329,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 196,
@@ -62272,9 +62272,9 @@
       },
       "pnl": {
         "trades": 547,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CELU": {
@@ -62484,13 +62484,13 @@
           },
           "BUY-60-70": {
             "n": 41,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 290,
@@ -62534,9 +62534,9 @@
       },
       "pnl": {
         "trades": 586,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CHRS": {
@@ -62804,8 +62804,8 @@
           },
           "SELL-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 31,
@@ -62814,8 +62814,8 @@
           },
           "SELL-any": {
             "n": 278,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -62840,9 +62840,9 @@
       },
       "pnl": {
         "trades": 547,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CMRA": {
@@ -63802,8 +63802,8 @@
           },
           "SELL-50-60": {
             "n": 265,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 64,
@@ -63812,8 +63812,8 @@
           },
           "SELL-any": {
             "n": 329,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -63842,9 +63842,9 @@
       },
       "pnl": {
         "trades": 636,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CRIS": {
@@ -64097,8 +64097,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 44,
@@ -64107,8 +64107,8 @@
           },
           "BUY-any": {
             "n": 296,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 197,
@@ -64148,9 +64148,9 @@
       },
       "pnl": {
         "trades": 508,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CTMX": {
@@ -64414,8 +64414,8 @@
           },
           "BUY-60-70": {
             "n": 38,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-70-80": {
             "n": 1,
@@ -64424,8 +64424,8 @@
           },
           "BUY-any": {
             "n": 294,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 274,
@@ -64473,9 +64473,9 @@
       },
       "pnl": {
         "trades": 613,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CTXR": {
@@ -64563,8 +64563,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 231,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 31,
@@ -64573,8 +64573,8 @@
           },
           "BUY-any": {
             "n": 262,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 255,
@@ -64618,9 +64618,9 @@
       },
       "pnl": {
         "trades": 560,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CVKD": {
@@ -65012,8 +65012,8 @@
           },
           "SELL-50-60": {
             "n": 266,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 40,
@@ -65022,8 +65022,8 @@
           },
           "SELL-any": {
             "n": 306,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -65048,9 +65048,9 @@
       },
       "pnl": {
         "trades": 584,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DRMA": {
@@ -65315,8 +65315,8 @@
           },
           "SELL-50-60": {
             "n": 202,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 40,
@@ -65325,8 +65325,8 @@
           },
           "SELL-any": {
             "n": 242,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -65355,9 +65355,9 @@
       },
       "pnl": {
         "trades": 563,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EBET": {
@@ -65785,8 +65785,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 261,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 35,
@@ -65795,8 +65795,8 @@
           },
           "BUY-any": {
             "n": 296,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 213,
@@ -65841,9 +65841,9 @@
       },
       "pnl": {
         "trades": 535,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EGRX": {
@@ -66101,8 +66101,8 @@
           },
           "SELL-50-60": {
             "n": 236,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 38,
@@ -66111,8 +66111,8 @@
           },
           "SELL-any": {
             "n": 274,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -66145,9 +66145,9 @@
       },
       "pnl": {
         "trades": 544,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ETON": {
@@ -66267,8 +66267,8 @@
           },
           "SELL-50-60": {
             "n": 228,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 32,
@@ -66277,8 +66277,8 @@
           },
           "SELL-any": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -66307,9 +66307,9 @@
       },
       "pnl": {
         "trades": 514,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EVAX": {
@@ -66555,8 +66555,8 @@
           },
           "SELL-50-60": {
             "n": 237,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 35,
@@ -66565,8 +66565,8 @@
           },
           "SELL-any": {
             "n": 272,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -66591,9 +66591,9 @@
       },
       "pnl": {
         "trades": 549,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "FHTX": {
@@ -67182,8 +67182,8 @@
           },
           "SELL-50-60": {
             "n": 191,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 43,
@@ -67192,17 +67192,17 @@
           },
           "SELL-any": {
             "n": 234,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pnl": {
         "trades": 529,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "GTBP": {
@@ -67302,8 +67302,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 40,
@@ -67317,8 +67317,8 @@
           },
           "BUY-any": {
             "n": 288,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 252,
@@ -67358,9 +67358,9 @@
       },
       "pnl": {
         "trades": 600,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HEPA": {
@@ -67480,8 +67480,8 @@
           },
           "SELL-60-70": {
             "n": 50,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-70-80": {
             "n": 2,
@@ -67490,8 +67490,8 @@
           },
           "SELL-any": {
             "n": 311,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -67528,9 +67528,9 @@
       },
       "pnl": {
         "trades": 632,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HIMX": {
@@ -67896,8 +67896,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 238,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 24,
@@ -67906,8 +67906,8 @@
           },
           "BUY-any": {
             "n": 262,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 233,
@@ -67951,9 +67951,9 @@
       },
       "pnl": {
         "trades": 520,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HUMA": {
@@ -68693,8 +68693,8 @@
           },
           "SELL-50-60": {
             "n": 274,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 43,
@@ -68708,8 +68708,8 @@
           },
           "SELL-any": {
             "n": 319,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -68738,9 +68738,9 @@
       },
       "pnl": {
         "trades": 616,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "IKT": {
@@ -68851,8 +68851,8 @@
           },
           "SELL-60-70": {
             "n": 50,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-70-80": {
             "n": 1,
@@ -68861,8 +68861,8 @@
           },
           "SELL-any": {
             "n": 343,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -68895,9 +68895,9 @@
       },
       "pnl": {
         "trades": 637,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "INDO": {
@@ -69017,8 +69017,8 @@
           },
           "SELL-50-60": {
             "n": 280,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 73,
@@ -69027,8 +69027,8 @@
           },
           "SELL-any": {
             "n": 353,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -69053,9 +69053,9 @@
       },
       "pnl": {
         "trades": 640,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "IMPP": {
@@ -70880,8 +70880,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 235,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 33,
@@ -70890,8 +70890,8 @@
           },
           "BUY-any": {
             "n": 268,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 313,
@@ -70935,9 +70935,9 @@
       },
       "pnl": {
         "trades": 612,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CRC": {
@@ -71177,8 +71177,8 @@
           },
           "SELL-50-60": {
             "n": 208,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 28,
@@ -71192,8 +71192,8 @@
           },
           "SELL-any": {
             "n": 237,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -71226,9 +71226,9 @@
       },
       "pnl": {
         "trades": 525,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CTRA": {
@@ -71482,13 +71482,13 @@
           },
           "SELL-60-70": {
             "n": 561,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 689,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -71513,9 +71513,9 @@
       },
       "pnl": {
         "trades": 832,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DKL": {
@@ -71612,8 +71612,8 @@
           },
           "SELL-50-60": {
             "n": 242,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 14,
@@ -71622,8 +71622,8 @@
           },
           "SELL-any": {
             "n": 256,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -71648,9 +71648,9 @@
       },
       "pnl": {
         "trades": 554,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DMLP": {
@@ -72006,8 +72006,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 227,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 36,
@@ -72021,8 +72021,8 @@
           },
           "BUY-any": {
             "n": 264,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 264,
@@ -72066,9 +72066,9 @@
       },
       "pnl": {
         "trades": 553,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EARN": {
@@ -73132,8 +73132,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 258,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 23,
@@ -73142,8 +73142,8 @@
           },
           "BUY-any": {
             "n": 281,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 215,
@@ -73187,9 +73187,9 @@
       },
       "pnl": {
         "trades": 529,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "FLNG": {
@@ -73428,13 +73428,13 @@
           },
           "SELL-60-70": {
             "n": 41,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 326,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -73459,9 +73459,9 @@
       },
       "pnl": {
         "trades": 566,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "FRO": {
@@ -75782,8 +75782,8 @@
           },
           "SELL-50-60": {
             "n": 246,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 20,
@@ -75797,8 +75797,8 @@
           },
           "SELL-any": {
             "n": 267,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -75823,9 +75823,9 @@
       },
       "pnl": {
         "trades": 561,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LITE": {
@@ -76391,8 +76391,8 @@
           },
           "SELL-50-60": {
             "n": 288,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 46,
@@ -76401,8 +76401,8 @@
           },
           "SELL-any": {
             "n": 334,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -76431,9 +76431,9 @@
       },
       "pnl": {
         "trades": 593,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ATER": {
@@ -76999,8 +76999,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 27,
@@ -77014,8 +77014,8 @@
           },
           "BUY-any": {
             "n": 275,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 226,
@@ -77055,9 +77055,9 @@
       },
       "pnl": {
         "trades": 535,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CGC": {
@@ -77196,13 +77196,13 @@
           },
           "SELL-60-70": {
             "n": 51,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 305,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -77231,9 +77231,9 @@
       },
       "pnl": {
         "trades": 566,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ACB": {
@@ -77321,8 +77321,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 251,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 45,
@@ -77331,8 +77331,8 @@
           },
           "BUY-any": {
             "n": 296,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 267,
@@ -77376,9 +77376,9 @@
       },
       "pnl": {
         "trades": 611,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BARK": {
@@ -77460,8 +77460,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 218,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 31,
@@ -77470,8 +77470,8 @@
           },
           "BUY-any": {
             "n": 249,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 238,
@@ -77511,9 +77511,9 @@
       },
       "pnl": {
         "trades": 517,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BKE": {
@@ -77731,13 +77731,13 @@
           },
           "BUY-60-70": {
             "n": 20,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 258,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 245,
@@ -77777,9 +77777,9 @@
       },
       "pnl": {
         "trades": 541,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BNED": {
@@ -77873,8 +77873,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 267,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 47,
@@ -77888,8 +77888,8 @@
           },
           "BUY-any": {
             "n": 315,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 240,
@@ -77941,9 +77941,9 @@
       },
       "pnl": {
         "trades": 584,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BOOT": {
@@ -78031,8 +78031,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 241,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 32,
@@ -78041,8 +78041,8 @@
           },
           "BUY-any": {
             "n": 273,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 256,
@@ -78082,9 +78082,9 @@
       },
       "pnl": {
         "trades": 548,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BVS": {
@@ -78395,13 +78395,13 @@
           },
           "SELL-60-70": {
             "n": 35,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 244,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -78418,9 +78418,9 @@
       },
       "pnl": {
         "trades": 515,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CATO": {
@@ -79307,8 +79307,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -79322,8 +79322,8 @@
           },
           "BUY-any": {
             "n": 285,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 298,
@@ -79371,9 +79371,9 @@
       },
       "pnl": {
         "trades": 635,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CTOS": {
@@ -79470,8 +79470,8 @@
           },
           "SELL-50-60": {
             "n": 233,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 21,
@@ -79480,8 +79480,8 @@
           },
           "SELL-any": {
             "n": 254,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -79506,9 +79506,9 @@
       },
       "pnl": {
         "trades": 545,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CVGI": {
@@ -81424,8 +81424,8 @@
           },
           "SELL-50-60": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 31,
@@ -81434,8 +81434,8 @@
           },
           "SELL-any": {
             "n": 291,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -81468,9 +81468,9 @@
       },
       "pnl": {
         "trades": 600,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "JZXN": {
@@ -81549,13 +81549,13 @@
           },
           "BUY-60-70": {
             "n": 50,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 328,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 208,
@@ -81595,9 +81595,9 @@
       },
       "pnl": {
         "trades": 575,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CCM": {
@@ -81796,8 +81796,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 259,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 39,
@@ -81806,8 +81806,8 @@
           },
           "BUY-any": {
             "n": 298,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 224,
@@ -81847,9 +81847,9 @@
       },
       "pnl": {
         "trades": 565,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MGIH": {
@@ -81960,8 +81960,8 @@
           },
           "SELL-60-70": {
             "n": 40,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-70-80": {
             "n": 1,
@@ -81970,8 +81970,8 @@
           },
           "SELL-any": {
             "n": 245,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -81996,9 +81996,9 @@
       },
       "pnl": {
         "trades": 428,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BAOS": {
@@ -82086,8 +82086,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 49,
@@ -82096,8 +82096,8 @@
           },
           "BUY-any": {
             "n": 301,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 266,
@@ -82133,9 +82133,9 @@
       },
       "pnl": {
         "trades": 633,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "JFIN": {
@@ -82637,8 +82637,8 @@
           },
           "SELL-50-60": {
             "n": 268,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 52,
@@ -82652,8 +82652,8 @@
           },
           "SELL-any": {
             "n": 321,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -82678,9 +82678,9 @@
       },
       "pnl": {
         "trades": 599,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SOS": {
@@ -83226,8 +83226,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 244,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 34,
@@ -83236,8 +83236,8 @@
           },
           "BUY-any": {
             "n": 278,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 279,
@@ -83290,9 +83290,9 @@
       },
       "pnl": {
         "trades": 600,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AMTD": {
@@ -83409,8 +83409,8 @@
           },
           "SELL-50-60": {
             "n": 291,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 51,
@@ -83419,8 +83419,8 @@
           },
           "SELL-any": {
             "n": 342,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -83449,9 +83449,9 @@
       },
       "pnl": {
         "trades": 659,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ATXG": {
@@ -83699,8 +83699,8 @@
           },
           "SELL-50-60": {
             "n": 259,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 34,
@@ -83709,8 +83709,8 @@
           },
           "SELL-any": {
             "n": 293,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -83739,9 +83739,9 @@
       },
       "pnl": {
         "trades": 569,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BEKE": {
@@ -83838,8 +83838,8 @@
           },
           "SELL-50-60": {
             "n": 288,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 43,
@@ -83848,8 +83848,8 @@
           },
           "SELL-any": {
             "n": 331,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -83882,9 +83882,9 @@
       },
       "pnl": {
         "trades": 617,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "BIOX": {
@@ -84138,8 +84138,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 254,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 39,
@@ -84148,8 +84148,8 @@
           },
           "BUY-any": {
             "n": 293,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 266,
@@ -84193,9 +84193,9 @@
       },
       "pnl": {
         "trades": 579,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CLPS": {
@@ -84288,13 +84288,13 @@
           },
           "BUY-60-70": {
             "n": 35,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 254,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 326,
@@ -84346,9 +84346,9 @@
       },
       "pnl": {
         "trades": 634,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CNF": {
@@ -84442,13 +84442,13 @@
           },
           "SELL-60-70": {
             "n": 36,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 261,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -84477,9 +84477,9 @@
       },
       "pnl": {
         "trades": 533,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CNTB": {
@@ -84567,8 +84567,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 272,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 57,
@@ -84577,8 +84577,8 @@
           },
           "BUY-any": {
             "n": 329,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 275,
@@ -84618,9 +84618,9 @@
       },
       "pnl": {
         "trades": 653,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "COE": {
@@ -84723,8 +84723,8 @@
           },
           "SELL-50-60": {
             "n": 231,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 47,
@@ -84733,8 +84733,8 @@
           },
           "SELL-any": {
             "n": 278,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -84763,9 +84763,9 @@
       },
       "pnl": {
         "trades": 593,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CREG": {
@@ -85134,8 +85134,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 228,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 36,
@@ -85144,8 +85144,8 @@
           },
           "BUY-any": {
             "n": 264,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 286,
@@ -85185,9 +85185,9 @@
       },
       "pnl": {
         "trades": 590,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DQ": {
@@ -85576,8 +85576,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 269,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 46,
@@ -85586,8 +85586,8 @@
           },
           "BUY-any": {
             "n": 315,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 229,
@@ -85627,9 +85627,9 @@
       },
       "pnl": {
         "trades": 586,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EH": {
@@ -85735,8 +85735,8 @@
           },
           "SELL-50-60": {
             "n": 264,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 38,
@@ -85745,8 +85745,8 @@
           },
           "SELL-any": {
             "n": 302,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -85775,9 +85775,9 @@
       },
       "pnl": {
         "trades": 581,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EHTH": {
@@ -86549,8 +86549,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 280,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 34,
@@ -86559,8 +86559,8 @@
           },
           "BUY-any": {
             "n": 314,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 229,
@@ -86604,9 +86604,9 @@
       },
       "pnl": {
         "trades": 568,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "WKHS": {
@@ -87103,8 +87103,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 249,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -87113,8 +87113,8 @@
           },
           "BUY-any": {
             "n": 286,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 274,
@@ -87154,9 +87154,9 @@
       },
       "pnl": {
         "trades": 597,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EVTL": {
@@ -87276,8 +87276,8 @@
           },
           "SELL-50-60": {
             "n": 241,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 35,
@@ -87286,8 +87286,8 @@
           },
           "SELL-any": {
             "n": 276,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -87316,9 +87316,9 @@
       },
       "pnl": {
         "trades": 584,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CHPT": {
@@ -87580,8 +87580,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 35,
@@ -87595,8 +87595,8 @@
           },
           "BUY-any": {
             "n": 288,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 201,
@@ -87649,9 +87649,9 @@
       },
       "pnl": {
         "trades": 520,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AEVA": {
@@ -87739,8 +87739,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 40,
@@ -87749,8 +87749,8 @@
           },
           "BUY-any": {
             "n": 287,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 216,
@@ -87790,9 +87790,9 @@
       },
       "pnl": {
         "trades": 538,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ASPI": {
@@ -88321,8 +88321,8 @@
           },
           "SELL-50-60": {
             "n": 268,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 38,
@@ -88331,8 +88331,8 @@
           },
           "SELL-any": {
             "n": 306,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -88365,9 +88365,9 @@
       },
       "pnl": {
         "trades": 574,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DRIO": {
@@ -88473,8 +88473,8 @@
           },
           "SELL-50-60": {
             "n": 244,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 38,
@@ -88483,8 +88483,8 @@
           },
           "SELL-any": {
             "n": 282,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -88513,9 +88513,9 @@
       },
       "pnl": {
         "trades": 582,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "ECOR": {
@@ -88905,8 +88905,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 223,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 26,
@@ -88915,8 +88915,8 @@
           },
           "BUY-any": {
             "n": 249,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 233,
@@ -88961,9 +88961,9 @@
       },
       "pnl": {
         "trades": 519,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "EVGO": {
@@ -89359,8 +89359,8 @@
           },
           "SELL-50-60": {
             "n": 275,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 70,
@@ -89369,8 +89369,8 @@
           },
           "SELL-any": {
             "n": 345,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -89399,9 +89399,9 @@
       },
       "pnl": {
         "trades": 610,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LION": {
@@ -89498,8 +89498,8 @@
           },
           "SELL-50-60": {
             "n": 213,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 20,
@@ -89508,8 +89508,8 @@
           },
           "SELL-any": {
             "n": 233,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -89530,9 +89530,9 @@
       },
       "pnl": {
         "trades": 444,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MAPS": {
@@ -89640,8 +89640,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 48,
@@ -89650,8 +89650,8 @@
           },
           "BUY-any": {
             "n": 308,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 286,
@@ -89704,9 +89704,9 @@
       },
       "pnl": {
         "trades": 629,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "NDRA": {
@@ -89971,8 +89971,8 @@
           },
           "SELL-50-60": {
             "n": 253,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 17,
@@ -89981,8 +89981,8 @@
           },
           "SELL-any": {
             "n": 270,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -90007,9 +90007,9 @@
       },
       "pnl": {
         "trades": 512,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PHUN": {
@@ -90117,13 +90117,13 @@
           },
           "SELL-60-70": {
             "n": 33,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 269,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -90144,9 +90144,9 @@
       },
       "pnl": {
         "trades": 564,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RKLB": {
@@ -90397,8 +90397,8 @@
           },
           "SELL-50-60": {
             "n": 273,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 34,
@@ -90407,8 +90407,8 @@
           },
           "SELL-any": {
             "n": 307,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -90441,9 +90441,9 @@
       },
       "pnl": {
         "trades": 612,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SPCE": {
@@ -90545,8 +90545,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 241,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -90555,8 +90555,8 @@
           },
           "BUY-any": {
             "n": 278,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 250,
@@ -90600,9 +90600,9 @@
       },
       "pnl": {
         "trades": 571,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "TIGR": {
@@ -92135,22 +92135,22 @@
           },
           "SELL-60-70": {
             "n": 4,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 40,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
       },
       "pnl": {
         "trades": 80,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MIGI": {
@@ -92621,8 +92621,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 51,
@@ -92631,8 +92631,8 @@
           },
           "BUY-any": {
             "n": 311,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 210,
@@ -92672,9 +92672,9 @@
       },
       "pnl": {
         "trades": 563,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LMFA": {
@@ -93034,8 +93034,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 266,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 33,
@@ -93044,8 +93044,8 @@
           },
           "BUY-any": {
             "n": 299,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 281,
@@ -93085,9 +93085,9 @@
       },
       "pnl": {
         "trades": 630,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AEHL": {
@@ -93349,8 +93349,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 199,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 33,
@@ -93364,8 +93364,8 @@
           },
           "BUY-any": {
             "n": 234,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 276,
@@ -93409,9 +93409,9 @@
       },
       "pnl": {
         "trades": 576,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AMPE": {
@@ -93667,8 +93667,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 260,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 45,
@@ -93677,8 +93677,8 @@
           },
           "BUY-any": {
             "n": 305,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 164,
@@ -93722,9 +93722,9 @@
       },
       "pnl": {
         "trades": 507,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "AUVI": {
@@ -94698,8 +94698,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 229,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 27,
@@ -94708,8 +94708,8 @@
           },
           "BUY-any": {
             "n": 256,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 262,
@@ -94754,9 +94754,9 @@
       },
       "pnl": {
         "trades": 551,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CISO": {
@@ -94844,8 +94844,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 213,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 27,
@@ -94854,8 +94854,8 @@
           },
           "BUY-any": {
             "n": 240,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 227,
@@ -94891,9 +94891,9 @@
       },
       "pnl": {
         "trades": 508,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "CTRM": {
@@ -95296,8 +95296,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 252,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 43,
@@ -95311,8 +95311,8 @@
           },
           "BUY-any": {
             "n": 296,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 215,
@@ -95356,9 +95356,9 @@
       },
       "pnl": {
         "trades": 552,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "IGC": {
@@ -96173,8 +96173,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 247,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 27,
@@ -96183,8 +96183,8 @@
           },
           "BUY-any": {
             "n": 274,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 247,
@@ -96220,9 +96220,9 @@
       },
       "pnl": {
         "trades": 572,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "KZIA": {
@@ -96472,8 +96472,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 151,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 32,
@@ -96482,8 +96482,8 @@
           },
           "BUY-any": {
             "n": 183,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 141,
@@ -96519,9 +96519,9 @@
       },
       "pnl": {
         "trades": 360,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LCFY": {
@@ -96624,8 +96624,8 @@
           },
           "SELL-50-60": {
             "n": 212,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 39,
@@ -96634,8 +96634,8 @@
           },
           "SELL-any": {
             "n": 251,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -96656,9 +96656,9 @@
       },
       "pnl": {
         "trades": 474,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LIPO": {
@@ -97695,8 +97695,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 243,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 37,
@@ -97705,8 +97705,8 @@
           },
           "BUY-any": {
             "n": 280,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 272,
@@ -97747,9 +97747,9 @@
       },
       "pnl": {
         "trades": 598,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "PALI": {
@@ -98001,8 +98001,8 @@
           },
           "SELL-50-60": {
             "n": 206,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 23,
@@ -98011,8 +98011,8 @@
           },
           "SELL-any": {
             "n": 229,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -98033,9 +98033,9 @@
       },
       "pnl": {
         "trades": 562,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "RIBT": {
@@ -98988,8 +98988,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 246,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 36,
@@ -98998,8 +98998,8 @@
           },
           "BUY-any": {
             "n": 282,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 244,
@@ -99035,9 +99035,9 @@
       },
       "pnl": {
         "trades": 560,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SMFL": {
@@ -105665,28 +105665,28 @@
         "buckets": {
           "BUY-50-60": {
             "n": 6,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 6,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 29,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 101,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 130,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -105699,9 +105699,9 @@
       },
       "pnl": {
         "trades": 136,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "SUSHI-USD": {
@@ -109724,8 +109724,8 @@
         "buckets": {
           "BUY-50-60": {
             "n": 194,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 19,
@@ -109734,23 +109734,23 @@
           },
           "BUY-any": {
             "n": 213,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 262,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 142,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 404,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -109779,9 +109779,9 @@
       },
       "pnl": {
         "trades": 617,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "WIF-USD": {
@@ -110390,33 +110390,33 @@
         "buckets": {
           "BUY-50-60": {
             "n": 103,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 8,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 111,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 135,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 440,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 575,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -110441,9 +110441,9 @@
       },
       "pnl": {
         "trades": 686,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "NEIRO-USD": {
@@ -111113,13 +111113,13 @@
         "buckets": {
           "SELL-60-70": {
             "n": 101,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 101,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -111132,9 +111132,9 @@
       },
       "pnl": {
         "trades": 101,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "DOGS-USD": {
@@ -111204,18 +111204,18 @@
           },
           "SELL-50-60": {
             "n": 65,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 5,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 70,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -111228,9 +111228,9 @@
       },
       "pnl": {
         "trades": 102,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "NOT-USD": {
@@ -111968,13 +111968,13 @@
         "buckets": {
           "SELL-60-70": {
             "n": 1769,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 1769,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -111987,9 +111987,9 @@
       },
       "pnl": {
         "trades": 1769,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "LADYS-USD": {
@@ -112041,13 +112041,13 @@
         "buckets": {
           "SELL-60-70": {
             "n": 1071,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 1071,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -112060,9 +112060,9 @@
       },
       "pnl": {
         "trades": 1071,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "MEME-USD": {
@@ -118251,13 +118251,13 @@
         "buckets": {
           "SELL-60-70": {
             "n": 136,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 136,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -118270,9 +118270,9 @@
       },
       "pnl": {
         "trades": 136,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "GHST-USD": {
@@ -121787,33 +121787,33 @@
         "buckets": {
           "BUY-50-60": {
             "n": 175,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-60-70": {
             "n": 9,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "BUY-any": {
             "n": 184,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-50-60": {
             "n": 202,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-60-70": {
             "n": 999,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           },
           "SELL-any": {
             "n": 1201,
-            "q70_pct": NaN,
-            "mean_abs_return_pct": NaN
+            "q70_pct": null,
+            "mean_abs_return_pct": null
           }
         },
         "method": "split-conformal residual quantile of |daily return %|"
@@ -121842,9 +121842,9 @@
       },
       "pnl": {
         "trades": 1385,
-        "total_return": NaN,
+        "total_return": null,
         "sharpe": 0.0,
-        "max_drawdown": NaN
+        "max_drawdown": null
       }
     },
     "HOT-USD": {

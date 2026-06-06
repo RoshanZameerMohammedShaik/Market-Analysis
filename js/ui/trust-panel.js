@@ -11,6 +11,8 @@
 // engine (confidence.js): prediction.consensus and prediction.horizonBands.
 // No new fetches, no new magic numbers.
 
+import { getTrackRecordStatus } from '../calibration.js';
+
 const SOURCE_LABEL = {
     ai: 'AI model',
     technical: 'Technicals',
@@ -53,6 +55,20 @@ function renderConsensus(consensus, signal) {
 
 function renderTrackRecord(bands, confidence) {
     if (!bands || !bands.length) {
+        // Distinguish two honest empty states: (a) the engine was just
+        // improved and is rebuilding its record under the new logic, vs
+        // (b) a genuinely fresh ledger. Both are truthful; (a) is the right
+        // story right after a scoring change so we don't imply the new
+        // engine has no edge — only that it hasn't re-proven it YET.
+        const status = getTrackRecordStatus();
+        if (status && status.rebuilding) {
+            return `
+            <div class="trust-block">
+                <div class="trust-block-title">Live track record</div>
+                <div class="trust-headline thin">The engine was just improved — rebuilding its track record under the updated logic.</div>
+                <div class="trust-note">Older predictions came from the previous engine, so they no longer reflect how it calls now and are set aside. Verified hit-rates reappear here as fresh calls resolve (1-day fills within days; longer horizons take longer). Until then this % is the engine's calibrated estimate, not yet a measured rate.</div>
+            </div>`;
+        }
         return `
             <div class="trust-block">
                 <div class="trust-block-title">Live track record</div>

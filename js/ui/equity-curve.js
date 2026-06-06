@@ -52,6 +52,9 @@ function buildSvg(points, startBalance) {
 
 function renderResult(data) {
     if (!data || !data.available) {
+        if (data?.rebuilding) {
+            return `<div class="eq-empty">The engine was just improved, so its track record is rebuilding under the new logic. ${data.retiredTrades} earlier trades came from the previous engine and no longer reflect how it calls now, so they're set aside. The dollar proof reappears here as fresh calls resolve.</div>`;
+        }
         return `<div class="eq-empty">Not enough resolved signals in the ledger yet to chart an equity curve${data?.trades ? ` (only ${data.trades} so far)` : ''}. Check back as more predictions resolve.</div>`;
     }
     const up = data.finalPct >= 0;
@@ -77,7 +80,7 @@ function renderResult(data) {
             (BUY earns the move, SELL earns the inverse), risking a fixed ${fracPct}% of the running
             balance per trade — no fees or slippage. Fixed-fractional sizing avoids the volatility
             drag of betting the whole account each time. A directional-edge proof from real outcomes,
-            not a brokerage backtest. Not financial advice.
+            not a brokerage backtest. Not financial advice.${data.retiredTrades ? ` The curve starts at the current engine's first call — ${data.retiredTrades} earlier trades from a prior engine are excluded so this reflects how it calls now.` : ''}
         </div>`;
 }
 
@@ -126,9 +129,9 @@ export function initEquityCurve() {
                 <div class="equity-curve-controls">
                     <input type="text" id="eq-symbol" class="eq-symbol-input" placeholder="All symbols (or type a ticker)" autocomplete="off">
                     <select id="eq-horizon" class="eq-horizon-select" aria-label="Horizon">
-                        <option value="1">1-day calls</option>
+                        <option value="1" selected>1-day calls</option>
                         <option value="3">3-day calls</option>
-                        <option value="5" selected>5-day calls</option>
+                        <option value="5">5-day calls</option>
                         <option value="10">10-day calls</option>
                         <option value="20">20-day calls</option>
                     </select>

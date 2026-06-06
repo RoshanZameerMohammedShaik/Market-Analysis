@@ -28,6 +28,22 @@ import numpy as np
 SEQUENCE_LENGTH = 20
 FEATURES = 11
 
+# Engine logic version — a PROVENANCE MARKER, not a config knob. Lives here
+# (the dependency-light shared module) so both the engine (backtest.py) and
+# the lightweight calibration aggregator (recalibrate_from_ledger.py) import
+# the SAME constant without pulling in torch. BUMP THIS (date-stamp + short
+# tag) whenever the directional scoring in backtest.generate_prediction
+# changes: new/removed signals, reweighting, regime gating, the mean-
+# reversion/momentum tilt, etc. Every ledger row is stamped with the version
+# that produced it; the live calibration + trust panel aggregate ONLY rows
+# whose version matches the engine running now. Without this, a logic change
+# silently inherits the OLD engine's hit-rate — so the 1-day rebalance would
+# keep being judged by the 2,700 inverted-engine rows (46.7%) it replaced,
+# defaming the fix for weeks. The version filter makes the displayed track
+# record self-heal: it rebuilds under the new logic and only ever reflects
+# the engine the user is actually getting.
+ENGINE_VERSION = '2026.06.06-mr-rebalance'
+
 # ── Labeling ──────────────────────────────────────────────────────────────
 # Triple-barrier labeling (López de Prado). Instead of "did the very next
 # bar close up?", we ask: starting from bar i, does price touch the UPPER

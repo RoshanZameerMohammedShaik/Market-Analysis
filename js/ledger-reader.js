@@ -10,6 +10,68 @@ let _ledgerCache = null;
 let _ledgerCacheTs = 0;
 const LEDGER_CACHE_MS = 5 * 60 * 1000;
 
+// ── Engine-version provenance gate ──────────────────────────────────────
+// The engine's directional scoring changes over time (e.g. the 2026-06-06
+// 1-day mean-reversion rebalance that fixed a below-coin-flip inversion).
+// Each ledger row is stamped with the engine that produced it
+// (record_predictions.py), and model/live_calibration.json carries the
+// engineVersion that's running NOW. The "how accurate / how profitable is
+// the engine" surfaces (equity curve, accuracy-by-setup, history hit-rate)
+// must describe the CURRENT engine — not blend in a retired engine's record,
+// which would either inherit its losses (defaming a fix) or its wins
+// (inflating a regression). So we scope those reads to current-engine rows.
+//
+// Self-contained: we read the authoritative current version from
+// live_calibration.json (Python-written, static-cached). If it's missing or
+// carries no engineVersion (older deploys), we DEGRADE GRACEFULLY to "no
+// gate" (show all rows) rather than blanking the app on an infra hiccup —
+// honesty without fragility.
+// Cache ONLY a successful, non-empty version (truthy). The unavailable
+// state ('') is deliberately NOT cached: a transient 404 / network blip
+// must NOT lock the gate open for the full TTL — that would ungate every
+// surface and surface the RETIRED engine's record (e.g. the pre-rebalance
+// 46.7%) as if it were current, the exact dishonesty this gate prevents.
+// So on failure we return '' (fail-open for THIS call only) and retry on
+// the next call. These reads are user-initiated panel opens, not a hot
+// loop, so re-fetching on a rare miss is cheap.
+let _engineVersionCache = '';       // '' = not cached / unavailable; truthy = cached version
+let _engineVersionCacheTs = 0;
+
+async function currentEngineVersion() {
+    if (_engineVersionCache && Date.now() - _engineVersionCacheTs < LEDGER_CACHE_MS) {
+        return _engineVersionCache;
+    }
+    try {
+        const res = await fetch('./model/live_calibration.json');
+        if (res.ok) {
+            const data = await res.json();
+            const v = data?.engineVersion || '';
+            if (v) {                       // only a real version gets cached
+                _engineVersionCache = v;
+                _engineVersionCacheTs = Date.now();
+                return v;
+            }
+        }
+    } catch (_) { /* fall through to fail-open */ }
+    return '';                              // unavailable → ungate this call, retry next
+}
+
+// Filter rows to the current engine. When the current version is unknown
+// (degraded), returns rows unchanged. Also returns how many rows were set
+// aside so callers can show an honest "rebuilding under updated engine"
+// state instead of an ambiguous empty one.
+async function scopeToCurrentEngine(rows) {
+    const ver = await currentEngineVersion();
+    if (!ver) return { rows, retired: 0, gated: false, version: null };
+    const kept = [];
+    let retired = 0;
+    for (const r of rows) {
+        if ((r.engineVersion || 'unversioned') === ver) kept.push(r);
+        else retired++;
+    }
+    return { rows: kept, retired, gated: true, version: ver };
+}
+
 export async function loadLedger() {
     if (_ledgerCache && Date.now() - _ledgerCacheTs < LEDGER_CACHE_MS) {
         return _ledgerCache;
@@ -134,9 +196,13 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
 // wins, winRatePct, avgTradePct, finalPct, finalBalance, horizonDays,
 // startBalance, fraction } or available:false when the ledger is thin.
 // `symbol` optional (scopes to one ticker); omit for the whole universe.
-export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, startBalance = 10000, fraction = 0.25 } = {}) {
-    const rows = await loadLedger();
-    if (!rows.length) return { available: false, points: [] };
+export async function readEngineEquityCurve({ symbol = null, horizonDays = 1, startBalance = 10000, fraction = 0.25 } = {}) {
+    const allRows = await loadLedger();
+    if (!allRows.length) return { available: false, points: [] };
+    // Scope to the CURRENT engine: "would you have made money following the
+    // engine" must mean the engine you're using now, not a retired one whose
+    // P&L is irrelevant (and, for the pre-rebalance engine, misleadingly bad).
+    const { rows, retired, gated, version } = await scopeToCurrentEngine(allRows);
     const hKey = String(horizonDays);
     const f = Math.max(0.01, Math.min(1, Number(fraction) || 0.25));
     let scoped = rows.filter(r =>
@@ -151,7 +217,11 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, st
     }
     // Chronological by prediction date so the curve reads left→right in time.
     scoped.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.predictedAt).localeCompare(String(b.predictedAt)));
-    if (scoped.length < 3) return { available: false, points: [], trades: scoped.length };
+    if (scoped.length < 3) {
+        // Distinguish "engine just changed, rebuilding" from "genuinely empty"
+        // so the UI can say which — see trust-panel's rebuilding copy.
+        return { available: false, points: [], trades: scoped.length, rebuilding: gated && retired >= 3, retiredTrades: retired, engineVersion: version };
+    }
 
     let balance = startBalance;
     let wins = 0;
@@ -176,6 +246,8 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, st
         horizonDays,
         startBalance,
         fraction: f,
+        engineVersion: version,
+        retiredTrades: retired,   // rows excluded as prior-engine (for honest framing)
         trades: scoped.length,
         wins,
         winRatePct: Math.round((wins / scoped.length) * 100),
@@ -201,13 +273,20 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 5, st
 // enough } where `enough` flags >= MIN_N so the UI can dim thin buckets
 // instead of trusting a 3-sample rate. 1-day horizon.
 export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
-    const rows = await loadLedger();
+    const allRows = await loadLedger();
+    // Current-engine only: "which setups does the engine read well" must
+    // describe how it scores NOW. A retired engine's setup hit-rates can be
+    // the opposite of the current one's (the rebalance literally flipped the
+    // momentum-vs-mean-reversion edge), so blending them is worse than useless.
+    const { rows, retired, gated, version } = await scopeToCurrentEngine(allRows);
     const hKey = String(horizonDays);
     const resolved = rows.filter(r =>
         (r.signal === 'BUY' || r.signal === 'SELL') &&
         r.horizons?.[hKey] && r.horizons[hKey].directionMatch != null
     );
-    if (resolved.length < 3) return { available: false, totalResolved: resolved.length };
+    if (resolved.length < 3) {
+        return { available: false, totalResolved: resolved.length, rebuilding: gated && retired >= 3, retiredRows: retired, engineVersion: version };
+    }
 
     // Generic bucketer: classify each row into a label, tally hit/total.
     const tally = (classify) => {
@@ -272,6 +351,8 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
         available: true,
         horizonDays,
         minN,
+        engineVersion: version,
+        retiredRows: retired,
         overall,
         dimensions: [
             { key: 'direction', title: 'By signal direction', buckets: byDirection },
@@ -294,23 +375,33 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     }
     const lim = Math.max(1, Math.min(50, Number(limit) || 10));
     const recent = scoped.slice(-lim);
+    // The recent-rows LOG is factual history (any engine genuinely predicted
+    // these), so we show it as-is. But the headline HIT-RATE is an
+    // engine-accuracy claim, so we compute it over CURRENT-engine rows only —
+    // mixing a retired engine's outcomes into "how accurate is it" would be
+    // dishonest right after a scoring change.
+    const ver = await currentEngineVersion();
     let resolvedN = 0, hits = 0;
-    // capturedPct quality (only on rows that carry it — new rows with a
-    // stored target; legacy rows are null and excluded from the average).
     let capN = 0, capSum = 0;
+    let retiredResolved = 0;
     for (const r of recent) {
         const h1 = r.horizons?.['1'];
-        if (h1) {
-            resolvedN++;
-            if (h1.directionMatch) hits++;
-            if (Number.isFinite(h1.capturedPct)) { capN++; capSum += h1.capturedPct; }
-        }
+        if (!h1 || h1.directionMatch == null) continue;
+        const isCurrent = !ver || (r.engineVersion || 'unversioned') === ver;
+        if (!isCurrent) { retiredResolved++; continue; }
+        resolvedN++;
+        if (h1.directionMatch) hits++;
+        if (Number.isFinite(h1.capturedPct)) { capN++; capSum += h1.capturedPct; }
     }
     return {
         available: true,
         symbol: symbol || 'all',
         rowsReturned: recent.length,
         totalForSymbol: scoped.length,
+        engineVersion: ver || null,
+        // True when the hit-rate is blank only because recent resolved rows
+        // belong to a retired engine — i.e. the record is rebuilding, not absent.
+        rebuilding: !!ver && resolvedN === 0 && retiredResolved >= 3,
         resolved1d: resolvedN,
         hits1d: hits,
         hitRate1dPct: resolvedN ? Math.round((hits / resolvedN) * 100) : null,
