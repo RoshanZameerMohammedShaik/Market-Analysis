@@ -417,6 +417,29 @@
     <div id="mia-panel" class="mia-panel" aria-hidden="true"></div>
     <aside id="portfolio-panel" class="portfolio-panel" aria-hidden="true" aria-label="Practice portfolio"></aside>
 
+    <!-- GSAP (now 100% free incl. pro plugins, via Webflow). Vendored locally
+         so the app stays offline-capable with no CDN dependency. Loaded as
+         classic scripts BEFORE the ES module so window.gsap + plugins are
+         registered globally by the time js/ modules run. Order: core first,
+         then plugins. js/ui/motion.js wraps these with the reduced-motion gate. -->
+    <script src="js/vendor/gsap/gsap.min.js"></script>
+    <script src="js/vendor/gsap/CustomEase.min.js"></script>
+    <script src="js/vendor/gsap/SplitText.min.js"></script>
+    <script src="js/vendor/gsap/DrawSVGPlugin.min.js"></script>
+    <script src="js/vendor/gsap/Flip.min.js"></script>
+    <script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
+    <script>
+        // Register the plugins once, up front, guarding for any load failure
+        // (e.g. offline first-paint) so a missing plugin never throws.
+        (function () {
+            if (!window.gsap) return;
+            var p = [];
+            ['CustomEase', 'SplitText', 'DrawSVGPlugin', 'Flip', 'ScrollTrigger'].forEach(function (n) {
+                if (window[n]) p.push(window[n]);
+            });
+            if (p.length) { try { window.gsap.registerPlugin.apply(window.gsap, p); } catch (e) {} }
+        })();
+    </script>
     <script type="module" src="js/app.js"></script>
     <!-- Splash choreography. Runs after the DOM is parsed but is
          independent of the JS module load. The shimmer keeps looping

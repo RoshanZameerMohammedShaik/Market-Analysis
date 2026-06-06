@@ -69,22 +69,52 @@ export function renderConfidenceDial({ value, signal, label = 'confidence', size
 
 // Trigger the sweep + number count-up on every dial inside `root`.
 // Must run after the markup is attached to the DOM.
+//
+// Prefers GSAP (motion.js) when available: DrawSVG sweeps the arc and a single
+// eased tween counts the number, both on the shared `premium` ease so the arc
+// and the number land in perfect sync. Falls back to the original CSS-transition
+// + rAF counter when GSAP isn't loaded or the user prefers reduced motion — so
+// behaviour is identical-or-better everywhere, never worse.
 export function animateDials(root = document) {
     const dials = root.querySelectorAll('[data-conf-dial]');
     dials.forEach(dial => {
         const arc = dial.querySelector('[data-dial-fill]');
         const num = dial.querySelector('[data-dial-num]');
+        const target = num ? (parseInt(num.getAttribute('data-dial-target'), 10) || 0) : 0;
+
+        const g = (typeof window !== 'undefined') ? window.gsap : null;
+        const reduce = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; } })();
+        const useGsap = !!g && !reduce && !!window.DrawSVGPlugin;
+
+        if (useGsap) {
+            const ease = (g.parseEase && g.parseEase('premium')) ? 'premium' : 'power3.out';
+            if (arc) {
+                // DrawSVG handles the dash math; sweep from the empty start to the
+                // fraction the path's dasharray already encodes. We draw 0% → the
+                // visible-arc fraction so the colour arc grows along the 270° track.
+                const frac = target / 100;
+                g.fromTo(arc, { drawSVG: '0%' }, { drawSVG: `${(frac * (270 / 360) * 100).toFixed(2)}%`, duration: 0.95, ease });
+            }
+            if (num) {
+                const obj = { v: 0 };
+                g.to(obj, { v: target, duration: 0.95, ease, onUpdate: () => { num.textContent = Math.round(obj.v).toString(); } });
+            }
+            return;
+        }
+
+        // ── Fallback: original CSS-transition arc + rAF counter ──
         if (arc) {
-            const target = arc.getAttribute('data-dial-fill');
-            // Double rAF so the initial (empty) dashoffset is painted
-            // before we transition to the filled value.
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                arc.style.strokeDashoffset = target;
-            }));
+            if (reduce) {
+                arc.style.strokeDashoffset = arc.getAttribute('data-dial-fill');
+            } else {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    arc.style.strokeDashoffset = arc.getAttribute('data-dial-fill');
+                }));
+            }
         }
         if (num) {
-            const target = parseInt(num.getAttribute('data-dial-target'), 10) || 0;
-            countUp(num, target, 900);
+            if (reduce) num.textContent = target.toString();
+            else countUp(num, target, 900);
         }
     });
 }
