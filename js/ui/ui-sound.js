@@ -164,6 +164,50 @@ export function error() {
     blip(247, t + 0.12, 0.40, 0.24, 220);
 }
 
+// ── "Signal landed" — distinct chord per call direction, fired once per
+// analysis when the signal card renders. Punchier than success() so a real
+// prediction reads as more momentous than a form-validation tick.
+
+// BUY — rising A4→D5→G5, clean held tones (confident, ascending).
+export function signalLandedBuy() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(440, t, 0.34, 0.11);
+    blip(587, t + 0.10, 0.34, 0.14);
+    blip(784, t + 0.22, 0.38, 0.18);
+}
+// SELL — descending E5→A4→E4, each sliding down (cautious, settling).
+export function signalLandedSell() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(659, t, 0.36, 0.12, 587);
+    blip(440, t + 0.11, 0.34, 0.14, 392);
+    blip(330, t + 0.24, 0.36, 0.18, 293);
+}
+// NEUTRAL / NO_TRADE — two equal C5 tones, no pitch motion ("wait and see").
+export function signalLandedNeutral() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(523, t, 0.26, 0.20);
+    blip(523, t + 0.08, 0.26, 0.22);
+}
+// One dispatcher so callers make a single call by signal string.
+export function signalLanded(signal) {
+    if (signal === 'BUY') signalLandedBuy();
+    else if (signal === 'SELL') signalLandedSell();
+    else signalLandedNeutral();   // NEUTRAL + NO_TRADE
+}
+
+// Featherweight "card arrived" chirp, trailing the hot-picks entrance cascade.
+// Caller passes the card index; hard-capped at the first 5 so a 100-card grid
+// never machine-guns. Pitch rises across the volley. Peak kept at 0.14 so the
+// 5-chirp volley + the success() chord can't sum to clipping at MASTER_VOLUME.
+export function cardArrival(i = 0) {
+    if (!canEmit()) return;
+    if (i > 4) return;
+    blip(660 + i * 28, now() + 0.001, 0.14, 0.07);
+}
+
 // ── delegated auto-wiring ─────────────────────────────────────────────────
 // One set of document-level listeners drives most cues from a CSS allow-list,
 // so individual modules don't each have to import and call these. Modules can

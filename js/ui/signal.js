@@ -10,6 +10,8 @@ import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 import { sharePredictionCard } from './share-card.js';
 import { lockCall, getLockedCall, computeStatus } from './daily-lock.js';
+import { revealUp, revealText, revealStagger, canAnimate } from './motion.js';
+import { signalLanded } from './ui-sound.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -99,7 +101,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                </div>`
             : '';
         priceTargetHTML = `
-            <div class="price-targets fade-in">
+            <div class="price-targets">
                 <div class="price-targets-title">Predicted Price Range — ${tfLabel}</div>
                 ${probableStrip}
                 <div class="price-targets-grid">
@@ -252,7 +254,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
 
     section.innerHTML = `
-        <div class="signal-box ${signalClass} fade-in">
+        <div class="signal-box ${signalClass}">
             <div class="signal-header">
                 <span class="signal-arrow ${arrowClass}">${arrow}</span>
                 <span class="signal-label ${signalClass}">${signalDisplay}</span>
@@ -284,6 +286,24 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <strong>Not financial advice.</strong> Predictions are statistical signals, not guarantees. Past performance does not predict future results. Trade at your own risk.
             </div>
         </div>`;
+
+    // GSAP entrance — the card lifts in, the signal label resolves word-by-word,
+    // and the secondary sections cascade in just behind the dial sweep. Sets
+    // [data-gsap] on the box (only inside canAnimate()) so premium.css's CSS
+    // card-rise doesn't double-run; revealUp's clearProps:'transform' default
+    // hands the box back to the 3D cursor-tilt at rest. No-ops under
+    // reduced-motion / no-GSAP (the CSS fallback + dial's own fallback play).
+    const box = section.querySelector('.signal-box');
+    if (box && canAnimate()) {
+        box.setAttribute('data-gsap', '1');
+        revealUp(box, { y: 16, duration: 0.5 });
+        const label = box.querySelector('.signal-label');
+        if (label) revealText(label, { type: 'words', duration: 0.55, stagger: 0.06 });
+        const secondary = [...section.querySelectorAll('.price-targets, .trust-panel, .insight-summary, .attribution-section, .technical-section')];
+        if (secondary.length) revealStagger(secondary, { y: 12, duration: 0.45, stagger: 0.07, delay: 0.30 });
+    }
+    // "Signal landed" chord — distinct per direction, once per analysis.
+    signalLanded(signal);
 
     // The radial dial owns the confidence readout now. Sweep the arc +
     // count up the number on every render (also covers re-runs where the

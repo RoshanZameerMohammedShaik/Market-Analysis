@@ -4,6 +4,8 @@ import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
 import { displayTicker } from './exchanges.js';
 import { bindLiveSparks, stopLiveSparks } from './live-spark.js';
+import { revealStagger, drawLine, countTo, canAnimate, flipCapture, flipAnimate } from './motion.js';
+import { success, cardArrival, click as clickSound, error as errorSound } from './ui-sound.js';
 
 // Phase 8: Hot Picks penny sub-tabs.
 // `pennyMode` is one of: null (no filter), 'p10' (<$10), 'p5' (<$5), 'p1' (<$1).
@@ -22,14 +24,25 @@ export function setPennyFilter(mode) {
     const grid = document.getElementById('hotpicks-grid');
     if (!grid) return;
     const filtered = applyPennyFilter(allPicks);
+    // Capture positions BEFORE the DOM mutates so Flip can animate surviving
+    // cards to their new slots. Cards match old→new across the innerHTML
+    // rebuild by data-flip-id (=symbol). No-ops to null under reduced-motion.
+    const flipState = filtered.length > 0 ? flipCapture(grid.querySelectorAll('.hot-pick-card')) : null;
     if (filtered.length === 0) {
+        // Flip can't animate to zero surviving nodes through an innerHTML
+        // replace (review Issue 7) — just swap instantly + a soft "no matches".
         grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
             <div class="empty-state-icon">📈</div>
             <p>No hot picks under ${labelFor(pennyFilter)} right now. Try a different filter.</p>
         </div>`;
+        errorSound();
     } else {
         renderCards(grid, filtered, false);
         bindCardClicks(grid, currentOnPick);
+        // Cards already exist (past streaming) so we don't run the full
+        // entrance — just the Flip re-order. flipAnimate no-ops on null state.
+        flipAnimate(flipState, { duration: 0.5, stagger: 0.03 });
+        clickSound();
     }
     paintFilterButtons();
 }
@@ -63,6 +76,11 @@ export async function loadHotPicks(onPick) {
     stopLiveSparks();
     const requestId = nextHotPicksId();
     const grid = document.getElementById('hotpicks-grid');
+    // Scan-scoped reset of the GSAP entrance opt-out (review fix, Issue 1):
+    // clear it at the top of EVERY scan so the streaming-phase cards always
+    // fall back to the CSS [data-streaming] suppression, and animateSettledGrid
+    // re-arms GSAP ownership only on the settled render. Never a session latch.
+    if (grid) grid.removeAttribute('data-gsap');
     const title = document.getElementById('hotpicks-title');
     const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
@@ -133,6 +151,10 @@ export async function loadHotPicks(onPick) {
         delete grid.dataset.streaming;
         renderCards(grid, filtered, false);
         bindCardClicks(grid, onPick);
+        // GSAP entrance — fires ONCE here, on the settled grid only (never in
+        // onPartial), so streaming batches can't flicker it. requestId is
+        // threaded so deferred sound chirps bail if a newer scan supersedes.
+        animateSettledGrid(grid, requestId);
     } catch (e) {
         grid.innerHTML = `<div class="error-message" style="grid-column: 1/-1;">Failed to load hot picks: ${e.message}</div>`;
     }
@@ -189,12 +211,12 @@ function renderCards(grid, picks, withFooter) {
             ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
         return `
-        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}"${sparkSeed}>
+        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}" data-flip-id="${pick.symbol}"${sparkSeed}>
             <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> ${pick.confidence}% Confidence</div>
+            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${pick.confidence}">${pick.confidence}</span>% Confidence</div>
             ${spikeHTML}
             ${highHTML}
             ${lowHTML}
@@ -215,6 +237,51 @@ function renderCards(grid, picks, withFooter) {
     // cards. No-op for stock cards (no live feed). Diffs against the
     // currently-streaming set so re-renders don't leak Binance sockets.
     bindLiveSparks(grid);
+}
+
+// GSAP entrance for the SETTLED hot-picks grid. Called once per scan from the
+// final-render path (never onPartial). Cascade is capped so a 100-card grid
+// isn't slow-mo; sparklines draw (stock only — crypto sparklines are live-fed
+// and would collide with the draw, review Issue 2); confidence counts up.
+// No-ops cleanly under reduced-motion / no-GSAP (CSS card-rise stays the
+// fallback because we never set [data-gsap] in that path).
+const ENTRANCE_CAP = 12;
+function animateSettledGrid(grid, requestId) {
+    if (!grid || !canAnimate()) return;          // CSS fallback owns it
+    grid.setAttribute('data-gsap', '1');         // suppress the CSS card-rise
+    const cards = [...grid.querySelectorAll('.hot-pick-card')];
+    if (!cards.length) { grid.removeAttribute('data-gsap'); return; }
+    const lead = cards.slice(0, ENTRANCE_CAP);
+    // Staggered rise (clearProps:'transform' default hands the card back to the
+    // 3D cursor-tilt at rest). Synchronous with the attribute set — no await —
+    // so there's no flash-of-final-state.
+    revealStagger(lead, { y: 14, duration: 0.5, stagger: 0.045, from: 'start' });
+    // Cards beyond the cap fade in as one block (no per-card stagger) so the
+    // boundary doesn't hard-pop on mid-size grids (review Issue, low-sev (b)).
+    if (cards.length > ENTRANCE_CAP) revealStagger(cards.slice(ENTRANCE_CAP), { y: 8, duration: 0.3, stagger: 0 });
+    const isCrypto = state.mode === 'crypto';
+    lead.forEach((card, i) => {
+        // Sparkline draw-in — STOCK only (crypto polylines get replaced by the
+        // live feed mid-draw → glitchy pop; they animate via live ticks anyway).
+        if (!isCrypto) {
+            const poly = card.querySelector('.hot-pick-spark polyline');
+            if (poly) drawLine(poly, { duration: 0.9, delay: i * 0.045 });
+        }
+        // Confidence count-up on the dedicated number span (arrow + "% Confidence"
+        // literal stay untouched). No suffix.
+        const num = card.querySelector('.hot-pick-conf-num');
+        if (num) {
+            const target = parseInt(num.getAttribute('data-conf-target'), 10);
+            if (Number.isFinite(target)) countTo(num, 0, target, { duration: 0.7 });
+        }
+    });
+    // Sound: one "grid ready" anchor, then up to 5 ascending arrival chirps
+    // trailing the visual cascade. Each deferred chirp re-checks canEmit() AND
+    // that this scan is still current (review Issue: stale deferred chirps).
+    success();
+    for (let i = 0; i < 5 && i < lead.length; i++) {
+        setTimeout(() => { if (requestId === state.hotPicksRequestId) cardArrival(i); }, i * 45);
+    }
 }
 
 function bindCardClicks(grid, onPick) {

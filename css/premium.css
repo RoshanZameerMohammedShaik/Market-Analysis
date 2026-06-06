@@ -321,9 +321,18 @@ summary:focus-visible {
     /* Entrance plays only on the settled grid. While hotpicks.js streams
        partial results it sets [data-streaming] on the grid; we suppress the
        entrance then so the cards don't re-animate/flicker on every batch.
-       This mirrors the app's surgical-patch principle for background updates. */
-    .hotpicks-grid:not([data-streaming]) .hot-pick-card,
-    .signal-box {
+       This mirrors the app's surgical-patch principle for background updates.
+
+       :not([data-gsap]) is the opt-out seam for the GSAP rebuild: when
+       motion.js owns a surface's entrance it sets [data-gsap] on the parent
+       (only inside a canAnimate() block) the instant before it animates, so
+       the CSS card-rise here doesn't double-run with the GSAP `from` tween.
+       When GSAP is absent OR reduced-motion is on, [data-gsap] is never set,
+       so THIS rule remains the graceful fallback. The attribute is
+       scan-scoped (hotpicks.js removes it at the top of every loadHotPicks),
+       never a session latch. */
+    .hotpicks-grid:not([data-streaming]):not([data-gsap]) .hot-pick-card,
+    .signal-box:not([data-gsap]) {
         animation: card-rise var(--dur-slow) var(--ease-premium) both;
     }
     .hotpicks-grid[data-streaming] .hot-pick-card { animation: none; }
