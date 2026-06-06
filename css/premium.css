@@ -204,12 +204,43 @@ summary:focus-visible {
                 border-color var(--dur-base) ease,
                 box-shadow var(--dur-base) var(--ease-premium) !important;
     will-change: transform;
+    position: relative;
+    overflow: hidden;
 }
 .hot-pick-card:hover {
     transform: translateY(-4px) scale(1.012);
     box-shadow: var(--shadow-card-hover), var(--glow-accent) !important;
 }
 .hot-pick-card:active { transform: translateY(-1px) scale(0.998); }
+/* Signal-coloured hover glow — BUY lifts on green, SELL on red, NEUTRAL on
+   amber — so the card's energy matches its call instead of a generic accent.
+   Layered over --shadow-card-hover for depth. */
+.hot-pick-card.buy:hover    { box-shadow: var(--shadow-card-hover), 0 10px 30px var(--green-bg), 0 0 0 1px rgba(45,210,139,0.35) !important; }
+.hot-pick-card.sell:hover   { box-shadow: var(--shadow-card-hover), 0 10px 30px var(--red-bg),   0 0 0 1px rgba(239,68,68,0.35)  !important; }
+.hot-pick-card.neutral:hover{ box-shadow: var(--shadow-card-hover), 0 10px 30px var(--yellow-bg),0 0 0 1px rgba(251,191,36,0.35) !important; }
+/* A faint sheen that wipes across the card on hover — the "expensive" tell.
+   Pure pseudo-element, no layout impact, motion-gated. */
+@media (prefers-reduced-motion: no-preference) {
+    .hot-pick-card::after {
+        content: '';
+        position: absolute;
+        top: 0; left: -60%;
+        width: 50%; height: 100%;
+        background: linear-gradient(100deg, transparent, rgba(255,255,255,0.06), transparent);
+        transform: skewX(-18deg);
+        pointer-events: none;
+        opacity: 0;
+        transition: none;
+    }
+    .hot-pick-card:hover::after {
+        animation: card-sheen 0.7s var(--ease-out-expo);
+    }
+}
+@keyframes card-sheen {
+    0%   { left: -60%; opacity: 0; }
+    20%  { opacity: 1; }
+    100% { left: 120%; opacity: 0; }
+}
 
 /* Signal box: smoother lift. */
 .signal-box {
@@ -217,6 +248,27 @@ summary:focus-visible {
                 box-shadow var(--dur-base) var(--ease-premium),
                 border-color var(--dur-base) ease !important;
 }
+
+/* Section titles get a subtle accent bar to their left — a small editorial
+   touch that reads as "designed" rather than default. */
+.section-title {
+    position: relative;
+    padding-left: 2px;
+}
+
+/* The big confidence number in the signal dial / hot picks: tabular figures
+   so digits don't jitter as they count up, and a faint glow that picks up the
+   signal colour via currentColor where set. */
+.signal-dial-row,
+.hot-pick-card [style*="num-font"] {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Signal label: tighten the type and add a soft coloured halo matching the
+   call, so BUY/SELL read with conviction. */
+.signal-label.buy    { text-shadow: 0 0 18px rgba(45, 210, 139, 0.30); }
+.signal-label.sell   { text-shadow: 0 0 18px rgba(239, 68, 68, 0.28); }
+.signal-label.neutral{ text-shadow: 0 0 18px rgba(251, 191, 36, 0.26); }
 
 /* List rows across surfaces get a consistent slide + accent edge on hover. */
 .sector-tile:hover { transform: translateY(-3px) !important; box-shadow: var(--glow-accent) !important; }
@@ -266,12 +318,18 @@ summary:focus-visible {
    ========================================================================== */
 
 @media (prefers-reduced-motion: no-preference) {
-    .hot-pick-card {
+    /* Entrance plays only on the settled grid. While hotpicks.js streams
+       partial results it sets [data-streaming] on the grid; we suppress the
+       entrance then so the cards don't re-animate/flicker on every batch.
+       This mirrors the app's surgical-patch principle for background updates. */
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card,
+    .signal-box {
         animation: card-rise var(--dur-slow) var(--ease-premium) both;
     }
+    .hotpicks-grid[data-streaming] .hot-pick-card { animation: none; }
     /* Cap the cascade at the first dozen so a 100-card grid doesn't feel
        like it loads in slow motion; the rest pop in immediately. */
-    .hotpicks-grid .hot-pick-card:nth-child(1)  { animation-delay: 0.02s; }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card:nth-child(1)  { animation-delay: 0.02s; }
     .hotpicks-grid .hot-pick-card:nth-child(2)  { animation-delay: 0.05s; }
     .hotpicks-grid .hot-pick-card:nth-child(3)  { animation-delay: 0.08s; }
     .hotpicks-grid .hot-pick-card:nth-child(4)  { animation-delay: 0.11s; }
@@ -282,10 +340,7 @@ summary:focus-visible {
     .hotpicks-grid .hot-pick-card:nth-child(9)  { animation-delay: 0.26s; }
     .hotpicks-grid .hot-pick-card:nth-child(10) { animation-delay: 0.29s; }
 
-    /* Signal card glides up when a fresh analysis renders. */
-    .signal-box { animation: card-rise var(--dur-slow) var(--ease-premium) both; }
-
-    /* Side panels' inner sections reveal softly. */
+    /* Side panels' inner sections reveal softly (opt-in via .reveal-up). */
     .reveal-up { animation: card-rise var(--dur-slow) var(--ease-premium) both; }
 }
 

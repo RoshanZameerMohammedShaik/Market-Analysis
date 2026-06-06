@@ -87,6 +87,11 @@ export async function loadHotPicks(onPick) {
         if (!picks || picks.length === 0) return;
         allPicks = picks;
         const filtered = applyPennyFilter(picks);
+        // Mark the grid as mid-stream so the premium card-rise entrance
+        // (css/premium.css) does NOT re-fire on every partial re-render —
+        // otherwise the whole grid would flicker/re-animate on each batch
+        // during a scan. The entrance plays once, on the final render below.
+        grid.dataset.streaming = '1';
         renderCards(grid, filtered, true);
         bindCardClicks(grid, onPick);
     };
@@ -123,6 +128,9 @@ export async function loadHotPicks(onPick) {
             return;
         }
 
+        // Final render: clear the streaming flag so the entrance animation
+        // plays exactly once on the settled grid.
+        delete grid.dataset.streaming;
         renderCards(grid, filtered, false);
         bindCardClicks(grid, onPick);
     } catch (e) {
