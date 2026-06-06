@@ -146,8 +146,15 @@ export function initMia() {
             const panel = document.getElementById('mia-panel');
             if (!panel) return;
             const open = isSidePanelOpen('mia');
+            const wasOpen = panel.classList.contains('open');
             panel.classList.toggle('open', open);
             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+            // Soft open/close cue on an actual state change. Lazy import so
+            // mia.js carries no hard dependency on the UI sound layer. The cue
+            // self-gates (won't fire while Mia is speaking or if UI sound muted).
+            if (open !== wasOpen) {
+                import('../ui/ui-sound.js').then(s => open ? s.open() : s.close()).catch(() => {});
+            }
         },
     });
     document.getElementById('mia-launcher')?.addEventListener('click', togglePanel);

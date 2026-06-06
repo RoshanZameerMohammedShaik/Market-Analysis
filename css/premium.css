@@ -428,6 +428,64 @@ summary:focus-visible {
     100% { transform: translate3d(-2%, 1%, 0) scale(1.02); }
 }
 
+/* ============================================================================
+   EMPTY-STATE HERO — the first thing a user sees. Kept RESTRAINED: Roshan
+   explicitly chose a stable chart background over a breathing glow, so this
+   only adds a gentle one-feel icon float + soft entrance, never a pulsing
+   halo. (See extras.css note on .chart-ph-glow.)
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+    .chart-ph-icon {
+        animation: hero-float 5.5s var(--ease-in-out-soft) infinite;
+        will-change: transform;
+    }
+    .chart-placeholder .chart-ph-title { animation: card-rise var(--dur-slow) var(--ease-premium) both; animation-delay: 0.05s; }
+    .chart-placeholder .chart-ph-sub   { animation: card-rise var(--dur-slow) var(--ease-premium) both; animation-delay: 0.12s; }
+}
+@keyframes hero-float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-7px); }
+}
+
+/* ============================================================================
+   MODALS / OVERLAYS — deeper blur + spring card entrance
+   ========================================================================== */
+.spikers-overlay,
+.kbd-help-overlay {
+    -webkit-backdrop-filter: blur(10px) saturate(120%);
+    backdrop-filter: blur(10px) saturate(120%);
+}
+@media (prefers-reduced-motion: no-preference) {
+    .spikers-card,
+    .kbd-help-card {
+        animation: modal-pop var(--dur-base) var(--ease-spring) both;
+    }
+}
+@keyframes modal-pop {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ============================================================================
+   INSTALL PROMPT — premium accent edge so it reads as a first-class card
+   ========================================================================== */
+.install-prompt {
+    box-shadow: var(--shadow-card-hover),
+                0 0 0 1px rgba(var(--accent-rgb), 0.18) !important;
+}
+
+/* ============================================================================
+   SCANNER / LEDGER ROWS — subtle hover tint lift (the table is data-dense;
+   keep it light — just a left accent edge + faint background on hover).
+   ========================================================================== */
+.scanner-row {
+    transition: background var(--dur-fast) ease,
+                box-shadow var(--dur-fast) ease !important;
+}
+.scanner-row:hover {
+    box-shadow: inset 3px 0 0 rgba(var(--accent-rgb), 0.6) !important;
+}
+
 /* Light theme: a whisper of warmth so it doesn't read as flat office-white. */
 @media (prefers-reduced-motion: no-preference) {
     [data-theme="light"] body::before {
