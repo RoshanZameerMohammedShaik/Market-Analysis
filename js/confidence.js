@@ -7,7 +7,7 @@ import { analyzeNewsSentiment } from './sentiment.js';
 import { getMarketConditionsScore } from './market.js';
 import { generateMultiTimeframePrediction, calculateATR, summarizeAttribution } from './analysis.js';
 import { fetchStockNews, fetchCryptoNews } from './news.js';
-import { calibrate, calibrateAsync, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
+import { calibrate, calibrateAsync, calibrateWithMeta, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
 import { getSectorAdjustment } from './sectors.js';
@@ -170,6 +170,39 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     }
     consensus.confidenceDock = contradictionPenalty;
+
+    // ── Ensemble-agreement abstain gate ──────────────────────────────────
+    // The engine commits BUY/SELL off the weighted SCORE, but a call the
+    // ensemble actively splits on is a coin flip dressed as conviction —
+    // exactly the kind of low-edge call that dragged 1-day accuracy toward
+    // 50%. So when a committed directional call has a genuine ensemble
+    // SPLIT — fewer than half its available sources agree directionally AND
+    // at least one actively contradicts — we ABSTAIN to NEUTRAL rather than
+    // emit it. This trades volume for hit-rate on the calls we DO make.
+    // Conservative by design: a unanimous-but-modest call is untouched
+    // (against === 0 → never abstains); only true internal disagreement
+    // kills the commit. Bulk-scan still runs it (consensus is computed
+    // there too), so Hot Picks and the detail card agree.
+    let abstainedFromEnsemble = false;
+    // Use the SOFT lean (vs 50), not the strong-conviction cutoff, so we only
+    // abstain on a genuine ensemble SPLIT — more sources leaning AGAINST the
+    // call than for it, with at least one strong contradiction. A modest
+    // call where most sources lean the right way (even if below the 55
+    // conviction cutoff) is NOT abstained. Requires ≥3 sources so a single
+    // dissenter on a 2-source read can't force an abstain.
+    if ((finalSignal === 'BUY' || finalSignal === 'SELL')
+        && consensus.total >= 3
+        && consensus.against >= 1
+        && consensus.leansAgainst > consensus.leansFor) {
+        abstainedFromEnsemble = true;
+        finalSignal = 'NEUTRAL';
+        // Abstaining means "no conviction" — so the displayed confidence
+        // must drop to the floor, not keep the high value the BUY/SELL
+        // score earned. Otherwise the card shows "DON'T BUY · 74%", a
+        // contradiction. (priceTargets are nulled at return time so an
+        // abstained call doesn't show a directional predicted range.)
+        rawConfidence = thresh.commitFloorConfidence;
+    }
 
     // Per-symbol live-ledger track-record bonus. If the engine has
     // a meaningful number of resolved predictions on THIS exact
@@ -349,7 +382,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // ui/core.js init: the first wave of Hot Picks / scanner runs hit
     // calibrate() while liveCalibration was still null, so calibration
     // silently no-op'd and every confidence pinned near the commitFloor.
-    const calibratedConfidence = await calibrateAsync(rawConfidence, { tier, volTier, region });
+    // calibrateWithMeta returns { value, n } atomically so the sample size
+    // can't be clobbered by a concurrent Hot Picks calibrate() between the
+    // await and the read (the mutable-global race).
+    const { value: calibratedConfidence, n: calN } = await calibrateWithMeta(rawConfidence, { tier, volTier, region });
     const calibrationApplied = getCalibrationStatus() === 'loaded';
     const ci = getInterval(finalSignal, calibratedConfidence);
 
@@ -368,16 +404,36 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) {}
 
-    let widthBase = 4;
-    widthBase += Math.min(8, dispersion / 6);
-    if (regime?.regime === 'transition') widthBase += 2;
-    if (regime?.regime === 'risk-off') widthBase += 1;
-    if (earnings?.daysUntil != null && earnings.daysUntil <= 5) widthBase += 3;
-    if (calendar) widthBase += 3;
-    if (gap?.big) widthBase += 3;
-    if (penny?.squeezeRisk >= 0.5) widthBase += 4;
-    if (socialVel?.label === 'extreme') widthBase += 3;
-    const halfWidth = Math.round(widthBase / 2);
+    // Confidence band (the "63–71%" shown by the number). Previously this
+    // was a pure heuristic guess-stack (+2 for transition, +dispersion/6,
+    // …) — a made-up width presented as engine uncertainty. Now it's
+    // ANCHORED to the binomial standard error of the calibrated hit-rate:
+    // half-width = 1·SE where SE = sqrt(p(1-p)/n) in percentage points,
+    // using the sample size n behind the calibration answer. Few samples →
+    // genuinely wide; many → tight. That's an empirical, defensible band.
+    // The heuristic factors are kept only as a SMALL additive widener for
+    // known event-risk (earnings/gap/calendar), capped, so the band can
+    // honestly fatten near binary events without inventing the base width.
+    let halfWidth;
+    if (calN >= 30) {
+        const p = Math.max(0.01, Math.min(0.99, calibratedConfidence / 100));
+        const sePts = Math.sqrt((p * (1 - p)) / calN) * 100;   // 1σ in conf-points
+        halfWidth = sePts;
+    } else {
+        // Not enough calibration samples to ground a band statistically —
+        // fall back to the prior dispersion-based heuristic so we still
+        // show *something*, but this is the un-grounded path.
+        halfWidth = 2 + Math.min(4, dispersion / 12);
+    }
+    // Small event-risk widener (bounded) — binary events genuinely widen
+    // the outcome distribution regardless of historical calibration.
+    let eventWiden = 0;
+    if (earnings?.daysUntil != null && earnings.daysUntil <= 5) eventWiden += 1.5;
+    if (calendar) eventWiden += 1.5;
+    if (gap?.big) eventWiden += 1.5;
+    if (penny?.squeezeRisk >= 0.5) eventWiden += 2;
+    if (socialVel?.label === 'extreme') eventWiden += 1.5;
+    halfWidth = Math.round(Math.min(12, halfWidth + Math.min(5, eventWiden)));
     const lo = Math.max(thresh.commitFloorConfidence, calibratedConfidence - halfWidth);
     const hi = Math.min(88, calibratedConfidence + halfWidth);
     const confidenceRange = (hi - lo) >= 4 ? { lo, hi } : null;
@@ -411,7 +467,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (socialResult?.reasons?.length) socialResult.reasons.forEach(r => allReasons.push(`[Social] ${r}`));
     if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
     if (unanimousBonus > 0) allReasons.push(`[Engine] All sources agree directionally — confidence boosted by ${unanimousBonus}`);
-    if (consensus && (finalSignal === 'BUY' || finalSignal === 'SELL') && consensus.total > 0) {
+    if (abstainedFromEnsemble) {
+        allReasons.push(`[Consensus] Sat out — only ${consensus.for}/${consensus.total} sources agreed and ${consensus.against} pushed the other way. The ensemble is split, so the engine declines to call it.`);
+    } else if (consensus && (finalSignal === 'BUY' || finalSignal === 'SELL') && consensus.total > 0) {
         if (consensus.against > 0) allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} — ${consensus.against} pointing the other way${contradictionPenalty > 0 ? `, confidence reduced by ${contradictionPenalty}` : ''}`);
         else if (consensus.for === consensus.total) allReasons.push(`[Consensus] All ${consensus.total} sources agree on ${finalSignal}`);
         else allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} (rest neutral)`);
@@ -459,7 +517,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         insider: insider ? { ...insider, ...insiderResult } : null,
         socialVelocity: socialVel ? { ...socialVel, ...socialResult } : null,
         reasons: allReasons.slice(0, 24),
-        priceTargets: technicalPred.priceTargets,
+        // On an ensemble abstain, suppress the directional predicted range —
+        // showing "Possible High +X% / Possible Low −Y%" for a call the
+        // engine just declined to make is contradictory. NEUTRAL → no range.
+        priceTargets: abstainedFromEnsemble ? null : technicalPred.priceTargets,
         // Top features that drove the technical signal — Mia uses this to
         // answer "why did the model say this?" without re-running anything.
         attribution: summarizeAttribution(technicalPred, 5),
@@ -475,6 +536,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         marketConditions: market,
         method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + tier-aware LSTM + recency+tier+vol calibrated',
         trendRegime,
+        // meta carries why the engine abstained (read by the signal card's
+        // "Sit this one out" insight). abstainedFrom = the directional call
+        // the score WOULD have made before the ensemble split killed it.
+        meta: abstainedFromEnsemble ? {
+            abstainReason: `The ensemble is split — only ${consensus.for} of ${consensus.total} sources agreed and ${consensus.against} pushed the other way. Better to wait for a cleaner setup than force a coin-flip.`,
+            abstainedFrom: weightedScore > 50 ? 'BUY' : 'SELL',
+        } : undefined,
     };
 }
 
@@ -490,6 +558,13 @@ function computeConsensus(scores, signal, thresh) {
     const bearCut = thresh?.sellAgreementCutoff ?? 45;
     const votes = {};
     let forN = 0, against = 0, neutral = 0, total = 0;
+    // Soft directional lean (relative to the true neutral, 50) — used by the
+    // abstain gate. The strong cutoffs above create a 45–55 dead zone that's
+    // right for the DISPLAY ("which sources took a strong stand") but too
+    // strict for abstaining: a source at 53 on a BUY genuinely backs the
+    // direction, it's just not highly convicted. leansFor/leansAgainst count
+    // that softer agreement so the gate doesn't nuke the modest 50–60 band.
+    let leansFor = 0, leansAgainst = 0;
     for (const [src, score] of Object.entries(scores)) {
         if (score == null || !Number.isFinite(score)) { votes[src] = 'n/a'; continue; }
         total++;
@@ -503,12 +578,18 @@ function computeConsensus(scores, signal, thresh) {
         if (label === 'agree') forN++;
         else if (label === 'against') against++;
         else neutral++;
+        // Soft lean vs 50 (ignore exactly-50 as truly neutral).
+        const softBull = score > 50, softBear = score < 50;
+        if (signal === 'BUY') { if (softBull) leansFor++; else if (softBear) leansAgainst++; }
+        else if (signal === 'SELL') { if (softBear) leansFor++; else if (softBull) leansAgainst++; }
     }
     return {
         for: forN,
         against,
         neutral,
         total,
+        leansFor,
+        leansAgainst,
         votes,
         ratioPct: total ? Math.round((forN / total) * 100) : 0,
     };

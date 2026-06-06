@@ -184,6 +184,23 @@ export async function calibrateAsync(rawConfidence, opts) {
     return calibrate(rawConfidence, opts);
 }
 
+// Race-free variant: returns { value, n, source } computed ATOMICALLY in
+// one synchronous calibrate() call, so a caller awaiting it can't read a
+// DIFFERENT concurrent calibrate()'s sample size off a mutable global
+// (the bug that bit getCalibrationSource()). Concurrent Hot Picks scans
+// each get their OWN n. Prefer this over getCalibrationSampleN() after an
+// await.
+export async function calibrateWithMeta(rawConfidence, opts) {
+    await ensureLoaded();
+    const value = calibrate(rawConfidence, opts);
+    // lastSourceUsed/lastSampleN were just set synchronously by the line
+    // above, in THIS microtask, before any other calibrate() can run —
+    // so reading them here (no await between) is race-free.
+    return { value, n: lastSampleN, source: lastSourceUsed };
+}
+
+let lastSampleN = 0;   // sample size behind the last calibrate() answer (0 = raw)
+
 export function calibrate(rawConfidence, { tier = null, volTier = null, region = null } = {}) {
     // If load hasn't kicked off yet, kick it off now so subsequent
     // calls have data. This call still uses whatever's currently in
@@ -192,40 +209,45 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
     // Priority 0: live ledger by horizon+signal (real-world, current).
     const live = liveBucketLookup(rawConfidence);
     if (live && live.n >= 30) {
-        lastSourceUsed = 'live-horizon';
+        lastSourceUsed = 'live-horizon'; lastSampleN = live.n;
         return Math.round(live.actual);
     }
     // Priority 0b: live ledger by region.
     const liveR = liveRegionLookup(rawConfidence, region);
     if (liveR && liveR.n >= 30) {
-        lastSourceUsed = 'live-region';
+        lastSourceUsed = 'live-region'; lastSampleN = liveR.n;
         return Math.round(liveR.actual);
     }
     // Priority 1: recency-weighted backtest
     if (calibrationRecency && totalN(calibrationRecency) >= 30) {
-        lastSourceUsed = 'backtest-recency';
+        lastSourceUsed = 'backtest-recency'; lastSampleN = totalN(calibrationRecency);
         return interpolateOnCurve(rawConfidence, calibrationRecency);
     }
     // Priority 2: volatility tier
     if (volTier && calibrationByVolTier && calibrationByVolTier[volTier] && totalN(calibrationByVolTier[volTier]) >= 30) {
-        lastSourceUsed = 'backtest-voltier';
+        lastSourceUsed = 'backtest-voltier'; lastSampleN = totalN(calibrationByVolTier[volTier]);
         return interpolateOnCurve(rawConfidence, calibrationByVolTier[volTier]);
     }
     // Priority 3: liquidity tier
     if (tier && calibrationByTier && calibrationByTier[tier] && totalN(calibrationByTier[tier]) >= 30) {
-        lastSourceUsed = 'backtest-tier';
+        lastSourceUsed = 'backtest-tier'; lastSampleN = totalN(calibrationByTier[tier]);
         return interpolateOnCurve(rawConfidence, calibrationByTier[tier]);
     }
     // Priority 4: global
     if (calibration && calibration.length > 0) {
-        lastSourceUsed = 'backtest-global';
+        lastSourceUsed = 'backtest-global'; lastSampleN = totalN(calibration);
         return interpolateOnCurve(rawConfidence, calibration);
     }
-    lastSourceUsed = 'raw';
+    lastSourceUsed = 'raw'; lastSampleN = 0;
     return rawConfidence;
 }
 
 export function getCalibrationSource() { return lastSourceUsed; }
+// Sample size behind the LAST calibrate() answer (0 when raw/ungrounded).
+// Lets callers size an HONEST confidence band: wide when few samples back
+// the rate, tight when many — the binomial standard error of the hit-rate,
+// instead of a heuristic guess-stack.
+export function getCalibrationSampleN() { return lastSampleN; }
 export function getLiveCalibration() { return liveCalibration; }
 
 // Per-horizon confidence bands. Returns one entry per horizon in

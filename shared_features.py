@@ -28,6 +28,71 @@ import numpy as np
 SEQUENCE_LENGTH = 20
 FEATURES = 11
 
+# ── Labeling ──────────────────────────────────────────────────────────────
+# Triple-barrier labeling (López de Prado). Instead of "did the very next
+# bar close up?", we ask: starting from bar i, does price touch the UPPER
+# barrier (+k·ATR) before the LOWER barrier (−k·ATR) within the next
+# LABEL_HORIZON bars? Label 1 = upper first (a real up-move materialized),
+# 0 = lower first. If NEITHER barrier is touched in the window, fall back to
+# the sign of the terminal-bar return so no sample is dropped (preserves
+# dataset size + keeps the old behavior for flat windows).
+#
+# Why this is better than binary next-bar: the old label rewarded a +0.01%
+# tick identically to a clean +5% run and called a setup that dipped 4% then
+# closed +0.1% a "win". Triple-barrier teaches the model the difference
+# between a setup that actually went somewhere and noise — directly targeting
+# the magnitude-blindness that kept 1-day accuracy near coin-flip.
+LABEL_HORIZON = 5        # bars to look forward for a barrier touch
+LABEL_BARRIER_ATR = 1.5  # barrier distance in ATRs (symmetric)
+_ATR_LABEL_PERIOD = 14
+
+
+def _atr_at_label(high, low, close, i, period=_ATR_LABEL_PERIOD):
+    """ATR over the `period` bars ENDING at bar i (no lookahead). Returns a
+    price distance, or None if not enough history."""
+    if i < period:
+        return None
+    tr_sum = 0.0
+    for k in range(i - period + 1, i + 1):
+        tr_sum += max(high[k] - low[k], abs(high[k] - close[k - 1]), abs(low[k] - close[k - 1]))
+    atr = tr_sum / period
+    return atr if atr > 0 else None
+
+
+def triple_barrier_label(close, high, low, i,
+                         horizon=LABEL_HORIZON, k=LABEL_BARRIER_ATR):
+    """Label for the setup AT bar i, using only bars i+1..i+horizon (no
+    lookahead beyond the horizon). 1 = up-barrier touched first, 0 = down
+    first; if neither, sign of the terminal close vs entry. Returns None
+    when there aren't enough forward bars OR ATR is unavailable (caller
+    should skip — these are the last few bars per symbol)."""
+    n = len(close)
+    if i + 1 >= n:
+        return None
+    atr = _atr_at_label(high, low, close, i)
+    if atr is None:
+        # No volatility scale yet → fall back to next-bar sign (old behavior).
+        return 1 if (i + 1 < n and close[i + 1] > close[i]) else 0
+    entry = close[i]
+    upper = entry + k * atr
+    lower = entry - k * atr
+    end = min(n - 1, i + horizon)
+    for j in range(i + 1, end + 1):
+        # Intrabar: an up-move is confirmed if the bar's HIGH reaches upper;
+        # a down-move if the LOW reaches lower. If both in the same bar
+        # (rare, wide bar), treat as the close direction for that bar to
+        # avoid an arbitrary tie.
+        hit_up = high[j] >= upper
+        hit_dn = low[j] <= lower
+        if hit_up and hit_dn:
+            return 1 if close[j] >= entry else 0
+        if hit_up:
+            return 1
+        if hit_dn:
+            return 0
+    # Neither barrier touched in the window → terminal-bar direction.
+    return 1 if close[end] >= entry else 0
+
 
 def robust_download(symbol, *, period=None, interval='1d', start=None, end=None,
                     retries=3, throttle=0.4, **kwargs):
@@ -281,14 +346,20 @@ def compute_sequences(df, sequence_length=SEQUENCE_LENGTH):
     features = []
     labels = []
     start_i = max(sequence_length, LOOKBACK)
-    for i in range(start_i, len(close) - 1):
+    # Stop LABEL_HORIZON bars before the end so EVERY label has its full
+    # forward window — no shorter-horizon (inconsistent) labels on the tail.
+    # max(..., start_i) guards tiny series so the range can't go negative.
+    end_i = max(start_i, len(close) - LABEL_HORIZON)
+    for i in range(start_i, end_i):
+        label = triple_barrier_label(close, high, low, i)
+        if label is None:
+            continue
         window = [
             compute_features_at(close, high, low, volume, j)
             for j in range(i - sequence_length, i)
         ]
         features.append(window)
-        next_change = (close[i + 1] - close[i]) / close[i]
-        labels.append(1 if next_change > 0 else 0)
+        labels.append(label)
     return features, labels
 
 
@@ -298,8 +369,16 @@ def compute_flat_features(df):
     X = []
     y = []
     start_i = max(SEQUENCE_LENGTH, LOOKBACK)
-    for i in range(start_i, len(close) - 1):
+    # Label decision bar is i-1 with a forward window of LABEL_HORIZON, so
+    # stop LABEL_HORIZON-1 short of the last index for a full window each.
+    end_i = max(start_i, len(close) - LABEL_HORIZON + 1)
+    for i in range(start_i, end_i):
+        # Features are computed AT bar i-1 (the last bar the model "sees");
+        # the triple-barrier label is for the setup AT i-1 too, so feature
+        # and label share the same decision bar — no lookahead.
+        label = triple_barrier_label(close, high, low, i - 1)
+        if label is None:
+            continue
         X.append(compute_features_at(close, high, low, volume, i - 1))
-        next_change = (close[i + 1] - close[i]) / close[i]
-        y.append(1 if next_change > 0 else 0)
+        y.append(label)
     return X, y

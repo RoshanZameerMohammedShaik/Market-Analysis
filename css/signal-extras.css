@@ -217,6 +217,15 @@
     line-height: 1.4;
     margin-top: 6px;
 }
+.trust-edge-note {
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--yellow, #fbbf24) 12%, transparent);
+    border-left: 3px solid var(--yellow, #fbbf24);
+    color: var(--text-secondary);
+}
+.trust-edge-note b { color: var(--text-primary); }
 
 .trust-votes { display: flex; flex-wrap: wrap; gap: 6px; }
 .trust-vote {

@@ -76,7 +76,30 @@ function renderTrackRecord(bands, confidence) {
             <div class="trust-block-title">Live track record — this confidence band</div>
             <div class="trust-note">How often the engine has actually been right at each horizon when this confident, from real resolved outcomes:</div>
             <div class="trust-bands">${rows}</div>
+            ${edgeHorizonNote(bands)}
         </div>`;
+}
+
+// Honest "trust it more at the horizon where it has edge" note. When the
+// 1-day read is at/near coin-flip but a longer horizon is meaningfully
+// better on the same confidence band, say so — instead of letting the
+// displayed (often 1-day-anchored) call imply equal strength across
+// horizons. Only fires when the data actually supports it (both horizons
+// resolved at n>=30, already guaranteed by getHorizonCalibrations).
+function edgeHorizonNote(bands) {
+    const oneDay = bands.find(b => b.horizonDays === 1);
+    const best = bands.reduce((a, b) => (b.hitRate > a.hitRate ? b : a), bands[0]);
+    if (!oneDay || !best || best.horizonDays === 1) return '';
+    // Only nudge if 1d is weak (<=52%) AND a longer horizon beats it by >=5pts.
+    if (oneDay.hitRate > 52 || best.hitRate - oneDay.hitRate < 5) return '';
+    // Significance guard: don't assert an edge the samples can't support. The
+    // gap must exceed the combined 1σ binomial SE of the two rates, else a
+    // thin-sample 58%-vs-51% (whose CIs overlap) would over-claim.
+    const se = (r, n) => Math.sqrt(((r / 100) * (1 - r / 100)) / Math.max(1, n)) * 100;
+    const combinedSe = Math.sqrt(se(best.hitRate, best.n) ** 2 + se(oneDay.hitRate, oneDay.n) ** 2);
+    if ((best.hitRate - oneDay.hitRate) < combinedSe) return '';
+    const bestLabel = HORIZON_LABEL[best.horizonDays] || `${best.horizonDays}d`;
+    return `<div class="trust-note trust-edge-note">⏳ The engine reads this band best at <b>${bestLabel}</b> (${best.hitRate}% historically) — its <b>1-day</b> read here is near coin-flip (${oneDay.hitRate}%). Lean on the longer horizon.</div>`;
 }
 
 // Returns the full <details> HTML for the trust panel, or '' when
