@@ -17,7 +17,25 @@ export function initTheme() {
     updateThemeButton();
 }
 
+// Guards the temporary cross-fade class so rapid clicks don't stack timers.
+let _themeFadeTimer = null;
+
 export function cycleTheme(onChange) {
+    // Smooth cross-fade: premium.css transitions colour props for as long as
+    // <html> carries .theme-transition. We add it just for the switch window
+    // so there's no first-paint jank and no perf cost at rest. Skipped for
+    // users who prefer reduced motion.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduceMotion) {
+        const root = document.documentElement;
+        root.classList.add('theme-transition');
+        if (_themeFadeTimer) clearTimeout(_themeFadeTimer);
+        _themeFadeTimer = setTimeout(() => {
+            root.classList.remove('theme-transition');
+            _themeFadeTimer = null;
+        }, 460);   // slightly longer than --dur-slow (0.40s) so it fully settles
+    }
+
     state.theme = nextTheme(state.theme);
     document.documentElement.setAttribute('data-theme', state.theme);
     localStorage.setItem('ma-theme', state.theme);

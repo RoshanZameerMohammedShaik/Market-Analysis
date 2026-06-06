@@ -66,6 +66,17 @@ export function notify(message, opts = {}) {
     // Prepend so the newest sits at the top of the stack.
     container.insertBefore(el, container.firstChild);
 
+    // Semantic sound cue. success → warm rise, error/warn → soft low two-tone.
+    // info stays silent (it fires constantly — "Calculating…", "Loading…" —
+    // and a sound on every one would be noise). Lazy import so notify.js has
+    // no hard dependency on the audio layer and works if it's absent.
+    if (kind === 'success' || kind === 'error' || kind === 'warn') {
+        import('./ui-sound.js').then(s => {
+            if (kind === 'success') s.success();
+            else s.error();
+        }).catch(() => {});
+    }
+
     // Drain logic — track `elapsed` in active (non-hovered) ms.
     const fill = el.querySelector('.ma-notify-bar-fill');
     let elapsed = 0;

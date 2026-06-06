@@ -67,6 +67,12 @@ export function setSpeaking(isSpeaking) {
     speaking = !!isSpeaking;
 }
 
+// Read-only view of the speaking gate so the general UI sound layer
+// (js/ui/ui-sound.js) can share the SAME "never talk over Mia" suppression
+// without duplicating the state. One source of truth for whether Mia's voice
+// is mid-sentence.
+export function isMiaSpeaking() { return speaking; }
+
 // ── audio graph plumbing ─────────────────────────────────────────────
 
 function now() { return ctx ? ctx.currentTime : 0; }

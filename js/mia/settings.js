@@ -29,6 +29,13 @@ const DEFAULT = {
     // muted via the toggle in Mia's settings. Suppressed automatically
     // while Mia's voice is actively speaking.
     soundEnabled: true,
+    // General UI sound layer (js/ui/ui-sound.js): soft synthesized cues on
+    // hover/click/tab-switch/panel-open/success/error across the whole app.
+    // Separate toggle from Mia's voice-mode sounds so a user can keep tactile
+    // UI feedback while muting Mia (or vice-versa). Default ON; shares Mia's
+    // "never play while she's speaking" gate. Synthesized in-browser — no
+    // sample files (dynamic-only rule).
+    uiSoundEnabled: true,
 };
 
 function migrateLegacy() {

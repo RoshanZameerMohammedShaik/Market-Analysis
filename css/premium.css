@@ -1,0 +1,387 @@
+/* ============================================================================
+   PREMIUM LAYER — loaded LAST (see index.html, after style.css) so its
+   equal-specificity rules win as a clean enhancement layer over the base.
+   NON-DESTRUCTIVE: this file only elevates; it never restructures layout.
+
+   Philosophy: the base app is already well-tokenized and tasteful. This layer
+   adds the "expensive" feel — refined easing, depth on motion, focus polish,
+   smooth theme cross-fades, spring micro-interactions, entrance staggers —
+   coherently across all three themes (dark / light / aurora). Everything is
+   gated on prefers-reduced-motion. Nothing here changes engine behaviour or
+   the streaming surgical-patch render path (entrances only fire on freshly
+   inserted nodes, never on in-place text patches).
+   ========================================================================== */
+
+:root {
+    /* ── Motion vocabulary ────────────────────────────────────────────────
+       A small, named easing + duration scale so every animation in the app
+       can speak the same language instead of one-off cubic-beziers. */
+    --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);    /* the app's existing favourite — momentum-out */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);     /* long, luxurious settle */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* overshoot pop */
+    --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1); /* symmetric glide */
+
+    --dur-instant: 0.10s;
+    --dur-fast: 0.16s;
+    --dur-base: 0.24s;
+    --dur-slow: 0.40s;
+    --dur-slower: 0.60s;
+
+    /* Accent glow used for hover halos / focus rings, derived from the
+       theme accent so it recolours automatically per theme. */
+    --glow-accent: 0 0 0 1px rgba(var(--accent-rgb), 0.35),
+                   0 8px 28px rgba(var(--accent-rgb), 0.22);
+    --ring-focus: 0 0 0 3px rgba(var(--accent-rgb), 0.18),
+                  0 0 0 1px rgba(var(--accent-rgb), 0.55);
+}
+
+/* Crisper text rendering across the app — the cheap-to-add premium tell. */
+html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Branded text selection. */
+::selection {
+    background: rgba(var(--accent-rgb), 0.30);
+    color: var(--text-primary);
+}
+
+/* ── Premium scrollbars ──────────────────────────────────────────────────
+   Thinner, rounded, accent-on-hover. WebKit + Firefox. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background var(--dur-fast) ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+    background-clip: padding-box;
+}
+
+/* ── Theme cross-fade ────────────────────────────────────────────────────
+   When theme.js toggles <html class="theme-transition"> for ~450ms during a
+   switch, surfaces glide between palettes instead of hard-cutting. Scoped to
+   the transition window so there's no first-paint jank and no perf cost at
+   rest. Limited to colour properties (not transform/layout). */
+html.theme-transition,
+html.theme-transition * {
+    transition: background-color var(--dur-slow) var(--ease-in-out-soft),
+                border-color var(--dur-slow) var(--ease-in-out-soft),
+                color var(--dur-slow) var(--ease-in-out-soft),
+                fill var(--dur-slow) var(--ease-in-out-soft),
+                box-shadow var(--dur-slow) var(--ease-in-out-soft) !important;
+    transition-delay: 0s !important;
+}
+
+/* ── Universal focus-visible ring ────────────────────────────────────────
+   Keyboard users get a clear, branded ring; mouse users don't (focus-visible
+   only). Applied broadly but harmlessly — elements with their own focus
+   styling still get the ring layered consistently. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-focus);
+    border-radius: var(--radius-sm);
+}
+
+/* ============================================================================
+   HEADER — deeper glass + living brand title
+   ========================================================================== */
+
+.app-header {
+    /* Add saturation to the backdrop blur — the trick that makes glass read
+       as real frosted glass over colourful content rather than a grey wash.
+       Keep the existing blur radius the base file set. */
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    backdrop-filter: blur(16px) saturate(160%);
+}
+/* Hairline light line along the header's bottom edge — a single bright pixel
+   that reads as a polished bevel. */
+.app-header::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(var(--accent-rgb), 0.45) 50%,
+        transparent);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Slow, ever-so-subtle sheen drifting across the gradient title — alive but
+   never distracting. Disabled under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+    .app-title.app-title-static {
+        background-size: 200% auto;
+        animation: title-sheen 8s linear infinite;
+    }
+}
+@keyframes title-sheen {
+    0%   { background-position: 0% center; }
+    100% { background-position: 200% center; }
+}
+
+/* Settings gear: spring the rotation on hover instead of a linear turn. */
+.header-btn:hover .settings-gear { transform: rotate(90deg); }
+.header-btn { transition: transform var(--dur-fast) var(--ease-spring),
+                          border-color var(--dur-fast) ease,
+                          color var(--dur-fast) ease,
+                          background var(--dur-fast) ease,
+                          box-shadow var(--dur-fast) ease; }
+.header-btn:active { transform: scale(0.92); }
+
+/* The settings menu: spring open from the top-right corner. */
+.header-settings-menu {
+    transition: opacity var(--dur-base) var(--ease-premium),
+                transform var(--dur-base) var(--ease-spring) !important;
+}
+
+/* ============================================================================
+   TABS — spring pill with an accent glow
+   ========================================================================== */
+
+.tab-group { position: relative; }
+.tab-btn {
+    transition: color var(--dur-base) var(--ease-premium),
+                transform var(--dur-fast) var(--ease-spring),
+                box-shadow var(--dur-base) var(--ease-premium) !important;
+}
+.tab-btn:not(.active):hover { transform: translateY(-1px); }
+.tab-btn:active { transform: scale(0.95); }
+.tab-btn.active {
+    /* Lift the active pill slightly and give it a soft accent halo so it
+       reads as a raised, lit control. */
+    box-shadow: 0 4px 16px var(--brand-grad-shadow),
+                0 0 0 1px rgba(var(--accent-rgb), 0.30),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* ============================================================================
+   SEARCH — focus glow + icon lift
+   ========================================================================== */
+
+.search-input {
+    transition: border-color var(--dur-base) var(--ease-premium),
+                box-shadow var(--dur-base) var(--ease-premium),
+                background var(--dur-base) ease !important;
+}
+.search-input:focus {
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.16),
+                0 8px 30px rgba(var(--accent-rgb), 0.12) !important;
+}
+.search-container:focus-within .search-icon {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.5));
+}
+.search-icon {
+    transition: transform var(--dur-base) var(--ease-spring),
+                filter var(--dur-base) ease;
+}
+
+/* ============================================================================
+   CARDS & ROWS — hover lift + accent glow
+   ========================================================================== */
+
+.hot-pick-card {
+    transition: transform var(--dur-base) var(--ease-premium),
+                border-color var(--dur-base) ease,
+                box-shadow var(--dur-base) var(--ease-premium) !important;
+    will-change: transform;
+}
+.hot-pick-card:hover {
+    transform: translateY(-4px) scale(1.012);
+    box-shadow: var(--shadow-card-hover), var(--glow-accent) !important;
+}
+.hot-pick-card:active { transform: translateY(-1px) scale(0.998); }
+
+/* Signal box: smoother lift. */
+.signal-box {
+    transition: transform var(--dur-base) var(--ease-premium),
+                box-shadow var(--dur-base) var(--ease-premium),
+                border-color var(--dur-base) ease !important;
+}
+
+/* List rows across surfaces get a consistent slide + accent edge on hover. */
+.sector-tile:hover { transform: translateY(-3px) !important; box-shadow: var(--glow-accent) !important; }
+.sp-row:hover,
+.earnings-cal-row:hover,
+.options-scan-row:hover { box-shadow: var(--glow-accent) !important; }
+
+/* ============================================================================
+   BUTTONS — universal press physics
+   A light touch: every primary/pill button dips on press for tactile feel.
+   ========================================================================== */
+
+.refresh-btn,
+.spikers-btn,
+.pl-btn,
+.penny-filter-btn,
+.engine-signals-toggle,
+.portfolio-launcher,
+.sp-bucket,
+.watchlist-push-btn {
+    transition: transform var(--dur-fast) var(--ease-spring),
+                box-shadow var(--dur-base) var(--ease-premium),
+                border-color var(--dur-fast) ease,
+                background var(--dur-fast) ease,
+                color var(--dur-fast) ease !important;
+}
+.refresh-btn:active,
+.spikers-btn:active,
+.pl-btn:active,
+.penny-filter-btn:active,
+.engine-signals-toggle:active,
+.portfolio-launcher:active,
+.sp-bucket:active,
+.watchlist-push-btn:active { transform: scale(0.94); }
+
+.refresh-btn:hover,
+.spikers-btn:hover { transform: translateY(-1px); }
+
+/* ============================================================================
+   ENTRANCES — staggered reveal on fresh insertion
+   Reduced-motion-safe: base opacity is the natural 1; only the keyframe's
+   from{} drops to 0, and the animation is removed entirely under reduced
+   motion (so those users simply see the final state). Because CSS animations
+   only fire on insertion / animation-name change, in-place surgical text
+   patches on existing cards do NOT re-trigger these — the streaming render
+   path is untouched.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+    .hot-pick-card {
+        animation: card-rise var(--dur-slow) var(--ease-premium) both;
+    }
+    /* Cap the cascade at the first dozen so a 100-card grid doesn't feel
+       like it loads in slow motion; the rest pop in immediately. */
+    .hotpicks-grid .hot-pick-card:nth-child(1)  { animation-delay: 0.02s; }
+    .hotpicks-grid .hot-pick-card:nth-child(2)  { animation-delay: 0.05s; }
+    .hotpicks-grid .hot-pick-card:nth-child(3)  { animation-delay: 0.08s; }
+    .hotpicks-grid .hot-pick-card:nth-child(4)  { animation-delay: 0.11s; }
+    .hotpicks-grid .hot-pick-card:nth-child(5)  { animation-delay: 0.14s; }
+    .hotpicks-grid .hot-pick-card:nth-child(6)  { animation-delay: 0.17s; }
+    .hotpicks-grid .hot-pick-card:nth-child(7)  { animation-delay: 0.20s; }
+    .hotpicks-grid .hot-pick-card:nth-child(8)  { animation-delay: 0.23s; }
+    .hotpicks-grid .hot-pick-card:nth-child(9)  { animation-delay: 0.26s; }
+    .hotpicks-grid .hot-pick-card:nth-child(10) { animation-delay: 0.29s; }
+
+    /* Signal card glides up when a fresh analysis renders. */
+    .signal-box { animation: card-rise var(--dur-slow) var(--ease-premium) both; }
+
+    /* Side panels' inner sections reveal softly. */
+    .reveal-up { animation: card-rise var(--dur-slow) var(--ease-premium) both; }
+}
+
+@keyframes card-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================================================
+   LOADERS — shimmer sweep over skeletons (premium "content is coming" feel)
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+    .hp-skel,
+    .skeleton,
+    .spark-placeholder {
+        position: relative;
+        overflow: hidden;
+    }
+    .hp-skel::after,
+    .skeleton::after,
+    .spark-placeholder::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(var(--accent-rgb), 0.10) 45%,
+            rgba(var(--accent-rgb), 0.18) 50%,
+            rgba(var(--accent-rgb), 0.10) 55%,
+            transparent);
+        animation: skel-sweep 1.6s ease-in-out infinite;
+    }
+}
+@keyframes skel-sweep {
+    100% { transform: translateX(100%); }
+}
+
+/* ============================================================================
+   MIA LAUNCHER — gentle breathing presence
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+    .mia-launcher::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: inherit;
+        box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.35);
+        animation: mia-breathe 3.6s var(--ease-in-out-soft) infinite;
+        pointer-events: none;
+    }
+}
+@keyframes mia-breathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.30); }
+    50%      { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0.0); }
+}
+
+/* ============================================================================
+   AURORA — living background wash (theme-specific flourish)
+   A barely-there drifting radial gradient behind everything, so the aurora
+   theme actually feels auroral. Fixed, behind content, motion-gated.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: no-preference) {
+    [data-theme="aurora"] body::before {
+        content: '';
+        position: fixed;
+        inset: -20%;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(40% 40% at 20% 18%, rgba(192, 132, 252, 0.14), transparent 70%),
+            radial-gradient(38% 38% at 82% 24%, rgba(56, 189, 248, 0.12), transparent 70%),
+            radial-gradient(44% 44% at 60% 88%, rgba(20, 232, 168, 0.10), transparent 72%);
+        background-repeat: no-repeat;
+        animation: aurora-drift 24s var(--ease-in-out-soft) infinite alternate;
+        filter: blur(8px);
+    }
+}
+@keyframes aurora-drift {
+    0%   { transform: translate3d(0, 0, 0) scale(1); }
+    50%  { transform: translate3d(2%, -2%, 0) scale(1.06); }
+    100% { transform: translate3d(-2%, 1%, 0) scale(1.02); }
+}
+
+/* Light theme: a whisper of warmth so it doesn't read as flat office-white. */
+@media (prefers-reduced-motion: no-preference) {
+    [data-theme="light"] body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(60% 50% at 50% -10%, rgba(37, 99, 235, 0.05), transparent 70%);
+    }
+}

@@ -19,6 +19,7 @@ import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
 import { setLauncherVis } from '../ui/launcher-vis.js';
 import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick, complete as soundComplete } from './sound.js';
+import { isUiSoundEnabled, setUiSoundEnabled, click as uiClick } from '../ui/ui-sound.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -703,10 +704,12 @@ function renderSettings() {
             <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Auto-fallback</span><span class="mia-setting-val">${s.fallbackEnabled ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Voice</span><span class="mia-setting-val">${s.voiceLive ? 'Gemini Live (auto-fallback to browser TTS)' : 'Browser TTS only'}</span></div>
-            <div class="mia-setting-row"><span>Sounds</span><span class="mia-setting-val">${s.soundEnabled !== false ? 'on' : 'off'}</span></div>
+            <div class="mia-setting-row"><span>Mia sounds</span><span class="mia-setting-val">${s.soundEnabled !== false ? 'on' : 'off'}</span></div>
+            <div class="mia-setting-row"><span>UI sounds</span><span class="mia-setting-val">${s.uiSoundEnabled !== false ? 'on' : 'off'}</span></div>
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
             <button class="mia-save-btn" id="mia-toggle-fallback">${s.fallbackEnabled ? 'Disable' : 'Enable'} auto-fallback</button>
             <button class="mia-save-btn" id="mia-toggle-sound">${s.soundEnabled !== false ? 'Mute' : 'Unmute'} Mia sounds</button>
+            <button class="mia-save-btn" id="mia-toggle-uisound">${s.uiSoundEnabled !== false ? 'Mute' : 'Unmute'} UI sounds</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
@@ -719,6 +722,12 @@ function renderSettings() {
         const next = !isSoundEnabled();
         setSoundEnabled(next);          // persists + silences any active loop
         if (next) { try { soundTick(); } catch (_) {} }   // little confirmation pop on enable
+        renderSettings();
+    });
+    document.getElementById('mia-toggle-uisound').addEventListener('click', () => {
+        const next = !isUiSoundEnabled();
+        setUiSoundEnabled(next);        // persists + mutes/unmutes the UI layer
+        if (next) { try { uiClick(); } catch (_) {} }   // confirmation pop on enable
         renderSettings();
     });
     document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ geminiKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });

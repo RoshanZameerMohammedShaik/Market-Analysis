@@ -1,0 +1,205 @@
+// General UI sound layer — soft synthesized cues across the whole app
+// (hover, click/tap, tab switch, panel open/close, toggle, success, error).
+//
+// Built entirely with the Web Audio API: every sound is oscillators +
+// envelopes through a low-pass filter, so it stays free, dependency-free, and
+// in keeping with the dynamic-only rule (nothing pre-recorded shipped). The
+// character matches Mia's "soft organic bubble" palette (js/mia/sound.js) so
+// the app has ONE coherent sonic identity — these are just the non-voice,
+// interaction-driven counterparts.
+//
+// HARD GATES (all must pass for any sound to play):
+//   1. uiSoundEnabled (settings, default ON, persisted) — the mute.
+//   2. NOT Mia-speaking — shares mia/sound.js's speaking gate via
+//      isMiaSpeaking(), so UI cues never talk over her voice.
+//   3. prefers-reduced-motion: reduce → we honour it as "reduce non-essential
+//      feedback" and stay silent (motion-sensitive users often want quiet too).
+//
+// Autoplay policy: the AudioContext can't start until a user gesture. Every
+// trigger here is gesture-driven (click/tap/hover-after-interaction), so
+// ensure() lazily creates + resumes the context on first real use.
+//
+// Volume is intentionally very low and cues are very short — ambient texture,
+// never a soundboard. Hover is throttled so sweeping the mouse doesn't machine-gun.
+
+import { loadSettings, saveSettings } from '../mia/settings.js';
+import { isMiaSpeaking } from '../mia/sound.js';
+
+let ctx = null;
+let masterGain = null;
+const MASTER_VOLUME = 0.14;   // even softer than Mia's 0.18 — these fire often
+
+// ── enable/mute (persisted) ──────────────────────────────────────────────
+
+export function isUiSoundEnabled() {
+    return loadSettings().uiSoundEnabled !== false;   // default ON
+}
+export function setUiSoundEnabled(on) {
+    saveSettings({ uiSoundEnabled: !!on });
+    if (!on && masterGain) {
+        try { masterGain.gain.setValueAtTime(0, ctx.currentTime); } catch (_) {}
+    } else if (masterGain && ctx) {
+        try { masterGain.gain.setValueAtTime(MASTER_VOLUME, ctx.currentTime); } catch (_) {}
+    }
+    return on;
+}
+
+// ── audio graph ───────────────────────────────────────────────────────────
+
+function prefersReducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (_) { return false; }
+}
+
+function ensure() {
+    if (!isUiSoundEnabled()) return false;
+    if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return false;
+        try {
+            ctx = new AC();
+            masterGain = ctx.createGain();
+            masterGain.gain.value = MASTER_VOLUME;
+            masterGain.connect(ctx.destination);
+        } catch (_) { ctx = null; return false; }
+    }
+    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
+    return true;
+}
+
+function canEmit() {
+    return isUiSoundEnabled() && !isMiaSpeaking() && !prefersReducedMotion() && ensure();
+}
+
+// One soft blip: sine through a low-pass on a quick rounded envelope.
+function blip(freq, t0, peak = 0.5, dur = 0.12, glideTo = null) {
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(60, glideTo || freq * 0.9), t0 + dur);
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(Math.min(2400, freq * 3), t0);
+    lp.Q.value = 0.5;
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+
+    osc.connect(lp); lp.connect(g); g.connect(masterGain);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+}
+
+function now() { return ctx ? ctx.currentTime : 0; }
+
+// ── public triggers ─────────────────────────────────────────────────────
+// Each is a no-op when gated, so call sites never need to guard.
+
+// Featherweight hover tick — throttled so a mouse sweep doesn't stutter.
+let _lastHover = 0;
+export function hover() {
+    if (!canEmit()) return;
+    const t = (ctx.currentTime * 1000);
+    if (t - _lastHover < 60) return;   // throttle: max ~16/s
+    _lastHover = t;
+    blip(720 + Math.random() * 40, now() + 0.001, 0.16, 0.07);
+}
+
+// Soft rounded "bup" on a click / tap.
+export function click() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(540 + Math.random() * 40, t, 0.42, 0.10);
+    blip(300 + Math.random() * 20, t, 0.22, 0.12);
+}
+
+// Brighter two-note rise for a tab / view switch.
+export function tab() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(480, t, 0.34, 0.10);
+    blip(680, t + 0.06, 0.34, 0.12);
+}
+
+// Panel / drawer open — gentle upward swell.
+export function open() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(380, t, 0.30, 0.14, 600);
+    blip(560, t + 0.07, 0.30, 0.16, 760);
+}
+
+// Panel / drawer close — gentle downward settle.
+export function close() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(560, t, 0.28, 0.14, 420);
+    blip(360, t + 0.07, 0.26, 0.16, 280);
+}
+
+// Toggle flip — single crisp mid tick.
+export function toggle() {
+    if (!canEmit()) return;
+    blip(620, now() + 0.001, 0.30, 0.09);
+}
+
+// Success — warm rising major third+fifth (lighter than Mia's full triad).
+export function success() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(523, t, 0.38, 0.14);          // C5
+    blip(659, t + 0.09, 0.38, 0.16);   // E5
+    blip(784, t + 0.18, 0.40, 0.24);   // G5
+}
+
+// Error — soft low minor two-tone (a gentle "nope", never harsh).
+export function error() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(330, t, 0.40, 0.18, 300);
+    blip(247, t + 0.12, 0.40, 0.24, 220);
+}
+
+// ── delegated auto-wiring ─────────────────────────────────────────────────
+// One set of document-level listeners drives most cues from a CSS allow-list,
+// so individual modules don't each have to import and call these. Modules can
+// still call the named triggers directly for semantic events (success/error).
+
+const CLICK_SEL = '.tab-btn, .refresh-btn, .spikers-btn, .pl-btn, .penny-filter-btn, ' +
+    '.header-btn, .header-menu-item, .portfolio-launcher, .mia-launcher, .hot-pick-card, ' +
+    '.sp-bucket, .engine-signals-toggle, .watch-toggle, .scanner-row, .sector-tile, ' +
+    '.earnings-cal-row, .options-scan-row, .resources-toggle, .time-travel-btn';
+
+const HOVER_SEL = '.tab-btn, .hot-pick-card, .header-btn, .penny-filter-btn, ' +
+    '.refresh-btn, .spikers-btn, .portfolio-launcher, .sp-bucket, .sector-tile';
+
+const TAB_SEL = '.tab-btn, .penny-filter-btn, .sp-bucket';
+
+let _wired = false;
+export function initUiSound() {
+    if (_wired) return;
+    _wired = true;
+
+    document.addEventListener('pointerdown', (e) => {
+        const el = e.target instanceof Element ? e.target.closest(CLICK_SEL) : null;
+        if (!el) return;
+        // Tab-like controls get the brighter rising cue; everything else the
+        // soft click. Keeps switching views feeling distinct from pressing.
+        if (el.closest(TAB_SEL)) tab();
+        else click();
+    }, { passive: true, capture: true });
+
+    // Hover cue only after the user has interacted at least once (so a cold
+    // page load that the cursor happens to rest on doesn't try to play before
+    // any gesture, and so it feels intentional). pointerover with the
+    // allow-list, throttled inside hover().
+    document.addEventListener('pointerover', (e) => {
+        const el = e.target instanceof Element ? e.target.closest(HOVER_SEL) : null;
+        if (!el) return;
+        hover();
+    }, { passive: true });
+}
