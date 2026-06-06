@@ -25,7 +25,7 @@ import datetime
 import numpy as np
 import yfinance as yf
 
-from shared_features import extract_ohlcv, compute_features_at
+from shared_features import extract_ohlcv, compute_features_at, compute_adx
 from train_model import SYMBOLS, PERIOD
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -202,49 +202,77 @@ def generate_prediction(candles):
     cross_v = ma_crossover(closes)
     vol_v = volume_spike(volumes)
 
+    # ── Horizon-aware mean-reversion vs momentum tilt ────────────────────
+    # This Python path records the NEXT-DAY (short-horizon) ledger call —
+    # exactly the path the live ledger proved was a failed momentum-chaser
+    # (1d: momentum bets 31-35%, mean-reversion bets 61-66%, as-issued 46.7%).
+    # So at this short horizon we up-weight mean-reversion (RSI/BB) and damp
+    # momentum (MACD/MA-cross/5-bar), GATED by the ADX regime so a trending
+    # tape eases the tilt back. MUST stay in sync with js/analysis.js
+    # generatePrediction (short-horizon branch). A re-scoring backtest put
+    # the optimum near mean-reversion weight ~0.7; these factors approximate
+    # that while bounded.
+    highs = [c['high'] for c in candles]
+    lows = [c['low'] for c in candles]
+    adx_v = compute_adx(highs, lows, closes)
+    if adx_v is None:
+        mr_tilt, mom_tilt = 1.4, 0.6          # unknown regime -> lean reversion
+    elif adx_v > 25:
+        mr_tilt, mom_tilt = 1.15, 0.85        # trending -> only mild reversion lean
+    elif adx_v < 20:
+        mr_tilt, mom_tilt = 1.6, 0.45         # ranging -> strong reversion, suppress momentum
+    else:
+        mr_tilt, mom_tilt = 1.4, 0.6          # transitional
+
     bull = bear = total = 0.0
 
-    if rsi_v is not None:
-        total += 2
-        if rsi_v < 30: bull += 2
-        elif rsi_v < 40: bull += 1
-        elif rsi_v > 70: bear += 2
-        elif rsi_v > 60: bear += 1
+    if rsi_v is not None:                      # RSI extremes = mean-reversion
+        w = 2 * mr_tilt
+        total += w
+        if rsi_v < 30: bull += w
+        elif rsi_v < 40: bull += w * 0.5
+        elif rsi_v > 70: bear += w
+        elif rsi_v > 60: bear += w * 0.5
 
-    if macd_v:
-        total += 2.5
-        if macd_v['crossover']: bull += 2.5
-        elif macd_v['crossunder']: bear += 2.5
-        elif macd_v['histogram'] > 0 and macd_v['macd'] > 0: bull += 1.5
-        elif macd_v['histogram'] < 0 and macd_v['macd'] < 0: bear += 1.5
-        elif macd_v['histogram'] > 0: bull += 0.5
-        else: bear += 0.5
+    if macd_v:                                 # MACD = momentum
+        w = 2.5 * mom_tilt
+        total += w
+        if macd_v['crossover']: bull += w
+        elif macd_v['crossunder']: bear += w
+        elif macd_v['histogram'] > 0 and macd_v['macd'] > 0: bull += w * 0.6
+        elif macd_v['histogram'] < 0 and macd_v['macd'] < 0: bear += w * 0.6
+        elif macd_v['histogram'] > 0: bull += w * 0.2
+        else: bear += w * 0.2
 
-    if bb_v:
-        total += 2
-        if bb_v['percent_b'] < 0: bull += 2
-        elif bb_v['percent_b'] < 0.2: bull += 1.5
-        elif bb_v['percent_b'] > 1: bear += 2
-        elif bb_v['percent_b'] > 0.8: bear += 1.5
+    if bb_v:                                   # Bollinger %b = mean-reversion
+        w = 2 * mr_tilt
+        total += w
+        if bb_v['percent_b'] < 0: bull += w
+        elif bb_v['percent_b'] < 0.2: bull += w * 0.75
+        elif bb_v['percent_b'] > 1: bear += w
+        elif bb_v['percent_b'] > 0.8: bear += w * 0.75
 
-    if cross_v:
-        total += 2
-        if cross_v['bullish_cross']: bull += 2
-        elif cross_v['bearish_cross']: bear += 2
-        elif cross_v['bullish']: bull += 1
-        else: bear += 1
+    if cross_v:                                # MA cross = momentum/trend
+        w = 2 * mom_tilt
+        total += w
+        if cross_v['bullish_cross']: bull += w
+        elif cross_v['bearish_cross']: bear += w
+        elif cross_v['bullish']: bull += w * 0.5
+        else: bear += w * 0.5
 
-    if vol_v and len(volumes) > 20:
+    if vol_v and len(volumes) > 20:            # volume confirmation (neutral)
         total += 1.5
         if vol_v['spike']:
             if closes[-1] > closes[-2]: bull += 1.5
             else: bear += 1.5
 
-    total += 1
+    # 5-bar price momentum = momentum signal
+    wmo = 1 * mom_tilt
+    total += wmo
     recent = closes[-5:]
     momentum = (recent[-1] - recent[0]) / recent[0] * 100
-    if momentum > 2: bull += 1
-    elif momentum < -2: bear += 1
+    if momentum > 2: bull += wmo
+    elif momentum < -2: bear += wmo
 
     if total == 0:
         return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}

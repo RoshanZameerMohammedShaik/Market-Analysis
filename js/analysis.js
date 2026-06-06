@@ -217,8 +217,37 @@ export function generatePrediction(candles, timeframe = 'today') {
     const failedBreak = detectFailedBreak(candles);
 
     const trendRegime = adx === null ? 'unknown' : adx > 25 ? 'trending' : adx < 20 ? 'ranging' : 'transitional';
-    const trendWeightBonus = trendRegime === 'trending' ? 1.3 : 1.0;
-    const meanReversionBonus = trendRegime === 'ranging' ? 1.3 : 1.0;
+
+    // ── Horizon-aware mean-reversion vs momentum tilt ────────────────────
+    // The live ledger proved (n=2,761) that at the SHORT horizon the engine
+    // was a failed momentum-chaser: momentum bets hit ~31-35%, mean-reversion
+    // bets hit ~61-66%, and the as-issued 1-day call was 46.7% (below coin
+    // flip). A re-scoring sweep showed shifting weight toward mean-reversion
+    // lifts 1-day to ~57-59% — but the SAME shift HURTS the 5-day call
+    // (5-day prefers momentum, ~51% vs ~46%). So the fix is HORIZON-AWARE,
+    // not a blanket tilt:
+    //   short horizon (today/tomorrow)  -> favor mean-reversion, damp momentum
+    //   longer horizon (3-5d via weekly tf) -> favor momentum (the default)
+    // Still MODULATED by the detected regime so it adapts if the tape turns
+    // trending (the diagnostic period was a ranging regime). This keeps the
+    // engine from being permanently positioned for one regime.
+    const shortHorizon = timeframe === 'today' || timeframe === 'tomorrow';
+    // Tilt strengths chosen to land near the backtest's w~0.7 optimum at the
+    // short horizon while staying bounded. In a confirmed trend we ease the
+    // mean-reversion tilt back (momentum is more valid then); in a ranging
+    // tape we push it harder (mean-reversion dominates).
+    let mrTilt = 1.0, momTilt = 1.0;
+    if (shortHorizon) {
+        if (trendRegime === 'trending') { mrTilt = 1.15; momTilt = 0.85; }   // trend present: only mild reversion lean
+        else if (trendRegime === 'ranging') { mrTilt = 1.6; momTilt = 0.45; } // ranging: strong reversion, suppress momentum
+        else { mrTilt = 1.4; momTilt = 0.6; }                                 // unknown/transition: lean reversion
+    } else {
+        // Longer horizon: momentum is what works — keep the prior behavior,
+        // with a slight momentum favor in confirmed trends.
+        if (trendRegime === 'trending') { momTilt = 1.15; mrTilt = 0.9; }
+    }
+    const trendWeightBonus = (trendRegime === 'trending' ? 1.3 : 1.0) * momTilt;
+    const meanReversionBonus = (trendRegime === 'ranging' ? 1.3 : 1.0) * mrTilt;
 
     // Volume-confirmation factor: applied to MACD/MA-cross/RSI-extreme weights.
     // Real-trader truth: a directional setup without volume backing is much weaker.
@@ -298,19 +327,26 @@ export function generatePrediction(candles, timeframe = 'today') {
     }
 
     if (adx !== null && adx > 25) {
-        totalWeight += 1.5;
-        if (bullScore > bearScore) { bullScore += 1.5; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bull', 1.5, adx, r); }
-        else if (bearScore > bullScore) { bearScore += 1.5; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bear', 1.5, adx, r); }
+        // ADX-confirm AMPLIFIES the prevailing trend call — pure momentum, so
+        // it rides momTilt (suppressed at the short horizon where momentum
+        // under-performs, kept at the longer horizon where it works).
+        const wa = 1.5 * momTilt;
+        totalWeight += wa;
+        if (bullScore > bearScore) { bullScore += wa; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bull', wa, adx, r); }
+        else if (bearScore > bullScore) { bearScore += wa; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bear', wa, adx, r); }
     } else if (adx !== null && adx < 20) {
         reasons.push(`ADX ${adx.toFixed(1)} — ranging market, breakouts often fail`);
     }
 
     if (mfi !== null) {
-        totalWeight += 1.5;
-        if (mfi < 20) { bullScore += 1.5; const r = `MFI ${mfi.toFixed(1)} — oversold with weak money flow, bounce likely`; reasons.push(r); addContrib('mfi', 'bull', 1.5, mfi, r); }
-        else if (mfi < 30) { bullScore += 0.75; const r = `MFI ${mfi.toFixed(1)} — approaching oversold money flow`; reasons.push(r); addContrib('mfi', 'bull', 0.75, mfi, r); }
-        else if (mfi > 80) { bearScore += 1.5; const r = `MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`; reasons.push(r); addContrib('mfi', 'bear', 1.5, mfi, r); }
-        else if (mfi > 70) { bearScore += 0.75; const r = `MFI ${mfi.toFixed(1)} — elevated money flow`; reasons.push(r); addContrib('mfi', 'bear', 0.75, mfi, r); }
+        // MFI extremes are a MEAN-REVERSION signal (oversold→bounce), so it
+        // rides the same horizon/regime tilt as RSI/BB.
+        const wm = 1.5 * meanReversionBonus;
+        totalWeight += wm;
+        if (mfi < 20) { bullScore += wm; const r = `MFI ${mfi.toFixed(1)} — oversold with weak money flow, bounce likely`; reasons.push(r); addContrib('mfi', 'bull', wm, mfi, r); }
+        else if (mfi < 30) { bullScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)} — approaching oversold money flow`; reasons.push(r); addContrib('mfi', 'bull', wm * 0.5, mfi, r); }
+        else if (mfi > 80) { bearScore += wm; const r = `MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`; reasons.push(r); addContrib('mfi', 'bear', wm, mfi, r); }
+        else if (mfi > 70) { bearScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)} — elevated money flow`; reasons.push(r); addContrib('mfi', 'bear', wm * 0.5, mfi, r); }
     }
 
     if (divs.bullish) {
