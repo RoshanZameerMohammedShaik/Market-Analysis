@@ -51,9 +51,11 @@ export function initTilt3d() {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const narrow = window.matchMedia('(max-width: 540px)');
 
+  // NOTE: .signal-box (the main analysis card) is intentionally NOT a tilt
+  // stage — cursor-tilt on that large card read as cheap/distracting, so it's
+  // removed. It keeps its static resting depth + GSAP entrance, just no tilt.
   const STAGES = [
     { root: '#hotpicks-grid', card: '.hot-pick-card', spec: true },
-    { root: 'document', card: '.signal-box', spec: true },
     { root: 'document', card: '.spikers-card', spec: true },
     { root: 'document', card: '.kbd-help-card', spec: true },
   ];
@@ -76,7 +78,6 @@ export function initTilt3d() {
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
 
   function tiltScaleFor(el) {
-    if (el.classList.contains('signal-box')) return 0.55;
     if (el.classList.contains('spikers-card') || el.classList.contains('kbd-help-card')) return 0.6;
     return 1;
   }

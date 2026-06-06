@@ -246,7 +246,6 @@
     /* Moving specular — a single injected <div class="tilt-spec">. Sits low in
        3D (below text tiers) with a soft blend so light-theme text keeps contrast. */
     .hot-pick-card > .tilt-spec,
-    .signal-box > .tilt-spec,
     .spikers-card > .tilt-spec,
     .kbd-help-card > .tilt-spec {
         position: absolute;
@@ -262,17 +261,10 @@
         transform: translateZ(6px);
     }
 
-    /* Signal box — gentler tilt, self-perspective. */
+    /* Signal box — cursor-tilt intentionally REMOVED (read as cheap on the
+       large analysis card). It keeps only its static resting extrusion +
+       GSAP entrance. position:relative retained for the aurora rim ::after. */
     .signal-box { position: relative; }
-    .signal-box[data-tilting] {
-        transform:
-            perspective(1100px)
-            rotateX(var(--rx))
-            rotateY(var(--ry))
-            translateZ(calc(var(--d3-lift-z) * 0.5 * var(--engage))) !important;
-        will-change: transform;
-        box-shadow: var(--d3-bevel-top), var(--d3-lift-shadow) !important;
-    }
 
     /* Modals — subtle self-perspective tilt. */
     .spikers-card, .kbd-help-card { position: relative; }
