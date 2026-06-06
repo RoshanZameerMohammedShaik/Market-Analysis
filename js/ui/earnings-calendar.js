@@ -146,8 +146,8 @@ export function initEarningsCalendar() {
         <section class="earnings-cal-section" id="earnings-cal-section">
             <details class="earnings-cal-details">
                 <summary class="earnings-cal-summary">
-                    <span class="earnings-cal-title">📅 Earnings This Week</span>
-                    <span class="earnings-cal-hint">Upcoming large-cap earnings with the engine's pre-earnings read</span>
+                    <span class="earnings-cal-title">📅 Upcoming Earnings</span>
+                    <span class="earnings-cal-hint">Large-cap earnings in the next 2 weeks, with the engine's pre-earnings read</span>
                     <button class="earnings-cal-refresh" id="earnings-cal-refresh" title="Refresh earnings calendar">↻</button>
                 </summary>
                 <div class="earnings-cal-host" id="earnings-cal-host"></div>

@@ -468,7 +468,7 @@ const TOOLS = {
         kind: 'action',
     },
     set_price_alert: {
-        desc: 'set a browser price alert above and/or below thresholds for a symbol. Auto-stars the symbol if not already on the watchlist. Pass null on either side to leave it open. Pass {symbol, above:null, below:null} to clear all alerts on that symbol. Confirm with the user before setting — never set silently.',
+        desc: 'set a realtime browser price alert above and/or below thresholds. CRYPTO ONLY (e.g. BTC-USD) — free stock data is 5–15 min delayed with no live feed, so the tool REFUSES stock symbols and returns {ok:false, unsupported:true, reason}. If you get that, relay the reason honestly; do NOT tell the user an alert was set. Auto-stars the (crypto) symbol. Pass {symbol, above:null, below:null} to clear. Confirm before setting — never set silently.',
         args: '{"symbol":"BTC-USD","above":75000,"below":60000}',
         run: async ({ symbol, above, below } = {}) => controlSetPriceAlert({ symbol, above, below }),
         kind: 'action',

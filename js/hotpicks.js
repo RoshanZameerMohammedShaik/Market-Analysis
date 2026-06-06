@@ -229,7 +229,13 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                         price: data.currentPrice || meta.price,
                         signal: result.signal,
                         confidence: result.confidence,
-                        expectedPct: result.priceTargets?.highPercent ?? null,
+                        // Direction-aware expected move: a SELL's thesis is a
+                        // DROP, so its headline must be lowPercent (negative),
+                        // not highPercent (the small upside CAP, which read as
+                        // a bogus "+X% Spike Expected" on every SELL card).
+                        expectedPct: (result.signal === 'SELL'
+                            ? result.priceTargets?.lowPercent
+                            : result.priceTargets?.highPercent) ?? null,
                         expectedHigh: result.priceTargets?.predictedHigh ?? null,
                         expectedLow: result.priceTargets?.predictedLow ?? null,
                         expectedLowPct: result.priceTargets?.lowPercent ?? null,
@@ -420,7 +426,10 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
                 signal: result.signal,
                 confidence: result.confidence,
-                expectedPct: result.priceTargets?.highPercent ?? null,
+                // Direction-aware (see stock path): SELL headline = the drop.
+                expectedPct: (result.signal === 'SELL'
+                    ? result.priceTargets?.lowPercent
+                    : result.priceTargets?.highPercent) ?? null,
                 expectedHigh: result.priceTargets?.predictedHigh ?? null,
                 expectedLow: result.priceTargets?.predictedLow ?? null,
                 expectedLowPct: result.priceTargets?.lowPercent ?? null,

@@ -346,7 +346,7 @@ export function readAccuracyStats() {
     return getStats();
 }
 
-export async function findSpikersDirect({ bucket = '3pct', limit = 10 } = {}) {
+export async function findSpikersDirect({ bucket = 'gte10', limit = 10 } = {}) {
     const b = bucketById(bucket);
     if (!b) throw new Error(`unknown bucket: ${bucket}. Use one of: ${BUCKETS.map(x => x.id).join(', ')}`);
     const scan = state.mode === 'crypto' ? scanCryptoHotPicks : scanStockHotPicks;
@@ -769,7 +769,7 @@ export async function controlRemoveFromWatchlist({ symbol }) {
 // (one above only, one below only, or both bracketing). Pass null to
 // clear that side.
 export async function controlSetPriceAlert({ symbol, above = null, below = null }) {
-    const { setAlert, clearAlert } = await import('../ui/price-alerts.js');
+    const { setAlert, clearAlert, isCryptoSymbol } = await import('../ui/price-alerts.js');
     const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
     const sym = String(symbol || '').toUpperCase().trim();
     if (!sym) throw new Error('symbol required');
@@ -777,6 +777,18 @@ export async function controlSetPriceAlert({ symbol, above = null, below = null 
         clearAlert(sym);
         announce({ text: `Alerts cleared on ${sym}` });
         return { ok: true, cleared: true };
+    }
+    // HONESTY GATE: realtime price alerts only fire for crypto (Binance WS).
+    // Free stock feeds are 5–15 min delayed and there's no socket wired, so
+    // a stock alert would persist but NEVER fire. Refuse it with a clear
+    // reason instead of returning ok:true — Mia must not confirm a dead
+    // alert ("Alert set on AAPL" when it can never trigger).
+    if (!isCryptoSymbol(sym)) {
+        return {
+            ok: false,
+            unsupported: true,
+            reason: `Realtime price alerts are crypto-only (e.g. BTC-USD). Free stock data is 5–15 min delayed with no live feed, so a stock alert on ${sym} would never fire — I didn't set one.`,
+        };
     }
     // Auto-watchlist symbols that get an alert — keeping alerts on
     // un-watched names creates UI orphans.

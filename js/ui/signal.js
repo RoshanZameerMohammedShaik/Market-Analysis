@@ -243,7 +243,10 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     }
 
     const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
-    const trustHTML = renderTrustPanel(prediction);
+    // Justify the LOCKED number the dial shows, not the live recompute — the
+    // trust panel header literally says "Why trust this {confidence}%?", so
+    // it must reason about the same confidence/consensus the user sees.
+    const trustHTML = renderTrustPanel(view);
     // Per-symbol confidence-trend placeholder — filled async after paint
     // from the live ledger (removed if there isn't enough history).
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);

@@ -164,8 +164,15 @@ function renderCards(grid, picks, withFooter) {
         // is threaded so non-USD listings render in their native quote
         // currency (no FX-multiplied INR-as-USD bug).
         const co = { srcCurrency: pick.currency || 'USD' };
+        // Direction-aware label: a SELL's expectedPct is now negative (the
+        // predicted drop), so calling it "Spike Expected" would contradict
+        // the move. Positive → "Spike Expected ⚡", negative → "Drop Expected".
         const spikeHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
-            ? `<div class="hot-pick-spike">${pick.expectedPct >= 0 ? '+' : ''}${Number(pick.expectedPct).toFixed(2)}% Spike Expected ⚡</div>`
+            ? (() => {
+                const p = Number(pick.expectedPct);
+                const word = p >= 0 ? 'Spike Expected ⚡' : 'Drop Expected ⚡';
+                return `<div class="hot-pick-spike">${p >= 0 ? '+' : ''}${p.toFixed(2)}% ${word}</div>`;
+            })()
             : '';
         const highHTML = (pick.expectedHigh != null && Number.isFinite(pick.expectedHigh))
             ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Expected Highest Reach</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}</span></div>`
