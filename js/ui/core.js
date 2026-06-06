@@ -21,6 +21,7 @@ import { startTipRotation } from './tips.js';
 import { initMia, setLatestSignal } from '../mia/mia.js';
 import { startDyk } from './dyk.js';
 import { initRipple } from './ripple.js';
+import { initTilt3d } from './tilt-3d.js';
 import { candleLoaderHTML } from './skeleton.js';
 import { flashShimmer } from './flash-shimmer.js';
 
@@ -52,6 +53,7 @@ function slowScrollTo(scroller, target, durationMs = 1200) {
 export function init() {
     document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
     initRipple();
+    initTilt3d();   // cursor-tilt 3D depth; no-ops under reduced-motion / touch / narrow
     initTheme();
     initTabs();
     initSearch(onSelectFromSearch);

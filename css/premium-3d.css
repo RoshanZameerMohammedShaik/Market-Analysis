@@ -1,0 +1,384 @@
+/* ============================================================================
+   premium-3d.css — CURSOR-TILT DEPTH CARDS (final, hardened)
+   Loaded LAST (after style.css → premium.css) so equal-specificity rules win.
+   STRICTLY ADDITIVE: only adds perspective / transform / depth-shadow /
+   parallax / specular. Never changes position, display, grid-template, or
+   sizing — elements never move structurally; they gain Z depth, tilt, shadow.
+
+   Spine = "Cursor-Tilt Depth Cards" (workflow winner). js/ui/tilt-3d.js writes
+   a small set of EASED custom props onto the ONE element under the pointer (or
+   keyboard-focused):
+       --rx / --ry     rotateX / rotateY in deg (tilt toward pointer)
+       --mx / --my     pointer position as % within the element (specular)
+       --engage        0→1 eased by the JS lerp (CSS multiplies depth by it)
+   CSS owns ALL geometry. With no JS / reduced-motion / touch, the vars stay at
+   flat defaults and the UI degrades to a static — but still dimensional —
+   extrusion (never flat).
+
+   Grafts (per workflow director): Glass two-layer light shadow + lerp/rect-cache
+   (in JS); Neumorphic static reduced-motion extrusion + control press-inset +
+   reuse of per-theme --shadow-* tokens; Holographic dichroic foil AURORA-ONLY
+   on .tab-btn.active + .signal-box rim only.
+
+   Review fixes applied vs the raw synthesized draft:
+     1. Card tilt transform applies ONLY on [data-tilting] — idle/entering cards
+        keep premium.css's transform, so no card-rise conflict / end-of-scan wobble.
+     2. --engage is EASED by the JS lerp (not a binary flip); the card transform
+        has no css transition while tilting (JS owns it) → snap-free handoff.
+     3. Aurora conic foil uses valid `from 0deg` (a % from-angle was invalid and
+        dropped the whole gradient); foil is cursor-positioned, no idle hue-rotate.
+     4. Light-theme specular alpha lowered + soft-light blend so it lights the
+        surface without washing dark text.
+     5. Press-inset excludes .tab-btn.active so its lit halo survives a press.
+
+   HARD CONSTRAINTS honoured: every transform/animation under
+   prefers-reduced-motion: no-preference; all grid depth scoped
+   .hotpicks-grid:not([data-streaming]); box-shadow only transitions on the ONE
+   engaged card; will-change only while [data-tilting]; readable in all 3 themes;
+   tilt disabled on touch/coarse/narrow; additive only.
+   ========================================================================== */
+
+:root {
+    --d3-grid-persp: 1300px;
+    --tilt-max: 7deg;
+    --d3-lift-z: 20px;
+
+    /* Modest tier depths: at perspective ≥1300px they project <1.5% growth, so
+       lifted content stays inside the card padding even with overflow opened. */
+    --d3-tier-1: 12px;
+    --d3-tier-2: 18px;
+    --d3-tier-3: 8px;
+
+    --rx: 0deg;
+    --ry: 0deg;
+    --mx: 50%;
+    --my: 50%;
+    --engage: 0;
+
+    --d3-bevel-top: inset 0 1.5px 0 rgba(255, 255, 255, 0.10);
+    --d3-bevel-bottom: inset 0 -2px 3px rgba(0, 0, 0, 0.55);
+    --d3-occlusion: 0 1px 1px rgba(0, 0, 0, 0.60);
+
+    --d3-lift-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.40),
+        0 16px 34px rgba(0, 0, 0, 0.55),
+        0 30px 64px rgba(var(--accent-rgb), 0.18);
+
+    --d3-spec: rgba(255, 255, 255, 0.13);
+    --d3-spec-radius: 60%;
+    --d3-spec-blend: screen;
+
+    --d3-press-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.55),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+
+    --holo-1: transparent;
+    --holo-2: transparent;
+    --holo-3: transparent;
+    --holo-4: transparent;
+}
+
+[data-theme="dark"] {
+    --d3-bevel-top: inset 0 1.5px 0 rgba(255, 255, 255, 0.12);
+    --d3-bevel-bottom: inset 0 -2px 3px rgba(0, 0, 0, 0.60);
+    --d3-occlusion: 0 1px 1px rgba(0, 0, 0, 0.65);
+    --d3-lift-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.55),
+        0 18px 38px rgba(0, 0, 0, 0.60),
+        0 32px 66px rgba(var(--accent-rgb), 0.20);
+    --d3-spec: rgba(255, 255, 255, 0.15);
+    --d3-spec-blend: screen;
+}
+
+/* LIGHT: "white acrylic on cool grey." Two-layer soft slate shadow + white
+   bevel; specular dialled down + soft-light so it brightens the surface without
+   washing dark text. */
+[data-theme="light"] {
+    --tilt-max: 6deg;
+    --d3-lift-z: 15px;
+    --d3-grid-persp: 1600px;
+    --d3-tier-1: 9px;
+    --d3-tier-2: 15px;
+    --d3-tier-3: 5px;
+
+    --d3-bevel-top: inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+    --d3-bevel-bottom: inset 0 -2px 2px rgba(15, 23, 42, 0.05);
+    --d3-occlusion: 0 1px 1px rgba(15, 23, 42, 0.06);
+    --d3-lift-shadow:
+        0 2px 4px rgba(15, 23, 42, 0.08),
+        0 16px 34px rgba(15, 23, 42, 0.14),
+        0 30px 60px rgba(15, 23, 42, 0.08);
+    --d3-spec: rgba(255, 255, 255, 0.35);
+    --d3-spec-radius: 65%;
+    --d3-spec-blend: soft-light;
+    --d3-press-shadow:
+        inset 0 2px 4px rgba(15, 23, 42, 0.14),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.70);
+}
+
+/* AURORA: violet bloom + dichroic foil on tabs + signal-box. */
+[data-theme="aurora"] {
+    --tilt-max: 9deg;
+    --d3-lift-z: 24px;
+    --d3-bevel-top: inset 0 1.5px 0 rgba(220, 200, 255, 0.12);
+    --d3-bevel-bottom: inset 0 -2px 3px rgba(0, 0, 0, 0.50);
+    --d3-occlusion: 0 1px 1px rgba(0, 0, 0, 0.50);
+    --d3-lift-shadow:
+        0 2px 4px rgba(0, 0, 0, 0.45),
+        0 18px 38px rgba(10, 4, 32, 0.60),
+        0 34px 72px rgba(192, 132, 252, 0.26);
+    --d3-spec: rgba(192, 132, 252, 0.20);
+    --d3-spec-radius: 60%;
+    --d3-spec-blend: screen;
+    --d3-press-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.55),
+        inset 0 -1px 0 rgba(192, 132, 252, 0.10);
+
+    --holo-1: rgba(56, 189, 248, 0.55);
+    --holo-2: rgba(192, 132, 252, 0.55);
+    --holo-3: rgba(20, 232, 168, 0.45);
+    --holo-4: rgba(236, 72, 153, 0.50);
+}
+
+
+/* ============================================================================
+   STATIC RESTING EXTRUSION — ungated ON PURPOSE (depth is not motion).
+   ========================================================================== */
+.hotpicks-grid > .hot-pick-card {
+    box-shadow:
+        var(--d3-bevel-top),
+        var(--d3-bevel-bottom),
+        var(--d3-occlusion),
+        var(--shadow-card);
+}
+.signal-box,
+.spikers-card,
+.kbd-help-card,
+.install-prompt {
+    box-shadow:
+        var(--d3-bevel-top),
+        var(--d3-occlusion),
+        var(--shadow-card);
+}
+
+/* Press-to-inset on controls. Excludes .tab-btn.active so its lit halo survives. */
+.header-btn:active,
+.refresh-btn:active,
+.spikers-btn:active,
+.pl-btn:active,
+.pl-use-current:active,
+.penny-filter-btn:active,
+.engine-signals-toggle:active,
+.portfolio-launcher:active,
+.sp-bucket:active,
+.watchlist-push-btn:active,
+.tab-btn:not(.active):active {
+    box-shadow: var(--d3-press-shadow) !important;
+}
+
+
+/* ============================================================================
+   MOTION / TILT / PARALLAX / SPECULAR — gated behind no-preference.
+   ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+
+    .hotpicks-grid:not([data-streaming]) {
+        perspective: var(--d3-grid-persp);
+        perspective-origin: 50% 38%;
+    }
+
+    /* TILT only while engaged. Idle/entering cards keep premium.css's transform
+       → no conflict / no end-of-scan wobble. No transition on transform here
+       (JS lerp owns it) → snap-free overflow handoff. */
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] {
+        /* !important is REQUIRED: premium.css's card-rise entrance uses
+           animation-fill-mode:both, whose final `transform: translateY(0)`
+           persists and would otherwise beat this regular declaration in the
+           cascade (animations outrank non-important rules), flattening the
+           tilt to identity. !important wins over a non-important animation. */
+        transform:
+            rotateX(var(--rx))
+            rotateY(var(--ry))
+            translateZ(calc(var(--d3-lift-z) * var(--engage))) !important;
+        transform-style: preserve-3d;
+        transition: box-shadow var(--dur-base) var(--ease-premium) !important;
+        will-change: transform;
+        z-index: 3;
+        overflow: visible;   /* needed for preserve-3d inner tiers; tiers are modest so no spill */
+        box-shadow:
+            var(--d3-bevel-top),
+            var(--d3-lift-shadow) !important;
+    }
+    /* Suppress premium.css's 2D sheen on the tilting card (3D specular replaces
+       it, and overflow:visible would let the sheen bleed past the radius). */
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting]::after {
+        display: none;
+    }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card.buy[data-tilting] {
+        box-shadow: var(--d3-bevel-top), var(--d3-lift-shadow),
+                    0 0 0 1px rgba(45, 210, 139, 0.35) !important;
+    }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card.sell[data-tilting] {
+        box-shadow: var(--d3-bevel-top), var(--d3-lift-shadow),
+                    0 0 0 1px rgba(239, 68, 68, 0.35) !important;
+    }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card.neutral[data-tilting] {
+        box-shadow: var(--d3-bevel-top), var(--d3-lift-shadow),
+                    0 0 0 1px rgba(251, 191, 36, 0.35) !important;
+    }
+
+    /* Inner parallax tiers — eased by --engage (JS-lerped), translateZ only. */
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-symbol,
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-name {
+        transform: translateZ(calc(var(--d3-tier-1) * var(--engage)));
+    }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-signal-badge,
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-confidence {
+        transform: translateZ(calc(var(--d3-tier-2) * var(--engage)));
+    }
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-spark,
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-spike,
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-target,
+    .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-price {
+        transform: translateZ(calc(var(--d3-tier-3) * var(--engage)));
+    }
+
+    /* Moving specular — a single injected <div class="tilt-spec">. Sits low in
+       3D (below text tiers) with a soft blend so light-theme text keeps contrast. */
+    .hot-pick-card > .tilt-spec,
+    .signal-box > .tilt-spec,
+    .spikers-card > .tilt-spec,
+    .kbd-help-card > .tilt-spec {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        opacity: var(--engage);
+        mix-blend-mode: var(--d3-spec-blend);
+        background: radial-gradient(
+            var(--d3-spec-radius) var(--d3-spec-radius) at var(--mx) var(--my),
+            var(--d3-spec),
+            transparent 62%);
+        transform: translateZ(6px);
+    }
+
+    /* Signal box — gentler tilt, self-perspective. */
+    .signal-box { position: relative; }
+    .signal-box[data-tilting] {
+        transform:
+            perspective(1100px)
+            rotateX(var(--rx))
+            rotateY(var(--ry))
+            translateZ(calc(var(--d3-lift-z) * 0.5 * var(--engage))) !important;
+        will-change: transform;
+        box-shadow: var(--d3-bevel-top), var(--d3-lift-shadow) !important;
+    }
+
+    /* Modals — subtle self-perspective tilt. */
+    .spikers-card, .kbd-help-card { position: relative; }
+    .spikers-card[data-tilting],
+    .kbd-help-card[data-tilting] {
+        transform:
+            perspective(1200px)
+            rotateX(var(--rx))
+            rotateY(var(--ry))
+            translateZ(calc(12px * var(--engage)));
+        will-change: transform;
+    }
+
+    .mia-panel, .portfolio-panel { perspective: 1500px; }
+
+
+    /* ── HOLOGRAPHIC FOIL — AURORA ONLY, tabs + signal-box rim ONLY ────────── */
+    [data-theme="aurora"] .tab-btn.active {
+        position: relative;
+        isolation: isolate;
+    }
+    [data-theme="aurora"] .tab-btn.active::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0.5;
+        mix-blend-mode: screen;
+        background:
+            conic-gradient(from 0deg at var(--mx) var(--my),
+                var(--holo-1), var(--holo-2), var(--holo-3),
+                var(--holo-4), var(--holo-1));
+    }
+    [data-theme="aurora"] .signal-box { isolation: isolate; }
+    [data-theme="aurora"] .signal-box::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1px;
+        pointer-events: none;
+        z-index: 4;
+        opacity: calc(0.4 + 0.45 * var(--engage));
+        background:
+            conic-gradient(from 0deg at var(--mx) var(--my),
+                var(--holo-1), var(--holo-2), var(--holo-3),
+                var(--holo-4), var(--holo-1));
+        -webkit-mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+        mask:
+            linear-gradient(#000 0 0) content-box,
+            linear-gradient(#000 0 0);
+        mask-composite: exclude;
+        transition: opacity var(--dur-base) var(--ease-premium);
+    }
+
+
+    /* ── MOBILE / NO FINE POINTER — flatten tilt, keep static extrusion ───── */
+    @media (hover: none), (pointer: coarse), (max-width: 540px) {
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting],
+        .signal-box[data-tilting],
+        .spikers-card[data-tilting],
+        .kbd-help-card[data-tilting] {
+            transform: none;
+            overflow: hidden;
+        }
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-symbol,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-name,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-signal-badge,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-confidence,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-spark,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-spike,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-target,
+        .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-price {
+            transform: none;
+        }
+        .hotpicks-grid:not([data-streaming]) { perspective: 2200px; }
+        .tilt-spec { display: none; }
+    }
+}
+
+
+/* ============================================================================
+   REDUCED MOTION — hold the static dimensional extrusion (do NOT go flat).
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+    .hot-pick-card,
+    .signal-box,
+    .spikers-card,
+    .kbd-help-card {
+        transform: none !important;
+        perspective: none;
+    }
+    .tilt-spec { display: none !important; }
+    [data-theme="aurora"] .tab-btn.active::after,
+    [data-theme="aurora"] .signal-box::after { animation: none !important; }
+    .hotpicks-grid > .hot-pick-card:hover,
+    .hotpicks-grid > .hot-pick-card:focus-visible {
+        box-shadow:
+            var(--d3-bevel-top),
+            var(--d3-bevel-bottom),
+            var(--d3-occlusion),
+            var(--shadow-card-hover) !important;
+    }
+}
