@@ -268,11 +268,15 @@ export function notification() {
 const CLICK_SEL = '.tab-btn, .refresh-btn, .spikers-btn, .pl-btn, .penny-filter-btn, ' +
     '.header-btn, .header-menu-item, .portfolio-launcher, .mia-launcher, .hot-pick-card, ' +
     '.sp-bucket, .engine-signals-toggle, .watch-toggle, .scanner-row, .sector-tile, ' +
-    '.earnings-cal-row, .options-scan-row, .resources-toggle, .time-travel-btn';
+    '.earnings-cal-row, .options-scan-row, .resources-toggle, .time-travel-btn, ' +
+    '.scanner-summary, .sector-heatmap-summary, .earnings-cal-summary, .options-scan-summary, ' +
+    '.equity-curve-summary, .accuracy-report-summary, .mia-sound-pill';
 
 const HOVER_SEL = '.tab-btn, .hot-pick-card, .header-btn, .penny-filter-btn, ' +
     '.refresh-btn, .spikers-btn, .portfolio-launcher, .sp-bucket, .sector-tile, ' +
-    '.header-menu-item, .mia-sound-pill';
+    '.header-menu-item, .mia-sound-pill, .resources-toggle, .scanner-summary, ' +
+    '.sector-heatmap-summary, .earnings-cal-summary, .options-scan-summary, ' +
+    '.equity-curve-summary, .accuracy-report-summary';
 
 const TAB_SEL = '.tab-btn, .penny-filter-btn, .sp-bucket';
 
@@ -280,6 +284,15 @@ let _wired = false;
 export function initUiSound() {
     if (_wired) return;
     _wired = true;
+
+    // Pre-warm the AudioContext on the VERY FIRST user gesture anywhere, so it's
+    // already 'running' by the time the user clicks a button. Without this, the
+    // first click(s) pay the context-resume latency and the sound lands late —
+    // the "delay between click and sound" the user noticed. ensure() creates +
+    // resumes; we just call it early on the first pointerdown (capture phase, so
+    // it runs before the click cue below). One-shot via { once: true }.
+    document.addEventListener('pointerdown', () => { try { ensure(); } catch (_) {} },
+        { passive: true, capture: true, once: true });
 
     document.addEventListener('pointerdown', (e) => {
         const el = e.target instanceof Element ? e.target.closest(CLICK_SEL) : null;

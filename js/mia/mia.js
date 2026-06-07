@@ -159,6 +159,17 @@ export function initMia() {
             if (getLauncherVis() !== 'orb') {
                 setLauncherVis(open ? 'hidden' : 'visible');
             }
+            // Belt-and-braces: when the panel CLOSES, clear any lingering inline
+            // opacity the morph (mia-morph.js sets launcher.style.opacity='0'
+            // mid-animation) may have left if it was interrupted by an
+            // outside-click close that bypassed togglePanel's morph reset.
+            // Without this the launcher can stay invisible even though
+            // data-launcher-vis is 'visible' — the reported "toggle disappears
+            // when I click the main screen" glitch.
+            if (!open) {
+                const launcher = document.getElementById('mia-launcher');
+                if (launcher) launcher.style.opacity = '';
+            }
             // Soft open/close cue on an actual state change. Lazy import so
             // mia.js carries no hard dependency on the UI sound layer. The cue
             // self-gates (won't fire while Mia is speaking or if UI sound muted).

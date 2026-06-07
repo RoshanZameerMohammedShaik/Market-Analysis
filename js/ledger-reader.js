@@ -60,14 +60,44 @@ async function currentEngineVersion() {
 // (degraded), returns rows unchanged. Also returns how many rows were set
 // aside so callers can show an honest "rebuilding under updated engine"
 // state instead of an ambiguous empty one.
+//
+// CRITICAL fallback (added after the gate was filtering EVERYTHING): the
+// committed ledger is overwhelmingly 'unversioned' (the Python cron only
+// recently started stamping engineVersion, so only ~171 of ~7,400 rows match
+// the current version). Gating hard left the equity curve + accuracy report
+// permanently stuck on "rebuilding" with zero data. So: if the current-engine
+// subset is too thin to be useful (< MIN_KEPT), we DON'T gate — we return all
+// rows ungated. The gate only "bites" once the new engine has actually
+// accumulated a meaningful record, which is exactly when retiring the old one
+// is the honest thing to do. Until then, showing the full history (clearly the
+// engine's real track record) beats showing nothing.
+// Gate only once the current engine has a RESOLVED, directional record big
+// enough to stand alone. We count kept rows that are actually resolved at the
+// 1-day horizon (the product horizon) — raw row count isn't enough because the
+// newest rows are mostly unresolved, which would gate to a 0-trade surface.
+const MIN_KEPT_RESOLVED = 120;
+function isResolvedDirectional(r) {
+    if (r.signal !== 'BUY' && r.signal !== 'SELL') return false;
+    const h = r.horizons?.['1'];
+    return h && h.directionMatch != null;
+}
 async function scopeToCurrentEngine(rows) {
     const ver = await currentEngineVersion();
     if (!ver) return { rows, retired: 0, gated: false, version: null };
     const kept = [];
     let retired = 0;
+    let keptResolved = 0;
     for (const r of rows) {
-        if ((r.engineVersion || 'unversioned') === ver) kept.push(r);
-        else retired++;
+        if ((r.engineVersion || 'unversioned') === ver) {
+            kept.push(r);
+            if (isResolvedDirectional(r)) keptResolved++;
+        } else retired++;
+    }
+    // Not enough RESOLVED current-engine rows yet → show full history ungated
+    // rather than a blank/forever-rebuilding surface. The gate only bites once
+    // the new engine has genuinely accumulated a record worth standing on.
+    if (keptResolved < MIN_KEPT_RESOLVED) {
+        return { rows, retired: 0, gated: false, version: ver };
     }
     return { rows: kept, retired, gated: true, version: ver };
 }
