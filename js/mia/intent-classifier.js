@@ -47,6 +47,13 @@ export function heuristicClassify(userMessage) {
         return 'prose';
     }
 
+    // Guided-tour requests always need the tool path (Mia drives the app).
+    // Checked before the ticker/short-message logic so "show me around"
+    // routes deterministically instead of falling through to prose.
+    if (/\b(tour|walk me through|walkthrough|show me around|give me a (quick )?tour|guided tour|demo (it|the app)|how do i use this)\b/i.test(text)) {
+        return 'tool';
+    }
+
     // Detect anything that smells like a ticker / data request.
     // Excludes common indicator acronyms that are NOT tickers, so
     // "RSI" doesn't get mis-flagged. Real tickers in the universe
@@ -57,7 +64,12 @@ export function heuristicClassify(userMessage) {
     const looksLikeTicker = tickerCandidates.length > 0;
     const looksLikeCrypto = /\b(btc|eth|sol|ada|doge|xrp|bnb|matic|dot|ltc|avax|link|atom|near|arb|op|sui|sei|pepe|shib|ton|trx|wld|tia|ldo)\b/i.test(raw);
     const hasDataKeyword = /[$₹€£]\d|\d+%|ticker|stock|crypto|price|signal|buy|sell|prediction|portfolio|chart|news|earnings|forecast|target|hot picks|spiker|loser|gainer|recommend/i.test(text);
-    const hasDataSignal = looksLikeTicker || looksLikeCrypto || hasDataKeyword;
+    // App-control intents that need a tool even though they carry no ticker /
+    // data keyword — e.g. a guided tour drives the real app. Without this,
+    // "give me a tour" / "show me around" are short + data-signal-free and
+    // would be mis-routed to prose, so the walkthrough tool never fires.
+    const wantsWalkthrough = /\b(tour|walk me through|walkthrough|show me around|give me a (quick )?tour|guided tour|demo (it|the app)|how do i use)\b/i.test(text);
+    const hasDataSignal = looksLikeTicker || looksLikeCrypto || hasDataKeyword || wantsWalkthrough;
 
     // Short messages (≤ 4 words, ≤ 30 chars) without any data signal
     // are virtually always prose. "hi", "thanks", "are you there",

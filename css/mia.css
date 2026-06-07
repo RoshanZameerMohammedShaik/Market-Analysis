@@ -1259,10 +1259,12 @@ body.mia-voice-minimized .mia-launcher {
             mask-image: radial-gradient(ellipse at 88% 70%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0) 78%);
     display: none;
 }
-body.mia-voice-minimized .mia-launcher-glass {
+body.mia-voice-minimized .mia-launcher-glass,
+body.mia-caption-forced .mia-launcher-glass {
     display: block;
 }
-body.mia-voice-minimized .mia-launcher-glass.visible {
+body.mia-voice-minimized .mia-launcher-glass.visible,
+body.mia-caption-forced .mia-launcher-glass.visible {
     opacity: 1;
 }
 @media (max-width: 720px) {
@@ -1276,8 +1278,8 @@ body.mia-voice-minimized .mia-launcher-glass.visible {
 /* Floating mini-caption next to the minimized launcher orb. Shows the
    user's spoken text while listening, then Mia's spoken words as she
    speaks. The text pill itself is now transparent — the .mia-launcher-glass
-   plate handles the backdrop blur underneath it. */
-   Hidden by default; only shown while voice is minimized AND there's
+   plate handles the backdrop blur underneath it. Hidden by default; only
+   shown while voice is minimized (or a walkthrough forces it) AND there's
    recent text to display. */
 .mia-launcher-caption {
     position: fixed;
@@ -1307,10 +1309,12 @@ body.mia-voice-minimized .mia-launcher-glass.visible {
        fully closed. */
     display: none;
 }
-body.mia-voice-minimized .mia-launcher-caption {
+body.mia-voice-minimized .mia-launcher-caption,
+body.mia-caption-forced .mia-launcher-caption {
     display: block;
 }
-body.mia-voice-minimized .mia-launcher-caption.visible {
+body.mia-voice-minimized .mia-launcher-caption.visible,
+body.mia-caption-forced .mia-launcher-caption.visible {
     opacity: 1;
     transform: translateY(0);
 }

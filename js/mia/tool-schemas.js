@@ -33,6 +33,11 @@ export const TOOL_DECLARATIONS = [
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
+        name: 'start_walkthrough',
+        description: 'Give the user a live guided tour where Mia drives the app, performing real actions while narrating. Use for "show me around / give me a tour / walk me through it / demo the app". Built dynamically from current state (features a real Hot Pick, visits a shuffled subset of surfaces) so it varies each time. After it returns, summarize what you showed.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
         name: 'get_live_price',
         description: 'Fetch the LIVE current price for a symbol from a fresh data feed (Binance for crypto, Stooq snapshot for stocks). MANDATORY for any "current price" / "live price" / "what is X trading at" question — DO NOT quote a price from get_current_signal or memory; that data is from the last analysis run, not live. Returns { symbol, priceUSD, source, fetchedAt }.',
         parameters: {

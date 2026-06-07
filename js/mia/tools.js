@@ -42,6 +42,15 @@ const TOOLS = {
         desc: 'app snapshot (mode, symbol, theme, latest signal summary)', args: '{}',
         run: () => readUiSnapshot(), kind: 'read',
     },
+    start_walkthrough: {
+        desc: 'give the user a live guided tour of the app — Mia DRIVES it, performing real actions while narrating. Use when the user asks to "show me around / give me a tour / walk me through the app / how do I use this / demo it". The tour is built DYNAMICALLY from the current state: it features a real symbol from today\'s Hot Picks (loads + analyzes it), and visits a varying subset of surfaces (sector heatmap, full ledger, resources, theme, stock/crypto modes) in a shuffled order, so it\'s never the same twice. It returns { stopsShown, count } — after calling, briefly tell the user what you showed and invite a follow-up. Runs ~20-30s; only start one at a time.',
+        args: '{}',
+        run: async () => {
+            const { runWalkthrough } = await import('./walkthrough.js');
+            return runWalkthrough();
+        },
+        kind: 'control',
+    },
     get_live_price: {
         desc: 'fetch the LIVE current price for a symbol from a fresh data feed (Binance WS for crypto, Stooq snapshot for stocks). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, fetchedAt }.',
         args: '{"symbol":"AAPL"}',

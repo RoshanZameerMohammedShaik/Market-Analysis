@@ -259,6 +259,21 @@ export function isVoiceSupported() {
     return !!(SR && TTS_AVAILABLE);
 }
 
+// External narration entry — lets the walkthrough (or any non-voice agentic
+// flow) show text in the floating launcher caption pill + glass without a
+// live voice session. We add body.mia-caption-forced so the caption CSS
+// (otherwise gated on .mia-voice-minimized) shows during the tour, then the
+// normal fade/clear logic applies. Pass empty text to clear immediately.
+export function setLauncherCaptionExternal(text, role = 'mia') {
+    if (!text) {
+        document.body.classList.remove('mia-caption-forced');
+        clearLauncherCaption();
+        return;
+    }
+    document.body.classList.add('mia-caption-forced');
+    setLauncherCaption(text, role);
+}
+
 // Re-attach the mic button + voice overlay after each renderChat() —
 // mia.js rebuilds the panel innerHTML so both need to re-insert.
 export function attachVoiceButton() {
