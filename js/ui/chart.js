@@ -6,6 +6,12 @@ import { attachTimeTravel } from './time-travel.js';
 import { fetchStockData } from '../data.js';
 import { fullLabelForSymbol, fullLabelForCode, displayTicker } from './exchanges.js';
 import { readSymbolSignalMarkers } from '../ledger-reader.js';
+import { mountParticles } from './particles.js';
+
+// Teardown handle for the hero particle field (mounted in showChartPlaceholder,
+// torn down when a real chart replaces the placeholder).
+let _heroParticlesStop = null;
+function stopHeroParticles() { if (_heroParticlesStop) { try { _heroParticlesStop(); } catch (_) {} _heroParticlesStop = null; } }
 
 // "Engine Signals" mode: when ON, EVERY symbol (incl. US) renders on our
 // own lightweight-charts chart so we can draw the engine's past BUY/SELL
@@ -84,6 +90,9 @@ function isNonUsTicker(yahooSymbol) {
 
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
+    // A real chart is about to replace the placeholder — stop the hero
+    // particle field so its canvas + rAF loop are released.
+    stopHeroParticles();
     const container = document.getElementById('tradingview-widget');
     const chartHeader = document.getElementById('chart-header');
 
@@ -331,6 +340,13 @@ export function showChartPlaceholder() {
             <div class="chart-ph-title shimmer">Select a stock or crypto to start</div>
             <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
         </div>`;
+    // Ambient particle field behind the hero empty-state (particle-love-style:
+    // drifting points linked by thin lines, easing away from the cursor).
+    // Self-tears-down when a real chart replaces the placeholder. No-op under
+    // reduced-motion; pauses when off-screen / tab hidden.
+    stopHeroParticles();
+    const ph = container.querySelector('.chart-placeholder');
+    if (ph) _heroParticlesStop = mountParticles(ph);
 }
 
 export function updateChartHeader(data) {
