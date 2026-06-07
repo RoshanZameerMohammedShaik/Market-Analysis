@@ -29,19 +29,57 @@ let ctx = null;
 let masterGain = null;
 const MASTER_VOLUME = 0.32;   // bumped from 0.14 — cues were too quiet to hear
 
-// ── enable/mute (persisted) ──────────────────────────────────────────────
+// ── enable/mute (persisted, per-category) ────────────────────────────────
+// Categories: 'click' | 'hover' | 'notify'. Each maps to a settings flag.
+// The master `soundAllOff` silences every synthesized cue (UI + Mia actions)
+// except Mia's voice. `uiSoundEnabled` (legacy) is honoured as an extra gate
+// so an old "UI sounds off" state keeps working.
+const CATEGORY_FLAG = { click: 'soundClick', hover: 'soundHover', notify: 'soundNotify' };
 
 export function isUiSoundEnabled() {
-    return loadSettings().uiSoundEnabled !== false;   // default ON
+    const s = loadSettings();
+    return s.soundAllOff !== true && s.uiSoundEnabled !== false;
 }
+function categoryEnabled(category) {
+    const s = loadSettings();
+    if (s.soundAllOff === true) return false;
+    if (s.uiSoundEnabled === false) return false;
+    const flag = CATEGORY_FLAG[category];
+    return !flag || s[flag] !== false;   // default ON per category
+}
+
 export function setUiSoundEnabled(on) {
     saveSettings({ uiSoundEnabled: !!on });
-    if (!on && masterGain) {
-        try { masterGain.gain.setValueAtTime(0, ctx.currentTime); } catch (_) {}
-    } else if (masterGain && ctx) {
-        try { masterGain.gain.setValueAtTime(MASTER_VOLUME, ctx.currentTime); } catch (_) {}
-    }
+    applyMasterGain();
     return on;
+}
+
+// Per-category getters/setters for the Settings → Sounds submenu.
+export function getSoundSettings() {
+    const s = loadSettings();
+    return {
+        click: s.soundClick !== false,
+        hover: s.soundHover !== false,
+        notify: s.soundNotify !== false,
+        miaActions: s.soundEnabled !== false,   // Mia's action sounds (mia/sound.js reads this)
+        allOff: s.soundAllOff === true,
+    };
+}
+export function setSoundCategory(category, on) {
+    const key = { click: 'soundClick', hover: 'soundHover', notify: 'soundNotify' }[category];
+    if (!key) return;
+    saveSettings({ [key]: !!on });
+    applyMasterGain();
+}
+export function setSoundAllOff(off) {
+    saveSettings({ soundAllOff: !!off });
+    applyMasterGain();
+    return off;
+}
+function applyMasterGain() {
+    if (!masterGain || !ctx) return;
+    const on = isUiSoundEnabled();
+    try { masterGain.gain.setValueAtTime(on ? MASTER_VOLUME : 0, ctx.currentTime); } catch (_) {}
 }
 
 // ── audio graph ───────────────────────────────────────────────────────────
@@ -67,8 +105,11 @@ function ensure() {
     return true;
 }
 
-function canEmit() {
-    return isUiSoundEnabled() && !isMiaSpeaking() && !prefersReducedMotion() && ensure();
+// `category` is 'click' | 'hover' | 'notify' (defaults to 'click'). The cue
+// only plays if that category is enabled, Mia isn't speaking, motion isn't
+// reduced, and the audio context is live.
+function canEmit(category = 'click') {
+    return categoryEnabled(category) && !isMiaSpeaking() && !prefersReducedMotion() && ensure();
 }
 
 // One soft blip: sine through a low-pass on a quick rounded envelope.
@@ -102,7 +143,7 @@ function now() { return ctx ? ctx.currentTime : 0; }
 // Featherweight hover tick — throttled so a mouse sweep doesn't stutter.
 let _lastHover = 0;
 export function hover() {
-    if (!canEmit()) return;
+    if (!canEmit('hover')) return;
     const t = (ctx.currentTime * 1000);
     if (t - _lastHover < 60) return;   // throttle: max ~16/s
     _lastHover = t;
@@ -151,7 +192,7 @@ export function toggle() {
 
 // Success — warm rising major third+fifth (lighter than Mia's full triad).
 export function success() {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     const t = now() + 0.001;
     blip(523, t, 0.38, 0.14);          // C5
     blip(659, t + 0.09, 0.38, 0.16);   // E5
@@ -160,7 +201,7 @@ export function success() {
 
 // Error — soft low minor two-tone (a gentle "nope", never harsh).
 export function error() {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     const t = now() + 0.001;
     blip(330, t, 0.40, 0.18, 300);
     blip(247, t + 0.12, 0.40, 0.24, 220);
@@ -172,7 +213,7 @@ export function error() {
 
 // BUY — rising A4→D5→G5, clean held tones (confident, ascending).
 export function signalLandedBuy() {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     const t = now() + 0.001;
     blip(440, t, 0.34, 0.11);
     blip(587, t + 0.10, 0.34, 0.14);
@@ -180,7 +221,7 @@ export function signalLandedBuy() {
 }
 // SELL — descending E5→A4→E4, each sliding down (cautious, settling).
 export function signalLandedSell() {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     const t = now() + 0.001;
     blip(659, t, 0.36, 0.12, 587);
     blip(440, t + 0.11, 0.34, 0.14, 392);
@@ -188,7 +229,7 @@ export function signalLandedSell() {
 }
 // NEUTRAL / NO_TRADE — two equal C5 tones, no pitch motion ("wait and see").
 export function signalLandedNeutral() {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     const t = now() + 0.001;
     blip(523, t, 0.26, 0.20);
     blip(523, t + 0.08, 0.26, 0.22);
@@ -205,9 +246,18 @@ export function signalLanded(signal) {
 // never machine-guns. Pitch rises across the volley. Peak kept at 0.14 so the
 // 5-chirp volley + the success() chord can't sum to clipping at MASTER_VOLUME.
 export function cardArrival(i = 0) {
-    if (!canEmit()) return;
+    if (!canEmit('notify')) return;
     if (i > 4) return;
     blip(660 + i * 28, now() + 0.001, 0.14, 0.07);
+}
+
+// Generic notification ping — a soft two-note rise for an info-kind toast
+// (success/error have their own cues). Notify category.
+export function notification() {
+    if (!canEmit('notify')) return;
+    const t = now() + 0.001;
+    blip(620, t, 0.34, 0.12);
+    blip(880, t + 0.08, 0.34, 0.16);
 }
 
 // ── delegated auto-wiring ─────────────────────────────────────────────────

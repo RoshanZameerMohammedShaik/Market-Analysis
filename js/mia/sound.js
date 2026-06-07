@@ -33,14 +33,17 @@ let masterGain = null;   // master volume / hard-mute node
 let speaking = false;    // TTS/Live voice currently playing → suppress
 let thinkingHandle = null; // { stop() } for the active thinking loop
 
-const MASTER_VOLUME = 0.18;   // intentionally low — ambient, never harsh
+const MASTER_VOLUME = 0.30;   // bumped from 0.18 — action sounds were too quiet to notice
 
 // ── enable/mute state (persisted in Mia settings) ────────────────────
 
 export function isSoundEnabled() {
     // Default ON. settings.soundEnabled is undefined on stores written
-    // before this feature → treat undefined as true.
+    // before this feature → treat undefined as true. The master soundAllOff
+    // (Settings → Sounds → "Turn off all sounds") silences Mia's ACTION sounds
+    // too — but NOT her voice/responses, which never read this flag.
     const s = loadSettings();
+    if (s.soundAllOff === true) return false;
     return s.soundEnabled !== false;
 }
 

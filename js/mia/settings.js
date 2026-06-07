@@ -35,7 +35,18 @@ const DEFAULT = {
     // UI feedback while muting Mia (or vice-versa). Default ON; shares Mia's
     // "never play while she's speaking" gate. Synthesized in-browser — no
     // sample files (dynamic-only rule).
+    // NOTE: kept for back-compat; the granular per-category flags below are the
+    // current model and supersede it for the new Sounds settings submenu.
     uiSoundEnabled: true,
+    // ── Per-category sound toggles (Settings → Sounds) ────────────────────
+    soundClick: true,        // click / tap / tab-switch / panel open-close cues
+    soundHover: true,        // hover ticks
+    soundNotify: true,       // notification + signal-landed + success/error cues
+    // soundEnabled (above) = Mia's ACTION sounds (thinking loop, tool ticks) —
+    // NOT her voice/responses, which are never gated by sound settings.
+    // Master kill: when true, ALL synthesized sounds are silenced (UI cues AND
+    // Mia's action sounds) EXCEPT Mia's voice/responses. Off by default.
+    soundAllOff: false,
 };
 
 function migrateLegacy() {

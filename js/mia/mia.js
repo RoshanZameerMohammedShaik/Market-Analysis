@@ -19,7 +19,7 @@ import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
 import { setLauncherVis, getLauncherVis } from '../ui/launcher-vis.js';
 import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick, complete as soundComplete } from './sound.js';
-import { isUiSoundEnabled, setUiSoundEnabled, click as uiClick } from '../ui/ui-sound.js';
+import { isUiSoundEnabled, setUiSoundEnabled, click as uiClick, getSoundSettings, setSoundCategory, setSoundAllOff, notification as uiNotification } from '../ui/ui-sound.js';
 
 let currentSignal = null;
 let panelOpen = false;
@@ -541,6 +541,9 @@ async function doSend() {
             if (ev.type === 'tool') {
                 toolResults.push(ev);
                 showToolBadge(bubbleId, ev.name, ev.kind);
+                // Soft tick when Mia performs a tool action (presses a button,
+                // runs a lookup) — the per-action sound the user asked for.
+                try { soundTick(); } catch (_) {}
                 continue;
             }
             if (ev.type !== 'delta') continue;
@@ -729,12 +732,9 @@ function renderSettings() {
             <div class="mia-setting-row"><span>Thinking mode</span><span class="mia-setting-val">${s.thinkingMode ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Auto-fallback</span><span class="mia-setting-val">${s.fallbackEnabled ? 'on' : 'off'}</span></div>
             <div class="mia-setting-row"><span>Voice</span><span class="mia-setting-val">${s.voiceLive ? 'Gemini Live (auto-fallback to browser TTS)' : 'Browser TTS only'}</span></div>
-            <div class="mia-setting-row"><span>Mia sounds</span><span class="mia-setting-val">${s.soundEnabled !== false ? 'on' : 'off'}</span></div>
-            <div class="mia-setting-row"><span>UI sounds</span><span class="mia-setting-val">${s.uiSoundEnabled !== false ? 'on' : 'off'}</span></div>
+            ${renderSoundsSection()}
             <button class="mia-save-btn" id="mia-resetup">Switch backend / re-set up</button>
             <button class="mia-save-btn" id="mia-toggle-fallback">${s.fallbackEnabled ? 'Disable' : 'Enable'} auto-fallback</button>
-            <button class="mia-save-btn" id="mia-toggle-sound">${s.soundEnabled !== false ? 'Mute' : 'Unmute'} Mia sounds</button>
-            <button class="mia-save-btn" id="mia-toggle-uisound">${s.uiSoundEnabled !== false ? 'Mute' : 'Unmute'} UI sounds</button>
             <button class="mia-clear-btn" id="mia-forget-keys">Forget API keys</button>
             <button class="mia-clear-btn" id="mia-clear-models">Clear legacy WebLLM cache (if any)</button>
             <p class="mia-help">Keys and chat history live in this browser only. Clearing site data wipes everything.</p>
@@ -743,19 +743,63 @@ function renderSettings() {
     document.getElementById('mia-back').addEventListener('click', renderChat);
     document.getElementById('mia-resetup').addEventListener('click', () => { clearSettings(); renderRoot(); });
     document.getElementById('mia-toggle-fallback').addEventListener('click', () => { saveSettings({ fallbackEnabled: !s.fallbackEnabled }); renderSettings(); });
-    document.getElementById('mia-toggle-sound').addEventListener('click', () => {
-        const next = !isSoundEnabled();
-        setSoundEnabled(next);          // persists + silences any active loop
-        if (next) { try { soundTick(); } catch (_) {} }   // little confirmation pop on enable
-        renderSettings();
-    });
-    document.getElementById('mia-toggle-uisound').addEventListener('click', () => {
-        const next = !isUiSoundEnabled();
-        setUiSoundEnabled(next);        // persists + mutes/unmutes the UI layer
-        if (next) { try { uiClick(); } catch (_) {} }   // confirmation pop on enable
-        renderSettings();
-    });
+    wireSoundsSection(() => renderSettings());
     document.getElementById('mia-forget-keys').addEventListener('click', () => { saveSettings({ geminiKey: '', cfKey: '', cfAccountId: '' }); renderSettings(); });
     document.getElementById('mia-clear-models').addEventListener('click', async () => { try { await webllmShim.clearCache(); alert('Legacy WebLLM cache (if any) cleared.'); } catch (e) { alert('Clear failed: ' + e.message); } });
+}
+// ── Sounds settings section (Settings → Sounds) ──────────────────────────
+// Per-category toggles + a master "turn off all sounds". Mia's VOICE/responses
+// are never gated here. Renders pill toggles; wireSoundsSection binds them.
+function renderSoundsSection() {
+    const snd = getSoundSettings();
+    const pill = (id, label, on, disabled) =>
+        `<button class="mia-sound-pill ${on ? 'on' : 'off'}" id="${id}" ${disabled ? 'data-disabled="1"' : ''} type="button">
+            <span class="mia-sound-pill-label">${label}</span>
+            <span class="mia-sound-pill-state">${on ? 'On' : 'Off'}</span>
+        </button>`;
+    const off = snd.allOff;
+    return `
+        <div class="mia-sounds-section">
+            <div class="mia-sounds-title">🔊 Sounds</div>
+            ${pill('snd-alloff', 'Turn off all sounds', !off, false)}
+            <div class="mia-sounds-grid" data-dimmed="${off ? '1' : '0'}">
+                ${pill('snd-click', 'Clicking', snd.click, off)}
+                ${pill('snd-hover', 'Hovering', snd.hover, off)}
+                ${pill('snd-notify', 'Notifications', snd.notify, off)}
+                ${pill('snd-mia', "Mia's action sounds", snd.miaActions, off)}
+            </div>
+            <p class="mia-help">“Turn off all sounds” silences everything above (and Mia’s action sounds) — but never Mia’s voice / spoken responses.</p>
+        </div>`;
+}
+function wireSoundsSection(rerender) {
+    const allOff = document.getElementById('snd-alloff');
+    if (allOff) allOff.addEventListener('click', () => {
+        const snd = getSoundSettings();
+        setSoundAllOff(!snd.allOff);          // pill shows "on" when sounds are ALLOWED
+        if (snd.allOff) { try { uiClick(); } catch (_) {} }  // was off→on: confirm pop
+        rerender();
+    });
+    const bindCat = (id, cat) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', () => {
+            if (el.dataset.disabled) return;   // master off — ignore
+            const snd = getSoundSettings();
+            if (cat === 'mia') {
+                const next = !snd.miaActions;
+                setSoundEnabled(next);
+                if (next) { try { soundTick(); } catch (_) {} }
+            } else {
+                const next = !snd[cat];
+                setSoundCategory(cat, next);
+                if (next) { try { cat === 'notify' ? uiNotification() : cat === 'hover' ? uiClick() : uiClick(); } catch (_) {} }
+            }
+            rerender();
+        });
+    };
+    bindCat('snd-click', 'click');
+    bindCat('snd-hover', 'hover');
+    bindCat('snd-notify', 'notify');
+    bindCat('snd-mia', 'mia');
 }
 function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
