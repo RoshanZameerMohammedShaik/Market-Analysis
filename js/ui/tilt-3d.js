@@ -82,6 +82,21 @@ export function initTilt3d() {
     return 1;
   }
 
+  function isHotPick(el) {
+    return !!(el && el.classList && el.classList.contains('hot-pick-card'));
+  }
+
+  // The Hot Picks grid gets data-lifting=1 while one of its cards is engaged so
+  // CSS can blur/dim the SIBLING cards (Picasa "lift one, soften the rest").
+  // Cleared on full release. Cached so we don't re-query the grid each engage.
+  const hotpicksGrid = () => document.getElementById('hotpicks-grid');
+  function setGridLifting(on) {
+    const g = hotpicksGrid();
+    if (!g) return;
+    if (on) g.setAttribute('data-lifting', '1');
+    else g.removeAttribute('data-lifting');
+  }
+
   // --- active-target state --------------------------------------------------
   let activeEl = null;
   let specEl = null;
@@ -142,6 +157,7 @@ export function initTilt3d() {
 
     activeMax = cachedMax * tiltScaleFor(el);
     activeRect = el.getBoundingClientRect();
+    setGridLifting(isHotPick(el));
 
     // Start eased values from flat so the card rises INTO position.
     curRx = curRy = 0; curMx = curMy = 50; curEng = 0;
@@ -161,6 +177,7 @@ export function initTilt3d() {
 
   function finishRelease() {
     if (activeEl) hardReset(activeEl);
+    setGridLifting(false);
     activeEl = null;
     specEl = null;
     activeRect = null;
@@ -172,13 +189,23 @@ export function initTilt3d() {
     if (!activeRect || activeRect.width === 0 || activeRect.height === 0) return;
     const cx = Math.min(Math.max((pointerX - activeRect.left) / activeRect.width, 0), 1);
     const cy = Math.min(Math.max((pointerY - activeRect.top) / activeRect.height, 0), 1);
-    // FIXED LIFT (user request): the card tilts back a constant amount and
-    // rises on hover — it does NOT re-orient toward the cursor. So the rotation
-    // targets are CONSTANT (a gentle backward tilt), not pointer-derived. Only
-    // the specular highlight (--mx/--my) still tracks the cursor for the gleam,
-    // which reads as light moving over a fixed-lifted card.
-    tgtRx = activeMax * 0.5;   // tilt the top slightly back, always the same way
-    tgtRy = 0;                 // no left/right yaw
+    // PICASA-STYLE LIFT (user request, fixed direction): the card lifts and
+    // tips so its RIGHT edge swings toward the viewer — like Picasa lifting an
+    // image off the wall. The rotation is CONSTANT (does NOT chase the cursor),
+    // so every card lifts the same way every time. CSS pairs this with a zoom
+    // (scale via --engage) and blurs the sibling cards to focus the lifted one.
+    // Only the specular highlight (--mx/--my) still tracks the cursor, reading
+    // as light gliding over a fixed-lifted card.
+    // rotateY < 0 brings the right edge toward the viewer; a small rotateX > 0
+    // tips the top forward so it reads as "picked up", not just "rotated".
+    if (isHotPick(activeEl)) {
+      tgtRy = -activeMax;          // right edge lifts toward the user
+      tgtRx = activeMax * 0.35;    // gentle top-forward tip
+    } else {
+      // modals (spikers / kbd-help) keep the subtle constant back-tilt
+      tgtRx = activeMax * 0.5;
+      tgtRy = 0;
+    }
     tgtMx = cx * 100;
     tgtMy = cy * 100;
   }

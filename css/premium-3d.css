@@ -42,6 +42,7 @@
     --d3-grid-persp: 1300px;
     --tilt-max: 7deg;
     --d3-lift-z: 20px;
+    --d3-zoom: 0.06;   /* Picasa lift zoom: lifted card grows ~6% (eased by --engage) */
 
     /* Modest tier depths: at perspective ≥1300px they project <1.5% growth, so
        lifted content stays inside the card padding even with overflow opened. */
@@ -96,6 +97,7 @@
 [data-theme="light"] {
     --tilt-max: 6deg;
     --d3-lift-z: 15px;
+    --d3-zoom: 0.05;
     --d3-grid-persp: 1600px;
     --d3-tier-1: 9px;
     --d3-tier-2: 15px;
@@ -120,6 +122,7 @@
 [data-theme="aurora"] {
     --tilt-max: 9deg;
     --d3-lift-z: 24px;
+    --d3-zoom: 0.07;
     --d3-bevel-top: inset 0 1.5px 0 rgba(220, 200, 255, 0.12);
     --d3-bevel-bottom: inset 0 -2px 3px rgba(0, 0, 0, 0.50);
     --d3-occlusion: 0 1px 1px rgba(0, 0, 0, 0.50);
@@ -195,19 +198,39 @@
            animation-fill-mode:both, whose final `transform: translateY(0)`
            persists and would otherwise beat this regular declaration in the
            cascade (animations outrank non-important rules), flattening the
-           tilt to identity. !important wins over a non-important animation. */
+           tilt to identity. !important wins over a non-important animation.
+
+           PICASA LIFT: the card swings its right edge toward the viewer
+           (rotateY from JS is negative), tips its top slightly forward
+           (rotateX), rises on Z, AND zooms via scale(--d3-zoom) — all eased by
+           --engage so it animates in/out smoothly. The grid blurs the OTHER
+           cards (see [data-lifting] below) to focus this one. */
         transform:
             rotateX(var(--rx))
             rotateY(var(--ry))
-            translateZ(calc(var(--d3-lift-z) * var(--engage))) !important;
+            translateZ(calc(var(--d3-lift-z) * var(--engage)))
+            scale(calc(1 + var(--d3-zoom) * var(--engage))) !important;
         transform-style: preserve-3d;
         transition: box-shadow var(--dur-base) var(--ease-premium) !important;
         will-change: transform;
-        z-index: 3;
+        z-index: 5;
         overflow: visible;   /* needed for preserve-3d inner tiers; tiers are modest so no spill */
         box-shadow:
             var(--d3-bevel-top),
             var(--d3-lift-shadow) !important;
+    }
+
+    /* Picasa focus: while one card is lifted, soften every OTHER card in the
+       grid — a touch of blur + slight desaturation + dim, so the eye locks on
+       the raised one. The lifted card ([data-tilting]) is excluded and stays
+       crisp. Transition makes the soften/restore glide rather than snap. */
+    .hotpicks-grid[data-lifting] > .hot-pick-card {
+        transition: filter var(--dur-base) var(--ease-premium),
+                    opacity var(--dur-base) var(--ease-premium);
+    }
+    .hotpicks-grid[data-lifting] > .hot-pick-card:not([data-tilting]) {
+        filter: blur(2.5px) saturate(0.85);
+        opacity: 0.62;
     }
     /* Suppress premium.css's 2D sheen on the tilting card (3D specular replaces
        it, and overflow:visible would let the sheen bleed past the radius). */
@@ -347,6 +370,11 @@
         }
         .hotpicks-grid:not([data-streaming]) { perspective: 2200px; }
         .tilt-spec { display: none; }
+        /* No Picasa sibling-blur on touch/narrow — keep all cards crisp. */
+        .hotpicks-grid[data-lifting] > .hot-pick-card:not([data-tilting]) {
+            filter: none;
+            opacity: 1;
+        }
     }
 }
 
