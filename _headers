@@ -2,15 +2,25 @@
 # Format: pattern, then header lines indented with two spaces.
 # Pages reads this at deploy time and applies the rules at the edge.
 
-# Static assets — long cache + immutable so the browser doesn't refetch
-# unchanged JS / CSS / SVG / fonts. The .pages.dev edge already does its
-# own caching; this just tells the user's browser the asset is safe to
-# reuse for a year.
+# JS / CSS are loaded by FIXED, non-content-hashed paths (js/app.js,
+# js/confidence.js, css/style.css …). The previous `max-age=31536000,
+# immutable` was a footgun: because the filenames never change, a returning
+# visitor's browser kept running last year's code FOREVER — every deploy was
+# silently invisible to anyone who'd visited before (verified 2026-06-07: a
+# freshly-deployed module did not execute in a browser that had cached the
+# prior build). "immutable" is only safe with content-hashed filenames, which
+# this no-build-step app doesn't have.
+#
+# Fix: `no-cache` = the browser MAY store the file but MUST revalidate with the
+# origin (via ETag) before using it. Cloudflare returns a cheap 304 when the
+# file is unchanged (no body re-download), so repeat loads stay fast, but the
+# instant a deploy changes a file the user gets it on their next load. This is
+# the correct policy for an unversioned, frequently-deployed SPA.
 /css/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, no-cache
 
 /js/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, no-cache
 
 # HTML and the manifest must NOT be cached aggressively — every push
 # we want users to see the new index.html / new manifest immediately.
