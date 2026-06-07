@@ -61,6 +61,14 @@ const SECTIONS = [
 // load (Roshan's UX preference: the panel should never auto-open after
 // a refresh, even if the user opened it earlier in a previous session).
 import { flashShimmer } from './flash-shimmer.js';
+import { nextTip } from './tips.js';
+
+function escapeHtmlGlos(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+// Swap in a fresh Did-You-Know fact (called on every panel open).
+function refreshResourcesDyk() {
+    const body = document.querySelector('.glossary-rail .res-dyk-body');
+    if (body) body.textContent = nextTip();
+}
 
 let _open = false;
 function isOpen() { return _open; }
@@ -77,6 +85,8 @@ function setOpen(v) {
     // opens (transition from closed → open). Skipped on the initial
     // setOpen(false) call during render.
     if (_open && !wasOpen) {
+        // Fresh Did-You-Know fact on every open.
+        refreshResourcesDyk();
         requestAnimationFrame(() => {
             flashShimmer(document.querySelector('.glossary-rail .resources-title'));
         });
@@ -109,13 +119,20 @@ export function renderGlossary() {
             <h2 class="resources-title">Resources</h2>
             <button type="button" class="resources-close" id="resources-close" aria-label="Close Resources panel" title="Close">×</button>
         </div>
-        <div class="resources-body">${sectionsHTML}</div>
+        <div class="resources-body">
+            <div class="res-dyk" aria-live="polite">
+                <div class="res-dyk-head"><span aria-hidden="true">💡</span> Did you know?</div>
+                <div class="res-dyk-body">${escapeHtmlGlos(nextTip())}</div>
+            </div>
+            ${sectionsHTML}
+        </div>
     `;
     const closeBtn = rail.querySelector('#resources-close');
     if (closeBtn) closeBtn.addEventListener('click', () => setOpen(false));
 
-    // Mount the toggle inline in the .tabs-row so it sits on the
-    // same horizontal baseline as Stock Analysis / Today / Portfolio.
+    // Mount the toggle inline in the .tabs-row, to the RIGHT of the Portfolio
+    // launcher (appended last) so the row reads:
+    // Stock/Crypto · Today/Tomorrow · Portfolio · Resources.
     if (!document.getElementById('resources-toggle')) {
         const toggle = document.createElement('button');
         toggle.id = 'resources-toggle';
@@ -130,7 +147,7 @@ export function renderGlossary() {
         `;
         toggle.addEventListener('click', () => setOpen(!isOpen()));
         const tabsRow = document.querySelector('.tabs-row');
-        if (tabsRow) tabsRow.insertBefore(toggle, tabsRow.firstChild);
+        if (tabsRow) tabsRow.appendChild(toggle);   // right of Portfolio
         else document.body.appendChild(toggle);
     }
 

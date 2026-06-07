@@ -21,11 +21,15 @@
 }
 .ma-notify {
     pointer-events: auto;
-    background: var(--bg-card);
+    /* Frosted-glass card matching the "Did you know?" chip — translucent
+       plate + backdrop blur instead of a flat solid card. */
+    background: var(--bg-glass);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
     border: 1px solid var(--border-strong);
     border-left: 3px solid var(--text-secondary);
-    border-radius: 10px;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: var(--shadow-card, 0 12px 30px rgba(0, 0, 0, 0.32));
     overflow: hidden;
     transform: translateX(-110%);
     opacity: 0;

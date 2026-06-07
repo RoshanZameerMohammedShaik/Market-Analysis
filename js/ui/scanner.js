@@ -545,10 +545,21 @@ function renderRows(mode = 'full') {
     const filtered = applyFilters(scanState.rows);
     const rows = sortRows(filtered);
     if (!rows.length) {
-        const msg = scanState.running
-            ? 'Scanning the global universe — rows will stream in as they compute…'
-            : 'No matching rows. Try clearing filters.';
-        tbody.innerHTML = `<tr><td colspan="7" class="scanner-empty">${msg}</td></tr>`;
+        if (scanState.running) {
+            // Animated skeleton loader while the ledger computes — a header
+            // line + several shimmer rows (7 cells each, matching the table)
+            // so the user sees a live "building" state instead of plain text.
+            const cells = (i) => Array.from({ length: 7 }, (_, c) =>
+                `<td><span class="sk-cell" style="width:${[58, 40, 46, 50, 44, 36, 62][c]}%; animation-delay:${(i * 0.08 + c * 0.04).toFixed(2)}s"></span></td>`).join('');
+            const skelRows = Array.from({ length: 8 }, (_, i) => `<tr class="scanner-skel-row">${cells(i)}</tr>`).join('');
+            tbody.innerHTML =
+                `<tr class="scanner-loading-row"><td colspan="7">
+                    <span class="scanner-loading-dots"><i></i><i></i><i></i></span>
+                    <span class="scanner-loading-text">Scanning the global universe — rows stream in as they compute…</span>
+                 </td></tr>` + skelRows;
+        } else {
+            tbody.innerHTML = `<tr><td colspan="7" class="scanner-empty">No matching rows. Try clearing filters.</td></tr>`;
+        }
         return;
     }
 

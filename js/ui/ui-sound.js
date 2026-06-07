@@ -109,12 +109,14 @@ export function hover() {
     blip(720 + Math.random() * 40, now() + 0.001, 0.16, 0.07);
 }
 
-// Soft rounded "bup" on a click / tap.
+// Click / tap — a deliberate two-layer "tock": a low thud + a short mid body,
+// distinctly weightier and LOWER than the light, airy hover tick (720Hz) so
+// press vs. hover are unmistakable across the app.
 export function click() {
     if (!canEmit()) return;
     const t = now() + 0.001;
-    blip(540 + Math.random() * 40, t, 0.42, 0.10);
-    blip(300 + Math.random() * 20, t, 0.22, 0.12);
+    blip(190 + Math.random() * 16, t, 0.40, 0.13, 150);   // low thud, glides down
+    blip(430 + Math.random() * 30, t, 0.30, 0.09);        // crisp mid body
 }
 
 // Brighter two-note rise for a tab / view switch.
@@ -237,13 +239,25 @@ export function initUiSound() {
         else click();
     }, { passive: true, capture: true });
 
-    // Hover cue only after the user has interacted at least once (so a cold
-    // page load that the cursor happens to rest on doesn't try to play before
-    // any gesture, and so it feels intentional). pointerover with the
-    // allow-list, throttled inside hover().
+    // Hover cue — ONCE per item entered, not per descendant. pointerover
+    // bubbles from every child node, so naively calling hover() on each event
+    // machine-guns ("tup tup tup") as the cursor crosses a card's inner
+    // elements. We track the allow-list element the pointer is currently
+    // "inside" and only fire when it CHANGES — true pointerenter semantics via
+    // delegation (one cue per card/button, regardless of how many children it
+    // has). Cleared on pointerout when leaving the element entirely.
+    let _hoveredItem = null;
     document.addEventListener('pointerover', (e) => {
         const el = e.target instanceof Element ? e.target.closest(HOVER_SEL) : null;
-        if (!el) return;
-        hover();
+        if (el === _hoveredItem) return;   // still inside the same item → silent
+        _hoveredItem = el;
+        if (el) hover();                   // newly entered a different item → one cue
+    }, { passive: true });
+    document.addEventListener('pointerout', (e) => {
+        // When the pointer truly leaves the current item (relatedTarget is
+        // outside it), drop the reference so re-entering fires a fresh cue.
+        if (!_hoveredItem) return;
+        const to = e.relatedTarget;
+        if (!to || !(to instanceof Node) || !_hoveredItem.contains(to)) _hoveredItem = null;
     }, { passive: true });
 }

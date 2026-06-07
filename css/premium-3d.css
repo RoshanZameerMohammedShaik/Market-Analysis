@@ -374,3 +374,141 @@
             var(--shadow-card-hover) !important;
     }
 }
+
+
+/* ============================================================================
+   WINDOWS-STYLE DOTS SPINNER for .refresh-btn.has-spinner
+   ----------------------------------------------------------------------------
+   Instead of rotating the WHOLE button, the circular-arrow icon swaps for a
+   ring of 8 dots that orbit/fade in sequence (the Win8/10 "loading" feel).
+   The icon box is a fixed square that holds either the arrow (idle) or the
+   dot-ring (spinning), so the button itself never spins or reflows.
+   ========================================================================== */
+.refresh-btn.has-spinner {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.refresh-btn.has-spinner .rb-icon {
+    position: relative;
+    width: 15px;
+    height: 15px;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+}
+.refresh-btn.has-spinner .rb-arrow {
+    font-size: 0.95rem;
+    line-height: 1;
+    transition: opacity var(--dur-fast, 0.16s) ease;
+}
+.refresh-btn.has-spinner .rb-dots {
+    position: absolute;
+    inset: 0;
+    opacity: 0;            /* hidden until .spinning */
+    pointer-events: none;
+}
+.refresh-btn.has-spinner .rb-dots i {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 2.6px; height: 2.6px;
+    margin: -1.3px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.25;
+    /* Place each dot on a circle of radius 6px, 45° apart, via rotate+translate. */
+    transform: rotate(var(--a)) translateY(-6px);
+}
+.refresh-btn.has-spinner .rb-dots i:nth-child(1) { --a: 0deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(2) { --a: 45deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(3) { --a: 90deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(4) { --a: 135deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(5) { --a: 180deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(6) { --a: 225deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(7) { --a: 270deg; }
+.refresh-btn.has-spinner .rb-dots i:nth-child(8) { --a: 315deg; }
+
+/* Spinning state: kill the legacy whole-button rotate, hide the arrow, reveal
+   the orbiting dots. !important overrides style.css/cinematic.css .spinning. */
+.refresh-btn.has-spinner.spinning {
+    animation: none !important;
+    transform: none !important;
+}
+.refresh-btn.has-spinner.spinning .rb-arrow { opacity: 0; }
+.refresh-btn.has-spinner.spinning .rb-dots  { opacity: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+    /* The whole ring rotates AND each dot pulses brightness in sequence — the
+       chasing-comet look of the Windows loader. */
+    .refresh-btn.has-spinner.spinning .rb-dots {
+        animation: rb-ring-rotate 0.9s linear infinite;
+    }
+    .refresh-btn.has-spinner.spinning .rb-dots i {
+        animation: rb-dot-pulse 0.9s linear infinite;
+    }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(1) { animation-delay: 0s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(2) { animation-delay: -0.1125s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(3) { animation-delay: -0.225s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(4) { animation-delay: -0.3375s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(5) { animation-delay: -0.45s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(6) { animation-delay: -0.5625s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(7) { animation-delay: -0.675s; }
+    .refresh-btn.has-spinner.spinning .rb-dots i:nth-child(8) { animation-delay: -0.7875s; }
+}
+@keyframes rb-ring-rotate { to { transform: rotate(360deg); } }
+@keyframes rb-dot-pulse {
+    0%, 100% { opacity: 0.18; }
+    40%      { opacity: 1; }
+}
+
+
+/* ============================================================================
+   FULL LEDGER loading animation — a header line with bouncing dots + a set of
+   shimmer skeleton rows, instead of plain "rows will compute…" text.
+   ========================================================================== */
+.scanner-loading-row td {
+    padding: 12px 14px !important;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+.scanner-loading-dots {
+    display: inline-flex; gap: 5px; vertical-align: middle; margin-right: 10px;
+}
+.scanner-loading-dots i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+}
+.scanner-loading-text { vertical-align: middle; }
+.scanner-skel-row td { padding: 9px 8px !important; border-bottom: 1px solid var(--border); }
+.sk-cell {
+    display: block;
+    height: 11px;
+    border-radius: 5px;
+    background: var(--bg-hover);
+    position: relative;
+    overflow: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+    .scanner-loading-dots i { animation: sk-dot-bounce 1.1s ease-in-out infinite; }
+    .scanner-loading-dots i:nth-child(2) { animation-delay: 0.15s; }
+    .scanner-loading-dots i:nth-child(3) { animation-delay: 0.30s; }
+    .sk-cell::after {
+        content: '';
+        position: absolute; inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(var(--accent-rgb), 0.14) 45%,
+            rgba(var(--accent-rgb), 0.22) 50%,
+            rgba(var(--accent-rgb), 0.14) 55%,
+            transparent);
+        animation: sk-sweep 1.4s ease-in-out infinite;
+    }
+}
+@keyframes sk-dot-bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    40%      { transform: translateY(-5px); opacity: 1; }
+}
+@keyframes sk-sweep { to { transform: translateX(100%); } }

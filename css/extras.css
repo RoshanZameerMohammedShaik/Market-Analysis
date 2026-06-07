@@ -45,17 +45,44 @@ html[data-dev="1"] body { padding-top: 22px; }
    .glossary-rail in style.css uses 100dvh + safe-area inset and
    overrides this when the rail is mounted as a side panel. Keeping
    typography only — geometry comes from the newer rule. */
-.glos-section { margin-bottom: 22px; }
-.glos-title { font-size: 0.78rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-.glos-intro { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 6px; padding: 10px 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border); }
-.glos-item { border-bottom: 1px solid var(--border); }
-.glos-item:last-child { border-bottom: none; }
-.glos-item summary { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; cursor: pointer; list-style: none; }
+/* Compacted resources panel: tighter section rhythm, and each section's
+   items grouped on a subtle card so the list reads as clean grouped rows
+   rather than a cramped run of hairline-divided text. */
+.glos-section { margin-bottom: 14px; }
+.glos-title { font-size: 0.72rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.glos-intro { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 6px; padding: 8px 10px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border); }
+/* Group the section's <details> items into one compact card. */
+.glos-section > .glos-item:first-of-type { border-top: 1px solid var(--border); }
+.glos-item {
+    border: 1px solid var(--border);
+    border-top: none;
+    background: var(--bg-card);
+    padding: 0 10px;
+}
+.glos-section > .glos-item:first-of-type { border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-top: 1px solid var(--border); }
+.glos-section > .glos-item:last-of-type { border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
+.glos-item summary { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; cursor: pointer; list-style: none; }
 .glos-item summary::-webkit-details-marker { display: none; }
-.glos-term { font-size: 0.84rem; font-weight: 600; color: var(--text-primary); }
+.glos-term { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
 .glos-chev { font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s ease; }
 .glos-item[open] .glos-chev { transform: rotate(90deg); }
-.glos-def { font-size: 0.78rem; line-height: 1.55; color: var(--text-secondary); padding: 4px 0 10px; }
+.glos-def { font-size: 0.77rem; line-height: 1.5; color: var(--text-secondary); padding: 2px 0 9px; }
+
+/* Did-You-Know card at the top of the Resources panel — frosted glass to
+   match the toast/chip family, distinct from the glossary cards below. */
+.res-dyk {
+    margin-bottom: 16px;
+    padding: 11px 13px;
+    background: var(--bg-glass);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-card);
+}
+.res-dyk-head { font-size: 0.64rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.res-dyk-body { font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
 
 /* ── P&L Calculator — full polish pass ──────────────────────────────────
    The HTML markup uses .pl-sidebar-header, .pl-body, .pl-field, .pl-input-wrap,

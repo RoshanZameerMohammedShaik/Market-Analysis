@@ -33,6 +33,12 @@
                    0 8px 28px rgba(var(--accent-rgb), 0.22);
     --ring-focus: 0 0 0 3px rgba(var(--accent-rgb), 0.18),
                   0 0 0 1px rgba(var(--accent-rgb), 0.55);
+
+    /* Frosted-glass surface for floating cards (Did-You-Know chip,
+       notification toasts). Was referenced by .dyk-chip but never defined —
+       so the chip had no real fill. Now a translucent dark plate that the
+       backdrop-filter blurs behind. Overridden per theme below. */
+    --bg-glass: rgba(20, 20, 22, 0.72);
 }
 
 /* Crisper text rendering across the app — the cheap-to-add premium tell. */
@@ -138,8 +144,11 @@ summary:focus-visible {
     100% { background-position: 200% center; }
 }
 
-/* Settings gear: spring the rotation on hover instead of a linear turn. */
-.header-btn:hover .settings-gear { transform: rotate(90deg); }
+/* Settings gear: the rotation belongs to OPENING the menu, not hovering.
+   style.css rotates .settings-gear on [aria-expanded="true"] (the click/open
+   state) — that's the desired behavior, so we do NOT add a hover rotate here
+   (an earlier rule did, which the user flagged as wrong). Hover just does the
+   button's lift/press like every other header button. */
 .header-btn { transition: transform var(--dur-fast) var(--ease-spring),
                           border-color var(--dur-fast) ease,
                           color var(--dur-fast) ease,
@@ -389,25 +398,9 @@ summary:focus-visible {
     100% { transform: translateX(100%); }
 }
 
-/* ============================================================================
-   MIA LAUNCHER — gentle breathing presence
-   ========================================================================== */
-
-@media (prefers-reduced-motion: no-preference) {
-    .mia-launcher::before {
-        content: '';
-        position: absolute;
-        inset: -4px;
-        border-radius: inherit;
-        box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.35);
-        animation: mia-breathe 3.6s var(--ease-in-out-soft) infinite;
-        pointer-events: none;
-    }
-}
-@keyframes mia-breathe {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.30); }
-    50%      { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0.0); }
-}
+/* MIA LAUNCHER — the live aura orb (css/mia.css .mia-aura) now owns the
+   breathing/halo presence, so the old ::before pulse ring here is removed to
+   avoid a doubled halo. */
 
 /* ============================================================================
    AURORA — living background wash (theme-specific flourish)

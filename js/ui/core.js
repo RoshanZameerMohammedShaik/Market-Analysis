@@ -19,7 +19,8 @@ import { initKeyboard } from './keyboard.js';
 import { renderGlossary } from './glossary.js';
 import { startTipRotation } from './tips.js';
 import { initMia, setLatestSignal } from '../mia/mia.js';
-import { startDyk } from './dyk.js';
+// Did-You-Know moved into the Resources panel (ui/glossary.js); the floating
+// chip (dyk.js) is retired.
 import { initRipple } from './ripple.js';
 import { initTilt3d } from './tilt-3d.js';
 import { candleLoaderHTML } from './skeleton.js';
@@ -65,7 +66,10 @@ export function init() {
     initMia();
     initPennyFilterButtons();
     showChartPlaceholder();
-    startDyk();
+    // Did-You-Know now lives at the top of the Resources panel (fresh fact per
+    // open) instead of a floating bottom-left chip — see ui/glossary.js. The
+    // old timed floating chip is no longer started.
+    // startDyk();
 
     startTipsForLoading();
     loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);

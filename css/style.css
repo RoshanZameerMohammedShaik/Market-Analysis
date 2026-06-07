@@ -119,6 +119,8 @@
     --shadow-control-hover: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.10);
     --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
     --shadow-inset-bottom: inset 0 -1px 0 rgba(15, 23, 42, 0.04);
+    /* Light-theme frosted glass: a translucent near-white plate. */
+    --bg-glass: rgba(255, 255, 255, 0.78);
 }
 
 [data-theme="aurora"] {
@@ -154,6 +156,8 @@
     --shadow-control-hover: 0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 16px rgba(192, 132, 252, 0.25);
     --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
     --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.40);
+    /* Aurora frosted glass: translucent deep-violet plate. */
+    --bg-glass: rgba(22, 10, 45, 0.72);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -205,7 +209,6 @@ body {
 .accordion-item,
 .empty-state,
 .acc-cell,
-.glos-section,
 .resources-body {
     box-shadow: var(--shadow-card);
 }
@@ -375,9 +378,16 @@ body.side-panel-portfolio-open .portfolio-launcher {
        resolves to 0). transform: none so we anchor by the gear's
        OWN top edge, not its center. */
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    /* Vertically center the gear on the TITLE's baseline rather than top-
+       anchoring it (which left it sitting above the title's center). The
+       header's safe-area padding-top is already on .app-header, so within
+       .header-content the title is vertically centered; matching that with
+       top:50% + translateY(-50%) aligns the gear to the title. On iPhone the
+       safe-area padding lives on the header, so the content (and thus this
+       50%) is already below the notch — no dynamic-island overlap. */
+    top: 50%;
     right: max(24px, env(safe-area-inset-right, 24px));
-    transform: none;
+    transform: translateY(-50%);
     display: flex; gap: 8px; align-items: center;
     z-index: 200;
 }
@@ -454,15 +464,19 @@ body.side-panel-portfolio-open .portfolio-launcher {
     font-weight: 600;
     cursor: pointer;
     text-align: left;
-    transition: background 0.15s ease, color 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-origin: left center;
     width: 100%;
 }
 .header-menu-item:hover {
     background: var(--bg-hover);
+    transform: scale(1.04);   /* gentle zoom-in on hover */
 }
 .header-menu-item:hover .header-menu-icon {
     color: var(--accent);
+    transform: scale(1.12);
 }
+.header-menu-icon { transition: color 0.15s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .header-menu-icon {
     width: 16px;
     height: 16px;
@@ -1883,6 +1897,7 @@ body.resources-open .resources-toggle {
     min-height: 130px;
 }
 .hot-pick-card.buy { border-left: 3px solid var(--green); }
+.hot-pick-card.sell { border-left: 3px solid var(--red); }
 .hot-pick-card.neutral { border-left: 3px solid var(--yellow); }
 .hot-pick-card:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 24px var(--brand-grad-shadow); }
 .hot-pick-symbol { font-family: var(--num-font); font-weight: 800; font-size: 1rem; }
@@ -1891,6 +1906,7 @@ body.resources-open .resources-toggle {
 .spark-placeholder { height: 30px; background: var(--bg-hover); border-radius: 4px; opacity: 0.4; }
 .hot-pick-signal-badge { font-size: 0.62rem; font-weight: 800; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.5px; align-self: flex-start; }
 .hot-pick-signal-badge.buy { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.hot-pick-signal-badge.sell { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
 .hot-pick-signal-badge.neutral { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
 .hot-pick-confidence { font-family: var(--num-font); font-weight: 800; font-size: 0.92rem; }
 .hot-pick-confidence.buy { color: var(--green); }
