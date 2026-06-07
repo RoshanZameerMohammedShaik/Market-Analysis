@@ -89,12 +89,46 @@
     stroke-width: 9;
     stroke-linecap: round;
     /* eased sweep — matches the count-up duration */
-    transition: stroke-dashoffset 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: stroke-dashoffset 1.05s cubic-bezier(0.22, 1, 0.36, 1);
     filter: drop-shadow(0 0 5px currentColor);
 }
-.conf-dial-value.high { stroke: var(--green); color: var(--green); }
-.conf-dial-value.mid  { stroke: var(--yellow, #fbbf24); color: var(--yellow, #fbbf24); }
-.conf-dial-value.low  { stroke: var(--red); color: var(--red); }
+/* The arc stroke is now a userSpace gradient (defined per-dial in the SVG);
+   `color` still set per tier so the drop-shadow glow + head inherit the hue. */
+.conf-dial-value.high { color: var(--green); }
+.conf-dial-value.mid  { color: var(--yellow, #fbbf24); }
+.conf-dial-value.low  { color: var(--red); }
+/* Gradient endpoints: a brighter lead colour fading to the tier base, so the
+   arc reads as having depth/direction rather than a flat band. */
+.tier-high .cd-grad-a { stop-color: #6ee7b7; }
+.tier-high .cd-grad-b { stop-color: var(--green); }
+.tier-mid  .cd-grad-a { stop-color: #fde68a; }
+.tier-mid  .cd-grad-b { stop-color: var(--yellow, #fbbf24); }
+.tier-low  .cd-grad-a { stop-color: #fca5a5; }
+.tier-low  .cd-grad-b { stop-color: var(--red); }
+
+/* Glowing comet head that travels along the arc tip as it fills (JS-driven
+   cx/cy). Inherits the tier hue; fades out as it arrives. */
+.conf-dial-head { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1; transition: opacity 0.2s ease; }
+.conf-dial-head.high { fill: #aef7d3; }
+.conf-dial-head.mid  { fill: #fef0bf; }
+.conf-dial-head.low  { fill: #fecaca; }
+
+/* One-shot landing pulse — a quick scale + glow bump when the value arrives,
+   so the load "lands" with a beat instead of just stopping. */
+@media (prefers-reduced-motion: no-preference) {
+    .conf-dial-landed .conf-dial-value { animation: cd-land-glow 0.5s ease-out; }
+    .conf-dial-landed .conf-dial-num   { animation: cd-land-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+}
+@keyframes cd-land-glow {
+    0%   { filter: drop-shadow(0 0 5px currentColor); }
+    45%  { filter: drop-shadow(0 0 13px currentColor); }
+    100% { filter: drop-shadow(0 0 5px currentColor); }
+}
+@keyframes cd-land-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+}
 
 .conf-dial-center {
     position: absolute;
@@ -119,6 +153,8 @@
     font-weight: 900;
     color: var(--text-primary);
     line-height: 1;
+    display: inline-block;   /* so the landing-pop scale transform applies */
+    transform-origin: center;
 }
 .conf-dial-pct {
     font-family: var(--num-font);
