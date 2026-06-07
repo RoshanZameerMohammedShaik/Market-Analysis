@@ -313,17 +313,25 @@ async function startScan() {
             const i = cursor++;
             if (i >= symbols.length) return;
             const sym = symbols[i];
-            try {
-                // Pass the scan's locked mode so each per-symbol
-                // computeFullConfidence runs with the correct asset
-                // class. Earlier scanOne defaulted to 'stock' which
-                // is why crypto symbols were getting analyzed as
-                // stocks before the engine even saw them.
-                const row = await scanOne(sym, mode);
-                if (row) scanState.rows.push(row);
-            } catch (_) {
-                scanState.progress.errors++;
+            // ONE retry on transient failure (Yahoo intermittently 429s / drops
+            // a leg of the multi-timeframe fetch). A single retry after a short
+            // backoff recovers most of the ~14% error rate the user saw, so far
+            // fewer symbols end up missing from the ledger. Only the second
+            // failure counts as a real error.
+            let row = null, ok = false;
+            for (let attempt = 0; attempt < 2 && !scanState.aborted && !scanState.aborting; attempt++) {
+                try {
+                    // Pass the scan's locked mode so each per-symbol
+                    // computeFullConfidence runs with the correct asset class.
+                    row = await scanOne(sym, mode);
+                    ok = true;
+                    break;
+                } catch (_) {
+                    if (attempt === 0) await new Promise(r => setTimeout(r, 350));   // brief backoff, then retry
+                }
             }
+            if (ok) { if (row) scanState.rows.push(row); }
+            else scanState.progress.errors++;
             scanState.progress.done++;
             // Streaming refresh: surgical patch only. Keeps the open
             // drawer's DOM (animations + scroll) intact while new
