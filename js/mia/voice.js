@@ -231,6 +231,10 @@ const session = {
     liveUserUtterance: '',     // current turn's user-spoken text
     liveMiaUtterance: '',      // current turn's Mia-spoken text
     liveTurnPersisted: false,  // guard so a single turn only saves once
+    // When a connect is in flight, the first transition into 'listening'
+    // plays the warm "connected/ready" resolve instead of the ordinary
+    // listening cue. Set at connect time, cleared once consumed / on close.
+    awaitingConnectCue: false,
 };
 
 export function initVoice() {
@@ -452,6 +456,11 @@ async function openVoice() {
         // the connection (which can take ~500ms-1s).
         setTimeout(() => startLiveVoice(), 350);
     } else {
+        // Soft "powering up" cue + flag so the first listen plays the warm
+        // "ready" resolve (mirrors the Live path). The mic-permission wait is
+        // this path's "connecting" moment.
+        try { miaSound.connecting(); } catch (_) {}
+        session.awaitingConnectCue = true;
         // Slight delay so the open animation can settle before we ask
         // for the mic — feels less jumpy and keeps the orb visible
         // while the permission prompt fires.
@@ -466,6 +475,12 @@ async function openVoice() {
 // the user gets a working voice mode either way.
 async function startLiveVoice() {
     const settings = loadSettings();
+    // Soft "powering up" cue at connect time. Set a flag so the first
+    // transition into 'listening' plays the warm "connected/ready" resolve
+    // instead of the ordinary listening cue. Play connecting() BEFORE
+    // setOrbState('thinking') so it isn't shadowed by the thinking loop.
+    try { miaSound.connecting(); } catch (_) {}
+    session.awaitingConnectCue = true;
     setOrbState('thinking');
     setStatus('Connecting…', { shimmer: true });
     let liveSess = null;
@@ -623,6 +638,7 @@ function closeVoice() {
     session.open = false;
     session.minimized = false;
     session.autoLoop = false;
+    session.awaitingConnectCue = false;
     // Tear down both Live and Web Speech paths — whichever was active.
     // Idempotent if either wasn't running.
     stopLiveVoice();
@@ -845,7 +861,14 @@ function setOrbState(s) {
                     miaSound.startThinking();
                 } else if (s === 'listening') {
                     miaSound.stopThinking();
-                    miaSound.listeningOn();
+                    // First listen after a connect → play the warm "ready"
+                    // resolve; otherwise the ordinary listening cue.
+                    if (session.awaitingConnectCue) {
+                        session.awaitingConnectCue = false;
+                        miaSound.connected();
+                    } else {
+                        miaSound.listeningOn();
+                    }
                 } else if (s === 'idle') {
                     miaSound.stopThinking();
                 }

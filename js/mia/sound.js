@@ -104,31 +104,42 @@ function canEmit() {
     return isSoundEnabled() && !speaking && ensure();
 }
 
-// One soft "bubble" blip: a sine (optionally a quiet triangle partial)
-// through a low-pass filter, on a quick rounded attack/decay envelope.
+// One soft "bubble" blip: a sine through a low-pass filter on a rounded
+// attack/decay envelope. A quiet detuned sine partial is layered in for
+// warmth so it reads as an organic "boop", not a flat console beep.
 // freq in Hz; t0 absolute start time; gain peak; dur seconds.
 function blip(freq, t0, peak = 0.6, dur = 0.16) {
     if (!ctx) return;
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, t0);
-    // Gentle downward pitch glide gives the rounded "boop" shape rather
-    // than a flat beep.
-    osc.frequency.exponentialRampToValueAtTime(Math.max(60, freq * 0.82), t0 + dur);
-
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.frequency.setValueAtTime(Math.min(1800, freq * 3), t0);
-    lp.Q.value = 0.6;
+    // A gentle downward filter sweep rounds the tail so it "closes" softly
+    // instead of holding a bright edge — much less "beepy".
+    lp.frequency.exponentialRampToValueAtTime(Math.max(180, freq * 1.4), t0 + dur);
+    lp.Q.value = 0.5;
 
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.018);     // soft attack
+    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.026);     // softer attack
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);     // smooth tail
+    g.connect(masterGain);
+    lp.connect(g);
 
-    osc.connect(lp); lp.connect(g); g.connect(masterGain);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.02);
+    // Fundamental + a quiet partial a touch detuned for body/warmth.
+    const mk = (mult, detune, level, type = 'sine') => {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq * mult, t0);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(60, freq * mult * 0.84), t0 + dur);
+        if (detune) osc.detune.setValueAtTime(detune, t0);
+        const og = ctx.createGain();
+        og.gain.value = level;
+        osc.connect(og); og.connect(lp);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.03);
+    };
+    mk(1, 0, 1.0);          // fundamental
+    mk(2.003, 4, 0.12);     // faint shimmering octave for warmth
 }
 
 // ── public sound triggers ────────────────────────────────────────────
@@ -152,6 +163,27 @@ export function complete() {
     blip(523, t, 0.42, 0.16);          // C5
     blip(659, t + 0.10, 0.42, 0.18);   // E5
     blip(784, t + 0.20, 0.46, 0.30);   // G5 — slightly longer tail to "settle"
+}
+
+// Soft "powering up" cue when voice mode begins connecting — a warm,
+// slow upward swell of two overlapping low blips (think a device gently
+// waking, not a dial tone). Replaces the abrupt thinking-loop start the
+// user found "weird and shitty" at connect time. Short + low so it sits
+// under the orb's visual swell rather than announcing itself.
+export function connecting() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(196, t, 0.34, 0.34);          // G3 — low warm root, long soft tail
+    blip(294, t + 0.14, 0.30, 0.32);   // D4 — a fifth above, overlapping rise
+}
+
+// Gentle two-note "ready" resolve once the connection is live and Mia is
+// actually listening — a soft confirmation the link is up.
+export function connected() {
+    if (!canEmit()) return;
+    const t = now() + 0.001;
+    blip(392, t, 0.40, 0.16);          // G4
+    blip(587, t + 0.10, 0.42, 0.22);   // D5 — clean upward resolve
 }
 
 // Two-note rising cue when voice starts listening; falling when it stops.
