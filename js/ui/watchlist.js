@@ -352,7 +352,18 @@ function ensureWatchlistPanel() {
                 const r = await enableClosedTabPush();
                 pushState.textContent = r.ok ? '✓ Closed-app alerts on' : r.msg;
                 pushState.classList.toggle('on', r.ok);
-                if (r.ok) setClosedAppOn(true); else closedToggle.checked = false;
+                if (r.ok) {
+                    setClosedAppOn(true);
+                    // Show the confirmation briefly, then fade it out — the
+                    // checkbox stays checked as the persistent state; the text
+                    // shouldn't linger below (user: it should disappear).
+                    setTimeout(() => {
+                        pushState.classList.add('fading-out');
+                        setTimeout(() => {
+                            if (isClosedAppOn()) { pushState.textContent = ''; pushState.classList.remove('on', 'fading-out'); }
+                        }, 400);
+                    }, 1800);
+                } else { closedToggle.checked = false; }
             } else {
                 await disableClosedTabPush();
                 setClosedAppOn(false);

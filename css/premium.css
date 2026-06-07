@@ -452,7 +452,11 @@ summary:focus-visible {
         animation: hero-float 5.5s var(--ease-in-out-soft) infinite;
         will-change: transform;
     }
-    .chart-placeholder .chart-ph-title { animation: card-rise var(--dur-slow) var(--ease-premium) both; animation-delay: 0.05s; }
+    /* NOTE: do NOT put card-rise on .chart-ph-title — it carries the looping
+       .shimmer animation (mia.css), and an element runs only ONE `animation`
+       property, so card-rise here silently overrode the shimmer (the bug where
+       "Select a stock or crypto to start" stopped shimmering). The sub-line
+       has no shimmer, so it can take the entrance. */
     .chart-placeholder .chart-ph-sub   { animation: card-rise var(--dur-slow) var(--ease-premium) both; animation-delay: 0.12s; }
 }
 @keyframes hero-float {

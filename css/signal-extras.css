@@ -299,8 +299,9 @@
 }
 .watchlist-push-btn:hover { transform: translateY(-1px); background: var(--bg-hover); box-shadow: 0 6px 18px var(--brand-grad-shadow, rgba(124,58,237,0.3)); }
 .watchlist-push-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
-.watchlist-push-state { font-size: 0.76rem; color: var(--text-muted); }
+.watchlist-push-state { font-size: 0.76rem; color: var(--text-muted); transition: opacity 0.4s ease; }
 .watchlist-push-state.on { color: var(--green); }
+.watchlist-push-state.fading-out { opacity: 0; }
 
 /* ── Live sparkline tick flash (crypto Hot Picks) ──────────────────── */
 /* A whisper-soft pulse on the sparkline area each time a live trade

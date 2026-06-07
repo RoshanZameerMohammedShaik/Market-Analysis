@@ -14,7 +14,7 @@
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
                 background 0.4s ease, box-shadow 0.4s ease,
                 opacity 0.22s ease;
-    width: 56px; height: 56px;
+    width: 68px; height: 68px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
     border: none; border-radius: 50%;
@@ -91,20 +91,24 @@
    to sit inside the core. White so it reads on the accent-coloured core. */
 .mia-aura-ecg {
     position: absolute;
-    inset: 30%;            /* sits inside the core's 22% inset */
-    width: 40%; height: 40%;
+    inset: 24%;            /* larger glyph (was 30%) */
+    width: 52%; height: 52%;
     margin: auto;
     z-index: 2;
     overflow: visible;
 }
 .mia-aura-ecg .mia-ecg-trace {
-    stroke: rgba(255, 255, 255, 0.45);
+    stroke: rgba(180, 245, 255, 0.40);   /* faint cyan trace */
+    stroke-width: 1.6;
 }
 .mia-aura-ecg .mia-ecg-blip {
-    stroke: #ffffff;
+    /* Bright cyan-white blip — a "vital signs" green-cyan that pops on the
+       accent-coloured core far better than plain white. */
+    stroke: #6FF6E6;
+    stroke-width: 2.2;
     stroke-dasharray: 90;
     stroke-dashoffset: 90;
-    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
+    filter: drop-shadow(0 0 4px rgba(111, 246, 230, 0.95));
     animation: mia-aura-ecg-sweep 2.4s ease-in-out infinite;
 }
 @keyframes mia-aura-ecg-sweep {
@@ -649,7 +653,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-tool-badge code { background: transparent; padding: 0; font-size: 0.7rem; }
 
 @media (max-width: 480px) {
-    .mia-launcher { bottom: 78px; right: 14px; width: 54px; height: 54px; }
+    .mia-launcher { bottom: 78px; right: 14px; width: 62px; height: 62px; }
     .mia-launcher-logo { width: 36px; height: 28px; }
     .mia-providers { grid-template-columns: 1fr; }
 }
