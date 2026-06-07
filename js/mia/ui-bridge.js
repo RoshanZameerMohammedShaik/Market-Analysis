@@ -682,6 +682,22 @@ export function controlOpenResources() {
     return { ok: true };
 }
 
+// Close the Resources panel. The panel exposes a dedicated close button
+// (#resources-close) wired to setOpen(false); clicking it is the canonical
+// close path (also fires the same teardown Esc/click-outside use). Falls back
+// to the toggle if the close button isn't mounted. Idempotent — no-op when
+// already closed.
+export function controlCloseResources() {
+    if (!document.body.classList.contains('resources-open')) return { ok: true, alreadyClosed: true };
+    const closeBtn = document.getElementById('resources-close');
+    const toggle = document.getElementById('resources-toggle');
+    const target = closeBtn || toggle;
+    if (!target) throw new Error('resources close control missing');
+    announce({ text: 'Closing Resources…', target: toggle || target });
+    target.click();
+    return { ok: true };
+}
+
 // Open the Full Ledger panel (the <details> at #scanner-section).
 // Optionally pass a symbol — we'll set the filter to surface the row
 // and (if expand=true) auto-toggle that row's inline analysis drawer.
@@ -718,6 +734,16 @@ export function controlOpenFullLedger({ symbol = null, expand = false, signal = 
         });
     }
     return { ok: true, symbol, expanded: !!(symbol && expand) };
+}
+
+// Close the Full Ledger panel (collapse the <details>). Idempotent.
+export function controlCloseFullLedger() {
+    const section = document.querySelector('#scanner-section .scanner-details');
+    if (!section) throw new Error('Full Ledger section missing');
+    if (!section.open) return { ok: true, alreadyClosed: true };
+    announce({ text: 'Closing Full Ledger…', target: section });
+    section.open = false;
+    return { ok: true };
 }
 
 // Set the Full Ledger's accuracy time-window filter. Accepts either an
@@ -829,6 +855,16 @@ export async function controlOpenSectorHeatmap() {
     return { ok, trends };
 }
 
+// Close the sector heatmap (collapse its <details>). Idempotent.
+export function controlCloseSectorHeatmap() {
+    const details = document.querySelector('#sector-heatmap-section .sector-heatmap-details');
+    if (!details) throw new Error('Sector Heatmap section missing');
+    if (!details.open) return { ok: true, alreadyClosed: true };
+    announce({ text: 'Closing Sector Heatmap…', target: document.getElementById('sector-heatmap-section') });
+    details.open = false;
+    return { ok: true };
+}
+
 // Open the earnings calendar. Returns the upcoming-earnings rows
 // (symbol, daysUntil, signal, confidence) so Mia can answer
 // "who reports this week?" in the same turn.
@@ -840,14 +876,14 @@ export async function controlOpenEarningsCalendar({ windowDays = 14 } = {}) {
     return { ok, upcoming: rows };
 }
 
-// Open the unusual-options scanner. Returns the flagged rows so Mia can
-// summarize "TSLA shows crowded calls (PCR 0.4); heavy puts on XOM".
-export async function controlOpenOptionsScanner() {
-    const { openOptionsScanner, getUnusualOptionsForMia } = await import('../ui/options-scanner.js');
-    const ok = openOptionsScanner();
-    announce({ text: 'Opening Unusual Options Activity…', target: document.getElementById('options-scan-section') });
-    const rows = await getUnusualOptionsForMia();
-    return { ok, unusual: rows };
+// Close the earnings calendar (collapse its <details>). Idempotent.
+export function controlCloseEarningsCalendar() {
+    const details = document.querySelector('#earnings-cal-section .earnings-cal-details, #earnings-cal-section details');
+    if (!details) throw new Error('Earnings Calendar section missing');
+    if (!details.open) return { ok: true, alreadyClosed: true };
+    announce({ text: 'Closing Earnings Calendar…', target: document.getElementById('earnings-cal-section') });
+    details.open = false;
+    return { ok: true };
 }
 
 // Read the watchlist + any alerts currently set on each symbol.

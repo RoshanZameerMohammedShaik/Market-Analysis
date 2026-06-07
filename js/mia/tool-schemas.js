@@ -370,12 +370,22 @@ export const TOOL_DECLARATIONS = [
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
+        name: 'close_sector_heatmap',
+        description: 'Close (collapse) the Sector Heatmap panel. Use when the user asks to close/hide the heatmap.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
         name: 'open_earnings_calendar',
         description: 'Open the Earnings Calendar and get upcoming large-cap earnings with the engine\'s pre-earnings read. Use for "who reports this week / soon".',
         parameters: {
             type: T.OBJECT,
             properties: { windowDays: { type: T.INTEGER, description: 'Lookback window in days (default 14)' } },
         },
+    },
+    {
+        name: 'close_earnings_calendar',
+        description: 'Close (collapse) the Earnings Calendar panel. Use when the user asks to close/hide the earnings calendar.',
+        parameters: { type: T.OBJECT, properties: {} },
     },
     {
         name: 'toggle_currency',
@@ -461,6 +471,11 @@ export const TOOL_DECLARATIONS = [
         },
     },
     {
+        name: 'close_full_ledger',
+        description: 'Close (collapse) the Full Ledger panel. Use when the user asks to close/hide the ledger.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
         name: 'set_accuracy_window',
         description: 'Set the Full Ledger Prediction-Accuracy time window. Accepts "30 days", "3 months", "1 year", or "all".',
         parameters: { type: T.OBJECT, properties: { window: { type: T.STRING } }, required: ['window'] },
@@ -468,6 +483,11 @@ export const TOOL_DECLARATIONS = [
     {
         name: 'open_resources',
         description: 'Open the Resources side panel (glossary / indicator definitions). Pair with a spoken definition.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'close_resources',
+        description: 'Close the Resources side panel. Use when the user asks to close/hide Resources or the glossary panel.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
