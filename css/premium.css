@@ -75,17 +75,28 @@ html {
 }
 
 /* ── Theme cross-fade ────────────────────────────────────────────────────
-   When theme.js toggles <html class="theme-transition"> for ~450ms during a
-   switch, surfaces glide between palettes instead of hard-cutting. Scoped to
-   the transition window so there's no first-paint jank and no perf cost at
-   rest. Limited to colour properties (not transform/layout). */
-html.theme-transition,
-html.theme-transition * {
-    transition: background-color var(--dur-slow) var(--ease-in-out-soft),
-                border-color var(--dur-slow) var(--ease-in-out-soft),
-                color var(--dur-slow) var(--ease-in-out-soft),
-                fill var(--dur-slow) var(--ease-in-out-soft),
-                box-shadow var(--dur-slow) var(--ease-in-out-soft) !important;
+   When theme.js toggles <html class="theme-transition"> during a switch,
+   surfaces glide between palettes instead of hard-cutting. PERF NOTE: the
+   previous version transitioned EVERY element (`html.theme-transition *`)
+   including box-shadow, which animated a 400ms shadow recalc across hundreds
+   of cards/rows — that was the theme-switch DELAY the user felt. Now scoped to
+   the big background/text surfaces only, cheap props only (no box-shadow), and
+   a shorter duration, so the swap is snappy. Body/header/cards still cross-fade;
+   the long tail of tiny elements just snaps (imperceptible). */
+html.theme-transition body,
+html.theme-transition .app-header,
+html.theme-transition .main-container,
+html.theme-transition .hot-pick-card,
+html.theme-transition .signal-box,
+html.theme-transition .chart-container,
+html.theme-transition .mia-panel,
+html.theme-transition .portfolio-panel,
+html.theme-transition .glossary-rail,
+html.theme-transition .scanner-details,
+html.theme-transition .watchlist-section {
+    transition: background-color var(--dur-fast) var(--ease-in-out-soft),
+                color var(--dur-fast) var(--ease-in-out-soft),
+                border-color var(--dur-fast) var(--ease-in-out-soft) !important;
     transition-delay: 0s !important;
 }
 

@@ -107,8 +107,12 @@ function ensure() {
 
 // `category` is 'click' | 'hover' | 'notify' (defaults to 'click'). The cue
 // only plays if that category is enabled, Mia isn't speaking, motion isn't
-// reduced, and the audio context is live.
+// reduced, the TAB IS VISIBLE, and the audio context is live. The
+// document.hidden gate stops background cues — the watchlist poller fires
+// notify() on signal flips every few minutes, which was playing sound while
+// the app sat in the background (the "random sound" the user heard).
 function canEmit(category = 'click') {
+    if (typeof document !== 'undefined' && document.hidden) return false;
     return categoryEnabled(category) && !isMiaSpeaking() && !prefersReducedMotion() && ensure();
 }
 

@@ -33,7 +33,7 @@ export function cycleTheme(onChange) {
         _themeFadeTimer = setTimeout(() => {
             root.classList.remove('theme-transition');
             _themeFadeTimer = null;
-        }, 460);   // slightly longer than --dur-slow (0.40s) so it fully settles
+        }, 220);   // ~ --dur-fast (0.16s) + slack; short so the swap feels snappy
     }
 
     state.theme = nextTheme(state.theme);

@@ -85,9 +85,38 @@
     0%, 100% { transform: scale(0.9);  opacity: 0.5; }
     50%      { transform: scale(1.15); opacity: 0.9; }
 }
+
+/* ── M-shaped ECG glyph over the aura core ───────────────────────────────
+   A faint static heartbeat trace + a bright blip that sweeps along it, sized
+   to sit inside the core. White so it reads on the accent-coloured core. */
+.mia-aura-ecg {
+    position: absolute;
+    inset: 30%;            /* sits inside the core's 22% inset */
+    width: 40%; height: 40%;
+    margin: auto;
+    z-index: 2;
+    overflow: visible;
+}
+.mia-aura-ecg .mia-ecg-trace {
+    stroke: rgba(255, 255, 255, 0.45);
+}
+.mia-aura-ecg .mia-ecg-blip {
+    stroke: #ffffff;
+    stroke-dasharray: 90;
+    stroke-dashoffset: 90;
+    filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
+    animation: mia-aura-ecg-sweep 2.4s ease-in-out infinite;
+}
+@keyframes mia-aura-ecg-sweep {
+    0%   { stroke-dashoffset: 90; }
+    50%  { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: -90; }
+}
+
 /* Reduced motion: hold a calm static aura (still alive-looking, no motion). */
 @media (prefers-reduced-motion: reduce) {
     .mia-aura-core, .mia-aura-ring, .mia-aura-halo { animation: none !important; }
+    .mia-aura-ecg .mia-ecg-blip { animation: none !important; stroke-dashoffset: 0; }
 }
 /* Hide the launcher while Mia's own panel is open — there's no point
    in clicking the launcher to "open Mia" when she's already open in

@@ -97,8 +97,10 @@ function ensure() {
     return true;
 }
 
-// True only when it's OK to actually emit a sound right now.
+// True only when it's OK to actually emit a sound right now. Also gated on tab
+// visibility so Mia's action sounds never play while the app is backgrounded.
 function canEmit() {
+    if (typeof document !== 'undefined' && document.hidden) return false;
     return isSoundEnabled() && !speaking && ensure();
 }
 
