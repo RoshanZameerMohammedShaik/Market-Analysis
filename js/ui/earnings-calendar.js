@@ -67,6 +67,12 @@ async function gather(windowDays) {
         const p = await getEarningsProximity(sym);
         return { sym, daysUntil: p?.daysUntil ?? null };
     });
+    // If EVERY proximity lookup came back null, the earnings feed is
+    // unavailable (Yahoo's quoteSummary endpoint is crumb-walled on the free
+    // proxy) — distinct from "no earnings in window". Signal that so the UI
+    // shows an honest "feed unavailable" message instead of "no earnings".
+    const anyData = prox.some(x => x && x.daysUntil != null);
+    if (!anyData) return { feedUnavailable: true, rows: [] };
     // 2. Keep upcoming-within-window, sort soonest first, cap.
     const upcoming = prox
         .filter(x => x && x.daysUntil != null && x.daysUntil >= 0 && x.daysUntil <= windowDays)
@@ -87,6 +93,10 @@ async function gather(windowDays) {
 }
 
 function renderRows(rows) {
+    // gather() may return {feedUnavailable:true} when the earnings feed is down.
+    if (rows && rows.feedUnavailable) {
+        return '<div class="earnings-cal-empty">Earnings dates are temporarily unavailable — the free data feed for the earnings calendar isn’t responding right now. The engine’s BUY/SELL calls still work; check back later for the earnings overlay.</div>';
+    }
     if (!rows || !rows.length) {
         return '<div class="earnings-cal-empty">No earnings in the selected window across the large-cap universe.</div>';
     }
@@ -182,7 +192,8 @@ let _miaCache = null;
 export async function getUpcomingEarningsForMia(windowDays = DEFAULT_WINDOW_DAYS) {
     try {
         if (_miaCache && _miaCache.windowDays === windowDays) return _miaCache.rows;
-        const rows = await gather(windowDays);
+        const result = await gather(windowDays);
+        const rows = Array.isArray(result) ? result : (result?.rows || []);
         _miaCache = { windowDays, rows };
         return rows;
     } catch (_) { return []; }

@@ -38,13 +38,18 @@ async function mapLimit(items, limit, fn) {
 
 async function gather() {
     const symbols = getSectorMappedSymbols();
+    let anyData = false;
     const scored = await mapLimit(symbols, CONCURRENCY, async (sym) => {
         const opts = await fetchOptionsPositioning(sym);
         if (!opts) return null;
+        anyData = true;   // at least one options chain came back
         const u = unusualOptionsScore(opts);
         if (!u) return null;
         return { sym, ...u };
     });
+    // Every chain fetch failed → the options feed (Yahoo /v7/options) is
+    // crumb-walled on the free proxy. Distinguish from "nothing unusual".
+    if (!anyData) return { feedUnavailable: true, rows: [] };
     return scored
         .filter(Boolean)
         .sort((a, b) => b.score - a.score)
@@ -52,6 +57,9 @@ async function gather() {
 }
 
 function renderRows(rows) {
+    if (rows && rows.feedUnavailable) {
+        return '<div class="options-scan-empty">Options data is temporarily unavailable — the free options feed isn’t responding right now. The engine’s signals still work; this overlay returns when the feed is back.</div>';
+    }
     if (!rows || !rows.length) {
         return '<div class="options-scan-empty">No unusual options activity across the large-cap universe right now.</div>';
     }
@@ -146,7 +154,8 @@ let _miaCache = null;
 export async function getUnusualOptionsForMia() {
     try {
         if (_miaCache) return _miaCache;
-        _miaCache = await gather();
+        const result = await gather();
+        _miaCache = Array.isArray(result) ? result : (result?.rows || []);
         return _miaCache;
     } catch (_) { return []; }
 }
