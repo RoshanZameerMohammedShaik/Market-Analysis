@@ -527,7 +527,8 @@ function renderDrawer(row) {
 // Pulled out so streaming refreshes can patch only the rows that
 // changed without rewriting the whole tbody.
 function rowInnerHTML(r) {
-    return `<td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a></td>
+    return `<td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a>
+                <button class="scanner-loadchart-btn" data-action="load-chart" data-symbol="${r.symbol}" title="Load ${r.symbol} into the chart + analysis above">Load chart ↗</button></td>
             <td class="scanner-region">${r.region || '-'}</td>
             <td>${fmtSignal(r.signal)}</td>
             <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
@@ -660,21 +661,74 @@ function updateSortHeaders() {
 // ── Click handling ───────────────────────────────────────────────────
 
 function loadInMainChart(sym) {
-    const input = document.getElementById('search-input');
-    if (input) {
-        input.value = sym;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        setTimeout(() => {
-            document.querySelector(`.search-result-item[data-symbol="${sym}"]`)?.click();
-        }, 400);
+    // Direct load — fully loads the chart + analysis above and scrolls up.
+    // (Was a fragile search-box simulation that only prefilled the search and
+    // required the user to re-pick from the dropdown.)
+    if (typeof window.__loadSymbolDirect === 'function') {
+        window.__loadSymbolDirect(sym);
+    } else {
+        // Fallback: old search path if the direct loader isn't available.
+        const input = document.getElementById('search-input');
+        if (input) {
+            input.value = sym;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(() => document.querySelector(`.search-result-item[data-symbol="${sym}"]`)?.click(), 400);
+        }
+        document.querySelector('.chart-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    // Scroll up so the user actually sees the chart they just loaded.
-    document.querySelector('.chart-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function toggleExpand(sym) {
     expandedSymbol = (expandedSymbol === sym) ? null : sym;
     renderRows();
+}
+
+// Row click → open the symbol's analysis as a big ZOOMED CARD over a blurred
+// backdrop (focus mode). Click anywhere on the blurred backdrop to return to
+// the ledger. (User spec: "open up the analysis like a big card, zoom in, and
+// blur the background a bit ... clicking again anywhere else ... leave back at
+// the same ledger row.")
+let _ledgerFocusEl = null;
+function openLedgerFocus(sym) {
+    const row = (scanState.rows || []).find(r => r.symbol === sym);
+    if (!row) return;
+    closeLedgerFocus();
+    const overlay = document.createElement('div');
+    overlay.className = 'ledger-focus-overlay';
+    overlay.innerHTML = `
+        <div class="ledger-focus-card" role="dialog" aria-modal="true">
+            <button class="ledger-focus-close" aria-label="Close">×</button>
+            <div class="ledger-focus-head">
+                <span class="ledger-focus-sym">${row.symbol}</span>
+                <button class="scanner-loadchart-btn" data-action="load-chart" data-symbol="${row.symbol}">Load chart ↗</button>
+            </div>
+            <div class="ledger-focus-body">${renderDrawer(row)}</div>
+        </div>`;
+    document.body.appendChild(overlay);
+    _ledgerFocusEl = overlay;
+    requestAnimationFrame(() => overlay.classList.add('open'));
+    // Click on the backdrop (not the card) closes; the card's load-chart
+    // button loads + closes.
+    overlay.addEventListener('click', (e) => {
+        if (e.target.closest('.ledger-focus-close') || !e.target.closest('.ledger-focus-card')) {
+            closeLedgerFocus();
+            return;
+        }
+        if (e.target.closest('[data-action="load-chart"]')) {
+            const s = e.target.closest('[data-action="load-chart"]').dataset.symbol;
+            closeLedgerFocus();
+            if (s) loadInMainChart(s);
+        }
+    });
+    document.addEventListener('keydown', _ledgerFocusEsc);
+}
+function _ledgerFocusEsc(e) { if (e.key === 'Escape') closeLedgerFocus(); }
+function closeLedgerFocus() {
+    document.removeEventListener('keydown', _ledgerFocusEsc);
+    if (!_ledgerFocusEl) return;
+    const el = _ledgerFocusEl; _ledgerFocusEl = null;
+    el.classList.remove('open');
+    setTimeout(() => el.remove(), 260);
 }
 
 export async function initScanner() {
@@ -781,14 +835,15 @@ export async function initScanner() {
             loadInMainChart(sym);
             return;
         }
-        // Drawer × button: collapse the drawer.
+        // Drawer × button: collapse the drawer (legacy inline path).
         if (action === 'collapse') {
             e.preventDefault();
             expandedSymbol = null;
             renderRows();
             return;
         }
-        // Anywhere else on the row: toggle inline drawer.
-        toggleExpand(sym);
+        // Anywhere else on the row: open the analysis as a big zoomed focus
+        // card over a blurred backdrop (click-outside to return).
+        openLedgerFocus(sym);
     });
 }

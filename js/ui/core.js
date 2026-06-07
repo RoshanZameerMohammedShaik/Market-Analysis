@@ -53,6 +53,26 @@ function slowScrollTo(scroller, target, durationMs = 1200) {
 
 export function init() {
     document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
+    // Direct symbol loader exposed globally so OTHER modules (Full Ledger,
+    // sector heatmap, Mia) can load a symbol's chart + analysis WITHOUT the
+    // fragile "type into search box, wait 400ms, click the dropdown" dance —
+    // which was why those paths only "searched" instead of fully loading.
+    // Resolves the mode from the symbol shape (crypto if -USD), sets state,
+    // loads the chart, runs the analysis, and scrolls to the top.
+    window.__loadSymbolDirect = (symbol, opts = {}) => {
+        if (!symbol) return;
+        const sym = String(symbol).toUpperCase();
+        const isCrypto = opts.mode === 'crypto' || sym.endsWith('-USD');
+        if (isCrypto) {
+            const cryptoTab = document.querySelector('[data-tab="crypto"]');
+            if (cryptoTab && !cryptoTab.classList.contains('active')) cryptoTab.click();
+            onSelectFromCard({ mode: 'crypto', symbol: sym.replace(/-USD$/, ''), coinId: opts.coinId || null });
+        } else {
+            const stockTab = document.querySelector('[data-tab="stock"]');
+            if (stockTab && !stockTab.classList.contains('active')) stockTab.click();
+            onSelectFromCard({ mode: 'stock', symbol: sym, coinId: null });
+        }
+    };
     initRipple();
     initTilt3d();   // cursor-tilt 3D depth; no-ops under reduced-motion / touch / narrow
     initTheme();
