@@ -271,7 +271,8 @@ const CLICK_SEL = '.tab-btn, .refresh-btn, .spikers-btn, .pl-btn, .penny-filter-
     '.earnings-cal-row, .options-scan-row, .resources-toggle, .time-travel-btn';
 
 const HOVER_SEL = '.tab-btn, .hot-pick-card, .header-btn, .penny-filter-btn, ' +
-    '.refresh-btn, .spikers-btn, .portfolio-launcher, .sp-bucket, .sector-tile';
+    '.refresh-btn, .spikers-btn, .portfolio-launcher, .sp-bucket, .sector-tile, ' +
+    '.header-menu-item, .mia-sound-pill';
 
 const TAB_SEL = '.tab-btn, .penny-filter-btn, .sp-bucket';
 
