@@ -172,7 +172,7 @@ async function renderLocalChart(symbol, container, opts = {}) {
             // Crypto: fetch OHLC from CoinGecko by coinId (not the ticker).
             [LWC, data] = await Promise.all([
                 loadLightweightCharts(),
-                fetchCryptoData(coinId),
+                fetchCryptoData(coinId, 90, { withLivePrice: true }),   // single coin → precise spot price is worth the extra call
             ]);
         } else {
             // Non-US tickers arrive already exchange-tagged (suffixProbe off

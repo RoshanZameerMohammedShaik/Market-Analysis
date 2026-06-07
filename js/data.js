@@ -350,10 +350,62 @@ export async function fetchStockMultiTimeframe(symbol) {
 
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 
-export async function fetchCryptoData(coinId, days = 90) {
-    const url = `${COINGECKO_BASE}/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`;
-    const res = await fetchWithProxy(url);
+// CoinGecko's free API works directly from the browser (CORS-friendly, 200),
+// but its rate limit (~10-30 calls/min) 429s when several calls fire at once —
+// which is why crypto symbols intermittently "don't load". So we (a) SERIALIZE
+// CoinGecko calls behind a min-interval gate, and (b) short-TTL CACHE responses
+// so repeat lookups (chart + analysis of the same coin, or re-opens within a
+// couple minutes) don't re-hit the network at all. fetchWithProxy still adds
+// the CORS-proxy fallback for the rare case direct fails.
+const _cgGate = { last: 0, chain: Promise.resolve() };
+const CG_MIN_INTERVAL_MS = 650;   // ~1.5 req/s — CoinGecko free tier is strict (~30/min)
+function coingeckoFetch(url) {
+    // Queue this fetch behind the previous one, spacing them by the min
+    // interval, so concurrent callers don't burst CoinGecko into a 429.
+    const run = _cgGate.chain.then(async () => {
+        const wait = Math.max(0, CG_MIN_INTERVAL_MS - (Date.now() - _cgGate.last));
+        if (wait) await new Promise(r => setTimeout(r, wait));
+        _cgGate.last = Date.now();
+        try {
+            return await fetchWithProxy(url);
+        } catch (e) {
+            // One retry after a longer backoff on the most common transient
+            // (429 / proxy hiccup) — recovers most burst failures.
+            await new Promise(r => setTimeout(r, 1200));
+            _cgGate.last = Date.now();
+            return await fetchWithProxy(url);
+        }
+    });
+    // Keep the chain alive even if this link rejects, so one failure doesn't
+    // wedge every queued call behind it.
+    _cgGate.chain = run.catch(() => {});
+    return run;
+}
+
+// Short-TTL response cache keyed by full URL (OHLC + simple/price both cached).
+const _cgCache = new Map();
+const CG_CACHE_MS = 90 * 1000;
+// Exported so other modules' CoinGecko calls (hotpicks market list / trending)
+// share the SAME rate-limit gate + cache — otherwise they burst CoinGecko in
+// parallel and 429, which is the main reason crypto symbols don't load.
+export async function coingeckoJson(url) {
+    const hit = _cgCache.get(url);
+    if (hit && Date.now() - hit.ts < CG_CACHE_MS) return hit.data;
+    const res = await coingeckoFetch(url);
     const data = await res.json();
+    _cgCache.set(url, { ts: Date.now(), data });
+    return data;
+}
+
+export async function fetchCryptoData(coinId, days = 90, opts = {}) {
+    // withLivePrice makes a SECOND CoinGecko call (simple/price) for the exact
+    // spot price + 24h change. Off by default: the latest OHLC close is a fine
+    // price, and halving CoinGecko calls keeps bursts under the rate limit
+    // (this was a big part of "crypto symbols don't load"). The single-symbol
+    // chart/analysis path can opt in for the precise live figure.
+    const { withLivePrice = false } = opts;
+    const url = `${COINGECKO_BASE}/coins/${coinId}/ohlc?vs_currency=usd&days=${days}`;
+    const data = await coingeckoJson(url);
 
     if (!Array.isArray(data) || data.length === 0) {
         throw new Error(`No crypto data for: ${coinId}`);
@@ -366,15 +418,16 @@ export async function fetchCryptoData(coinId, days = 90) {
 
     let currentPrice = candles[candles.length - 1]?.close;
     let change24h = 0;
-    try {
-        const priceRes = await fetchWithProxy(
-            `${COINGECKO_BASE}/simple/price?ids=${coinId}&vs_currency=usd&include_24hr_vol=true&include_24hr_change=true`
-        );
-        const priceData = await priceRes.json();
-        const coinPrice = priceData[coinId] || {};
-        if (coinPrice.usd) currentPrice = coinPrice.usd;
-        if (coinPrice.usd_24h_change) change24h = coinPrice.usd_24h_change;
-    } catch (e) { /* */ }
+    if (withLivePrice) {
+        try {
+            const priceData = await coingeckoJson(
+                `${COINGECKO_BASE}/simple/price?ids=${coinId}&vs_currency=usd&include_24hr_vol=true&include_24hr_change=true`
+            );
+            const coinPrice = priceData[coinId] || {};
+            if (coinPrice.usd) currentPrice = coinPrice.usd;
+            if (coinPrice.usd_24h_change) change24h = coinPrice.usd_24h_change;
+        } catch (e) { /* close-as-price is fine */ }
+    }
 
     const displayName = CRYPTO_NAMES[coinId] || coinId.charAt(0).toUpperCase() + coinId.slice(1).replace(/-/g, ' ');
     const displaySymbol = coinId === 'ripple' ? 'XRP' : coinId.split('-')[0].toUpperCase();

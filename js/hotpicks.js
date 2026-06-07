@@ -19,7 +19,7 @@
 // won't survive Phase 1 filtering. Hot Picks is discovery, not exhaustive
 // scan; user can search any symbol directly for the full pipeline.
 
-import { fetchStockData, fetchCryptoData, fetchWithProxy } from './data.js';
+import { fetchStockData, fetchCryptoData, fetchWithProxy, coingeckoJson } from './data.js';
 import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
 import { getMarketConditionsScore } from './market.js';
 import { UNIVERSE_CONFIG } from './markets.js';
@@ -448,8 +448,8 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
 
 async function fetchCryptoMarket(page = 1) {
     const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=50&page=${page}&sparkline=true&price_change_percentage=24h`;
-    const res = await fetchWithProxy(url);
-    const data = await res.json();
+    // Through the shared CoinGecko gate+cache so it doesn't 429.
+    const data = await coingeckoJson(url);
     if (!Array.isArray(data)) return [];
     return data.map(coin => ({
         id: coin.id, symbol: coin.symbol, name: coin.name,
@@ -462,8 +462,7 @@ async function fetchCryptoMarket(page = 1) {
 
 async function fetchCryptoTrending() {
     const url = 'https://api.coingecko.com/api/v3/search/trending';
-    const res = await fetchWithProxy(url);
-    const data = await res.json();
+    const data = await coingeckoJson(url);
     if (!data.coins) return [];
     return data.coins.map(c => ({
         id: c.item.id, symbol: c.item.symbol, name: c.item.name,
