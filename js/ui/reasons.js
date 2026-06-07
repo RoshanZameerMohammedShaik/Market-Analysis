@@ -49,38 +49,102 @@ export function generateNewsImpact(title, sentimentLabel, symbol) {
     return `Neutral news mention for ${sym}. No strong directional bias from this headline alone — monitor for follow-up developments.`;
 }
 
-// Plain-English context for a small set of textbook indicators.
-// Returns null when the reason doesn't match a known pattern — caller
-// should fall back to the raw reason text rather than a generic
-// placeholder, since the raw reason is already specific (e.g.
-// "[Sector] Tech sector rising 1.2% 5d — aligned" already explains
-// itself; wrapping it in a generic "this indicator provides context"
-// blurb adds noise instead of insight).
-export function generateTechnicalExplanation(reason, _overallSignal, symbol) {
+// Symbol-specific context for a small set of indicators. When an
+// `indicatorSnapshot` is supplied (the real RSI / MACD / Bollinger /
+// ADX / volume values the engine just computed for THIS symbol), the
+// explanation is built from those actual numbers — e.g. "RSI is 27.4
+// for AAPL, 2.6 points below the 30 oversold line" — instead of a
+// textbook blurb. Without a snapshot it degrades to the prior generic
+// (still symbol-named) text. Returns null when nothing matches so the
+// caller surfaces the raw reason (already specific).
+//
+// snap shape (all fields optional): { price, rsi, macd:{hist,line,signal,
+//   crossover,crossunder}, bb:{upper,middle,lower,percentB,bandwidthPct},
+//   adx, mfi, atr, atrPct, volRatio, momentumPct, trendRegime }
+export function generateTechnicalExplanation(reason, _overallSignal, symbol, snap = null) {
     const sym = symbol || 'this asset';
     const lower = reason.toLowerCase();
+    const has = (k) => snap && snap[k] != null;
+    // Compact price formatter for band edges — avoids importing the FX
+    // formatter here (these are raw native-currency levels, shown plain).
+    const px = (v) => {
+        if (!Number.isFinite(v)) return '';
+        const abs = Math.abs(v);
+        const d = abs >= 100 ? 2 : abs >= 1 ? 2 : abs >= 0.01 ? 4 : 6;
+        return v.toFixed(d);
+    };
 
-    if (lower.includes('rsi') && lower.includes('oversold')) return `The RSI (Relative Strength Index) has dropped below 30, indicating ${sym} is oversold. Historically, this means sellers are exhausted and a bounce is likely. This is one of the strongest mean-reversion signals — price has fallen too far too fast and tends to recover.`;
-    if (lower.includes('rsi') && lower.includes('overbought')) return `The RSI is above 70, signaling ${sym} is overbought. The stock has risen too fast relative to its normal range. While momentum can continue, the probability of a pullback or consolidation increases significantly at these levels.`;
-    if (lower.includes('macd') && (lower.includes('crossover') || lower.includes('bullish'))) return `The MACD line has crossed above the signal line for ${sym}. This is a classic momentum shift — short-term momentum is now outpacing longer-term momentum, suggesting the start of an upward move.`;
-    if (lower.includes('macd') && (lower.includes('crossunder') || lower.includes('bearish'))) return `The MACD line has crossed below the signal line. Momentum for ${sym} is shifting downward — short-term selling pressure is overtaking buying interest. This often precedes further decline.`;
-    if (lower.includes('macd') && lower.includes('positive momentum')) return `MACD histogram is positive and expanding for ${sym}. This confirms the current uptrend has momentum behind it — buyers are in control and the trend is likely to continue.`;
-    if (lower.includes('macd') && lower.includes('negative momentum')) return `MACD histogram is negative for ${sym}. Selling momentum is building — each bounce is weaker than the last, suggesting bears are in control of the short-term trend.`;
-    if (lower.includes('bollinger') && lower.includes('lower')) return `${sym}'s price has touched or broken below the lower Bollinger Band. This means price is 2 standard deviations below its 20-day average — statistically unusual. Mean reversion (bounce back toward the middle band) is the most probable outcome.`;
-    if (lower.includes('bollinger') && lower.includes('upper')) return `Price is at or above the upper Bollinger Band for ${sym}. The stock is 2 standard deviations above its average — extended territory. While breakouts can continue, the probability of reverting back toward the mean is elevated.`;
-    if (lower.includes('golden cross') || (lower.includes('ma') && lower.includes('crossed above'))) return `Short-term moving average crossed above the longer-term average for ${sym}. This "golden cross" signals that recent price action is now stronger than the prevailing trend — a bullish structural shift.`;
-    if (lower.includes('death cross') || (lower.includes('ma') && lower.includes('crossed below'))) return `Short-term moving average crossed below the longer-term for ${sym}. This "death cross" indicates the short-term trend has turned negative — a bearish structural shift that often leads to further downside.`;
-    if (lower.includes('trending upward') || lower.includes('bullish trend')) return `${sym} is in a confirmed uptrend — the short-term MA is above the long-term MA. In trending markets, pullbacks to the moving average are typically buying opportunities rather than trend reversals.`;
-    if (lower.includes('trending downward') || lower.includes('bearish trend')) return `${sym} is in a confirmed downtrend. Bounces within a downtrend tend to be short-lived. Trading against the trend carries higher risk — wait for a structural shift before going long.`;
-    if (lower.includes('volume') && lower.includes('spike')) return `Volume is significantly above average for ${sym}. High volume validates the current price move — if price is rising on high volume, buyers are committed. If falling on high volume, institutions are selling.`;
-    if (lower.includes('momentum') && lower.includes('upward')) return `Strong positive momentum over the last 5 days for ${sym}. The price has been consistently climbing — momentum tends to persist in the short term before exhaustion.`;
-    if (lower.includes('momentum') && lower.includes('downward')) return `Strong negative momentum for ${sym} over the last 5 days. Persistent selling is hard to reverse quickly — expect continued pressure unless a catalyst changes the narrative.`;
-    if (lower.includes('all timeframes align')) return `Daily, weekly, and 4-hour timeframes all agree on direction for ${sym}. This is the highest-confidence technical setup — when all timeframes confirm, the probability of the move succeeding is at its peak.`;
-    if (lower.includes('conflict') || lower.includes('disagree')) return `Different timeframes are giving conflicting signals for ${sym}. The short-term and long-term trends disagree — this means higher uncertainty. Consider reducing position size or waiting for alignment.`;
+    // ── RSI ──────────────────────────────────────────────────────────────
+    if (lower.includes('rsi')) {
+        if (has('rsi')) {
+            const v = snap.rsi;
+            if (v < 30) return `RSI is <strong>${v}</strong> for ${sym} — ${(30 - v).toFixed(1)} points below the 30 oversold line. Sellers look exhausted; this is the engine's strongest mean-reversion read, and at the short horizon oversold ${sym} has historically bounced back toward its mean.`;
+            if (v < 40) return `RSI is <strong>${v}</strong> for ${sym} — approaching the 30 oversold zone but not there yet. Downside momentum is cooling; a turn is plausible but not confirmed until RSI either crosses back up or tags 30.`;
+            if (v > 70) return `RSI is <strong>${v}</strong> for ${sym} — ${(v - 70).toFixed(1)} points above the 70 overbought line. The move is stretched; momentum can persist, but the odds of a pause or pullback rise sharply this far above 70.`;
+            if (v > 60) return `RSI is <strong>${v}</strong> for ${sym} — elevated but below the 70 overbought line. Buyers are still in control; watch for a push above 70 (exhaustion risk) or a roll-over back under 60 (momentum fading).`;
+            return `RSI is <strong>${v}</strong> for ${sym} — squarely in the neutral 40–60 band. No mean-reversion edge from RSI here; the call is leaning on other indicators.`;
+        }
+        if (lower.includes('oversold')) return `RSI has dropped below 30 for ${sym} — oversold. Sellers look exhausted and a bounce is the most probable near-term outcome.`;
+        if (lower.includes('overbought')) return `RSI is above 70 for ${sym} — overbought. The move is stretched and a pullback or consolidation becomes more likely.`;
+    }
 
-    // No textbook match. Return null so the caller surfaces the raw
-    // reason text — it's already specific (tagged + parameterized
-    // from real engine output) and rendering a generic placeholder
-    // dozens of times made the panel look broken.
+    // ── MACD ─────────────────────────────────────────────────────────────
+    if (lower.includes('macd')) {
+        const m = has('macd') ? snap.macd : null;
+        const histTxt = m && m.hist != null ? ` (histogram ${m.hist >= 0 ? '+' : ''}${m.hist})` : '';
+        if (lower.includes('crossover') || (m?.crossover)) return `MACD just crossed bullish for ${sym}${histTxt} — the fast line pulled above its signal line. Short-term momentum is now outrunning the longer-term trend, which often marks the start of an upward leg.`;
+        if (lower.includes('crossunder') || (m?.crossunder)) return `MACD just crossed bearish for ${sym}${histTxt} — the fast line dropped below its signal line. Short-term selling is overtaking buying; this frequently precedes further downside.`;
+        if (lower.includes('positive momentum')) return `MACD histogram is positive for ${sym}${histTxt} and the line sits above zero — the uptrend has real momentum behind it, so the trend is more likely to continue than reverse.`;
+        if (lower.includes('negative momentum')) return `MACD histogram is negative for ${sym}${histTxt} with the line below zero — selling momentum is building and bounces are getting weaker, a bearish short-term posture.`;
+        if (lower.includes('turning positive')) return `MACD histogram is just turning positive for ${sym}${histTxt} — an early, not-yet-confirmed hint that downside momentum is easing. Watch for a full line-over-signal cross to confirm.`;
+        if (lower.includes('weakening')) return `MACD histogram is weakening for ${sym}${histTxt} — upward momentum is fading even if price hasn't turned yet. An early caution flag, not a reversal on its own.`;
+    }
+
+    // ── Bollinger Bands ──────────────────────────────────────────────────
+    if (lower.includes('bollinger')) {
+        const b = has('bb') ? snap.bb : null;
+        if (lower.includes('lower')) {
+            if (b) return `${sym} is trading at or below its lower Bollinger Band (${px(b.lower)}${b.percentB != null ? `, %B ${b.percentB}` : ''}) — roughly 2 standard deviations under its 20-day mean of ${px(b.middle)}. Statistically stretched to the downside; a reversion back toward the middle band is the higher-probability outcome.`;
+            return `${sym}'s price has broken below its lower Bollinger Band — about 2σ under its 20-day average. Mean reversion back toward the middle band is the most probable path.`;
+        }
+        if (lower.includes('upper')) {
+            if (b) return `${sym} is trading at or above its upper Bollinger Band (${px(b.upper)}${b.percentB != null ? `, %B ${b.percentB}` : ''}) — roughly 2 standard deviations over its 20-day mean of ${px(b.middle)}. Extended territory; breakouts can run, but the odds of reverting toward the mean are elevated.`;
+            return `${sym} is at or above its upper Bollinger Band — about 2σ over its 20-day average. The move is extended and reversion risk is elevated.`;
+        }
+    }
+
+    // ── MA crossovers / trend ────────────────────────────────────────────
+    if (lower.includes('golden cross') || (lower.includes('ma') && lower.includes('crossed above'))) return `Short-term MA crossed above the longer-term MA for ${sym} — a "golden cross". Recent price action is now stronger than the prevailing trend, a bullish structural shift.`;
+    if (lower.includes('death cross') || (lower.includes('ma') && lower.includes('crossed below'))) return `Short-term MA crossed below the longer-term MA for ${sym} — a "death cross". The short-term trend has turned down, a bearish structural shift that often leads to more downside.`;
+    if (lower.includes('trending upward') || lower.includes('bullish trend')) {
+        const adxTxt = has('adx') ? ` ADX is ${snap.adx} (${snap.adx > 25 ? 'a confirmed trend' : snap.adx < 20 ? 'weak — more chop than trend' : 'borderline'}).` : '';
+        return `${sym} is in an uptrend — short-term MA above long-term MA.${adxTxt} In trending tape, pullbacks to the moving average tend to be buying opportunities rather than reversals.`;
+    }
+    if (lower.includes('trending downward') || lower.includes('bearish trend')) {
+        const adxTxt = has('adx') ? ` ADX is ${snap.adx} (${snap.adx > 25 ? 'a confirmed trend' : snap.adx < 20 ? 'weak — more chop than trend' : 'borderline'}).` : '';
+        return `${sym} is in a downtrend — short-term MA below long-term MA.${adxTxt} Bounces inside a downtrend tend to be short-lived; trading against it carries higher risk.`;
+    }
+
+    // ── Volume ───────────────────────────────────────────────────────────
+    if (lower.includes('volume') && lower.includes('spike')) {
+        if (has('volRatio')) return `Volume is running <strong>${snap.volRatio}×</strong> its average for ${sym}. Heavy volume validates the move — on up moves it means buyers are committed, on down moves it means institutions are distributing. Either way the price action carries more weight than on thin volume.`;
+        return `Volume is well above average for ${sym}, validating the current move — high-volume moves are more trustworthy than thin-volume ones.`;
+    }
+
+    // ── Momentum ─────────────────────────────────────────────────────────
+    if (lower.includes('momentum') && lower.includes('upward')) {
+        if (has('momentumPct')) return `${sym} is up <strong>${snap.momentumPct >= 0 ? '+' : ''}${snap.momentumPct}%</strong> over the last 5 periods — strong positive momentum. Momentum tends to persist short-term before exhausting, so this favors continuation in the near term.`;
+        return `Strong positive 5-period momentum for ${sym} — it tends to persist short-term before exhausting.`;
+    }
+    if (lower.includes('momentum') && lower.includes('downward')) {
+        if (has('momentumPct')) return `${sym} is down <strong>${snap.momentumPct}%</strong> over the last 5 periods — strong negative momentum. Persistent selling is hard to reverse quickly without a fresh catalyst.`;
+        return `Strong negative 5-period momentum for ${sym} — persistent selling that's hard to reverse without a catalyst.`;
+    }
+
+    // ── Multi-timeframe ──────────────────────────────────────────────────
+    if (lower.includes('all timeframes align')) return `Daily, weekly, and 4-hour timeframes all agree on direction for ${sym} — the engine's highest-confidence technical setup. When every timeframe confirms, the odds of the move following through are at their peak.`;
+    if (lower.includes('conflict') || lower.includes('disagree')) return `Timeframes disagree for ${sym} — short-term and longer-term trends point different ways. That means higher uncertainty; consider a smaller position or waiting for alignment.`;
+
+    // No textbook match → null, caller surfaces the raw (already specific) reason.
     return null;
 }

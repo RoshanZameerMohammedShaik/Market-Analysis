@@ -137,9 +137,32 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     // strip was. Keeping the renderHorizonBands() function in case we
     // ever want to bring it back, but not wiring it in.
 
+    // Live indicator snapshot chips — the actual computed values for THIS
+    // symbol, shown at a glance above the explanations. Each chip is tinted by
+    // whether the value reads bull / bear / neutral, so the panel is concretely
+    // symbol-specific even before you expand a row. Omitted entirely when the
+    // engine didn't surface a snapshot (e.g. too few candles).
+    const snap = prediction.indicatorSnapshot;
+    let snapChipsHTML = '';
+    if (snap) {
+        const chip = (label, val, tone) =>
+            `<span class="tech-chip ${tone}"><span class="tech-chip-k">${label}</span><span class="tech-chip-v">${val}</span></span>`;
+        const chips = [];
+        if (snap.rsi != null) chips.push(chip('RSI', snap.rsi, snap.rsi < 30 ? 'positive' : snap.rsi > 70 ? 'negative' : 'neutral'));
+        if (snap.macd && snap.macd.hist != null) chips.push(chip('MACD hist', (snap.macd.hist >= 0 ? '+' : '') + snap.macd.hist, snap.macd.hist > 0 ? 'positive' : snap.macd.hist < 0 ? 'negative' : 'neutral'));
+        if (snap.bb && snap.bb.percentB != null) chips.push(chip('%B', snap.bb.percentB, snap.bb.percentB < 0 ? 'positive' : snap.bb.percentB > 1 ? 'negative' : 'neutral'));
+        if (snap.adx != null) chips.push(chip('ADX', snap.adx, snap.adx > 25 ? 'neutral-strong' : 'neutral'));
+        if (snap.mfi != null) chips.push(chip('MFI', snap.mfi, snap.mfi < 20 ? 'positive' : snap.mfi > 80 ? 'negative' : 'neutral'));
+        if (snap.volRatio != null) chips.push(chip('Vol', snap.volRatio + '×', snap.volRatio > 1.4 ? 'neutral-strong' : 'neutral'));
+        if (snap.atrPct != null) chips.push(chip('ATR', snap.atrPct + '%', 'neutral'));
+        if (snap.momentumPct != null) chips.push(chip('Mom 5p', (snap.momentumPct >= 0 ? '+' : '') + snap.momentumPct + '%', snap.momentumPct > 0 ? 'positive' : snap.momentumPct < 0 ? 'negative' : 'neutral'));
+        if (chips.length) snapChipsHTML = `<div class="tech-chips" title="Live indicator readings for ${state.currentSymbol || 'this symbol'}">${chips.join('')}</div>`;
+    }
+
     const technicalHTML = `
         <div class="technical-section">
             <div class="section-subtitle">Technical Indicators</div>
+            ${snapChipsHTML}
             <div class="accordion-list">
                 ${reasons.map(r => {
                     const humanized = humanizeReason(r);
@@ -149,7 +172,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                     // 1.2%/5d — aligned"), so showing them verbatim is
                     // far better than rendering an identical generic
                     // placeholder ten times in a row.
-                    const explanation = generateTechnicalExplanation(r, signal, state.currentSymbol);
+                    const explanation = generateTechnicalExplanation(r, signal, state.currentSymbol, prediction.indicatorSnapshot);
                     const body = explanation || (humanized !== r ? r : null);
                     const indicatorClass = /(bull|BUY|oversold|positive|upward)/i.test(r) ? 'positive'
                         : /(bear|SELL|overbought|negative|downward)/i.test(r) ? 'negative' : 'neutral';

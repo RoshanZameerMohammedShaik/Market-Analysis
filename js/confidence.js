@@ -476,11 +476,49 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     }
     if (trackRecord?.reason) allReasons.push(`[Track Record] ${trackRecord.reason}`);
 
+    // Compact snapshot of the REAL computed indicator values for THIS symbol,
+    // so the signal card's Technical Indicators panel can explain each reason
+    // with the actual numbers (RSI 27.4, %B −0.06, MACD hist +0.42, price vs
+    // its own bands) instead of a textbook blurb. Pure read of what the engine
+    // already computed — no recompute. Null-safe: any missing piece just omits
+    // that field and the UI falls back to its generic explanation.
+    const indSnap = (() => {
+        const ind = technicalPred?.indicators;
+        if (!ind) return null;
+        const closes = (multiData?.daily?.candles || []).map(c => c.close);
+        const px = multiData?.daily?.currentPrice || closes[closes.length - 1] || null;
+        const snap = { price: Number.isFinite(px) ? px : null };
+        if (Number.isFinite(ind.rsi)) snap.rsi = +ind.rsi.toFixed(1);
+        if (ind.macd) snap.macd = {
+            hist: Number.isFinite(ind.macd.histogram) ? +ind.macd.histogram.toFixed(3) : null,
+            line: Number.isFinite(ind.macd.macd) ? +ind.macd.macd.toFixed(3) : null,
+            signal: Number.isFinite(ind.macd.signal) ? +ind.macd.signal.toFixed(3) : null,
+            crossover: !!ind.macd.crossover, crossunder: !!ind.macd.crossunder,
+        };
+        if (ind.bb) snap.bb = {
+            upper: +ind.bb.upper?.toFixed(4), middle: +ind.bb.middle?.toFixed(4),
+            lower: +ind.bb.lower?.toFixed(4),
+            percentB: Number.isFinite(ind.bb.percentB) ? +ind.bb.percentB.toFixed(2) : null,
+            bandwidthPct: Number.isFinite(ind.bb.bandwidth) ? +(ind.bb.bandwidth * 100).toFixed(1) : null,
+        };
+        if (Number.isFinite(ind.adx)) snap.adx = +ind.adx.toFixed(1);
+        if (Number.isFinite(ind.mfi)) snap.mfi = +ind.mfi.toFixed(1);
+        if (Number.isFinite(ind.atr) && Number.isFinite(px) && px > 0) {
+            snap.atr = +ind.atr.toFixed(4);
+            snap.atrPct = +((ind.atr / px) * 100).toFixed(2);
+        }
+        if (ind.volumeData && Number.isFinite(ind.volumeData.ratio)) snap.volRatio = +ind.volumeData.ratio.toFixed(2);
+        if (Number.isFinite(ind.momentum)) snap.momentumPct = +ind.momentum.toFixed(2);
+        if (ind.trendRegime) snap.trendRegime = ind.trendRegime;
+        return snap;
+    })();
+
     return {
         signal: finalSignal,
         confidence: calibratedConfidence,
         confidenceRange,
         confidenceInterval: ci,
+        indicatorSnapshot: indSnap,
         rawConfidence,
         calibrationApplied,
         liquidityTier: tier,
