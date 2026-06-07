@@ -1138,6 +1138,42 @@ body.resources-open .resources-toggle {
 .watchlist-perm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .watchlist-perm-state { font-size: 0.78rem; color: var(--text-muted); }
 .watchlist-perm-state.on { color: var(--green); }
+
+/* ── Notification toggle choreography ─────────────────────────────────────
+   The Enable button lives in .watchlist-notif-row when OFF. When toggled ON it
+   becomes "Turn off…" and is re-parented into .watchlist-notif-dock in the
+   summary header, rendered as a glass pill. The closed-app checkbox sits beside
+   Enable and fades out while docked. */
+.watchlist-notif-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.watchlist-notif-dock { margin-left: auto; display: inline-flex; align-items: center; }
+
+/* Glass treatment for the docked "Turn off browser notifications" button. */
+.watchlist-perm-btn.is-on {
+    background: var(--bg-glass);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-control);
+}
+@media (prefers-reduced-motion: no-preference) {
+    /* Swoosh: when the button lands in the dock (.is-on), it slides in from the
+       left with a fade — reads as travelling rightward into the header. */
+    .watchlist-perm-btn.is-on { animation: notif-swoosh-in 0.42s var(--ease-premium, cubic-bezier(0.22,1,0.36,1)) both; }
+}
+@keyframes notif-swoosh-in {
+    from { opacity: 0; transform: translateX(-28px) scale(0.92); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* Closed-app checkbox — fades in/out with the toggle state. */
+.watchlist-closed-check {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;
+    transition: opacity 0.26s ease, transform 0.26s ease;
+}
+.watchlist-closed-check.fading-out { opacity: 0; transform: translateX(8px); pointer-events: none; }
+.watchlist-closed-check input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 .watchlist-list {
     padding: 6px 18px 14px;
     display: flex;

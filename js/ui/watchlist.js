@@ -24,7 +24,7 @@
 
 import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice, listAlerts } from './price-alerts.js';
 import { notify } from './notify.js';
-import { isPushConfigured, isPushSupported, enablePush, syncAlerts, getActiveSubscription, iosNeedsInstall } from '../push/push-client.js';
+import { isPushConfigured, isPushSupported, enablePush, disablePush, syncAlerts, getActiveSubscription, iosNeedsInstall } from '../push/push-client.js';
 
 const LS_KEY = 'ma-watchlist-v1';
 const LS_LAST_SEEN = 'ma-watchlist-last-seen-v1';
@@ -142,8 +142,9 @@ function notifyChange(sym, oldSig, newSig, conf) {
     } catch (_) {}
     pulseRow(sym, newSig);
 
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
+    // Honour the app-level notifications switch (Enable / Turn Off), not just
+    // the OS permission — turning notifications off in-app silences these.
+    if (!notificationsEnabled()) return;
     try {
         const body = `${from} → ${to} @ ${conf}% confidence`;
         new Notification(`Market Analyzer · ${sym}`, {
@@ -315,37 +316,51 @@ function ensureWatchlistPanel() {
                 <summary class="watchlist-summary">
                     <span class="watchlist-title">⭐ Watchlist</span>
                     <span class="watchlist-hint">Get notified when a watched signal flips</span>
+                    <!-- Glass slot the Enable button swooshes INTO when notifications
+                         are on (becomes "Turn Off Browser Notifications"). -->
+                    <span class="watchlist-notif-dock" id="watchlist-notif-dock"></span>
                 </summary>
                 <div class="watchlist-controls">
-                    <button class="watchlist-perm-btn" id="watchlist-perm-btn">Enable browser notifications</button>
+                    <div class="watchlist-notif-row" id="watchlist-notif-row">
+                        <button class="watchlist-perm-btn" id="watchlist-perm-btn">Enable browser notifications</button>
+                        <!-- "Notify even when app is closed" is now a CHECKBOX beside
+                             Enable; it fades out while the button is docked in the header. -->
+                        <label class="watchlist-closed-check" id="watchlist-closed-check" hidden>
+                            <input type="checkbox" id="watchlist-closed-toggle">
+                            <span>🔔 Notify even when app is closed</span>
+                        </label>
+                    </div>
                     <span class="watchlist-perm-state" id="watchlist-perm-state"></span>
-                    <button class="watchlist-push-btn" id="watchlist-push-btn" hidden>🔔 Notify even when app is closed</button>
                     <span class="watchlist-push-state" id="watchlist-push-state"></span>
                 </div>
                 <div class="watchlist-list" id="watchlist-list"></div>
             </details>
         </section>`;
     after.insertAdjacentHTML('afterend', html);
-    document.getElementById('watchlist-perm-btn').addEventListener('click', requestPermission);
-    // Closed-tab push opt-in — only shown when the backend is configured
-    // (deployed worker URL present in push-client.js). Until then it stays
-    // hidden and tab-open alerts cover the user.
-    const pushBtn = document.getElementById('watchlist-push-btn');
-    const pushState = document.getElementById('watchlist-push-state');
-    if (pushBtn && isPushConfigured() && isPushSupported()) {
-        pushBtn.hidden = false;
-        getActiveSubscription().then(sub => {
-            if (sub) { pushBtn.style.display = 'none'; pushState.textContent = '✓ Closed-app alerts on'; pushState.classList.add('on'); }
-        });
-        pushBtn.addEventListener('click', async () => {
-            pushBtn.disabled = true;
-            pushState.textContent = 'Enabling…';
-            const r = await enableClosedTabPush();
-            pushState.textContent = r.msg;
-            if (r.ok) { pushBtn.style.display = 'none'; pushState.classList.add('on'); }
-            else pushBtn.disabled = false;
+    document.getElementById('watchlist-perm-btn').addEventListener('click', onPermBtnClick);
+    // Closed-app checkbox: show it only where closed-tab push is possible.
+    // Toggling it on enables push (subscribe); off unsubscribes. It's also
+    // forced off + hidden whenever app-level notifications are turned off.
+    const closedCheck = document.getElementById('watchlist-closed-check');
+    const closedToggle = document.getElementById('watchlist-closed-toggle');
+    if (closedCheck && isPushConfigured() && isPushSupported()) {
+        closedToggle.checked = isClosedAppOn();
+        closedToggle.addEventListener('change', async () => {
+            const pushState = document.getElementById('watchlist-push-state');
+            if (closedToggle.checked) {
+                pushState.textContent = 'Enabling…';
+                const r = await enableClosedTabPush();
+                pushState.textContent = r.ok ? '✓ Closed-app alerts on' : r.msg;
+                pushState.classList.toggle('on', r.ok);
+                if (r.ok) setClosedAppOn(true); else closedToggle.checked = false;
+            } else {
+                await disableClosedTabPush();
+                setClosedAppOn(false);
+                pushState.textContent = ''; pushState.classList.remove('on');
+            }
         });
     }
+    refreshPermissionUI();
     const listEl = document.getElementById('watchlist-list');
     listEl.addEventListener('click', (e) => {
         // Don't navigate when the user is interacting with the alert form.
@@ -404,34 +419,87 @@ function ensureWatchlistPanel() {
     refreshPermissionUI();
 }
 
-function requestPermission() {
+// App-level "notifications enabled" flag (separate from the browser's OS-level
+// permission, which JS can't revoke). When OFF the app shows no notifications
+// and closed-app push is off. The Enable button toggles THIS.
+const LS_NOTIF_ON = 'ma-notif-enabled-v1';
+const LS_CLOSED_ON = 'ma-notif-closed-v1';
+function isNotifOn() { try { return localStorage.getItem(LS_NOTIF_ON) === '1'; } catch (_) { return false; } }
+function setNotifOn(v) { try { localStorage.setItem(LS_NOTIF_ON, v ? '1' : '0'); } catch (_) {} }
+function isClosedAppOn() { try { return localStorage.getItem(LS_CLOSED_ON) === '1'; } catch (_) { return false; } }
+function setClosedAppOn(v) { try { localStorage.setItem(LS_CLOSED_ON, v ? '1' : '0'); } catch (_) {} }
+// Exported so the notify path can honour the app-level switch.
+export function notificationsEnabled() {
+    return isNotifOn() && ('Notification' in window) && Notification.permission === 'granted';
+}
+
+// The Enable/Turn-Off button click — a single toggle.
+async function onPermBtnClick() {
     if (!('Notification' in window)) {
         alert('This browser does not support notifications.');
         return;
     }
-    if (Notification.permission === 'granted') { refreshPermissionUI(); return; }
-    Notification.requestPermission().then(refreshPermissionUI);
+    if (Notification.permission === 'denied') {
+        refreshPermissionUI();
+        return;
+    }
+    if (isNotifOn()) {
+        // Turn OFF: app-level off + unsubscribe closed-app push, then swoosh back.
+        setNotifOn(false);
+        setClosedAppOn(false);
+        try { await disableClosedTabPush(); } catch (_) {}
+        refreshPermissionUI();
+        return;
+    }
+    // Turn ON: request OS permission if needed, then enable + swoosh to header.
+    if (Notification.permission === 'granted') { setNotifOn(true); refreshPermissionUI(); return; }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') setNotifOn(true);
+    refreshPermissionUI();
 }
 
+// Reflect state into the UI + run the swoosh choreography:
+//   OFF  → button "Enable browser notifications" sits in the controls row,
+//          closed-app checkbox visible (faded in).
+//   ON   → button becomes "Turn Off Browser Notifications", swooshes into the
+//          glass dock in the Watchlist header; the checkbox fades out.
 function refreshPermissionUI() {
     const btn = document.getElementById('watchlist-perm-btn');
     const state = document.getElementById('watchlist-perm-state');
+    const dock = document.getElementById('watchlist-notif-dock');
+    const row = document.getElementById('watchlist-notif-row');
+    const check = document.getElementById('watchlist-closed-check');
     if (!btn || !state) return;
+
     if (!('Notification' in window)) {
-        btn.disabled = true;
-        state.textContent = 'Browser does not support notifications.';
+        btn.disabled = true; state.textContent = 'Browser does not support notifications.';
         return;
     }
-    if (Notification.permission === 'granted') {
-        btn.style.display = 'none';
-        state.textContent = '✓ Notifications enabled';
+    if (Notification.permission === 'denied') {
+        btn.disabled = true; state.textContent = 'Notifications blocked by browser settings.';
+        return;
+    }
+
+    const on = isNotifOn();
+    btn.disabled = false;
+    btn.textContent = on ? 'Turn off browser notifications' : 'Enable browser notifications';
+    btn.classList.toggle('is-on', on);
+
+    if (on) {
+        // Dock the button into the header (glass), fade out the checkbox.
+        if (dock && btn.parentElement !== dock) dock.appendChild(btn);
+        state.textContent = '';
         state.classList.add('on');
-    } else if (Notification.permission === 'denied') {
-        btn.disabled = true;
-        state.textContent = 'Notifications blocked by browser settings.';
+        if (check) { check.classList.add('fading-out'); setTimeout(() => { if (isNotifOn()) check.hidden = true; }, 260); }
     } else {
-        btn.style.display = '';
+        // Move the button back to the controls row, fade the checkbox back in.
+        if (row && btn.parentElement !== row) row.insertBefore(btn, row.firstChild);
         state.textContent = 'Click to allow signal-flip alerts.';
+        state.classList.remove('on');
+        if (check && isPushConfigured() && isPushSupported()) {
+            check.hidden = false;
+            check.classList.remove('fading-out');
+        }
     }
 }
 
@@ -461,6 +529,12 @@ async function enableClosedTabPush() {
     } catch (e) {
         return { ok: false, msg: e.message || 'Couldn\'t enable closed-tab alerts.' };
     }
+}
+
+// Turn OFF closed-tab push (unsubscribe). Best-effort + silent. Called when the
+// closed-app checkbox is unchecked OR when notifications are turned off entirely.
+async function disableClosedTabPush() {
+    try { if (isPushConfigured() && isPushSupported()) await disablePush(); } catch (_) {}
 }
 
 // Wires the star button into the chart header. Called from chart.js
