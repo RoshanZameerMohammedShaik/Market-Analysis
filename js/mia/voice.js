@@ -1647,6 +1647,26 @@ function drawOrb(now, target) {
     // startCanvasLoop's tick. All orbs (main + launcher) pulse together.
     const amp = session.smoothedAmp;
 
+    // ── State drive ──────────────────────────────────────────────────────
+    // The orb now reacts to WHAT Mia is doing, not just how loud it is.
+    // Each voice state gets its own "flow signature" so the ribbons read as
+    // neurons carrying information in a direction:
+    //   listening → signals flow INWARD (drawing the user's words in),
+    //               medium speed, scales with mic amplitude
+    //   thinking  → signals SWIRL fast both ways (busy computation), no net
+    //               direction, brightness pulses
+    //   speaking  → signals flow OUTWARD (Mia emitting), speed + brightness
+    //               ride the TTS amplitude
+    //   idle      → slow gentle drift, dim
+    // dir: +1 outward, -1 inward, 0 swirl. spd: ribbon phase multiplier.
+    // pktBright: neuron-packet glow multiplier.
+    const st = session.state || 'idle';
+    let flowDir = 1, flowSpd = 1, pktBright = 1, pktDensity = 1;
+    if (st === 'listening') { flowDir = -1; flowSpd = 0.9 + amp * 1.4; pktBright = 0.85 + amp * 0.6; pktDensity = 1; }
+    else if (st === 'thinking') { flowDir = 0; flowSpd = 2.1; pktBright = 1.15; pktDensity = 1.4; }
+    else if (st === 'speaking') { flowDir = 1; flowSpd = 1.1 + amp * 1.6; pktBright = 0.9 + amp * 0.8; pktDensity = 1.2; }
+    else { flowDir = 1; flowSpd = 0.5; pktBright = 0.5; pktDensity = 0.7; }
+
     // baseR = the outer radius the petals reach near. Eats most of the canvas
     // so the orb feels weighty, ChatGPT-style.
     const baseR = Math.min(W, H) * 0.40;
@@ -1692,41 +1712,75 @@ function drawOrb(now, target) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineCap = 'round';
+        // Collected per-ribbon geometry so we can lay travelling "neuron
+        // packets" onto the SAME paths after stroking the strands.
+        const ribbonGeo = [];
         for (let r = 0; r < ribbons; r++) {
-            const ribbonPhase = now * (0.0008 + r * 0.0004) + r * 1.7;
+            // flowSpd scales how fast the strand animates; flowDir biases the
+            // orbit so the whole strand visibly drifts in/out (in swirl mode
+            // flowDir=0 leaves only the intrinsic per-ribbon spin).
+            const ribbonPhase = now * (0.0008 + r * 0.0004) * flowSpd + r * 1.7;
             // Base radius slightly outside the core so ribbons orbit the
-            // ball rather than sit inside it. Each ribbon picks its own
-            // band so they don't all overlap.
+            // ball rather than sit inside it. Each ribbon picks its own band.
             const baseRibbonR = baseR * (0.78 + r * 0.06) + amp * baseR * 0.04;
-            // Stroke width: ribbons are thin "strings" that thicken with
-            // amp so loud speech shows fatter color streams.
-            // Thinner ribbons — Roshan asked for "string-like" not "rope".
-            // Per-target ribbonWidth multiplier lets the main orb go even
-            // thinner than the launcher (main: 0.5x, launcher: 1.0x).
-            // Floor at 0.6px so they're still visible at small canvas
-            // sizes; amp adds a tiny swell on loud speech.
+            // Stroke width: thin "strings" that thicken slightly with amp.
             const baseLineW = baseR * 0.022 + amp * baseR * 0.02;
             const lineW = Math.max(0.6, baseLineW * (ribbonWidth || 1.0));
             const ribbonAccent = pickColor(r * 1.2 + 0.6); // offset hue from petals
-            ctx.strokeStyle = `rgba(${ribbonAccent}, ${(0.55 + amp * 0.30) * glowAlpha})`;
+            ctx.strokeStyle = `rgba(${ribbonAccent}, ${(0.50 + amp * 0.30) * glowAlpha})`;
             ctx.lineWidth = lineW;
             ctx.beginPath();
             const segs = 140;
+            // Net angular drift gives the strand a sense of travel direction:
+            // inward (listening) the strand spirals toward the core, outward
+            // (speaking) away from it. Encoded as a slow radial breathing tied
+            // to flowDir so the strand's mean radius eases in/out over time.
+            const driftR = flowDir * Math.sin(now * 0.0011 + r) * baseR * 0.05;
+            const geo = { accent: ribbonAccent, pts: [] };
             for (let i = 0; i <= segs; i++) {
                 const t = (i / segs) * Math.PI * 2;
-                // Wobble the ribbon's radius along its length so it
-                // undulates like a string blown by wind. Two superposed
-                // sinusoids give a flowing snake shape, and the phase
-                // shift per ribbon means none are in lockstep.
                 const wobble1 = Math.sin(t * 3 + ribbonPhase * 1.4) * baseR * (0.10 + amp * 0.10);
                 const wobble2 = Math.sin(t * 5 - ribbonPhase * 0.8) * baseR * (0.05 + amp * 0.06);
-                const rr = baseRibbonR + wobble1 + wobble2;
-                const angle = t + ribbonPhase * 0.6;
+                const rr = baseRibbonR + driftR + wobble1 + wobble2;
+                const angle = t + ribbonPhase * 0.6 * (flowDir === 0 ? 1 : 1);
                 const x = cx + Math.cos(angle) * rr;
                 const y = cy + Math.sin(angle) * rr;
                 if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                geo.pts.push(x, y);
             }
             ctx.stroke();
+            ribbonGeo.push(geo);
+        }
+
+        // ── Neuron packets ──────────────────────────────────────────────
+        // Bright dots that travel ALONG each strand like signals down an
+        // axon. Their position is a phase that advances with flowSpd and
+        // moves in flowDir (so they run inward when listening, outward when
+        // speaking, and just race around when thinking). A few packets per
+        // strand, evenly spaced, each with a soft glow + comet trail.
+        const pktsPerRibbon = Math.max(1, Math.round(2 * pktDensity));
+        const travel = (now * 0.00022 * flowSpd) * (flowDir === 0 ? 1 : flowDir < 0 ? -1 : 1);
+        for (let r = 0; r < ribbonGeo.length; r++) {
+            const geo = ribbonGeo[r];
+            const n = geo.pts.length / 2;          // sample count along strand
+            for (let k = 0; k < pktsPerRibbon; k++) {
+                // phase in [0,1) along the strand; spaced by k, advancing by travel
+                let ph = (travel + k / pktsPerRibbon + r * 0.13) % 1;
+                if (ph < 0) ph += 1;
+                const fi = ph * (n - 1);
+                const i0 = Math.floor(fi);
+                const f = fi - i0;
+                const x = geo.pts[i0 * 2] * (1 - f) + geo.pts[(i0 + 1) * 2] * f;
+                const y = geo.pts[i0 * 2 + 1] * (1 - f) + geo.pts[(i0 + 1) * 2 + 1] * f;
+                const pr = (baseR * 0.045 + amp * baseR * 0.02) * (ribbonWidth ? Math.max(0.7, ribbonWidth) : 1);
+                const g = ctx.createRadialGradient(x, y, 0, x, y, pr * 2.6);
+                const a = Math.min(1, (0.7 + amp * 0.4) * pktBright * glowAlpha);
+                g.addColorStop(0, `rgba(255,255,255,${a})`);
+                g.addColorStop(0.35, `rgba(${geo.accent},${a * 0.9})`);
+                g.addColorStop(1, `rgba(${geo.accent},0)`);
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.arc(x, y, pr * 2.6, 0, Math.PI * 2); ctx.fill();
+            }
         }
         ctx.restore();
     }
@@ -1737,8 +1791,11 @@ function drawOrb(now, target) {
     // continuous iridescent gradient sweep instead of distinct lobes.
     ctx.save();
     ctx.globalCompositeOperation = 'lighter'; // additive blend → glowy bloom
+    // Petal swirl picks up the state flow speed too, so the whole orb
+    // breathes faster while thinking/speaking and calms when idle.
+    const petalSpd = 0.6 + 0.4 * flowSpd;
     for (let p = 0; p < petals; p++) {
-        const phase = now * (0.0007 + p * 0.0003) + p * (Math.PI * 2 / petals);
+        const phase = now * (0.0007 + p * 0.0003) * petalSpd + p * (Math.PI * 2 / petals);
         const layerR = baseR * (0.95 + 0.05 * Math.sin(phase * 0.8) + 0.10 * amp);
         ctx.beginPath();
         const points = 96;

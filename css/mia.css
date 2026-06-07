@@ -1154,9 +1154,31 @@ body.mia-voice-minimized .mia-launcher {
        the canvas + box-shadow ring carry the visuals now. */
     display: none;
 }
-/* In voice-orb mode the canvas owns the visual — hide the chat-mode aura so
-   the two don't overlap. */
-.mia-launcher.mia-launcher-orb .mia-aura { display: none; }
+/* In voice-orb mode the canvas owns the visual — hide the chat-mode aura's
+   rings/halo/core so they don't overlap the canvas orb. BUT keep the aura
+   element itself displayed and reveal ONLY its M-ECG heartbeat glyph layered
+   over the canvas, so the minimized orb still carries Mia's brand mark (the
+   heartbeat the user liked). */
+.mia-launcher.mia-launcher-orb .mia-aura {
+    display: block;
+    background: transparent;
+}
+.mia-launcher.mia-launcher-orb .mia-aura-halo,
+.mia-launcher.mia-launcher-orb .mia-aura-ring,
+.mia-launcher.mia-launcher-orb .mia-aura-core { display: none; }
+/* The ECG glyph sits on top of the canvas, softly shadowed so it stays
+   legible against the iridescent ribbons flowing underneath. */
+.mia-launcher.mia-launcher-orb .mia-aura-ecg {
+    display: block;
+    position: absolute;
+    inset: 26%;
+    width: 48%; height: 48%;
+    z-index: 2;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.55))
+            drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.mia-launcher.mia-launcher-orb .mia-aura-ecg .mia-ecg-trace { stroke: rgba(255, 255, 255, 0.55); }
+.mia-launcher.mia-launcher-orb .mia-aura-ecg .mia-ecg-blip { stroke: #ffffff; }
 .mia-launcher-canvas {
     position: absolute;
     inset: 0;
