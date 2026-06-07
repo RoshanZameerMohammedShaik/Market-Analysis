@@ -5,6 +5,17 @@
 import { saveSettings, loadSettings } from './settings.js';
 import { ping as pingGemini } from './backends/api-gemini.js';
 import { ping as pingCf } from './backends/api-cf.js';
+import { closeSidePanel } from '../ui/side-panel-stack.js';
+
+// Close the Mia panel THROUGH the side-panel stack so it stays in sync and the
+// stack's onLayout restores the launcher. The old handler only did
+// panel.classList.remove('open'), which left the stack thinking Mia was still
+// open → isSidePanelOpen stayed true → the launcher was hidden forever (the
+// "Mia toggle disappears" glitch on the unconfigured/welcome screen).
+function closeWelcomePanel(panel) {
+    closeSidePanel('mia');
+    panel.classList.remove('open');
+}
 
 const MIA_LOGO_SVG = `
 <svg class="mia-logo mia-ecg-svg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -50,7 +61,7 @@ export function renderWelcome(panel, onConfigured) {
         </div>
     `;
 
-    panel.querySelector('#mia-close-btn').addEventListener('click', () => panel.classList.remove('open'));
+    panel.querySelector('#mia-close-btn').addEventListener('click', () => closeWelcomePanel(panel));
     panel.querySelector('[data-pick="apikey"]').addEventListener('click', () => renderApiKeySetup(panel, onConfigured));
 }
 
@@ -83,7 +94,7 @@ function renderApiKeySetup(panel, onConfigured) {
         </div>
     `;
 
-    panel.querySelector('#mia-close-btn').addEventListener('click', () => panel.classList.remove('open'));
+    panel.querySelector('#mia-close-btn').addEventListener('click', () => closeWelcomePanel(panel));
     panel.querySelector('#mia-back').addEventListener('click', () => renderWelcome(panel, onConfigured));
 
     const formEl = panel.querySelector('#mia-setup-form');

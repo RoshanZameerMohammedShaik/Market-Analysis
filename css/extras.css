@@ -73,9 +73,12 @@ html[data-dev="1"] body { padding-top: 22px; }
 .res-dyk {
     margin-bottom: 16px;
     padding: 11px 13px;
-    background: var(--bg-glass);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
+    /* Theme-matched accent-tinted surface (NOT the dark glass plate, which
+       read as near-black over the rail's --bg-card). color-mix blends a touch
+       of the theme accent into the secondary surface so the card recolours
+       with the theme — subtle blue/violet wash on dark/aurora, pale blue on
+       light. No backdrop-filter (nothing meaningful to blur inside the rail). */
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
     border: 1px solid var(--border-strong);
     border-left: 3px solid var(--accent);
     border-radius: var(--radius-md);

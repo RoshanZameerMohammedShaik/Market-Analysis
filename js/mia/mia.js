@@ -17,7 +17,7 @@ import { initVoice, attachVoiceButton } from './voice.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from '../ui/side-panel-stack.js';
 import { flashShimmer } from '../ui/flash-shimmer.js';
 import { morphToggleToSend, morphSendToToggle } from '../ui/mia-morph.js';
-import { setLauncherVis } from '../ui/launcher-vis.js';
+import { setLauncherVis, getLauncherVis } from '../ui/launcher-vis.js';
 import { startThinking, stopThinking, setSoundEnabled, isSoundEnabled, tick as soundTick, complete as soundComplete } from './sound.js';
 import { isUiSoundEnabled, setUiSoundEnabled, click as uiClick } from '../ui/ui-sound.js';
 
@@ -149,6 +149,16 @@ export function initMia() {
             const wasOpen = panel.classList.contains('open');
             panel.classList.toggle('open', open);
             panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+            // SINGLE OWNER of launcher visibility for chat mode. Deriving it
+            // from the ACTUAL panel state (here, on every stack layout change)
+            // instead of from togglePanel's branch fixes the glitch where a
+            // desynced panelOpen flag / double close-trigger left the launcher
+            // stuck hidden after the panel closed. We never touch 'orb' mode —
+            // voice.js / agentic-stage own that; only flip between hidden
+            // (panel open in chat mode) and visible (panel closed).
+            if (getLauncherVis() !== 'orb') {
+                setLauncherVis(open ? 'hidden' : 'visible');
+            }
             // Soft open/close cue on an actual state change. Lazy import so
             // mia.js carries no hard dependency on the UI sound layer. The cue
             // self-gates (won't fire while Mia is speaking or if UI sound muted).
@@ -172,14 +182,22 @@ function initLauncherReadyDot() {
     }
     launcher.title = isConfigured() ? 'Ask Mia — your Market Intelligence Analyst (ready)' : 'Ask Mia — set up an API key to begin';
 }
+let _toggleLock = false;
 function togglePanel() {
+    // Re-entrancy guard: the open/close morph animations run ~250-350ms. A
+    // second toggle (rapid click, or ✕ landing while a morph is mid-flight)
+    // could interleave open/close and leave the launcher stuck hidden — the
+    // reported glitch. Ignore toggles until the in-flight one settles.
+    if (_toggleLock) return;
+    _toggleLock = true;
+    setTimeout(() => { _toggleLock = false; }, 380);
     // Source of truth is the stack, NOT the local panelOpen flag.
     // Voice mode opens the Mia panel directly via openSidePanel('mia'),
     // bypassing this function — so panelOpen would desync and the ✕
     // would do the wrong thing on first click. Reading from the stack
     // guarantees the click always toggles whatever's actually visible.
     const panel = document.getElementById('mia-panel');
-    if (!panel) return;
+    if (!panel) { _toggleLock = false; return; }
     const wasOpen = isSidePanelOpen('mia');
     panelOpen = !wasOpen;
     if (panelOpen) {
@@ -188,10 +206,9 @@ function togglePanel() {
         // .open class + aria-hidden via the registered onLayout
         // callback; we just need to render inside.
         openSidePanel('mia');
-        // Hide the launcher while chat panel is open in chat mode —
-        // we'd be competing with the panel header otherwise. Voice
-        // mode and agentic stage override this back to 'orb'.
-        setLauncherVis('hidden');
+        // Launcher visibility is now owned by the registerSidePanel onLayout
+        // callback (derives hidden/visible from the real panel state), which
+        // fixes the desync where the launcher stayed hidden after close.
         renderRoot();
         // Toggle → send-button morph runs in parallel with the panel
         // slide-in. The morph helper grabs the send-button's rect on
@@ -209,7 +226,8 @@ function togglePanel() {
         // is still mounted and we can read its rect.
         morphSendToToggle();
         closeSidePanel('mia');
-        setLauncherVis('visible');
+        // onLayout (above) flips the launcher back to visible from the real
+        // panel state — no manual setLauncherVis here (that's what desynced).
     }
 }
 function renderRoot() {

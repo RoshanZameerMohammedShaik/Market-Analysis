@@ -27,7 +27,7 @@ import { isMiaSpeaking } from '../mia/sound.js';
 
 let ctx = null;
 let masterGain = null;
-const MASTER_VOLUME = 0.14;   // even softer than Mia's 0.18 — these fire often
+const MASTER_VOLUME = 0.32;   // bumped from 0.14 — cues were too quiet to hear
 
 // ── enable/mute (persisted) ──────────────────────────────────────────────
 
