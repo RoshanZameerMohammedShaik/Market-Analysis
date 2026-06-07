@@ -8,9 +8,9 @@ import { initScanner } from './ui/scanner.js';
 import { initWatchlist } from './ui/watchlist.js';
 import { initSectorHeatmap } from './ui/sector-heatmap.js';
 import { initEarningsCalendar } from './ui/earnings-calendar.js';
-import { initOptionsScanner } from './ui/options-scanner.js';
-import { initEquityCurve } from './ui/equity-curve.js';
-import { initAccuracyReport } from './ui/accuracy-report.js';
+// Removed per user: Unusual Options Activity (no data — Yahoo crumb-walled),
+// "Did following the engine pay off" (equity curve), and "Which setups does
+// the engine read best" (accuracy report) — all judged low-value.
 import { initInstallPrompt } from './ui/install-prompt.js';
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
 import { initDebugPanel } from './ui/debug-panel.js';
@@ -25,12 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initCurrencyToggle();
     initScanner();
     initWatchlist();
-    // New coverage surfaces — all collapsed by default, lazy-load on open.
+    // Coverage surfaces — collapsed by default, lazy-load on open.
     initSectorHeatmap();
     initEarningsCalendar();
-    initOptionsScanner();
-    initEquityCurve();
-    initAccuracyReport();
     initInstallPrompt();
     initPortfolioPanel();
     // Floating Debug App panel — only mounts when dev mode is on.

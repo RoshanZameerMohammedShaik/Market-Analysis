@@ -378,11 +378,6 @@ export const TOOL_DECLARATIONS = [
         },
     },
     {
-        name: 'open_options_scanner',
-        description: 'Open the Unusual Options Activity scanner and get symbols with anomalous options positioning (crowded puts/calls, stretched IV skew). Use for "any unusual options flow today". Stock-only.',
-        parameters: { type: T.OBJECT, properties: {} },
-    },
-    {
         name: 'toggle_currency',
         description: 'Toggle USD ↔ INR display.',
         parameters: { type: T.OBJECT, properties: {} },
@@ -553,18 +548,5 @@ export const TOOL_DECLARATIONS = [
         name: 'get_macro_regime',
         description: 'Read the current macro regime (risk-on / risk-off / transition / neutral) plus VIX, S&P 500, and dollar components. Use for "what\'s the market regime / is it risk-on".',
         parameters: { type: T.OBJECT, properties: {} },
-    },
-    {
-        name: 'show_equity_curve',
-        description: 'Open the equity curve and get the dollar result of "if you\'d followed the engine" from a hypothetical $10k compounding every resolved BUY/SELL. Use for "does it actually make money / show me the proof". Optional symbol scopes to one ticker; horizonDays 1/3/5/10/20 (default 5).',
-        parameters: {
-            type: T.OBJECT,
-            properties: { symbol: { type: T.STRING }, horizonDays: { type: T.INTEGER } },
-        },
-    },
-    {
-        name: 'get_accuracy_by_setup',
-        description: 'Open the accuracy-by-setup report and get the engine\'s hit-rate broken down by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs baseline. Use for "which setups does the engine read best / when to trust it". No regime (trending/risk-on) split — not logged per prediction.',
-        parameters: { type: T.OBJECT, properties: { horizonDays: { type: T.INTEGER } } },
     },
 ];

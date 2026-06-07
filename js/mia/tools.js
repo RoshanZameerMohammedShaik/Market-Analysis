@@ -15,10 +15,10 @@ import {
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     controlOpenResources, controlOpenFullLedger, controlSetAccuracyWindow,
     controlAddToWatchlist, controlRemoveFromWatchlist, controlSetPriceAlert,
-    controlOpenSectorHeatmap, controlOpenEarningsCalendar, controlOpenOptionsScanner,
+    controlOpenSectorHeatmap, controlOpenEarningsCalendar,
     controlOpenPortfolioPanel, controlClosePortfolioPanel, controlInstantiatePortfolio,
     controlAddFunds, controlResetPortfolio, controlSetTimeTravel, controlClearTimeTravel,
-    readMacroRegime, controlOpenEquityCurve, controlOpenAccuracyReport,
+    readMacroRegime,
     readUiSnapshot, readCalibrationSnapshot, readAccuracyStats,
     findSpikersDirect, readPredictionLog, readSourceAccuracy,
     readLedgerHistory, readLiveCalibration, findSimilarSetups, readTopLosers,
@@ -491,12 +491,6 @@ const TOOLS = {
         run: async ({ windowDays } = {}) => controlOpenEarningsCalendar({ windowDays }),
         kind: 'control',
     },
-    open_options_scanner: {
-        desc: 'open the Unusual Options Activity scanner AND return symbols with anomalous options positioning (crowded puts/calls via PCR extremes, stretched IV skew). Use for "any unusual options flow" or "what are options markets signaling". Each row has flags with a bullish/bearish bias. Quote from the returned unusual array. Stock-only (no crypto options on the free feed).',
-        args: '{}',
-        run: async () => controlOpenOptionsScanner(),
-        kind: 'control',
-    },
     open_portfolio_panel: {
         desc: 'open the practice-trading portfolio side panel (holdings, cash, P&L). Use when the user asks to see their portfolio / positions / practice account. This is the practice portfolio — SEPARATE from the watchlist.',
         args: '{}',
@@ -545,18 +539,8 @@ const TOOLS = {
         run: async () => readMacroRegime(),
         kind: 'read',
     },
-    show_equity_curve: {
-        desc: 'open the equity curve AND return the dollar result of "if you\'d followed the engine" — compounds every resolved BUY/SELL signal from a hypothetical $10k (fixed-fractional sizing). Use for "does the engine actually make money / has it been profitable / show me the proof / track record in dollars". Pass {symbol} to scope to one ticker (else whole universe), {horizonDays} 1/3/5/10/20 (default 5, where edge is strongest; 1-day is honestly negative). The returned summary has finalBalance, finalPct, trades, winRatePct, avgTradePct — quote those. Frame it honestly as a simplified no-fee directional-edge simulation, not a brokerage backtest.',
-        args: '{"symbol":null,"horizonDays":5}',
-        run: async ({ symbol, horizonDays } = {}) => controlOpenEquityCurve({ symbol, horizonDays }),
-        kind: 'control',
-    },
-    get_accuracy_by_setup: {
-        desc: 'open the accuracy-by-setup report AND return the breakdown of the engine\'s hit-rate by indicator context (signal direction, RSI zone, MACD momentum, Bollinger position) vs its baseline. The overall block also has avgCapturedPct = on average what % of the PREDICTED PRICE MOVE the engine actually captured (a quality measure distinct from up/down direction — null on older rows from before target-grading). Use for "which setups does the engine read best / when should I trust it / does it hit its targets". Quote buckets where hit-rate beats baseline, and avgCapturedPct for "how close does it get to its targets". NOTE: there is NO trending/ranging or risk-on/off breakdown — that regime state isn\'t logged per prediction, so don\'t claim one.',
-        args: '{"horizonDays":1}',
-        run: async ({ horizonDays } = {}) => controlOpenAccuracyReport({ horizonDays }),
-        kind: 'control',
-    },
+    // Removed per user: show_equity_curve + get_accuracy_by_setup (the equity
+    // curve + accuracy-by-setup surfaces were taken out).
 };
 
 export function listTools() {
