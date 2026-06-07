@@ -2059,6 +2059,11 @@ body.resources-open .resources-toggle {
    visually says "we are computing a market chart" instead of generic
    spinner. Used on the multi-second analysis screen where the user
    stares at the loader long enough to notice. */
+/* Premium "live-market" loader — bars breathe as a smooth travelling wave
+   (scaleY from a shared baseline, GPU transform not top/bottom thrash), each
+   capped with a soft glow, and a faint scan-sheen drifts across the whole row.
+   Reads as the engine actively pulsing through the data rather than a choppy
+   grow. Same markup hooks (.cl-bar/.cl-wick/.cl-body) so JS is untouched. */
 .candle-loader {
     display: flex;
     align-items: center;
@@ -2066,52 +2071,65 @@ body.resources-open .resources-toggle {
     gap: 6px;
     height: 64px;
     margin: 6px 0 4px;
+    position: relative;
+    overflow: hidden;
 }
 .candle-loader .cl-bar {
     position: relative;
     width: 8px;
-    height: 100%;
+    height: 60%;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 .candle-loader .cl-wick {
     position: absolute;
-    top: 6%;
-    bottom: 6%;
+    top: -18%;
+    bottom: -18%;
     left: 50%;
     width: 1.5px;
     transform: translateX(-50%);
     border-radius: 1px;
     background: currentColor;
-    opacity: 0.55;
+    opacity: 0.35;
 }
 .candle-loader .cl-body {
     position: absolute;
-    left: 0;
-    right: 0;
-    border-radius: 1.5px;
-    background: currentColor;
-    animation: cl-grow 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    inset: 0;
+    border-radius: 3px;
+    background: linear-gradient(180deg, currentColor, color-mix(in srgb, currentColor 55%, transparent));
+    box-shadow: 0 0 8px color-mix(in srgb, currentColor 45%, transparent);
+    transform-origin: center;
+    animation: cl-wave 1.25s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    will-change: transform, opacity;
 }
 .candle-loader .cl-bar.up   { color: var(--green); }
 .candle-loader .cl-bar.down { color: var(--red); }
 .candle-loader .cl-bar:nth-child(1) .cl-body { animation-delay: 0.00s; }
-.candle-loader .cl-bar:nth-child(2) .cl-body { animation-delay: 0.10s; }
-.candle-loader .cl-bar:nth-child(3) .cl-body { animation-delay: 0.20s; }
-.candle-loader .cl-bar:nth-child(4) .cl-body { animation-delay: 0.30s; }
-.candle-loader .cl-bar:nth-child(5) .cl-body { animation-delay: 0.40s; }
-.candle-loader .cl-bar:nth-child(6) .cl-body { animation-delay: 0.50s; }
-.candle-loader .cl-bar:nth-child(7) .cl-body { animation-delay: 0.60s; }
-@keyframes cl-grow {
-    0%   { top: 60%; bottom: 35%; opacity: 0.45; }
-    25%  { top: 25%; bottom: 18%; opacity: 0.95; }
-    50%  { top: 38%; bottom: 50%; opacity: 0.95; }
-    75%  { top: 18%; bottom: 60%; opacity: 0.95; }
-    100% { top: 60%; bottom: 35%; opacity: 0.45; }
+.candle-loader .cl-bar:nth-child(2) .cl-body { animation-delay: 0.09s; }
+.candle-loader .cl-bar:nth-child(3) .cl-body { animation-delay: 0.18s; }
+.candle-loader .cl-bar:nth-child(4) .cl-body { animation-delay: 0.27s; }
+.candle-loader .cl-bar:nth-child(5) .cl-body { animation-delay: 0.36s; }
+.candle-loader .cl-bar:nth-child(6) .cl-body { animation-delay: 0.45s; }
+.candle-loader .cl-bar:nth-child(7) .cl-body { animation-delay: 0.54s; }
+@keyframes cl-wave {
+    0%, 100% { transform: scaleY(0.35); opacity: 0.45; }
+    50%      { transform: scaleY(1);    opacity: 1; }
 }
+/* Scan-sheen sweeping across the loader. */
+.candle-loader::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 40%, rgba(var(--accent-rgb), 0.18) 50%, transparent 60%);
+    transform: translateX(-100%);
+    animation: cl-sheen 1.8s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes cl-sheen { to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) {
-    .candle-loader .cl-body { animation: none; top: 25%; bottom: 25%; }
+    .candle-loader .cl-body { animation: none; transform: scaleY(0.6); }
+    .candle-loader::after { display: none; }
 }
 
 .error-message { padding: 16px; background: var(--red-bg); color: var(--red); border: 1px solid var(--red); border-radius: var(--radius-md); }

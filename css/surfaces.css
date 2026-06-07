@@ -230,6 +230,68 @@
 .legend-swatch { width: 16px; height: 12px; border-radius: 3px; display: inline-block; }
 .legend-label { margin: 0 4px; }
 
+/* ── Sector relative-strength BAR CHART (diverging, animated, clickable) ──
+   Overrides the grid layout when the chart content is present: it's a vertical
+   list of horizontal bars growing from a center zero-line. */
+.sector-heatmap-grid:has(.sector-bar-chart) { display: block; padding: 4px; }
+.sector-chart-explain {
+    font-size: 0.76rem; line-height: 1.5; color: var(--text-secondary);
+    padding: 6px 8px 12px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+}
+.sector-bar-chart { display: flex; flex-direction: column; gap: 5px; }
+.sector-bar-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 62px;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 5px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.sector-bar-row:hover { background: var(--bg-hover); border-color: var(--accent); transform: translateX(2px); }
+.sector-bar-label { font-size: 0.78rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The track is split at its center; the fill grows from center outward. */
+.sector-bar-track {
+    position: relative;
+    height: 14px;
+    border-radius: 7px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+.sector-bar-track::before {   /* center zero-line */
+    content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+    background: var(--border-strong); transform: translateX(-50%);
+}
+.sector-bar-fill {
+    position: absolute; top: 2px; bottom: 2px;
+    width: var(--w, 0%);
+    border-radius: 5px;
+    transform-origin: left center;
+}
+.sector-bar-fill.up   { left: 50%; background: linear-gradient(90deg, var(--green), color-mix(in srgb, var(--green) 60%, transparent)); }
+.sector-bar-fill.down { right: 50%; background: linear-gradient(270deg, var(--red), color-mix(in srgb, var(--red) 60%, transparent)); }
+.sector-bar-pct { font-family: var(--num-font); font-weight: 800; font-size: 0.82rem; text-align: right; }
+.sector-bar-pct.up { color: var(--green); }
+.sector-bar-pct.down { color: var(--red); }
+/* Bars animate their width in on render (scaleX from the center). */
+@media (prefers-reduced-motion: no-preference) {
+    .sector-bar-fill { animation: sector-bar-grow 0.6s var(--ease-premium, cubic-bezier(0.22,1,0.36,1)) both; }
+    .sector-bar-chart .sector-bar-row:nth-child(1) .sector-bar-fill { animation-delay: 0.02s; }
+    .sector-bar-chart .sector-bar-row:nth-child(2) .sector-bar-fill { animation-delay: 0.06s; }
+    .sector-bar-chart .sector-bar-row:nth-child(3) .sector-bar-fill { animation-delay: 0.10s; }
+    .sector-bar-chart .sector-bar-row:nth-child(4) .sector-bar-fill { animation-delay: 0.14s; }
+    .sector-bar-chart .sector-bar-row:nth-child(5) .sector-bar-fill { animation-delay: 0.18s; }
+    .sector-bar-chart .sector-bar-row:nth-child(6) .sector-bar-fill { animation-delay: 0.22s; }
+    .sector-bar-chart .sector-bar-row:nth-child(7) .sector-bar-fill { animation-delay: 0.26s; }
+    .sector-bar-chart .sector-bar-row:nth-child(n+8) .sector-bar-fill { animation-delay: 0.30s; }
+}
+@keyframes sector-bar-grow { from { transform: scaleX(0); opacity: 0.3; } to { transform: scaleX(1); opacity: 1; } }
+
 /* ── Earnings calendar ─────────────────────────────────────────────── */
 .earnings-cal-list { padding: 8px 4px 4px; display: flex; flex-direction: column; gap: 6px; }
 .earnings-cal-row {
