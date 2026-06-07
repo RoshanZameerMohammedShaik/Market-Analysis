@@ -537,6 +537,27 @@ function rowInnerHTML(r) {
             <td class="scanner-acc">${fmtAccuracy(r.symbol)}</td>`;
 }
 
+// One skeleton row's 7 shimmer cells (varying widths + staggered delays so
+// the sweep reads organic, not lock-step).
+function skelCells(i) {
+    return Array.from({ length: 7 }, (_, c) =>
+        `<td><span class="sk-cell" style="width:${[58, 40, 46, 50, 44, 36, 62][c]}%; animation-delay:${(i * 0.08 + c * 0.04).toFixed(2)}s"></span></td>`).join('');
+}
+
+// The "still scanning" indicator that lives at the BOTTOM of the table while
+// rows stream in — a bouncing-dots line + a few shimmer skeleton rows. Each
+// row is tagged `scanner-loading-tail` so the patch path can (a) tell it apart
+// from the TOP placeholder rows of the initial empty render and (b) insert
+// freshly-loaded rows ABOVE it, keeping the loader beneath loaded symbols.
+function loadingTailHTML(n = 3, text = 'More rows are still computing…') {
+    const skel = Array.from({ length: n }, (_, i) =>
+        `<tr class="scanner-skel-row scanner-loading-tail">${skelCells(i)}</tr>`).join('');
+    return `<tr class="scanner-loading-row scanner-loading-tail"><td colspan="7">
+                <span class="scanner-loading-dots"><i></i><i></i><i></i></span>
+                <span class="scanner-loading-text">${text}</span>
+             </td></tr>` + skel;
+}
+
 // Earlier we did `tbody.innerHTML = rows.map(...).join('')` on every
 // 4-row streaming refresh, which destroyed and rebuilt the expanded
 // drawer's DOM each time — that's the flicker Roshan flagged when
@@ -553,14 +574,18 @@ function renderRows(mode = 'full') {
     if (!tbody) return;
     const filtered = applyFilters(scanState.rows);
     const rows = sortRows(filtered);
+    // If the currently-expanded symbol got filtered out, drop the expansion
+    // so the drawer never renders stale or in the wrong position. The patch
+    // path also clears it via stale-row cleanup; this also covers the full
+    // rebuild path (sort/filter while a drawer is open).
+    if (expandedSymbol && !rows.some(r => r.symbol === expandedSymbol)) {
+        expandedSymbol = null;
+    }
     if (!rows.length) {
         if (scanState.running) {
-            // Animated skeleton loader while the ledger computes — a header
-            // line + several shimmer rows (7 cells each, matching the table)
-            // so the user sees a live "building" state instead of plain text.
-            const cells = (i) => Array.from({ length: 7 }, (_, c) =>
-                `<td><span class="sk-cell" style="width:${[58, 40, 46, 50, 44, 36, 62][c]}%; animation-delay:${(i * 0.08 + c * 0.04).toFixed(2)}s"></span></td>`).join('');
-            const skelRows = Array.from({ length: 8 }, (_, i) => `<tr class="scanner-skel-row">${cells(i)}</tr>`).join('');
+            // Nothing loaded yet — full-height skeleton loader (header line +
+            // 8 shimmer rows) so the user sees a live "building" state.
+            const skelRows = Array.from({ length: 8 }, (_, i) => `<tr class="scanner-skel-row">${skelCells(i)}</tr>`).join('');
             tbody.innerHTML =
                 `<tr class="scanner-loading-row"><td colspan="7">
                     <span class="scanner-loading-dots"><i></i><i></i><i></i></span>
@@ -574,8 +599,34 @@ function renderRows(mode = 'full') {
 
     if (mode === 'patch') {
         // Surgical update: walk existing rows, update changed cells,
-        // append any new symbols at the bottom. Drawer DOM is left
+        // insert any new symbols ABOVE the loading tail. Drawer DOM is left
         // alone so animations/scroll don't reset.
+        //
+        // The bug this fixes: the initial empty render injects the loading
+        // placeholders at the TOP. The old patch walk only looked at
+        // tr.scanner-row, so it never removed those placeholders and
+        // appendChild'd real rows BELOW them — leaving the loader above the
+        // loaded symbols. Now the loader lives as a TAIL at the very bottom.
+        //
+        // We must NOT destroy + recreate the tail every patch, or its shimmer
+        // / bouncing-dots animations restart from frame 0 each cycle (visible
+        // jitter — flagged in adversarial review). So:
+        //   - drop the TOP full-skeleton placeholder once (the empty render's
+        //     rows, which are NOT yet marked as a tail),
+        //   - keep any existing tail DOM in place (animations keep running),
+        //   - insert newly-loaded rows BEFORE the tail so they land above it,
+        //   - create the tail once if it's missing, remove it once the scan ends.
+        const tailFirst = tbody.querySelector('tr.scanner-loading-tail');
+        if (!tailFirst) {
+            // No tail yet → this is the first patch after the top-skeleton
+            // empty render. Remove those top placeholders so they don't sit
+            // above the loaded rows.
+            tbody.querySelectorAll('tr.scanner-loading-row, tr.scanner-skel-row').forEach(tr => tr.remove());
+        }
+        // Anchor = the first tail row (if present); new rows insert before it
+        // so loaded symbols always stay ABOVE the loader.
+        const tailAnchor = tbody.querySelector('tr.scanner-loading-tail');
+
         const existing = new Map();
         for (const tr of tbody.querySelectorAll('tr.scanner-row')) {
             existing.set(tr.dataset.symbol, tr);
@@ -587,14 +638,12 @@ function renderRows(mode = 'full') {
                 if (tr.innerHTML !== newHTML) tr.innerHTML = newHTML;
                 existing.delete(r.symbol);
             } else {
-                // Append at the end so we don't disrupt the order
-                // of rows the user is looking at. (Sort changes go
-                // through the 'full' path which IS a rebuild.)
                 const newTr = document.createElement('tr');
                 newTr.className = 'scanner-row';
                 newTr.dataset.symbol = r.symbol;
                 newTr.innerHTML = newHTML;
-                tbody.appendChild(newTr);
+                // Insert above the tail (or append if there's no tail yet).
+                tbody.insertBefore(newTr, tailAnchor);
             }
         }
         // Clean up rows that should no longer be visible (e.g. the
@@ -610,12 +659,22 @@ function renderRows(mode = 'full') {
         if (orphanDrawer && !tbody.querySelector('tr.scanner-row.expanded')) {
             orphanDrawer.remove();
         }
+        // Maintain the loading tail BELOW the loaded rows while scanning.
+        // Create it once (preserving its animation across subsequent patches);
+        // tear it down the moment the scan finishes (final refresh has
+        // running=false). insertBefore(null)=append keeps it last.
+        const tailExists = !!tbody.querySelector('tr.scanner-loading-tail');
+        if (scanState.running && !tailExists) {
+            tbody.insertAdjacentHTML('beforeend', loadingTailHTML());
+        } else if (!scanState.running && tailExists) {
+            tbody.querySelectorAll('tr.scanner-loading-tail').forEach(tr => tr.remove());
+        }
         return;
     }
 
     // mode === 'full': rebuild the whole tbody. Used for sort changes,
     // filter changes, expand/collapse toggles, and the initial paint.
-    tbody.innerHTML = rows.map(r => {
+    const rowsHTML = rows.map(r => {
         const isExpanded = expandedSymbol === r.symbol;
         const drawerRow = isExpanded
             ? `<tr class="scanner-drawer-row"><td colspan="7">${renderDrawer(r)}</td></tr>`
@@ -626,6 +685,10 @@ function renderRows(mode = 'full') {
             </tr>
             ${drawerRow}`;
     }).join('');
+    // If a full rebuild happens mid-scan (user sorts/filters while rows are
+    // still streaming in), keep the loading indicator BELOW the loaded rows
+    // so it never floats above them.
+    tbody.innerHTML = rowsHTML + (scanState.running ? loadingTailHTML() : '');
 }
 
 function updateMeta() {
