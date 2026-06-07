@@ -40,16 +40,11 @@ const LAUNCHER_ICON_SVG = `
 </span>`;
 const PANEL_TITLE_ICON_SVG = LAUNCHER_ICON_SVG;
 
-// Calculator icon shown next to the "P&L Calculator" summary inside
-// the portfolio panel — Roshan asked for a small visual cue so the
-// section reads as a calculator, not just text.
-const PL_CALC_ICON_SVG = `
-<svg class="pl-calc-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="4" y="3" width="16" height="18" rx="2"/>
-    <path d="M8 7 h8"/>
-    <path d="M8 12 h2 M12 12 h2 M16 12 h0"/>
-    <path d="M8 16 h2 M12 16 h2 M16 16 h0"/>
-</svg>`;
+// The P&L Calculator used to live inside this panel as a <details>. It's
+// now its own side panel (js/ui/pl-panel.js). These pointer links open it.
+function openPLPanelFromPortfolio() {
+    import('./pl-panel.js').then(m => m.openPLPanel({ shimmerTitle: true, focusFirst: true }));
+}
 
 export function initPortfolioPanel() {
     initPortfolio();
@@ -135,11 +130,6 @@ export function openPortfolioPanel(opts = {}) {
     if (shimmerTitle) {
         requestAnimationFrame(() => {
             flashShimmer(document.querySelector('.portfolio-panel-title-text'));
-            // Shimmer the "P&L Calculator" label with the SAME immediate timing
-            // as the panel title (user: it was starting slow vs the simulation
-            // header). The gear-menu path still delays its own shimmer to land
-            // after the slow-scroll; this is the direct-open case.
-            flashShimmer(document.querySelector('.portfolio-pl-summary-text'));
         });
     }
     // Auto-refresh stock prices on open ONLY if the user actually has
@@ -168,18 +158,11 @@ function renderPanel() {
                 <div class="portfolio-import-row">
                     <button class="portfolio-link-btn" id="portfolio-import-btn">Import a previous snapshot</button>
                 </div>
-            </div>
-            <details class="portfolio-pl-section" id="portfolio-pl-section">
-                <summary class="portfolio-pl-summary">
-                    ${PL_CALC_ICON_SVG}
-                    <span class="portfolio-pl-summary-text">P&amp;L Calculator</span>
-                    <span class="portfolio-pl-summary-hint">Plan a trade even before loading a portfolio</span>
-                </summary>
-                <div class="portfolio-pl-host" id="portfolio-pl-host"></div>
-            </details>`;
+                <p class="portfolio-pl-pointer">Want to plan a trade's profit/loss? The <button class="portfolio-link-btn" id="portfolio-open-pl-1" type="button">P&amp;L Calculator</button> is now its own panel.</p>
+            </div>`;
         document.getElementById('portfolio-instantiate-btn').addEventListener('click', openInstantiateModal);
         document.getElementById('portfolio-import-btn').addEventListener('click', openImportPrompt);
-        renderInlinePLCalc();
+        document.getElementById('portfolio-open-pl-1')?.addEventListener('click', openPLPanelFromPortfolio);
         return;
     }
 
@@ -220,13 +203,7 @@ function renderPanel() {
         <div class="portfolio-holdings" id="portfolio-holdings">
             ${renderHoldings(p, cur)}
         </div>
-        <details class="portfolio-pl-section" id="portfolio-pl-section">
-            <summary class="portfolio-pl-summary">
-                <span class="portfolio-pl-summary-text">P&amp;L Calculator</span>
-                <span class="portfolio-pl-summary-hint">Plan a trade — entry, target, projected return</span>
-            </summary>
-            <div class="portfolio-pl-host" id="portfolio-pl-host"></div>
-        </details>`;
+        <p class="portfolio-pl-pointer">Plan a trade's profit/loss in the <button class="portfolio-link-btn" id="portfolio-open-pl-2" type="button">P&amp;L Calculator</button> (now its own panel).</p>`;
 
     document.getElementById('portfolio-refresh').addEventListener('click', onRefreshClick);
     document.getElementById('portfolio-add-funds').addEventListener('click', openAddFundsModal);
@@ -234,122 +211,13 @@ function renderPanel() {
     document.getElementById('portfolio-import-2').addEventListener('click', openImportPrompt);
     document.getElementById('portfolio-reset').addEventListener('click', confirmReset);
     document.getElementById('portfolio-holdings').addEventListener('click', onHoldingsClick);
-    renderInlinePLCalc();
+    document.getElementById('portfolio-open-pl-2')?.addEventListener('click', openPLPanelFromPortfolio);
 
     // After full re-render, paint live prices into rows from whatever
     // ticks we already have cached so the UI doesn't sit on '—'.
     for (const [sym, sub] of subs) {
         if (sub.price != null) updateRow(sym, sub.price);
     }
-}
-
-// Render an inline P&L calculator inside the portfolio panel. We
-// originally tried physically MOVING the existing #pl-sidebar aside
-// here, but that aside was a fixed-position floating sheet from
-// pl-toggle.css with !important rules and a translateX(110%) hide
-// transform that survived the relocation; the calc was technically
-// inside the panel but offset 110% off-screen. Renderpanel also wipes
-// the body innerHTML on every state change which would re-destroy the
-// relocation. So this is a clean inline implementation using its own
-// IDs — same math, no DOM acrobatics.
-function renderInlinePLCalc() {
-    const host = document.getElementById('portfolio-pl-host');
-    if (!host) return;
-    host.innerHTML = `
-        <div class="pp-calc">
-            <label class="pp-calc-field">
-                <span>Investment ($)</span>
-                <input type="number" id="pp-calc-investment" inputmode="decimal" step="any" min="0" placeholder="1000">
-            </label>
-            <label class="pp-calc-field">
-                <span>Purchase price</span>
-                <input type="number" id="pp-calc-buy" inputmode="decimal" step="any" min="0" placeholder="200">
-            </label>
-            <label class="pp-calc-field">
-                <span>Target / current</span>
-                <input type="number" id="pp-calc-current" inputmode="decimal" step="any" min="0" placeholder="250">
-            </label>
-            <div class="pp-calc-actions">
-                <button class="pp-calc-fill-btn" id="pp-calc-fill" type="button" title="Fill purchase + target with the live price of the loaded symbol">Use live price</button>
-                <button class="pp-calc-go" id="pp-calc-go" type="button">Calculate</button>
-            </div>
-            <div class="pp-calc-error" id="pp-calc-error"></div>
-            <div class="pp-calc-result" id="pp-calc-result" data-type=""></div>
-        </div>`;
-    document.getElementById('pp-calc-go').addEventListener('click', runInlinePLCalc);
-    document.getElementById('pp-calc-fill').addEventListener('click', fillFromLivePrice);
-    // Allow Enter key to trigger calculation, matching the original calc's UX.
-    host.querySelectorAll('input').forEach(inp => {
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') runInlinePLCalc(); });
-    });
-}
-
-function fillFromLivePrice() {
-    // Pull the currently-loaded symbol's price from app state. Same source
-    // the rest of the app uses; no extra fetch.
-    import('./state.js').then(({ state }) => {
-        const errEl = document.getElementById('pp-calc-error');
-        const price = Number(state.currentPrice);
-        if (!Number.isFinite(price) || price <= 0) {
-            if (errEl) {
-                errEl.textContent = 'Load a symbol first to use its live price.';
-                errEl.classList.add('show');
-                setTimeout(() => errEl.classList.remove('show'), 2500);
-            }
-            return;
-        }
-        const buy = document.getElementById('pp-calc-buy');
-        const cur = document.getElementById('pp-calc-current');
-        if (!buy.value) buy.value = price.toFixed(2);
-        if (!cur.value) cur.value = price.toFixed(2);
-    });
-}
-
-function runInlinePLCalc() {
-    const errEl = document.getElementById('pp-calc-error');
-    const resEl = document.getElementById('pp-calc-result');
-    if (!errEl || !resEl) return;
-    errEl.classList.remove('show');
-    resEl.classList.remove('show');
-    resEl.dataset.type = '';
-
-    const investment = parseFloat(document.getElementById('pp-calc-investment').value);
-    const buyPrice = parseFloat(document.getElementById('pp-calc-buy').value);
-    const currentPrice = parseFloat(document.getElementById('pp-calc-current').value);
-
-    if ([investment, buyPrice, currentPrice].some(v => Number.isNaN(v) || v < 0)) {
-        errEl.textContent = 'Enter valid positive numbers for all three fields.';
-        errEl.classList.add('show');
-        return;
-    }
-    if (buyPrice === 0) {
-        errEl.textContent = 'Purchase price cannot be zero.';
-        errEl.classList.add('show');
-        return;
-    }
-
-    const shares = investment / buyPrice;
-    const currentValue = shares * currentPrice;
-    const plDollar = currentValue - investment;
-    const plPct = ((currentPrice - buyPrice) / buyPrice) * 100;
-    const type = plDollar > 0 ? 'profit' : plDollar < 0 ? 'loss' : 'neutral';
-    const icon = type === 'profit' ? '📈' : type === 'loss' ? '📉' : '➖';
-    const label = type === 'profit' ? 'Profit' : type === 'loss' ? 'Loss' : 'Break Even';
-    const sign = plDollar >= 0 ? '+' : '−';
-
-    resEl.dataset.type = type;
-    resEl.innerHTML = `
-        <div class="pp-calc-result-head">
-            <span class="pp-calc-result-icon">${icon}</span>
-            <span class="pp-calc-result-label">${label}</span>
-        </div>
-        <div class="pp-calc-result-amount">${sign}$${Math.abs(plDollar).toFixed(2)}</div>
-        <div class="pp-calc-result-pct">${plPct >= 0 ? '+' : ''}${plPct.toFixed(2)}%</div>
-        <div class="pp-calc-result-detail">
-            <span>Shares: ${shares.toFixed(4)}</span>
-            <span>Value: $${currentValue.toFixed(2)}</span>
-        </div>`;
-    requestAnimationFrame(() => resEl.classList.add('show'));
 }
 
 function renderHoldings(p, cur) {

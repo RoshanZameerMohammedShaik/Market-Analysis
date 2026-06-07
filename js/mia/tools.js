@@ -9,7 +9,8 @@ import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { getMarketConditionsScore } from '../market.js';
 import {
     controlSelectSymbol, controlSwitchMode, controlSwitchTimeframe,
-    controlCycleTheme, controlTogglePL, controlRefreshHotPicks, controlRunAnalysis,
+    controlCycleTheme, controlTogglePL, controlClosePLPanel, controlRefreshHotPicks, controlRunAnalysis,
+    controlToggleEngineSignals, controlOpenTradeModal,
     controlSetPennyFilter, controlOpenSpikers, controlOpenAbout,
     controlToggleCurrency, controlScrollTo, controlPLCalculate,
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
@@ -287,8 +288,21 @@ const TOOLS = {
     switch_mode: { desc: 'switch tab', args: '{"mode":"stock|crypto"}', run: ({ mode }) => controlSwitchMode(mode), kind: 'control' },
     switch_timeframe: { desc: 'switch timeframe', args: '{"timeframe":"today|tomorrow"}', run: ({ timeframe }) => controlSwitchTimeframe(timeframe), kind: 'control' },
     cycle_theme: { desc: 'cycle theme', args: '{}', run: () => controlCycleTheme(), kind: 'control' },
-    toggle_pl_calculator: { desc: 'show/hide P&L sidebar', args: '{}', run: () => controlTogglePL(), kind: 'control' },
+    open_pl_panel: { desc: 'open the P&L Calculator side panel (its own panel — plan a trade: investment, entry, target → projected profit/loss). Use for "open the P&L calculator / I want to work out a profit". To actually RUN a calculation with numbers, prefer pl_calculate.', args: '{}', run: () => controlTogglePL(), kind: 'control' },
+    close_pl_panel: { desc: 'close the P&L Calculator side panel.', args: '{}', run: () => controlClosePLPanel(), kind: 'control' },
     refresh_hot_picks: { desc: 'rescan hot picks', args: '{}', run: () => controlRefreshHotPicks(), kind: 'control' },
+    toggle_engine_signals: {
+        desc: 'toggle the chart\'s "Engine Signals" mode. When ON, the chart renders our own candlesticks with the engine\'s PAST buy/sell calls drawn as markers (green = hit, red = miss) — the most honest "was it right?" view. When OFF, US tickers use the TradingView embed. Pass {on:true|false} to set explicitly, or omit to flip. Use for "show me the engine\'s past calls on the chart / show the signal markers / hide the markers".',
+        args: '{"on":true}',
+        run: ({ on } = {}) => controlToggleEngineSignals({ on }),
+        kind: 'control',
+    },
+    open_trade_modal: {
+        desc: 'open the practice-portfolio Buy/Sell trade ticket for a symbol so the user can confirm size + execute. Requires an instantiated portfolio (returns {ok:false, reason:"no-portfolio"} if none — then offer instantiate_portfolio). Use when the user says "buy/sell NVDA" and wants to act. After the modal is open, place_trade executes the actual fill. side defaults to BUY.',
+        args: '{"symbol":"NVDA","side":"BUY"}',
+        run: ({ symbol, side } = {}) => controlOpenTradeModal({ symbol, side }),
+        kind: 'action',
+    },
     rerun_analysis: { desc: 'rerun analysis on current symbol', args: '{}', run: () => controlRunAnalysis(), kind: 'control' },
     set_penny_filter: {
         desc: 'filter Hot Picks by penny tier: all, p10 (<$10), p5 (<$5), p1 (<$1)',
@@ -304,22 +318,17 @@ const TOOLS = {
         run: ({ section }) => controlScrollTo({ section }), kind: 'control',
     },
     pl_calculate: {
-        desc: 'open the P&L calculator panel (Portfolio side panel, P&L Calculator section), auto-fill the inputs, click Calculate. currentPrice is optional — omit to use the loaded symbol\'s live price. Returns shares, currentValue, plDollar, plPct.\n\nCONVERSATION FLOW (Roshan\'s spec): after this returns, your reply MUST: (1) state the P&L outcome in plain English ("$250 profit, +12.3%"), (2) ask if they want to run another scenario. If user says NO on the next turn, call close_pl_calculator to collapse the panel and return focus to your chat. If user says YES, ask for the new inputs (investment / buy / target) and call this tool again.',
+        desc: 'open the P&L Calculator in the centered agentic stage, auto-fill the inputs, click Calculate. currentPrice is optional — omit to use the loaded symbol\'s live price. Returns shares, currentValue, plDollar, plPct.\n\nCONVERSATION FLOW (Roshan\'s spec): after this returns, your reply MUST: (1) state the P&L outcome in plain English ("$250 profit, +12.3%"), (2) ask if they want to run another scenario. If user says NO on the next turn, call close_pl_calculator to dismiss the stage and return focus to your chat. If user says YES, ask for the new inputs (investment / buy / target) and call this tool again.',
         args: '{"investment":1000,"buyPrice":150,"currentPrice":175}',
         run: ({ investment, buyPrice, currentPrice }) => controlPLCalculate({ investment, buyPrice, currentPrice }),
         kind: 'control',
     },
     close_pl_calculator: {
-        desc: 'close the P&L Calculator agentic stage (the centered glass card with aurora backdrop). Returns the calculator card to the Portfolio panel and dismisses the stage. Use ONLY after the user has explicitly said "no more" / "that\'s it" / equivalent in response to "want to run another scenario?". Mia\'s minimized orb stays visible the whole time.',
+        desc: 'close the P&L Calculator agentic stage (the centered glass card with aurora backdrop). Returns the calculator fields to the P&L panel and dismisses the stage. Use ONLY after the user has explicitly said "no more" / "that\'s it" / equivalent in response to "want to run another scenario?". Mia\'s minimized orb stays visible the whole time.',
         args: '{}',
         run: async () => {
             const { closeAgenticStage, isAgenticStageOpen } = await import('../ui/agentic-stage.js');
             if (isAgenticStageOpen()) closeAgenticStage();
-            // Also collapse the Portfolio panel's <details> so the next
-            // open of P&L starts fresh (and the panel itself stays open
-            // for the user to see other portfolio bits).
-            const section = document.getElementById('portfolio-pl-section');
-            if (section && section.open) section.open = false;
             return { ok: true };
         },
         kind: 'control',

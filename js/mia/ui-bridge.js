@@ -96,20 +96,57 @@ export async function controlCycleTheme() {
     return { ok: true, theme: state.theme };
 }
 
-export function controlTogglePL() {
-    // The standalone P&L sidebar / header button was removed; the
-    // calculator now lives inside the portfolio panel. Tool calls
-    // requesting the P&L panel route there: open the portfolio panel
-    // and expand the inline calc <details> section.
-    const launcher = document.getElementById('portfolio-launcher');
-    if (!launcher) throw new Error('portfolio launcher missing');
-    announce({ text: 'Opening P&L calculator…', target: launcher });
-    if (!document.body.classList.contains('side-panel-portfolio-open')) {
-        launcher.click();
+export async function controlTogglePL() {
+    // The P&L Calculator is now its OWN side panel (js/ui/pl-panel.js).
+    // Open it via the launcher so the side-panel-stack coordinator places
+    // it correctly relative to Mia / Portfolio.
+    const { openPLPanel } = await import('../ui/pl-panel.js');
+    announce({ text: 'Opening P&L Calculator…', target: document.getElementById('pl-launcher') });
+    openPLPanel({ shimmerTitle: true });
+    return { ok: true, host: 'pl-panel' };
+}
+
+export async function controlClosePLPanel() {
+    const { closePLPanel } = await import('../ui/pl-panel.js');
+    closePLPanel();
+    return { ok: true };
+}
+
+// Toggle the chart's "Engine Signals" mode — when ON, every symbol renders on
+// our own lightweight-charts candle chart with the engine's past BUY/SELL
+// calls drawn as markers (green=hit, red=miss). When OFF, US tickers use the
+// TradingView embed. Persisted in localStorage; we flip it then re-render the
+// chart via loadChart so the change is immediate.
+export async function controlToggleEngineSignals({ on = null } = {}) {
+    const KEY = 'ma-engine-signals-on';
+    const current = (() => { try { return localStorage.getItem(KEY) === '1'; } catch (_) { return false; } })();
+    const next = (on === null || on === undefined) ? !current : !!on;
+    try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) {}
+    // Repaint the chart-header toggle button + re-render the chart.
+    const { loadChart, attachEngineSignalsToggle } = await import('../ui/chart.js');
+    announce({ text: next ? 'Engine signals ON — showing past calls on the chart…' : 'Engine signals off — back to the standard chart…' });
+    try { loadChart(); } catch (_) {}
+    try { attachEngineSignalsToggle(); } catch (_) {}
+    return { ok: true, engineSignalsOn: next };
+}
+
+// Open the practice-portfolio Buy/Sell trade modal for a symbol. Requires a
+// portfolio to be instantiated (the modal itself enforces this). Mia uses this
+// to START a trade ("I'd like to buy NVDA"); place_trade then executes once
+// the user confirms amount/mode.
+export async function controlOpenTradeModal({ symbol, side = 'BUY' } = {}) {
+    const sym = String(symbol || '').toUpperCase().trim();
+    if (!sym) throw new Error('symbol required');
+    const sd = String(side).toUpperCase();
+    if (!['BUY', 'SELL'].includes(sd)) throw new Error('side must be BUY or SELL');
+    const { isInstantiated } = await import('../portfolio/state.js');
+    if (!isInstantiated()) {
+        return { ok: false, reason: 'no-portfolio', message: 'No practice portfolio yet — instantiate one first (instantiate_portfolio), then open the trade modal.' };
     }
-    const section = document.getElementById('portfolio-pl-section');
-    if (section && !section.open) section.open = true;
-    return { ok: true, host: 'portfolio-panel' };
+    const { openTradeModal } = await import('../ui/trade-buttons.js');
+    announce({ text: `Opening ${sd} ticket for ${sym}…` });
+    openTradeModal(sym, sd);
+    return { ok: true, symbol: sym, side: sd };
 }
 
 export async function controlRefreshHotPicks() {
@@ -158,28 +195,6 @@ export async function controlToggleCurrency() {
     showAgentToast('Switching currency…');
     await pressButton(btn);
     return { ok: true };
-}
-
-function ensurePLOpen() {
-    // If the P&L calculator has been moved into the portfolio side panel
-    // (the new home as of the portfolio-panel feature), open the
-    // portfolio panel and expand the calc <details>. Otherwise fall back
-    // to the legacy pl-toggle classic-sidebar path.
-    const movedHost = document.getElementById('portfolio-pl-host');
-    const calc = document.getElementById('pl-sidebar');
-    if (movedHost && calc && movedHost.contains(calc)) {
-        const launcher = document.getElementById('portfolio-launcher');
-        if (launcher && !document.body.classList.contains('side-panel-portfolio-open')) {
-            launcher.click();
-        }
-        const section = document.getElementById('portfolio-pl-section');
-        if (section && !section.open) section.open = true;
-        return;
-    }
-    if (!document.body.classList.contains('pl-open')) {
-        const btn = document.getElementById('pl-toggle');
-        if (btn) btn.click();
-    }
 }
 
 export async function controlPLCalculate({ investment, buyPrice, currentPrice }) {
@@ -314,7 +329,7 @@ export function readUiSnapshot() {
         currentSymbol: state.currentSymbol,
         currentCoinId: state.currentCoinId,
         currentPrice: state.currentPrice,
-        plOpen: document.body.classList.contains('pl-open'),
+        plOpen: document.body.classList.contains('side-panel-pl-open'),
         latestSignalSummary: summariseLatestSignal(),
     };
 }

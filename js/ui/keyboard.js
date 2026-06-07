@@ -9,7 +9,12 @@
 //   p  toggle P&L panel
 //   ?  toggle help dialog
 
-import { togglePLPanel } from './pl-toggle.js';
+import { openPLPanel, closePLPanel, isPLPanelOpen } from './pl-panel.js';
+
+function togglePLPanel() {
+    if (isPLPanelOpen()) closePLPanel();
+    else openPLPanel({ shimmerTitle: true });
+}
 
 let helpOpen = false;
 

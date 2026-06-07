@@ -98,17 +98,16 @@
     overflow: visible;
 }
 .mia-aura-ecg .mia-ecg-trace {
-    stroke: rgba(180, 245, 255, 0.40);   /* faint cyan trace */
-    stroke-width: 1.6;
+    stroke: rgba(74, 222, 128, 0.35);    /* faint green trace (thinner) */
+    stroke-width: 1.1;
 }
 .mia-aura-ecg .mia-ecg-blip {
-    /* Bright cyan-white blip — a "vital signs" green-cyan that pops on the
-       accent-coloured core far better than plain white. */
-    stroke: #6FF6E6;
-    stroke-width: 2.2;
+    /* Bright vital-signs green blip — thinner stroke, sweeps along the trace. */
+    stroke: #4ade80;
+    stroke-width: 1.5;
     stroke-dasharray: 90;
     stroke-dashoffset: 90;
-    filter: drop-shadow(0 0 4px rgba(111, 246, 230, 0.95));
+    filter: drop-shadow(0 0 4px rgba(74, 222, 128, 0.9));
     animation: mia-aura-ecg-sweep 2.4s ease-in-out infinite;
 }
 @keyframes mia-aura-ecg-sweep {

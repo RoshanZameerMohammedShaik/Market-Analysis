@@ -336,9 +336,28 @@ export const TOOL_DECLARATIONS = [
         },
     },
     {
-        name: 'toggle_pl_calculator',
-        description: 'Show or hide the P&L calculator sidebar.',
+        name: 'open_pl_panel',
+        description: 'Open the P&L Calculator side panel (its own panel). For running a calculation with numbers, prefer pl_calculate.',
         parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'close_pl_panel',
+        description: 'Close the P&L Calculator side panel.',
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'toggle_engine_signals',
+        description: 'Toggle the chart Engine Signals mode (our candle chart with past BUY/SELL call markers — green hit / red miss). Pass on:true|false to set explicitly, or omit to flip.',
+        parameters: { type: T.OBJECT, properties: { on: { type: T.BOOLEAN } } },
+    },
+    {
+        name: 'open_trade_modal',
+        description: 'Open the practice-portfolio Buy/Sell trade ticket for a symbol (requires an instantiated portfolio). Use when the user wants to act on a symbol; place_trade then executes. side defaults to BUY.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { symbol: { type: T.STRING }, side: { type: T.STRING, description: 'BUY or SELL' } },
+            required: ['symbol'],
+        },
     },
     {
         name: 'refresh_hot_picks',

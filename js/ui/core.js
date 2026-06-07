@@ -6,7 +6,7 @@ import { renderSignal } from './signal.js';
 import { loadHotPicks, initPennyFilterButtons } from './hotpicks.js';
 import { clearHotPicksCache } from '../hotpicks.js';
 import { initPLCalculator } from './pl.js';
-import { initPLToggle } from './pl-toggle.js';
+import { initPLPanel, openPLPanel } from './pl-panel.js';
 import { renderAccuracyStrip } from './accuracy.js';
 import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from '../data.js';
 import { computeFullConfidence } from '../confidence.js';
@@ -80,7 +80,7 @@ export function init() {
     initSearch(onSelectFromSearch);
     updatePlaceholder();
     initPLCalculator();
-    initPLToggle();
+    initPLPanel();
     initKeyboard({ onRefresh: () => document.getElementById('refresh-hotpicks')?.click() });
     renderGlossary();
     initMia();
@@ -413,50 +413,10 @@ function initSettingsMenu() {
         if (e.key === 'Escape' && menu.classList.contains('open')) setOpen(false);
     });
 
-    // P&L Calculator shortcut — opens the Portfolio panel, expands
-    // the collapsed P&L calculator <details> section, then scrolls
-    // to it on a slow easeOutCubic curve so the user can SEE the
-    // panel travel down to the calculator (Roshan asked for the pull
-    // to be slow enough to read as an animation).
-    document.getElementById('pl-shortcut')?.addEventListener('click', async () => {
-        const m = await import('./portfolio-panel.js');
-        // shimmerTitle: false so the panel-title doesn't shimmer at
-        // the same time as the P&L Calculator label below — the user
-        // is being navigated to the calculator, not the panel header.
-        m.openPortfolioPanel({ shimmerTitle: false });
-        requestAnimationFrame(() => {
-            const section = document.getElementById('portfolio-pl-section');
-            if (section && !section.open) section.open = true;
-            const inv = document.getElementById('pp-calc-investment');
-            const scroller = document.querySelector('.portfolio-panel-scroll');
-            const shimmerTarget = document.querySelector('.portfolio-pl-summary-text');
-            // Park the label in the dim pre-shimmer state IMMEDIATELY
-            // so it doesn't sit in default-bright-white during the
-            // ~1.5s scroll and then "blink" to dim when the shimmer
-            // class is added. .pre-shimmer just sets the dim background
-            // without animating; .flash-shimmer (added after the scroll)
-            // runs the sweep and ends bright.
-            if (shimmerTarget) shimmerTarget.classList.add('pre-shimmer');
-            const armShimmer = () => {
-                if (!shimmerTarget) return;
-                shimmerTarget.classList.remove('pre-shimmer');
-                flashShimmer(shimmerTarget);
-            };
-            if (inv && scroller) {
-                slowScrollTo(scroller, inv, 1400);
-                setTimeout(() => {
-                    inv.focus({ preventScroll: true });
-                    armShimmer();
-                }, 1500);
-            } else if (inv) {
-                inv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                setTimeout(() => {
-                    inv.focus();
-                    armShimmer();
-                }, 280);
-            } else {
-                armShimmer();
-            }
-        });
+    // P&L Calculator shortcut — opens the standalone P&L side panel
+    // (it's its own panel now, no longer nested inside Portfolio) and
+    // focuses the first field so the user can start typing immediately.
+    document.getElementById('pl-shortcut')?.addEventListener('click', () => {
+        openPLPanel({ shimmerTitle: true, focusFirst: true });
     });
 }

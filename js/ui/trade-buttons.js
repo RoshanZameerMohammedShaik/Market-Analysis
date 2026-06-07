@@ -67,7 +67,7 @@ function onSellClick() {
     openTradeModal(sym, 'SELL');
 }
 
-function openTradeModal(sym, side) {
+export function openTradeModal(sym, side) {
     const p = getPortfolio();
     const cur = p.currency;
     const pos = p.positions[sym];

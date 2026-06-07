@@ -60,6 +60,7 @@ function recomputeLayout() {
     // another panel" if it wants distinct visual treatment per state.
     document.body.classList.toggle('side-panel-mia-open', openOrder.includes('mia'));
     document.body.classList.toggle('side-panel-portfolio-open', openOrder.includes('portfolio'));
+    document.body.classList.toggle('side-panel-pl-open', openOrder.includes('pl'));
     // Notify EVERY registered panel so each one can sync its open class /
     // aria-hidden / launcher state with the current stack. We can't iterate
     // only openOrder here, because a panel that just closed has been removed
@@ -88,6 +89,7 @@ export function getOpenOrder() {
 const ALWAYS_EXEMPT_SELECTORS = [
     '#mia-launcher',
     '#portfolio-launcher',
+    '#pl-launcher',
     '.portfolio-modal-backdrop',
     '.portfolio-modal',
     '.search-results',

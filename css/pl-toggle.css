@@ -1,7 +1,100 @@
-/* P&L slide-out panel + header toggle + hover polish.
- * Loaded after style.css; overrides the previous static-sidebar layout. */
+/* P&L Calculator — standalone right-edge slide-in side panel + its launcher.
+ * (Renamed role: this file used to style a floating #pl-sidebar aside + a
+ *  header #pl-toggle button. The calculator is now its own panel, #pl-panel,
+ *  registered with the side-panel-stack coordinator like Mia + Portfolio.)
+ * Loaded after style.css. */
 
-/* Header buttons — add hover lift + accent glow ring on theme toggle, P&L toggle, About. */
+/* Always a single, centered main column. Resources (left) and the panels
+   (right) all slide in OVER the chart — never grid columns — so the chart
+   never reflows when one opens. */
+.app-layout { grid-template-columns: minmax(0, 1fr) !important; }
+
+/* ── P&L launcher pill (sits next to the Portfolio launcher) ───────────── */
+.pl-launcher {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: 8px;
+    padding: 6px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-primary);
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.pl-launcher:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+    transform: translateY(-1px);
+}
+.pl-launcher-label { letter-spacing: 0.4px; }
+.pl-launcher-icon { color: var(--accent); vertical-align: -2px; }
+body.side-panel-pl-open .pl-launcher {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+
+/* ── The panel itself — mirrors .portfolio-panel slide-in mechanics ────── */
+.pl-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: min(380px, 94vw);
+    height: 100dvh;
+    max-height: 100dvh;
+    background: var(--bg-card);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+    display: flex; flex-direction: column;
+    z-index: 600;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pl-panel.open {
+    transform: translateX(0);
+    right: var(--pl-stack-right, 0px);
+}
+.pl-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: max(14px, env(safe-area-inset-top, 14px)) 16px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.pl-panel-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;   /* icon sits to the RIGHT of the name */
+    font-weight: 800;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+}
+.pl-panel-title-text { display: inline-block; }
+.pl-panel-title-icon { color: var(--accent); flex: 0 0 auto; }
+.pl-panel-close {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.pl-panel-close:hover { background: var(--bg-hover); transform: scale(1.06); }
+.pl-panel-close:active { transform: scale(0.94); }
+.pl-panel-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: max(22px, env(safe-area-inset-bottom, 22px));
+}
+
+/* When the calculator is pulled into the agentic stage, the panel that
+   normally hosts it should not also paint an empty shell behind the stage. */
+.pl-panel .pl-body.agentic-stage-mounted { /* host relocates; nothing needed */ }
+
+/* Header buttons hover polish (kept from the prior file — still used by the
+   gear menu's theme/about buttons). */
 .theme-toggle, .header-btn { position: relative; transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, color 0.2s, box-shadow 0.25s; }
 .theme-toggle::after, .header-btn::after {
     content: '';
@@ -18,69 +111,7 @@
 .header-btn:hover::after { border-color: var(--accent); transform: scale(1.05); opacity: 0.6; }
 .header-btn:active, .theme-toggle:active { transform: translateY(0) scale(0.96); }
 
-/* P&L toggle has a tiny tilt on hover for tactile flavour */
-#pl-toggle:hover { transform: translateY(-2px) rotate(-8deg); }
-#pl-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-#pl-toggle.active:hover { transform: translateY(-2px) rotate(-8deg) scale(1.05); }
-
-/* Layout: ALWAYS a single, centered column. Both Resources (left)
-   and P&L (right) are now overlay panels that slide in over the
-   chart — never grid columns — so the chart stays put when either
-   one opens or closes. */
-.app-layout { grid-template-columns: minmax(0, 1fr) !important; }
-
-/* P&L sidebar becomes a floating panel that slides from the right. */
-.pl-sidebar {
-    position: fixed !important;
-    top: 65px !important;
-    right: 0;
-    bottom: 0;
-    width: min(360px, 92vw);
-    /* dvh tracks the actual visible viewport on iOS Safari (URL bar
-       collapse). 65px subtraction reserves space for the sticky
-       header. Earlier `100vh` clipped past the visible area when
-       the toolbar was collapsed. */
-    height: calc(100dvh - 65px);
-    background: var(--bg-card);
-    border-left: 1px solid var(--border-strong) !important;
-    border-top: none !important;
-    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
-    z-index: 450;
-    transform: translateX(110%);
-    transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
-    overflow-y: auto;
+@media (max-width: 720px) {
+    .pl-panel { width: 96vw; }
+    .pl-launcher { padding: 6px 12px; }
 }
-body.pl-open .pl-sidebar { transform: translateX(0); }
-
-/* Subtle backdrop on mobile so the sheet pattern reads */
-@media (max-width: 1024px) {
-    body.pl-open::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.36);
-        backdrop-filter: blur(2px);
-        z-index: 440;
-        animation: pl-backdrop-in 0.3s ease;
-    }
-    .pl-sidebar {
-        top: auto !important;
-        bottom: 0;
-        left: 0; right: 0;
-        width: 100%;
-        max-height: 88vh;
-        height: auto;
-        border-radius: 16px 16px 0 0;
-        transform: translateY(100%);
-    }
-    body.pl-open .pl-sidebar { transform: translateY(0); }
-}
-@keyframes pl-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
-
-/* Pulse the P&L toggle once when first loaded so users notice it */
-@keyframes pl-toggle-attn {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
-    20% { box-shadow: 0 0 0 6px rgba(94, 177, 255, 0.18); }
-    50% { box-shadow: 0 0 0 0 rgba(94, 177, 255, 0); }
-}
-#pl-toggle:not(.active) { animation: pl-toggle-attn 4.5s ease-in-out 1.2s 1; }
