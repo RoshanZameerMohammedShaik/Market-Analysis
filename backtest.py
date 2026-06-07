@@ -691,8 +691,19 @@ if __name__ == '__main__':
 
     per_symbol = {}
     all_preds = []
+    errors = 0
     for sym in symbols:
-        preds = backtest_symbol(sym, since=args.since, vix_map=vix_map)
+        # Per-symbol isolation: a single symbol throwing (yfinance error,
+        # malformed/NaN data, an indicator edge case) must NOT fail the whole
+        # backtest job. Previously an unguarded throw here killed the entire
+        # GitHub Action ("All jobs have failed"). Now we log + skip and keep
+        # going; the run still produces backtest_results.json from the rest.
+        try:
+            preds = backtest_symbol(sym, since=args.since, vix_map=vix_map)
+        except Exception as e:
+            errors += 1
+            print(f"  {sym}: ERROR — {type(e).__name__}: {e}")
+            continue
         if not preds:
             print(f"  {sym}: skipped (insufficient data)")
             continue
@@ -703,6 +714,8 @@ if __name__ == '__main__':
         sell_hr = s['by_signal'].get('SELL', {}).get('hit_rate', 0)
         sharpe = s['pnl'].get('sharpe', 0)
         print(f"  {sym}: BUY {buy_hr}%, SELL {sell_hr}%, Sharpe {sharpe}, n={s['total']}")
+    if errors:
+        print(f"\n{errors} symbol(s) errored and were skipped (job continues).")
 
     overall = summarize(all_preds)
     print("\n─── OVERALL ───")
