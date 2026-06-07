@@ -3,7 +3,7 @@ import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
-import { fetchStockData } from '../data.js';
+import { fetchStockData, fetchCryptoData } from '../data.js';
 import { fullLabelForSymbol, fullLabelForCode, displayTicker } from './exchanges.js';
 import { readSymbolSignalMarkers } from '../ledger-reader.js';
 import { mountParticles } from './particles.js';
@@ -110,16 +110,16 @@ export function loadChart() {
     container.innerHTML = '';
     chartHeader.classList.remove('hidden');
 
-    // Engine-signals mode (stock-only): route US tickers through our own
-    // chart too so we can draw the engine's past calls as markers. The
-    // ledger is stock-only, so crypto always keeps TradingView even when
-    // the toggle is on. The toggle button itself is attached in
-    // updateChartHeader so it's always present once a symbol loads.
-    const signalsMode = state.mode === 'stock' && engineSignalsOn();
+    // Engine-signals mode: route through our own lightweight-charts chart so we
+    // can draw the engine's past calls as markers. Now enabled for CRYPTO too
+    // (the in-app chart renders crypto candles fine). Markers come from the
+    // ledger, which is currently stock-only — for crypto the chart renders
+    // cleanly with no markers yet (honest: we don't fabricate crypto history).
+    const signalsMode = engineSignalsOn();
 
     // Paywalled-exchange path OR engine-signals mode: render our own chart.
     if (paywalled || signalsMode) {
-        renderLocalChart(state.currentSymbol, container, { withMarkers: signalsMode });
+        renderLocalChart(state.currentSymbol, container, { withMarkers: signalsMode, mode: state.mode, coinId: state.currentCoinId });
         return;
     }
 
@@ -162,20 +162,29 @@ function loadLightweightCharts() {
 }
 
 async function renderLocalChart(symbol, container, opts = {}) {
-    const { withMarkers = false } = opts;
+    const { withMarkers = false, mode = 'stock', coinId = null } = opts;
     container.innerHTML = `<div class="chart-placeholder">
         <div class="chart-ph-title">Loading ${symbol}…</div>
     </div>`;
     try {
-        // Non-US tickers arrive already exchange-tagged (suffixProbe off
-        // is correct + faster). US tickers in engine-signals mode have no
-        // suffix, so let the probe run for them so a bare ticker still
-        // resolves. Branch on the suffix.
-        const tagged = isNonUsTicker(symbol);
-        const [LWC, data] = await Promise.all([
-            loadLightweightCharts(),
-            fetchStockData(symbol, '6mo', '1d', { suffixProbe: !tagged }),
-        ]);
+        let LWC, data;
+        if (mode === 'crypto' && coinId) {
+            // Crypto: fetch OHLC from CoinGecko by coinId (not the ticker).
+            [LWC, data] = await Promise.all([
+                loadLightweightCharts(),
+                fetchCryptoData(coinId),
+            ]);
+        } else {
+            // Non-US tickers arrive already exchange-tagged (suffixProbe off
+            // is correct + faster). US tickers in engine-signals mode have no
+            // suffix, so let the probe run for them so a bare ticker still
+            // resolves. Branch on the suffix.
+            const tagged = isNonUsTicker(symbol);
+            [LWC, data] = await Promise.all([
+                loadLightweightCharts(),
+                fetchStockData(symbol, '6mo', '1d', { suffixProbe: !tagged }),
+            ]);
+        }
         if (!data?.candles?.length) {
             container.innerHTML = `<div class="error-message">No chart data for ${symbol}.</div>`;
             return;
@@ -219,6 +228,29 @@ async function renderLocalChart(symbol, container, opts = {}) {
             time: c.time, value: c.volume || 0,
             color: c.close >= c.open ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)',
         })));
+
+        // 20-period moving-average overlay — gives the trend an instant read
+        // (price above the MA = up-trend, below = down-trend) without the user
+        // doing the eyeballing. Thin accent line, drawn under the candles.
+        try {
+            const MA = 20;
+            const closes = data.candles.map(c => c.close);
+            const maData = [];
+            let sum = 0;
+            for (let i = 0; i < closes.length; i++) {
+                sum += closes[i];
+                if (i >= MA) sum -= closes[i - MA];
+                if (i >= MA - 1) maData.push({ time: data.candles[i].time, value: sum / MA });
+            }
+            if (maData.length > 1) {
+                const accent = (getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#4a9eff').trim();
+                const maSeries = chart.addLineSeries({
+                    color: accent, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false,
+                    crosshairMarkerVisible: false,
+                });
+                maSeries.setData(maData);
+            }
+        } catch (_) { /* MA is decorative; candles already drawn */ }
 
         // Engine-signal markers: draw every past BUY/SELL the engine
         // logged on this symbol, positioned at its bar, arrow direction =
@@ -299,7 +331,7 @@ export function attachEngineSignalsToggle() {
         btn.id = 'engine-signals-toggle';
         btn.className = 'engine-signals-toggle';
         btn.addEventListener('click', () => {
-            if (state.mode !== 'stock') return; // crypto unsupported (stock-only ledger)
+            // Available for stocks AND crypto now (the in-app chart renders both).
             const next = !engineSignalsOn();
             setEngineSignalsOn(next);
             paintEngineSignalsToggle(btn);
@@ -313,17 +345,21 @@ export function attachEngineSignalsToggle() {
 function paintEngineSignalsToggle(btn) {
     const on = engineSignalsOn();
     const crypto = state.mode !== 'stock';
-    btn.classList.toggle('active', on && !crypto);
-    btn.classList.toggle('disabled', crypto);
-    btn.title = crypto
-        ? 'Engine signal markers are available on stocks only'
-        : on ? 'Engine signals ON — showing past calls on the chart. Click to hide.'
-             : 'Show the engine\'s past BUY/SELL calls on this chart';
+    btn.classList.toggle('active', on);
+    btn.classList.remove('disabled');
+    // The chart works for both; markers are ledger-backed (stock-only today),
+    // so on crypto we tell the user the chart shows but historical calls are
+    // stock-only for now — honest, not a hard disable.
+    btn.title = on
+        ? (crypto
+            ? 'Engine chart ON for this coin. Past-call markers are stock-only for now.'
+            : 'Engine signals ON — showing past calls on the chart. Click to hide.')
+        : 'Show the engine chart' + (crypto ? ' for this coin' : ' with past BUY/SELL calls');
     btn.innerHTML = `
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 17l5-5 4 4 8-9"/><path d="M21 7v5h-5"/>
         </svg>
-        <span class="est-label">Signals${on && !crypto ? ' ✓' : ''}</span>`;
+        <span class="est-label">Signals${on ? ' ✓' : ''}</span>`;
 }
 
 export function showChartPlaceholder() {
