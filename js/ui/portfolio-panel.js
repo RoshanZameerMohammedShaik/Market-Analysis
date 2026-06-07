@@ -135,6 +135,11 @@ export function openPortfolioPanel(opts = {}) {
     if (shimmerTitle) {
         requestAnimationFrame(() => {
             flashShimmer(document.querySelector('.portfolio-panel-title-text'));
+            // Shimmer the "P&L Calculator" label with the SAME immediate timing
+            // as the panel title (user: it was starting slow vs the simulation
+            // header). The gear-menu path still delays its own shimmer to land
+            // after the slow-scroll; this is the direct-open case.
+            flashShimmer(document.querySelector('.portfolio-pl-summary-text'));
         });
     }
     // Auto-refresh stock prices on open ONLY if the user actually has

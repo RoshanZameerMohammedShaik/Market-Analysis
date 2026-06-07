@@ -172,9 +172,13 @@ export function initTilt3d() {
     if (!activeRect || activeRect.width === 0 || activeRect.height === 0) return;
     const cx = Math.min(Math.max((pointerX - activeRect.left) / activeRect.width, 0), 1);
     const cy = Math.min(Math.max((pointerY - activeRect.top) / activeRect.height, 0), 1);
-    const nx = cx - 0.5, ny = cy - 0.5;
-    tgtRy = (nx * 2) * activeMax;     // pointer right → rotateY+
-    tgtRx = (-ny * 2) * activeMax;    // pointer down  → rotateX−
+    // FIXED LIFT (user request): the card tilts back a constant amount and
+    // rises on hover — it does NOT re-orient toward the cursor. So the rotation
+    // targets are CONSTANT (a gentle backward tilt), not pointer-derived. Only
+    // the specular highlight (--mx/--my) still tracks the cursor for the gleam,
+    // which reads as light moving over a fixed-lifted card.
+    tgtRx = activeMax * 0.5;   // tilt the top slightly back, always the same way
+    tgtRy = 0;                 // no left/right yaw
     tgtMx = cx * 100;
     tgtMy = cy * 100;
   }

@@ -122,10 +122,14 @@
 }
 .conf-dial-pct {
     font-family: var(--num-font);
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    margin-left: 2px;
+    /* Match the big number's weight + colour so "67%" reads as one unit;
+       a touch smaller (percent signs sit smaller than the figure) but no
+       longer a muted, mismatched after-thought. */
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-left: 1px;
+    align-self: flex-start;   /* superscript-ish lift so it hugs the number top */
 }
 .conf-dial-sub {
     position: absolute;
