@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-06T23:12:17Z",
+  "generatedAt": "2026-06-07T23:13:54Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 8423,
   "byHorizon": {},
   "byRegion": {},
-  "totalRowsConsidered": 7295,
+  "totalRowsConsidered": 7466,
   "totalResolvedHorizons": 0
 }
