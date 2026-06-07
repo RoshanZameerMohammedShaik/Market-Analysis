@@ -10,6 +10,31 @@ let _ledgerCache = null;
 let _ledgerCacheTs = 0;
 const LEDGER_CACHE_MS = 5 * 60 * 1000;
 
+// Normalise a chart/UI symbol to the key the LEDGER uses. The Python cron
+// stores crypto in Yahoo style — "BTC-USD", "ETH-USD" — but the crypto chart
+// passes a bare ticker ("BTC") or a CoinGecko coinId ("bitcoin"). Without this
+// mapping the per-symbol readers filter for "BTC", find no "BTC-USD" rows, and
+// crypto looks ledger-less even though it isn't (this was the real reason
+// crypto signals didn't show — NOT a missing ledger). We map known coinIds to
+// their ticker, then append -USD when the ledger has a -USD row for it.
+const COINID_TO_TICKER = {
+    bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB', solana: 'SOL',
+    ripple: 'XRP', cardano: 'ADA', dogecoin: 'DOGE', polkadot: 'DOT',
+    'avalanche-2': 'AVAX', chainlink: 'LINK', 'matic-network': 'MATIC',
+    litecoin: 'LTC', tron: 'TRX', 'shiba-inu': 'SHIB',
+};
+function ledgerKeyCandidates(symbol) {
+    const raw = String(symbol || '').toUpperCase();
+    const cands = new Set([raw]);
+    // CoinGecko coinId → ticker.
+    const ticker = COINID_TO_TICKER[String(symbol).toLowerCase()];
+    if (ticker) { cands.add(ticker); cands.add(ticker + '-USD'); }
+    // Bare crypto ticker → -USD (the ledger's crypto format). Only adds the
+    // variant; stock symbols still match their plain key.
+    if (!raw.includes('-USD') && /^[A-Z0-9]{2,6}$/.test(raw)) cands.add(raw + '-USD');
+    return cands;
+}
+
 // ── Engine-version provenance gate ──────────────────────────────────────
 // The engine's directional scoring changes over time (e.g. the 2026-06-06
 // 1-day mean-reversion rebalance that fixed a below-coin-flip inversion).
@@ -141,9 +166,9 @@ export async function loadLedger() {
 export async function readSymbolConfidenceTrend({ symbol, limit = 30 } = {}) {
     const rows = await loadLedger();
     if (!rows.length || !symbol) return { available: false, points: [] };
-    const sym = String(symbol).toUpperCase();
+    const keys = ledgerKeyCandidates(symbol);
     const scoped = rows
-        .filter(r => r.symbol === sym && Number.isFinite(r.confidence))
+        .filter(r => keys.has(String(r.symbol).toUpperCase()) && Number.isFinite(r.confidence))
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (!scoped.length) return { available: false, points: [] };
     const lim = Math.max(2, Math.min(60, Number(limit) || 30));
@@ -157,7 +182,7 @@ export async function readSymbolConfidenceTrend({ symbol, limit = 30 } = {}) {
         if (h1 && h1.directionMatch != null) outcome = h1.directionMatch ? 'hit' : 'miss';
         return { date: r.date, confidence: r.confidence, signal: r.signal, outcome };
     });
-    return { available: true, symbol: sym, points };
+    return { available: true, symbol: String(symbol).toUpperCase(), points };
 }
 
 // Past engine signals for ONE symbol, shaped for drawing as markers on
@@ -169,9 +194,9 @@ export async function readSymbolConfidenceTrend({ symbol, limit = 30 } = {}) {
 export async function readSymbolSignalMarkers({ symbol, directionalOnly = true } = {}) {
     const rows = await loadLedger();
     if (!rows.length || !symbol) return { available: false, markers: [] };
-    const sym = String(symbol).toUpperCase();
+    const keys = ledgerKeyCandidates(symbol);
     const scoped = rows
-        .filter(r => r.symbol === sym && r.date && Number.isFinite(r.entry))
+        .filter(r => keys.has(String(r.symbol).toUpperCase()) && r.date && Number.isFinite(r.entry))
         .filter(r => !directionalOnly || r.signal === 'BUY' || r.signal === 'SELL')
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (!scoped.length) return { available: false, markers: [] };
@@ -196,7 +221,7 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
             pctMove: h1?.pctMove ?? null,
         };
     });
-    return { available: true, symbol: sym, markers };
+    return { available: true, symbol: String(symbol).toUpperCase(), markers };
 }
 
 // "If you'd followed the engine" — a hypothetical equity curve.
@@ -242,8 +267,8 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 1, st
         r.horizons[hKey].directionMatch != null
     );
     if (symbol) {
-        const sym = String(symbol).toUpperCase();
-        scoped = scoped.filter(r => r.symbol === sym);
+        const keys = ledgerKeyCandidates(symbol);
+        scoped = scoped.filter(r => keys.has(String(r.symbol).toUpperCase()));
     }
     // Chronological by prediction date so the curve reads left→right in time.
     scoped.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.predictedAt).localeCompare(String(b.predictedAt)));
@@ -400,8 +425,8 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     }
     let scoped = rows;
     if (symbol) {
-        const sym = String(symbol).toUpperCase();
-        scoped = rows.filter(r => r.symbol === sym);
+        const keys = ledgerKeyCandidates(symbol);
+        scoped = rows.filter(r => keys.has(String(r.symbol).toUpperCase()));
     }
     const lim = Math.max(1, Math.min(50, Number(limit) || 10));
     const recent = scoped.slice(-lim);
