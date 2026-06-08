@@ -11,7 +11,8 @@ import { initEarningsCalendar } from './ui/earnings-calendar.js';
 // Removed per user: Unusual Options Activity (no data — Yahoo crumb-walled),
 // "Did following the engine pay off" (equity curve), and "Which setups does
 // the engine read best" (accuracy report) — all judged low-value.
-import { initInstallPrompt } from './ui/install-prompt.js';
+// Also removed per user: the "Install Market Analyzer" PWA prompt card
+// (js/ui/install-prompt.js stays on disk, just no longer initialized).
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
 import { initDebugPanel } from './ui/debug-panel.js';
 import { initUiSound } from './ui/ui-sound.js';
@@ -28,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Coverage surfaces — collapsed by default, lazy-load on open.
     initSectorHeatmap();
     initEarningsCalendar();
-    initInstallPrompt();
     initPortfolioPanel();
     // Floating Debug App panel — only mounts when dev mode is on.
     // Reads from the always-on debug-capture buffer that's already
