@@ -1,10 +1,77 @@
 {
-  "generatedAt": "2026-06-07T23:13:54Z",
+  "generatedAt": "2026-06-08T23:21:36Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
-  "skippedOldEngineResolved": 8423,
-  "byHorizon": {},
-  "byRegion": {},
-  "totalRowsConsidered": 7466,
-  "totalResolvedHorizons": 0
+  "skippedOldEngineResolved": 10276,
+  "byHorizon": {
+    "1": {
+      "BUY": {
+        "50-55": {
+          "n": 70,
+          "predicted": 51.4,
+          "actual": 22.9
+        },
+        "55-60": {
+          "n": 17,
+          "predicted": 57.7,
+          "actual": 29.4
+        },
+        "60-65": {
+          "n": 5,
+          "predicted": 61.0,
+          "actual": 0.0
+        },
+        "65-70": {
+          "n": 3,
+          "predicted": 67.0,
+          "actual": 0.0
+        }
+      },
+      "NEUTRAL": {
+        "50-55": {
+          "n": 1,
+          "predicted": 50.0,
+          "actual": 0.0
+        }
+      },
+      "SELL": {
+        "50-55": {
+          "n": 6,
+          "predicted": 51.7,
+          "actual": 50.0
+        },
+        "55-60": {
+          "n": 1,
+          "predicted": 55.0,
+          "actual": 100.0
+        }
+      }
+    }
+  },
+  "byRegion": {
+    "CRYPTO": {
+      "50-55": {
+        "n": 76,
+        "predicted": 51.4,
+        "actual": 25.0
+      },
+      "55-60": {
+        "n": 18,
+        "predicted": 57.6,
+        "actual": 33.3
+      },
+      "60-65": {
+        "n": 5,
+        "predicted": 61.0,
+        "actual": 0.0
+      },
+      "65-70": {
+        "n": 3,
+        "predicted": 67.0,
+        "actual": 0.0
+      }
+    }
+  },
+  "totalRowsConsidered": 8536,
+  "totalResolvedHorizons": 103
 }
