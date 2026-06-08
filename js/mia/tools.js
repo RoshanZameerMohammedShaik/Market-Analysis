@@ -53,7 +53,7 @@ const TOOLS = {
         kind: 'control',
     },
     get_live_price: {
-        desc: 'fetch the LIVE current price for a symbol from a fresh data feed (Binance WS for crypto, Stooq snapshot for stocks). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, fetchedAt }.',
+        desc: 'fetch the LIVE current price for a symbol from a fresh data feed. Crypto = Binance (realtime). Stocks = Public.com (realtime) when available, else Stooq (5-15min delayed). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, delayed, fetchedAt }. READ source FROM THE RESULT — never assume; if delayed:true, say the quote may be a few minutes old.',
         args: '{"symbol":"AAPL"}',
         run: async ({ symbol }) => {
             if (!symbol) return { error: 'symbol required' };
@@ -63,20 +63,24 @@ const TOOLS = {
                 if (priceUSD == null || !Number.isFinite(priceUSD)) {
                     return { error: `No live price available for ${sym}.` };
                 }
-                // Crypto symbols on this platform are always
-                // suffixed -USD (BTC-USD, ETH-USD, etc.) — that's
-                // the only reliable structural marker for "this
-                // symbol is crypto." The previous regex matched
-                // any 3-4 letter all-caps ticker and called it
-                // Binance, which produced "Intel from Binance" for
-                // INTC and "Binance" attribution on every US stock.
-                // Roshan caught it in a real voice session.
+                // Crypto symbols on this platform are always suffixed -USD.
                 const isCrypto = /-USDT?$/.test(sym);
+                // For stocks, read the ACTUAL source the price came from
+                // (public = realtime, stooq/yahoo = delayed) — never assume.
+                let source, delayed;
+                if (isCrypto) {
+                    source = 'binance'; delayed = false;
+                } else {
+                    const { getLastStockSource, isStale } = await import('../portfolio/pricing.js');
+                    source = getLastStockSource(sym) || 'stooq';
+                    delayed = isStale(source);
+                }
                 return {
                     symbol: sym,
                     priceUSD,
+                    source,
+                    delayed,
                     fetchedAt: new Date().toISOString(),
-                    source: isCrypto ? 'binance' : 'stooq',
                 };
             } catch (e) {
                 return { error: e.message || 'Failed to fetch live price.' };

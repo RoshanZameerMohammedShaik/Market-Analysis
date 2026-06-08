@@ -16,6 +16,7 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const FINRA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // FINRA updates once a day
 const INSIDER_CACHE_TTL_MS = 30 * 60 * 1000;
 const ARTICLE_CACHE_TTL_MS = 5 * 60 * 1000;     // 5 min — articles update fast
+const PUBLIC_QUOTE_CACHE_TTL_MS = 10 * 1000;    // 10s — Public is realtime; don't hammer the quota
 
 const keyStatsCache = new Map();
 const finraCache = new Map();
@@ -24,6 +25,16 @@ const articleCache = new Map();
 
 let crumbCache = null;
 const CRUMB_TTL_MS = 30 * 60 * 1000;
+
+// ── Public.com realtime-quote state ──────────────────────────────────────
+// The secret lives ONLY as a Cloudflare Worker secret (`wrangler secret put
+// PUBLIC_API_SECRET`) — never in the repo, never sent to the browser. The
+// browser only ever calls our /stock-quote route; this Worker brokers the
+// short-lived bearer token and returns just the price JSON.
+const PUBLIC_API_BASE = 'https://api.public.com';
+const publicQuoteCache = new Map();      // sym -> { ts, body }
+let publicTokenCache = null;             // { token, expEpochMs }
+const PUBLIC_TOKEN_VALIDITY_MIN = 30;    // mint 30-min tokens; refresh ~2min early
 
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -256,6 +267,134 @@ function stripHtml(s) {
     str = str.replace(/^[",\s)>]+/, '');
     str = str.replace(/&nbsp;/g, ' ').replace(/&[a-z]+;/g, ' ').replace(/\s+/g, ' ').trim();
     return str;
+}
+
+// ============================================================================
+// /stock-quote — REAL-TIME stock price via the Public.com brokerage API
+// ============================================================================
+//
+// Public.com gives realtime equity quotes (vs. our 5-15min delayed Stooq).
+// Auth + endpoints VERIFIED against public.com/api/docs:
+//   1. POST {base}/userapiauthservice/personal/access-tokens
+//        body: { "validityInMinutes": N, "secret": SECRET } → { "accessToken" }
+//   2. GET  {base}/userapigateway/trading/account
+//        → { "accounts": [ { "accountId", "accountType", ... } ] }
+//   3. POST {base}/userapigateway/marketdata/{accountId}/quotes
+//        body: { "instruments": [ { "symbol", "type": "EQUITY" } ] }
+//        → { "quotes": [ { "outcome": "SUCCESS", "last": "<string>",
+//                          "previousClose": "<string>", "bid", "ask", ... } ] }
+//   All gateway calls send Authorization: Bearer <token>.
+//   NOTE: price fields are STRINGS in the response — parse to Number.
+//
+// The SECRET is read from env.PUBLIC_API_SECRET (a Cloudflare Worker secret).
+// If it's not set, /stock-quote returns {configured:false} so the app cleanly
+// falls back to Stooq/Yahoo — deploying this Worker without the secret is safe.
+
+const PUBLIC_UA = 'market-analysis-worker';
+
+async function getPublicToken(env) {
+    if (!env || !env.PUBLIC_API_SECRET) {
+        throw new Error('PUBLIC_API_SECRET not configured');
+    }
+    // Reuse a cached token until ~2 min before expiry.
+    if (publicTokenCache && Date.now() < publicTokenCache.expEpochMs - 120000) {
+        return publicTokenCache.token;
+    }
+    const res = await fetch(`${PUBLIC_API_BASE}/userapiauthservice/personal/access-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': PUBLIC_UA },
+        body: JSON.stringify({ validityInMinutes: PUBLIC_TOKEN_VALIDITY_MIN, secret: env.PUBLIC_API_SECRET }),
+    });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`public auth ${res.status}: ${txt.slice(0, 160)}`);
+    }
+    const json = await res.json();
+    const token = json.accessToken;
+    if (!token) throw new Error('public auth: no accessToken in response');
+    publicTokenCache = { token, expEpochMs: Date.now() + PUBLIC_TOKEN_VALIDITY_MIN * 60000 };
+    return token;
+}
+
+// The quotes path is scoped to an accountId. Resolve + cache it (it's stable
+// for the life of the secret; tie its cache lifetime to the token's).
+async function getPublicAccountId(token) {
+    if (publicTokenCache && publicTokenCache.accountId && Date.now() < publicTokenCache.expEpochMs - 120000) {
+        return publicTokenCache.accountId;
+    }
+    const res = await fetch(`${PUBLIC_API_BASE}/userapigateway/trading/account`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'User-Agent': PUBLIC_UA },
+    });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`public account ${res.status}: ${txt.slice(0, 160)}`);
+    }
+    const json = await res.json();
+    const accountId = json?.accounts?.[0]?.accountId;
+    if (!accountId) throw new Error('public account: no accountId in response');
+    if (publicTokenCache) publicTokenCache.accountId = accountId;
+    return accountId;
+}
+
+// Coerce Public's string price fields → finite Number (or null).
+function pubNum(v) {
+    if (v == null) return null;
+    const n = typeof v === 'number' ? v : parseFloat(String(v));
+    return Number.isFinite(n) ? n : null;
+}
+
+async function fetchPublicQuote(symbol, env) {
+    const sym = String(symbol).toUpperCase().trim();
+    const cached = publicQuoteCache.get(sym);
+    if (cached && Date.now() - cached.ts < PUBLIC_QUOTE_CACHE_TTL_MS) return cached.body;
+
+    const token = await getPublicToken(env);
+    const accountId = await getPublicAccountId(token);
+
+    const res = await fetch(`${PUBLIC_API_BASE}/userapigateway/marketdata/${encodeURIComponent(accountId)}/quotes`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'User-Agent': PUBLIC_UA,
+        },
+        body: JSON.stringify({ instruments: [{ symbol: sym, type: 'EQUITY' }] }),
+    });
+    if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`public quote ${res.status}: ${txt.slice(0, 160)}`);
+    }
+    const json = await res.json();
+    const q = json?.quotes?.[0];
+    if (!q) throw new Error('public quote: empty quotes array');
+    // A per-instrument failure surfaces as outcome != SUCCESS (e.g. NOT_FOUND).
+    if (!q.outcome || q.outcome !== 'SUCCESS') {
+        throw new Error(`public quote outcome ${q.outcome || 'missing'} for ${sym}`);
+    }
+    // Prefer last trade; fall back to mid(bid,ask) then previousClose.
+    const last = pubNum(q.last);
+    const bid = pubNum(q.bid);
+    const ask = pubNum(q.ask);
+    const prevClose = pubNum(q.previousClose);
+    const mid = (bid != null && ask != null) ? (bid + ask) / 2 : null;
+    const price = last ?? mid ?? prevClose;
+    if (price == null || price <= 0) {
+        throw new Error('public quote: no usable price field in response');
+    }
+    const body = {
+        symbol: sym,
+        price,
+        source: 'public',
+        realtime: true,
+        fetchedAt: Date.now(),
+        bid, ask,
+        previousClose: prevClose,
+        lastTimestamp: q.lastTimestamp || null,
+        priceField: last != null ? 'last' : mid != null ? 'mid' : 'previousClose',
+    };
+    publicQuoteCache.set(sym, { ts: Date.now(), body });
+    if (publicQuoteCache.size > 500) publicQuoteCache.delete(publicQuoteCache.keys().next().value);
+    return body;
 }
 
 // ============================================================================
@@ -529,11 +668,91 @@ function corsJson(body, status = 200) {
     });
 }
 
+// Origin-restricted JSON response — used for the Public.com quote route so our
+// brokerage key's quota can't be used as a free feed by arbitrary callers.
+// Allows ONLY the deployed app + CF preview deploys + localhost dev. A missing
+// Origin is REJECTED (curl/scripts/bots have no Origin) — the Capacitor app
+// loads the same market-ai.pages.dev URL in a WebView, so it DOES send that
+// Origin and is covered. Closing the missing-Origin hole is what stops an
+// anonymous script from burning the brokerage key's quota.
+const PUBLIC_ALLOWED_ORIGINS = new Set([
+    'https://market-ai.pages.dev',
+    'http://localhost:8765',
+    'http://127.0.0.1:8765',
+]);
+function originAllowed(origin) {
+    if (!origin) return false;                      // no Origin → reject (curl/bots/scrapers)
+    if (PUBLIC_ALLOWED_ORIGINS.has(origin)) return true;
+    if (/^https:\/\/[a-z0-9-]+\.market-ai\.pages\.dev$/.test(origin)) return true;  // CF preview deploys
+    return false;
+}
+
+// Lightweight per-symbol rate limit for /stock-quote so even an allowed origin
+// (or a spoofed-Origin script) can't hammer the brokerage quota. In-memory
+// sliding window; the worker already caches quotes 10s, so legit usage is far
+// under this. Keyed by client IP + symbol.
+const quoteRateWindow = new Map();   // key -> [timestamps]
+const QUOTE_RATE_MAX = 30;           // max requests
+const QUOTE_RATE_WINDOW_MS = 60_000; // per minute, per (ip, symbol)
+function quoteRateLimited(ip, sym, nowEpoch) {
+    const key = `${ip}|${sym}`;
+    const arr = (quoteRateWindow.get(key) || []).filter(t => nowEpoch - t < QUOTE_RATE_WINDOW_MS);
+    if (arr.length >= QUOTE_RATE_MAX) { quoteRateWindow.set(key, arr); return true; }
+    arr.push(nowEpoch);
+    quoteRateWindow.set(key, arr);
+    if (quoteRateWindow.size > 5000) quoteRateWindow.delete(quoteRateWindow.keys().next().value);
+    return false;
+}
+function restrictedJson(body, origin, status = 200) {
+    const allow = (originAllowed(origin) && origin) ? origin : 'null';
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': allow,
+            'Vary': 'Origin',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Max-Age': '86400',
+            'Cache-Control': status === 200 ? 'public, max-age=10' : 'no-store',
+        },
+    });
+}
+
 export default {
-    async fetch(request) {
+    async fetch(request, env) {
         const url = new URL(request.url);
-        if (request.method === 'OPTIONS') return corsJson({ ok: true });
+        const origin = request.headers.get('Origin');
+        if (request.method === 'OPTIONS') {
+            // Preflight: answer with the right CORS scope for the route.
+            if (url.pathname === '/stock-quote') return restrictedJson({ ok: true }, origin);
+            return corsJson({ ok: true });
+        }
         try {
+            if (url.pathname === '/stock-quote') {
+                // Realtime stock price via Public.com (origin-restricted so the
+                // brokerage key's quota isn't a free public feed). Read-only —
+                // we NEVER expose any order/write endpoint through this Worker.
+                if (!originAllowed(origin)) return restrictedJson({ error: 'origin not allowed' }, origin, 403);
+                const symbol = url.searchParams.get('symbol');
+                if (!symbol) return restrictedJson({ error: 'symbol required' }, origin, 400);
+                const sym = symbol.toUpperCase();
+                // Per-(IP, symbol) rate limit so even an allowed/spoofed origin
+                // can't burn the brokerage quota with a tight loop.
+                const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+                if (quoteRateLimited(ip, sym, Date.now())) {
+                    return restrictedJson({ error: 'rate limited', symbol: sym }, origin, 429);
+                }
+                if (!env || !env.PUBLIC_API_SECRET) {
+                    // Secret not set → tell the app cleanly so it falls back to Stooq.
+                    return restrictedJson({ configured: false, symbol: sym }, origin, 200);
+                }
+                try {
+                    const body = await fetchPublicQuote(sym, env);
+                    return restrictedJson(body, origin, 200);
+                } catch (e) {
+                    return restrictedJson({ error: String(e.message || e), symbol: sym }, origin, 502);
+                }
+            }
             if (url.pathname === '/key-stats') {
                 const symbol = url.searchParams.get('symbol');
                 if (!symbol) return corsJson({ error: 'symbol required' }, 400);
@@ -570,7 +789,7 @@ export default {
                 return corsJson(classifySource(domain));
             }
             if (url.pathname === '/health') {
-                return corsJson({ ok: true, ts: Date.now() });
+                return corsJson({ ok: true, ts: Date.now(), publicQuoteConfigured: !!(env && env.PUBLIC_API_SECRET) });
             }
         } catch (e) {
             return corsJson({ error: String(e.message || e) }, 502);
@@ -578,6 +797,7 @@ export default {
         return corsJson({
             error: 'not found',
             endpoints: [
+                '/stock-quote?symbol=X (realtime, origin-restricted)',
                 '/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X',
                 '/yahoo?u=<encoded URL>', '/extract-article?url=<encoded URL>',
                 '/source-tier?domain=X', '/health',
