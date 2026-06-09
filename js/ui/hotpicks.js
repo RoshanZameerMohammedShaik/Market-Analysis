@@ -134,14 +134,13 @@ export async function loadHotPicks(onPick) {
         const filtered = applyPennyFilter(picks);
 
         if (filtered.length === 0) {
-            // Empty only fires when zero BUY/SELL exist in the entire
-            // scan — every directional pick now surfaces, ranked by
-            // confidence. Each card carries a quality-tier badge so the
-            // user can tell historically-reliable picks from speculative
-            // ones at a glance (badge driven by hotpicks.js qualityTier).
+            // Hot Picks now surfaces STRONG BUYs only (confidence above the
+            // learned floor where historical hit-rate >=55%). Empty means the
+            // engine has no high-conviction buy right now — an honest "sit it
+            // out" beats padding with weak or bearish cards.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No directional setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — every symbol the engine scanned came back as DON'T BUY or AVOID. Sit it out, or check back later.</p>
+                <p>No strong buys ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — nothing the engine scanned cleared its confidence bar for a high-conviction BUY. Sit it out, or check back later.</p>
             </div>`;
             return;
         }
