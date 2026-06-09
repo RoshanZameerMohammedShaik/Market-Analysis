@@ -134,15 +134,27 @@ export async function getLearnedWeights(aiAvailable) {
         try {
             const rows = await loadLedger();
             const counts = computeHitRates(rows);
-            // How many resolved we got across all sources combined.
-            const totalResolved = Math.max(...Object.values(counts).map(c => c.resolved));
-            if (totalResolved < MIN_RESOLVED_FOR_LEARNING) {
+            // Gate on the LEAST-resolved source, not the most. Using Math.max
+            // let learning fire as soon as ANY single source (in practice only
+            // technical, which swings outside the 45-55 abstain band) cleared
+            // the bar — while ai/sentiment/market sat at 0 resolved. The
+            // hitRatesToWeights floor then zeroed the one data-backed source and
+            // split the weight evenly across the three undatae'd ones
+            // ({technical:0, ai/sentiment/market:0.333}), collapsing every
+            // stock's weightedScore to ~50 and pinning confidence flat at ~51.
+            // Requiring ALL sources to have real resolved data before we trust a
+            // learned vector means we stay on the sound technical-led FALLBACK
+            // baseline (0.15/0.35/0.25/0.25) until every source is genuinely
+            // measurable — which restores per-stock differentiation now and only
+            // adopts learned weights once they're honestly grounded.
+            const minResolved = Math.min(...Object.values(counts).map(c => c.resolved));
+            if (minResolved < MIN_RESOLVED_FOR_LEARNING) {
                 _cache = null; // signal to use fallback
                 _cacheTs = Date.now();
                 return null;
             }
             const learned = hitRatesToWeights(counts);
-            _cache = { weights: learned, counts, totalResolved };
+            _cache = { weights: learned, counts, totalResolved: minResolved };
             _cacheTs = Date.now();
             return _cache;
         } catch (_) {
