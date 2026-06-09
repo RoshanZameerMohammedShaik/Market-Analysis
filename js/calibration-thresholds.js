@@ -205,9 +205,20 @@ function learnDispersionPenalties(rows) {
 
 async function recomputeFromLedger() {
     const rows = await loadLedger();
-    // != null so NO_TRADE rows (directionMatch:null) don't inflate the
-    // learn-gate count; only genuinely-resolved directional/neutral rows count.
+    // Count ONLY resolved DIRECTIONAL (BUY/SELL) rows — the same definition
+    // every downstream learner uses (hitRateByConfidence/hitRateByScore/
+    // learnDispersionPenalties here, plus source-weights.js and
+    // ledger-reader.isResolvedDirectional). The old filter counted any row
+    // whose 1d directionMatch was non-null — but NEUTRAL/NO_TRADE rows that
+    // still get a directionMatch were NOT what the learners consume, and on a
+    // ledger that is mostly non-directional this MISCOUNTED. (In practice the
+    // bug surfaced as resolvedCount=0 while source-weights saw 132 on the same
+    // ledger, leaving thresholds frozen on BOOTSTRAP — buyScoreThreshold=60 —
+    // which forced every ~50-scoring stock to NEUTRAL and pinned confidence
+    // flat near the floor.) Counting the same directional rows the learners
+    // actually use makes the learn-gate consistent and unfreezes learning.
     const resolvedCount = rows.filter(r =>
+        (r.signal === 'BUY' || r.signal === 'SELL') &&
         r.horizons?.['1']?.directionMatch != null
     ).length;
 
