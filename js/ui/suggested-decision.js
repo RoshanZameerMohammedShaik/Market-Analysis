@@ -55,60 +55,54 @@ export function renderSuggestedDecision(view, opts = {}) {
         ? (pt.expectedMove / pt.currentPrice) * 100
         : null;
 
-    // The engine's committed directional lean + its magnitude.
-    // BUY → upside target; SELL → downside target; NEUTRAL → whichever side
-    // the predicted range leans toward (net of the two % targets).
+    // THE ENGINE'S SIGNAL IS THE SOURCE OF TRUTH — the Suggested Decision must
+    // never contradict it. (Earlier this derived direction from the price-target
+    // RANGE, which manufactured a "BUY" on a NEUTRAL whose noise band happened to
+    // lean up — the card said "DON'T BUY" up top and "BUY" here. Never again.)
+    // So state is decided by `signal`; the predicted move % + the symbol's usual
+    // move are DESCRIPTIVE context (how big a move the engine sees), not the
+    // decider. predictedHigh = the upside the engine sketches, predictedLow the
+    // downside — we headline the side that matches the call.
     const up = Number(pt.highPercent);    // signed, usually +
     const down = Number(pt.lowPercent);   // signed, usually −
-    let dir;            // 'up' | 'down' | 'flat'
-    let movePct;        // signed predicted move % we headline
-    let targetPrice;    // the price we headline
-    if (signal === 'BUY') { dir = 'up'; movePct = up; targetPrice = pt.predictedHigh; }
-    else if (signal === 'SELL') { dir = 'down'; movePct = down; targetPrice = pt.predictedLow; }
-    else {
-        // NEUTRAL / NO_TRADE: lean toward the bigger-magnitude side of the range.
-        if (Math.abs(up) >= Math.abs(down)) { dir = 'up'; movePct = up; targetPrice = pt.predictedHigh; }
-        else { dir = 'down'; movePct = down; targetPrice = pt.predictedLow; }
-    }
 
-    // STRONG = the predicted move's magnitude meets/exceeds the stock's own
-    // usual move. When we don't have a usual-move number, fall back to the raw
-    // signal (BUY/SELL = strong, else not) so the block still works.
-    const mag = Math.abs(movePct);
-    const strong = (usualPct != null && Number.isFinite(usualPct))
-        ? mag >= usualPct
-        : (signal === 'BUY' || signal === 'SELL');
-
-    // Decide the state + the two-branch signal.
+    // Decide the state STRICTLY from the engine signal + the two-branch advice.
     let state, sentence, sigOwned, sigNotOwned, toneClass, arrow;
-    if (strong && dir === 'up') {
-        state = 'strong-up'; toneClass = 'sd-up'; arrow = '▲';
-        sentence = `<strong>${who}</strong> is predicted to rise about <strong class="sd-num up">+${pct(movePct)}%</strong> — from ${fmtPriceTag(pt.currentPrice, co)} to around <strong>${fmtPriceTag(targetPrice, co)}</strong> by ${tfWord}.`
-            + (usualPct != null ? ` That's a bigger move than ${ticker ? ticker + "'s" : 'its'} usual ±${pct(usualPct)}% ${tfWord === 'Today' ? 'day' : 'session'}.` : '');
+    const usualTail = usualPct != null
+        ? ` ${ticker ? ticker + "'s" : 'Its'} typical move is about ±${pct(usualPct)}% a ${tfWord === 'Today' ? 'day' : 'session'}.`
+        : '';
+
+    if (signal === 'BUY') {
+        state = 'buy'; toneClass = 'sd-up'; arrow = '▲';
+        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num up">BUY</strong> for ${tfWord} — the engine sees upside toward <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (<strong class="sd-num up">+${pct(up)}%</strong>) from ${fmtPriceTag(pt.currentPrice, co)}.${usualTail}`;
         sigOwned = 'HOLD'; sigNotOwned = 'BUY';
-    } else if (strong && dir === 'down') {
-        state = 'strong-down'; toneClass = 'sd-down'; arrow = '▼';
-        sentence = `<strong>${who}</strong> is predicted to fall about <strong class="sd-num down">${pct(movePct)}%</strong> — from ${fmtPriceTag(pt.currentPrice, co)} down to around <strong>${fmtPriceTag(targetPrice, co)}</strong> by ${tfWord}.`
-            + (usualPct != null ? ` That's a bigger drop than ${ticker ? ticker + "'s" : 'its'} usual ±${pct(usualPct)}% ${tfWord === 'Today' ? 'day' : 'session'}.` : '');
+    } else if (signal === 'SELL') {
+        state = 'sell'; toneClass = 'sd-down'; arrow = '▼';
+        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num down">SELL</strong> for ${tfWord} — the engine sees downside toward <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (<strong class="sd-num down">${pct(down)}%</strong>) from ${fmtPriceTag(pt.currentPrice, co)}.${usualTail}`;
         sigOwned = 'SELL'; sigNotOwned = "DON'T BUY";
+    } else if (signal === 'NO_TRADE') {
+        // Hard event-risk cap (earnings/gap/etc.) — the engine is actively
+        // telling you to stay out, which is stronger than "no edge".
+        state = 'avoid'; toneClass = 'sd-flat'; arrow = '⊘';
+        sentence = `<strong>${who}</strong> is best <strong class="sd-num">AVOIDED</strong> for ${tfWord} — there's event risk (e.g. earnings or a big gap) that makes the next move a coin toss. The engine is sitting it out.${usualTail}`;
+        sigOwned = 'HOLD'; sigNotOwned = "DON'T BUY";
     } else {
-        // No strong move either way.
+        // NEUTRAL — genuinely no directional edge. Describe the range honestly
+        // (it can swing either way) but DO NOT pick a side.
         state = 'no-edge'; toneClass = 'sd-flat'; arrow = '◆';
-        const moveTxt = `${movePct >= 0 ? '+' : ''}${pct(movePct)}%`;
-        sentence = `<strong>${who}</strong> is predicted to move only about <strong class="sd-num">${moveTxt}</strong> — from ${fmtPriceTag(pt.currentPrice, co)} to around <strong>${fmtPriceTag(targetPrice, co)}</strong> by ${tfWord}.`
-            + (usualPct != null ? ` That's within its usual ±${pct(usualPct)}% move, so there's no clear edge right now.` : ` No clear edge right now.`);
+        sentence = `<strong>${who}</strong> has <strong class="sd-num">no clear edge</strong> for ${tfWord} — the engine could see it anywhere from <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (${pct(down)}%) to <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (+${pct(up)}%) around ${fmtPriceTag(pt.currentPrice, co)}, with no convincing lean either way.${usualTail}`;
         sigOwned = 'HOLD'; sigNotOwned = "DON'T BUY";
     }
 
     // Honesty hedge: low calibrated confidence on a directional call.
-    const lowTrust = (state !== 'no-edge') && Number.isFinite(confidence) && confidence < 50;
+    const lowTrust = (signal === 'BUY' || signal === 'SELL') && Number.isFinite(confidence) && confidence < 50;
     const hedge = lowTrust
         ? `<div class="sd-hedge" title="Calibrated confidence is below 50% — the engine's track record for setups like this (under the current engine) is still rebuilding. Treat this as exploratory, not high-conviction.">⚠ Low track record — treat this as exploratory, not a high-conviction call (calibrated confidence ${Math.round(confidence)}%).</div>`
         : '';
 
     // The two-branch signal line. Highlight the branch that applies to the
     // user when we know whether they hold the symbol.
-    const ownedFirst = (state === 'strong-down'); // SELL/HOLD reads owned-first
+    const ownedFirst = (state === 'sell'); // SELL/HOLD reads owned-first
     const ownedChip = `<span class="sd-chip ${ownedHl(owned, true)}">${sigOwned}<span class="sd-chip-cond">if you own it</span></span>`;
     const notOwnedChip = `<span class="sd-chip ${ownedHl(owned, false)}">${sigNotOwned}<span class="sd-chip-cond">if you haven't bought</span></span>`;
     const chips = ownedFirst ? `${ownedChip}${notOwnedChip}` : `${notOwnedChip}${ownedChip}`;
