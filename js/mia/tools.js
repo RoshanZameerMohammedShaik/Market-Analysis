@@ -179,7 +179,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_hot_picks: {
-        desc: 'the engine\'s STRONG BUY picks (up to 20, ranked by confidence). Hot Picks is BUY-only and gated to confidence above the learned floor (where historical hit-rate >=55%) — so every result is signal:"BUY". Can be empty on low-conviction days; that\'s honest, not an error. Use for "what should I buy / what\'s hot / any good buys today".', args: '{"mode":"stock|crypto","timeframe":"today|tomorrow"}',
+        desc: 'the engine\'s BUY picks (up to 20, ranked strongest-first by calibrated confidence). Hot Picks is BUY-only — every result is signal:"BUY" (SELL/NEUTRAL/AVOID are excluded). NOTE: this engine\'s calibrated BUY confidences currently sit low (often 20s-low-50s, near coin-flip), so a "top" pick may still be modest — quote the real confidence %, never imply it\'s high. Empty only if nothing scanned was a BUY. Use for "what should I buy / what\'s hot / any good buys today".', args: '{"mode":"stock|crypto","timeframe":"today|tomorrow"}',
         run: async ({ mode = 'stock', timeframe = 'today' }) => {
             const fn = mode === 'crypto' ? scanCryptoHotPicks : scanStockHotPicks;
             const picks = await fn(timeframe, 20);

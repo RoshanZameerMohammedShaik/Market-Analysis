@@ -134,13 +134,11 @@ export async function loadHotPicks(onPick) {
         const filtered = applyPennyFilter(picks);
 
         if (filtered.length === 0) {
-            // Hot Picks now surfaces STRONG BUYs only (confidence above the
-            // learned floor where historical hit-rate >=55%). Empty means the
-            // engine has no high-conviction buy right now — an honest "sit it
-            // out" beats padding with weak or bearish cards.
+            // Hot Picks is BUY-only now. Empty means the engine read every
+            // symbol it scanned as DON'T BUY / AVOID / SELL — no buy at all.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No strong buys ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — nothing the engine scanned cleared its confidence bar for a high-conviction BUY. Sit it out, or check back later.</p>
+                <p>No buy setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — nothing the engine scanned came back as a BUY. Sit it out, or check back later.</p>
             </div>`;
             return;
         }

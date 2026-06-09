@@ -276,21 +276,20 @@ export function getHotPicksFloor() {
     return getCalibrationThresholdsSync().hotPicksFloor;
 }
 
-// Hot Picks = the engine's STRONG BUY opportunities only (Roshan's call:
-// "I need only the ones with strong Buy there"). So we:
+// Hot Picks = the engine's BUY opportunities only (Roshan's call: "I need only
+// the ones with strong Buy there"), ranked strongest-first.
 //   1. keep only BUY (drop SELL / NEUTRAL / NO_TRADE),
-//   2. require confidence at/above the LEARNED hotPicksFloor — the lowest
-//      confidence at which the live ledger's empirical hit-rate is >=55%,
-//      i.e. the honest, data-derived definition of "strong" (not a magic
-//      number). The floor is recomputed from outcomes, so this self-tunes.
-//   3. rank the survivors by confidence, cap at maxPicks.
-// If a thin day leaves zero above the floor, we DON'T pad with weak/again
-// SELL cards — an honest empty state ("no strong buys right now") beats
-// showing low-conviction picks dressed up as hot.
-function rankPicks(results, maxPicks, floor) {
-    const minConf = Number.isFinite(floor) ? floor : 0;
+//   2. rank by calibrated confidence, take the top maxPicks — so the STRONGEST
+//      available buys surface even though this engine's calibrated BUY
+//      confidences currently sit low (near coin-flip). We intentionally do NOT
+//      gate on the learned 55% hotPicksFloor here: on the current confidence
+//      scale almost nothing clears 55%, so that gate left Hot Picks
+//      permanently empty (the opposite of what the user wants). "Strong" =
+//      top-ranked, and every card shows its real confidence % so nothing is
+//      dressed up — a 27% card reads as 27%.
+function rankPicks(results, maxPicks, _floor) {
     return results
-        .filter(r => r.signal === 'BUY' && r.confidence >= minConf)
+        .filter(r => r.signal === 'BUY')
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, maxPicks);
 }
