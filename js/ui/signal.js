@@ -12,11 +12,12 @@ import { sharePredictionCard } from './share-card.js';
 import { lockCall, getLockedCall, computeStatus } from './daily-lock.js';
 import { revealUp, revealText, revealStagger, canAnimate } from './motion.js';
 import { signalLanded } from './ui-sound.js';
+import { renderSuggestedDecision } from './suggested-decision.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
 
-export function renderSignal(prediction, newsData = [], sentiment = null) {
+export async function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
 
     // TODAY'S LOCKED CALL: the engine recomputes live, but the prediction
@@ -268,14 +269,39 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     }
 
     const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
-    // HONESTY GUARD (display-only): a directional BUY/SELL whose calibrated
-    // confidence is below 50% is worse than a coin flip on its OWN direction by
-    // the engine's grounded data — don't let "BUY · 25%" read as conviction.
-    // Surface an explicit caveat instead. Doesn't change the signal/number.
-    const lowTrustSignal = (signal === 'BUY' || signal === 'SELL') && Number.isFinite(confidence) && confidence < 50;
-    const lowTrustBanner = lowTrustSignal
-        ? `<div class="signal-lowtrust" title="Calibrated confidence below 50% means the engine's track record for setups like this (under the current engine) is worse than a coin flip on direction. The directional call stands, but treat the conviction as exploratory — the track record is still rebuilding.">⚠ Low track record — this ${signalDisplay} is exploratory, not high-conviction (calibrated confidence is below 50%).</div>`
-        : '';
+
+    // ── Suggested Decision — the HERO takeaway of the analysis section ──
+    // Plain-language, real-numbers "what should I do" framing that replaces a
+    // cold one-word signal. Dynamic per symbol (stocks + crypto): predicted
+    // move % and the symbol's own "usual move" come straight from priceTargets.
+    // Ticker + company name read from the chart header (set just before this
+    // render); ownership read from the practice portfolio so we highlight the
+    // branch that applies to the user. Folds in the sub-50% confidence hedge,
+    // so the older standalone low-trust banner is no longer needed here.
+    let suggestedDecisionHTML = '';
+    try {
+        const sym = state.currentSymbol;
+        const headerTxt = document.getElementById('chart-symbol')?.textContent || '';
+        // "AAPL — Apple Inc. · NASDAQ — USA" → ticker before " — ", name between.
+        let ticker = sym || (headerTxt.split('—')[0] || '').trim();
+        let name = '';
+        const m = headerTxt.match(/^[^—]+—\s*([^·]+?)\s*(?:·|$)/);
+        if (m) name = m[1].trim();
+        let owned = null;
+        try {
+            const { isInstantiated, heldSymbols } = await import('../portfolio/state.js');
+            if (isInstantiated()) {
+                const held = heldSymbols().map(s => String(s).toUpperCase());
+                const key = String(sym || ticker).toUpperCase();
+                // crypto positions are stored as e.g. BTC-USD; match either form.
+                owned = held.includes(key) || held.includes(`${key}-USD`) || held.includes(key.replace(/-USD$/, ''));
+            }
+        } catch (_) { owned = null; }
+        suggestedDecisionHTML = renderSuggestedDecision(view, {
+            timeframe: state.timeframe, ticker, name, owned, currency: cur,
+        });
+    } catch (_) { suggestedDecisionHTML = ''; }
+
     // Justify the LOCKED number the dial shows, not the live recompute — the
     // trust panel header literally says "Why trust this {confidence}%?", so
     // it must reason about the same confidence/consensus the user sees.
@@ -297,10 +323,10 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
             ${calibrationDelta ? `<div class="cal-delta-row">${calibrationDelta}</div>` : ''}
+            ${suggestedDecisionHTML}
             <div class="signal-dial-row">
                 ${dialHTML}
             </div>
-            ${lowTrustBanner}
             ${statusHTML}
             ${trustHTML}
             ${trendHTML}

@@ -183,20 +183,91 @@
 .conf-dial-sub.low  { color: var(--red); }
 
 /* ── Today's-call live status line ─────────────────────────────────── */
-/* Honesty guard banner: directional call with sub-50% calibrated confidence. */
-.signal-lowtrust {
-    margin: 4px 0 10px;
-    padding: 9px 12px;
-    border-radius: var(--radius-sm);
+/* ── Suggested Decision — the HERO takeaway of the analysis section ──────
+   Highest-emphasis block in the signal card: this is the "what should I do"
+   the whole app is built to surface. Tinted by direction; numbers bolded. */
+.suggested-decision {
+    margin: 6px 0 14px;
+    padding: 14px 16px;
+    border-radius: var(--radius-md, 12px);
+    border: 1px solid var(--border-strong, var(--border));
+    border-left-width: 5px;
+    background: var(--bg-secondary);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+    position: relative;
+    overflow: hidden;
+}
+.suggested-decision.sd-up   { border-left-color: var(--green); background: color-mix(in srgb, var(--green) 7%, var(--bg-secondary)); }
+.suggested-decision.sd-down { border-left-color: var(--red);   background: color-mix(in srgb, var(--red) 7%, var(--bg-secondary)); }
+.suggested-decision.sd-flat { border-left-color: var(--text-muted); }
+.sd-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sd-arrow { font-size: 1.05rem; line-height: 1; }
+.sd-up .sd-arrow { color: var(--green); }
+.sd-down .sd-arrow { color: var(--red); }
+.sd-flat .sd-arrow { color: var(--text-muted); }
+.sd-title {
+    font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-muted);
+}
+.sd-owned-tag {
+    margin-left: auto; font-size: 0.66rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--accent); background: rgba(var(--accent-rgb), 0.12);
+    border: 1px solid rgba(var(--accent-rgb), 0.4);
+    border-radius: 999px; padding: 2px 9px;
+}
+.sd-body {
+    font-size: 0.98rem; line-height: 1.5; color: var(--text-primary);
+    font-weight: 500;
+}
+.sd-body .sd-num { font-variant-numeric: tabular-nums; font-weight: 800; }
+.sd-body .sd-num.up { color: var(--green); }
+.sd-body .sd-num.down { color: var(--red); }
+.sd-hedge {
+    margin-top: 10px; padding: 7px 11px;
+    border-radius: 8px;
     border: 1px solid rgba(251, 191, 36, 0.4);
-    border-left: 3px solid var(--yellow, #fbbf24);
     background: rgba(251, 191, 36, 0.10);
     color: var(--text-primary);
-    font-size: 0.82rem;
-    font-weight: 600;
-    line-height: 1.4;
+    font-size: 0.8rem; font-weight: 600; line-height: 1.4;
     cursor: help;
 }
+.sd-signal {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.sd-signal-label {
+    font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-muted);
+}
+.sd-chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.sd-chip {
+    display: inline-flex; flex-direction: column; align-items: center;
+    gap: 1px; padding: 6px 14px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border-strong, var(--border));
+    background: var(--bg-card);
+    font-size: 0.92rem; font-weight: 800; letter-spacing: 0.3px;
+    color: var(--text-primary);
+    transition: opacity 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.sd-chip-cond {
+    font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2px;
+    text-transform: none; color: var(--text-muted);
+}
+/* Direction-tinted chip borders so BUY reads green, SELL/DON'T BUY red. */
+.sd-up .sd-chip, .sd-down .sd-chip { }
+.sd-chip:first-child { } /* base */
+.suggested-decision.sd-up .sd-chips .sd-chip:nth-child(1) { border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border)); }
+/* Highlight the branch that applies to the user (owned vs not). */
+.sd-chip-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.20);
+    transform: translateY(-1px);
+}
+.sd-chip-dim { opacity: 0.5; }
 .call-status {
     margin: 6px 0 10px;
     padding: 10px 12px;

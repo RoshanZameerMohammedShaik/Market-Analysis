@@ -197,7 +197,7 @@ async function runAnalysis() {
             const cd = cached.data;
             updateChartHeader(cd.daily);
             const result = { ...cached.signal, currency: cd?.daily?.currency || 'USD' };
-            renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
+            await renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
             setLatestSignal(result);
         } catch (_) { /* fall through to fresh fetch */ }
         if (cached.fresh) {
@@ -265,7 +265,7 @@ async function runAnalysis() {
         // would have their already-INR prices FX-converted as if they
         // were USD, producing nonsense (₹230 → ₹21,876).
         result.currency = multiData?.daily?.currency || 'USD';
-        renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
+        await renderSignal(result, result.news, { overall: result.newsOverall, summary: result.newsSummary });
         setLatestSignal(result);
 
         // Store fresh result in the analysis cache for stale-while-
