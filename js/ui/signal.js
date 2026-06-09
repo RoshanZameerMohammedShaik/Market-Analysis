@@ -268,6 +268,14 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
     }
 
     const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
+    // HONESTY GUARD (display-only): a directional BUY/SELL whose calibrated
+    // confidence is below 50% is worse than a coin flip on its OWN direction by
+    // the engine's grounded data — don't let "BUY · 25%" read as conviction.
+    // Surface an explicit caveat instead. Doesn't change the signal/number.
+    const lowTrustSignal = (signal === 'BUY' || signal === 'SELL') && Number.isFinite(confidence) && confidence < 50;
+    const lowTrustBanner = lowTrustSignal
+        ? `<div class="signal-lowtrust" title="Calibrated confidence below 50% means the engine's track record for setups like this (under the current engine) is worse than a coin flip on direction. The directional call stands, but treat the conviction as exploratory — the track record is still rebuilding.">⚠ Low track record — this ${signalDisplay} is exploratory, not high-conviction (calibrated confidence is below 50%).</div>`
+        : '';
     // Justify the LOCKED number the dial shows, not the live recompute — the
     // trust panel header literally says "Why trust this {confidence}%?", so
     // it must reason about the same confidence/consensus the user sees.
@@ -292,6 +300,7 @@ export function renderSignal(prediction, newsData = [], sentiment = null) {
             <div class="signal-dial-row">
                 ${dialHTML}
             </div>
+            ${lowTrustBanner}
             ${statusHTML}
             ${trustHTML}
             ${trendHTML}

@@ -212,17 +212,30 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
     // calls have data. This call still uses whatever's currently in
     // memory (may be null on the very first call).
     ensureLoaded();
-    // Priority 0: live ledger by horizon+signal (real-world, current).
-    const live = liveBucketLookup(rawConfidence);
-    if (live && live.n >= 30) {
-        lastSourceUsed = 'live-horizon'; lastSampleN = live.n;
-        return Math.round(live.actual);
-    }
-    // Priority 0b: live ledger by region.
+    // Priority 0: live ledger by REGION first (asset-class-matched, real-world).
+    // This MUST come before the asset-blind byHorizon lookup below — otherwise a
+    // stock calibrates against the pooled byHorizon bucket, which right now (post
+    // 2026-06-06 engine reset) is built almost entirely from CRYPTO outcomes
+    // (the only region with resolved 1d samples yet). Calibrating a US megacap
+    // against crypto's 22.9% hit-rate was the "every stock is a uniform ~25% BUY"
+    // bug. So: when we know the symbol's region, the region's own live data is
+    // the only live source we trust; if it's too thin, fall THROUGH to backtest
+    // (Priority 1+) rather than borrowing another asset class's record.
     const liveR = liveRegionLookup(rawConfidence, region);
     if (liveR && liveR.n >= 30) {
         lastSourceUsed = 'live-region'; lastSampleN = liveR.n;
         return Math.round(liveR.actual);
+    }
+    // Priority 0b: asset-BLIND live ledger by horizon+signal — ONLY when region
+    // is unknown. With a known region we deliberately skip this to avoid
+    // cross-asset contamination (see above); a thin region just rebuilds via
+    // backtest until it has its own resolved samples.
+    if (!region) {
+        const live = liveBucketLookup(rawConfidence);
+        if (live && live.n >= 30) {
+            lastSourceUsed = 'live-horizon'; lastSampleN = live.n;
+            return Math.round(live.actual);
+        }
     }
     // Priority 1: recency-weighted backtest
     if (calibrationRecency && totalN(calibrationRecency) >= 30) {

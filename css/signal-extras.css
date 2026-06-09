@@ -183,6 +183,20 @@
 .conf-dial-sub.low  { color: var(--red); }
 
 /* ── Today's-call live status line ─────────────────────────────────── */
+/* Honesty guard banner: directional call with sub-50% calibrated confidence. */
+.signal-lowtrust {
+    margin: 4px 0 10px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-left: 3px solid var(--yellow, #fbbf24);
+    background: rgba(251, 191, 36, 0.10);
+    color: var(--text-primary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: help;
+}
 .call-status {
     margin: 6px 0 10px;
     padding: 10px 12px;

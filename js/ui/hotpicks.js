@@ -207,13 +207,24 @@ function renderCards(grid, picks, withFooter) {
         const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
             ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
+        // HONESTY GUARD (display-only): a directional BUY/SELL whose CALIBRATED
+        // confidence is below 50% is, on the engine's own grounded data, worse
+        // than a coin flip on its OWN direction — a contradiction we must not
+        // present as a clean "BUY · 25%". Flag it as a rebuilding/low-trust
+        // read so the number isn't mistaken for real conviction. Does NOT
+        // change the signal or the number — just adds a caveat the eye catches.
+        const lowTrust = (isBuy || isSell) && Number.isFinite(pick.confidence) && pick.confidence < 50;
+        const lowTrustHTML = lowTrust
+            ? `<div class="hot-pick-lowtrust" title="Calibrated confidence is below 50% — the engine's track record for setups like this (under the current engine) doesn't yet support high conviction. Treat as exploratory, not a strong call.">⚠ low track record — exploratory</div>`
+            : '';
         return `
-        <div class="hot-pick-card ${signalClass}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}" data-flip-id="${pick.symbol}"${sparkSeed}>
+        <div class="hot-pick-card ${signalClass}${lowTrust ? ' lowtrust' : ''}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}" data-flip-id="${pick.symbol}"${sparkSeed}>
             <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
             <div class="hot-pick-name">${pick.name}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
             <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${pick.confidence}">${pick.confidence}</span>% Confidence</div>
+            ${lowTrustHTML}
             ${spikeHTML}
             ${highHTML}
             ${lowHTML}

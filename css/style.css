@@ -2084,6 +2084,22 @@ body.resources-open .resources-toggle {
     letter-spacing: 0.2px;
     margin-top: 2px;
 }
+/* Honesty guard: directional pick with sub-50% calibrated confidence. */
+.hot-pick-lowtrust {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--yellow, #fbbf24);
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    border-radius: 6px;
+    padding: 2px 7px;
+    margin-top: 4px;
+    letter-spacing: 0.2px;
+    cursor: help;
+}
+/* Soften the whole card a touch so a low-trust pick doesn't read as a
+   confident call at a glance. */
+.hot-pick-card.lowtrust { opacity: 0.92; }
 
 /* High / Low / Current price target rows. Two-line layout per row:
    muted descriptor on top ("Expected Highest Reach"), the actual
