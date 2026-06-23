@@ -34,6 +34,7 @@ import datetime
 import json
 import os
 import sys
+import time
 import traceback
 
 import yfinance as yf
@@ -75,16 +76,46 @@ def already_predicted_today(path: str, date_iso: str, symbol: str) -> bool:
     return False
 
 
+# Yahoo intermittently rate-limits / times out a batch of symbols — most
+# often on the back-to-back XETRA+LSE combined cron, where the second leg
+# hits Yahoo while it's still throttling the first. A throttled call returns
+# an empty DataFrame (or raises), indistinguishable per-call from a symbol
+# that genuinely has no data. Retrying with backoff absorbs the transient
+# throttle: a truly-dead symbol still returns empty after all attempts (and
+# is honestly bucketed skipped-no-data), but a throttled-but-real symbol
+# recovers on a later attempt. This is what stops the whole-region
+# "0 rows, 95%+ no-data -> exit 1" guard from firing on a transient Yahoo
+# hiccup, WITHOUT masking a genuine market-closed / Yahoo-down day (those
+# still return empty after every retry and still go red, as intended).
+_FETCH_RETRIES = 3
+_FETCH_BACKOFF_S = (2, 4, 8)
+
+
 def fetch_recent_candles(symbol: str, period='6mo'):
-    """Pull the trailing window needed to compute indicators (RSI, MACD, BB, etc.)."""
-    df = yf.download(symbol, period=period, interval='1d', progress=False, auto_adjust=False)
-    if df is None or df.empty:
-        return None, 'empty-df'
-    try:
-        ohlcv = extract_ohlcv(df)
-    except Exception as e:
-        return None, f'extract-failed: {e}'
-    return ohlcv, None
+    """Pull the trailing window needed to compute indicators (RSI, MACD, BB, etc.).
+
+    Retries on a transient empty/raising response with exponential backoff
+    before giving up — see module note above.
+    """
+    last_why = 'empty-df'
+    for attempt in range(_FETCH_RETRIES):
+        try:
+            df = yf.download(symbol, period=period, interval='1d', progress=False, auto_adjust=False)
+        except Exception as e:
+            last_why = f'download-raised: {type(e).__name__}: {e}'
+            df = None
+        if df is not None and not df.empty:
+            try:
+                ohlcv = extract_ohlcv(df)
+            except Exception as e:
+                # An extract failure is deterministic (data-shape issue), not
+                # transient — don't waste retries on it.
+                return None, f'extract-failed: {e}'
+            return ohlcv, None
+        # Transient empty/raise: back off and retry, except after the last try.
+        if attempt < _FETCH_RETRIES - 1:
+            time.sleep(_FETCH_BACKOFF_S[attempt])
+    return None, last_why
 
 
 def candles_as_records(close, high, low, volume, n=120):

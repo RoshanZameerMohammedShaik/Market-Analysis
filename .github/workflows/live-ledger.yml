@@ -112,7 +112,16 @@ jobs:
 
       - name: Predict LSE (combined run)
         if: contains(steps.decide.outputs.task, 'predict-LSE-XETRA')
-        run: python record_predictions.py --region LSE
+        # Pause between the XETRA and LSE legs so Yahoo isn't hit with the
+        # second region's full batch while still throttling the first. The
+        # back-to-back call was the dominant cause of the LSE leg getting a
+        # near-100% empty-df response and tripping the region's hard-fail
+        # guard. Combined with the fetch-layer retry/backoff in
+        # record_predictions.py, this keeps the combined run green on
+        # transient throttling while still failing red on a real Yahoo outage.
+        run: |
+          sleep 30
+          python record_predictions.py --region LSE
 
       - name: Predict HKEX
         if: contains(steps.decide.outputs.task, 'predict-HKEX')
@@ -191,7 +200,7 @@ jobs:
               predict-NSE)         python record_predictions.py --region NSE    ;;
               predict-LSE)         python record_predictions.py --region LSE    ;;
               predict-XETRA)       python record_predictions.py --region XETRA  ;;
-              predict-LSE-XETRA)   python record_predictions.py --region XETRA && python record_predictions.py --region LSE ;;
+              predict-LSE-XETRA)   python record_predictions.py --region XETRA && sleep 30 && python record_predictions.py --region LSE ;;
               predict-HKEX)        python record_predictions.py --region HKEX   ;;
               predict-TYO)         python record_predictions.py --region TYO    ;;
               predict-ASX)         python record_predictions.py --region ASX    ;;
