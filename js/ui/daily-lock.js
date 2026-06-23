@@ -14,6 +14,8 @@
 // Locked calls live in localStorage keyed by symbol+date, so they survive
 // reloads within the day and auto-expire when the date rolls over.
 
+import { readTodayLock } from '../ledger-reader.js';
+
 const LS_KEY = 'ma-daily-locks-v1';
 
 function todayIso() { return new Date().toISOString().slice(0, 10); }
@@ -69,6 +71,43 @@ export function lockCall(symbol, prediction) {
     };
     saveAll(map);
     return map[k];
+}
+
+// The AUTHORITATIVE daily lock, ledger-first.
+//
+// The day's locked call should be the engine's OPEN-of-market commitment —
+// the row the Python cron wrote at market open with the OPEN price as entry.
+// That's what makes "did today's prediction reach its target by close?" an
+// honest question: the baseline is the morning open, identical for everyone,
+// regardless of when (or whether) the user opened this symbol's page.
+//
+// Order:
+//   1. ledger row for symbol+today (readTodayLock) — open-locked entry,
+//      signal, confidence, derived target band. PRIMARY.
+//   2. else → the browser visit-time lock (lockCall below). FALLBACK, only
+//      for symbols outside the cron universe or before the cron has run for
+//      that market today.
+//
+// `livePrediction` is the current engine output; we use it ONLY on the
+// fallback path (to create/read the local visit-lock) and to tag currency on
+// the ledger lock (the ledger row doesn't store currency). Returns the same
+// record shape from both paths, plus `source` ∈ 'ledger' | 'local'.
+export async function getEffectiveLock(symbol, livePrediction) {
+    if (!symbol) return null;
+    try {
+        const led = await readTodayLock(symbol);
+        if (led) {
+            // Ledger has no currency column; inherit it from the live view so
+            // the card formats the locked prices in the symbol's native unit.
+            led.currency = (livePrediction && livePrediction.currency) || led.currency || 'USD';
+            return led;
+        }
+    } catch (_) { /* fall through to local visit-lock */ }
+    // Fallback: visit-time local lock (the legacy behavior), tagged as such.
+    if (livePrediction && livePrediction.signal) lockCall(symbol, livePrediction);
+    const local = getLockedCall(symbol);
+    if (local && !local.source) local.source = 'local';
+    return local;
 }
 
 // Compute the live STATUS of a locked call given the current price.

@@ -9,7 +9,7 @@ import { renderTrustPanel } from './trust-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 import { sharePredictionCard } from './share-card.js';
-import { lockCall, getLockedCall, computeStatus } from './daily-lock.js';
+import { getEffectiveLock, computeStatus } from './daily-lock.js';
 import { revealUp, revealText, revealStagger, canAnimate } from './motion.js';
 import { signalLanded } from './ui-sound.js';
 import { renderSuggestedDecision } from './suggested-decision.js';
@@ -20,17 +20,19 @@ let lastShownSymbol = null;
 export async function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
 
-    // TODAY'S LOCKED CALL: the engine recomputes live, but the prediction
-    // of record is the FIRST one made today and it HOLDS all day. Lock it
-    // (no-op if already locked today), then display the LOCKED signal /
-    // confidence / targets as the hero — never the drifting live recompute.
-    // The live read instead drives a STATUS line below ("on track" /
-    // "target reached" / "stopped"). One number to act on; the live price
-    // tells you how it's playing out, not a competing call. We only lock
-    // genuine analyses (skip when prediction has no signal).
+    // TODAY'S LOCKED CALL — anchored to the MARKET OPEN, not the page visit.
+    // The day's prediction of record is the one the Python cron committed at
+    // market open (open price = entry), read from the ledger via
+    // getEffectiveLock. The on-screen engine still recomputes live, but the
+    // LOCKED signal / confidence / target band is what's displayed as the hero
+    // — stable all day, identical regardless of when the user opens the page.
+    // The live price drives only the STATUS line below ("on track" / "target
+    // reached" / "stopped"), never a competing call. If the symbol isn't in the
+    // cron universe (or the market hasn't opened yet today), getEffectiveLock
+    // falls back to a visit-time local lock so every symbol still shows a held
+    // call. (Skip when the live prediction has no signal.)
     const lockSym = state.currentSymbol;
-    if (lockSym && prediction?.signal) lockCall(lockSym, prediction);
-    const locked = lockSym ? getLockedCall(lockSym) : null;
+    const locked = lockSym ? await getEffectiveLock(lockSym, prediction) : null;
     // Build the view object: locked values win for the decision fields
     // (signal, confidence, the predicted high/low targets); everything else
     // (reasons, breakdown, news, support/resistance/ATR context) comes from

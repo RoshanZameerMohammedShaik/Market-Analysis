@@ -418,6 +418,75 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
     };
 }
 
+// Today's OPEN-LOCKED call for ONE symbol, read from the cron ledger.
+//
+// This is the AUTHORITATIVE daily lock. record_predictions.py runs at each
+// market's open and writes a row with the OPEN price as `entry` plus the
+// signal / confidence / expectedMove the engine committed to at open. The
+// browser must surface THAT as the day's locked call — not a lock invented
+// at page-visit time (which pins whatever price happened to be live when the
+// tab was opened, e.g. mid-afternoon, instead of the morning open). The UI
+// (daily-lock.getEffectiveLock) falls back to a visit-time lock only when
+// this returns null: the symbol isn't in the cron universe, or the market
+// hasn't opened / the cron hasn't run for it yet today.
+//
+// Target band: the ledger stores `entry` + `expectedMove` (ATR-derived) but
+// not the high/low band, so we derive it here from entry + expectedMove +
+// signal + confidence using the SAME core formula as
+// analysis.calculatePriceTargets — specifically its clamp-free part; the BB /
+// recent-high clamps there need candle data the ledger row doesn't carry.
+// Anchored to the locked OPEN entry, so the band is STABLE all day instead of
+// drifting with the live recompute. Date match is UTC (the cron writes UTC
+// dates via utcnow(), and todayIso() below is UTC) so the two agree on which
+// trading day "today" is.
+export async function readTodayLock(symbol) {
+    if (!symbol) return null;
+    const rows = await loadLedger();
+    if (!rows.length) return null;
+    const today = new Date().toISOString().slice(0, 10);   // UTC — matches the cron
+    const keys = ledgerKeyCandidates(symbol);
+    // Scan newest→oldest for today's row for this symbol (one per day expected).
+    let row = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const r = rows[i];
+        if (r.date === today && keys.has(String(r.symbol).toUpperCase())) { row = r; break; }
+    }
+    if (!row || !Number.isFinite(row.entry) || !row.signal) return null;
+
+    const entry = row.entry;
+    const em = Number.isFinite(row.expectedMove) ? row.expectedMove : null;
+    const cf = (Number(row.confidence) || 0) / 100;
+    let predictedHigh = null, predictedLow = null;
+    if (em != null && em > 0) {
+        if (row.signal === 'BUY') {
+            predictedHigh = entry + em * (0.8 + cf * 0.7);
+            predictedLow  = entry - em * (0.3 + (1 - cf) * 0.3);
+        } else if (row.signal === 'SELL') {
+            predictedHigh = entry + em * (0.3 + (1 - cf) * 0.3);
+            predictedLow  = entry - em * (0.8 + cf * 0.7);
+        } else {
+            predictedHigh = entry + em * 0.6;
+            predictedLow  = entry - em * 0.6;
+        }
+        predictedHigh = +predictedHigh.toFixed(4);
+        predictedLow = +predictedLow.toFixed(4);
+    }
+    // Shape mirrors daily-lock's local lock record so computeStatus + the
+    // signal.js pinning logic consume it unchanged. `source` lets the UI label
+    // it as the market-open lock vs a visit-time fallback.
+    return {
+        source: 'ledger',
+        date: row.date,
+        lockedAt: row.predictedAt || `${row.date}T00:00:00Z`,
+        signal: row.signal,
+        confidence: Number(row.confidence) || 0,
+        entry,
+        predictedHigh,
+        predictedLow,
+        region: row.region || null,
+    };
+}
+
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
