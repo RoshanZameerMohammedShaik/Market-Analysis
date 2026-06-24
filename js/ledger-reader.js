@@ -454,26 +454,44 @@ export async function readTodayLock(symbol) {
     if (!row || !Number.isFinite(row.entry) || !row.signal) return null;
 
     const entry = row.entry;
-    const em = Number.isFinite(row.expectedMove) ? row.expectedMove : null;
-    const cf = (Number(row.confidence) || 0) / 100;
+    // PREFER the full price-target band the cron LOCKED at open (possible +
+    // probable high/low, anchored to the open entry). This is the engine's own
+    // committed band — one engine, one number, no re-derivation. Older rows
+    // (predating priceTargets storage) won't have it; for those we fall back to
+    // deriving the possible band from the stored expectedMove so the lock still
+    // shows a band rather than nothing.
+    const pt = row.priceTargets || null;
     let predictedHigh = null, predictedLow = null;
-    if (em != null && em > 0) {
-        if (row.signal === 'BUY') {
-            predictedHigh = entry + em * (0.8 + cf * 0.7);
-            predictedLow  = entry - em * (0.3 + (1 - cf) * 0.3);
-        } else if (row.signal === 'SELL') {
-            predictedHigh = entry + em * (0.3 + (1 - cf) * 0.3);
-            predictedLow  = entry - em * (0.8 + cf * 0.7);
-        } else {
-            predictedHigh = entry + em * 0.6;
-            predictedLow  = entry - em * 0.6;
+    let priceTargets = null;
+    if (pt && Number.isFinite(pt.predictedHigh) && Number.isFinite(pt.predictedLow)) {
+        predictedHigh = pt.predictedHigh;
+        predictedLow = pt.predictedLow;
+        priceTargets = pt;   // full possible + probable band, locked at open
+    } else {
+        // Legacy fallback: derive possible band from expectedMove (matches the
+        // engine's possible-band formula; no probable band for legacy rows).
+        const em = Number.isFinite(row.expectedMove) ? row.expectedMove : null;
+        const cf = (Number(row.confidence) || 0) / 100;
+        if (em != null && em > 0) {
+            if (row.signal === 'BUY') {
+                predictedHigh = entry + em * (0.8 + cf * 0.7);
+                predictedLow  = entry - em * (0.3 + (1 - cf) * 0.3);
+            } else if (row.signal === 'SELL') {
+                predictedHigh = entry + em * (0.3 + (1 - cf) * 0.3);
+                predictedLow  = entry - em * (0.8 + cf * 0.7);
+            } else {
+                predictedHigh = entry + em * 0.6;
+                predictedLow  = entry - em * 0.6;
+            }
+            predictedHigh = +predictedHigh.toFixed(4);
+            predictedLow = +predictedLow.toFixed(4);
         }
-        predictedHigh = +predictedHigh.toFixed(4);
-        predictedLow = +predictedLow.toFixed(4);
     }
     // Shape mirrors daily-lock's local lock record so computeStatus + the
     // signal.js pinning logic consume it unchanged. `source` lets the UI label
-    // it as the market-open lock vs a visit-time fallback.
+    // it as the market-open lock vs a visit-time fallback. `priceTargets`
+    // carries the full locked band (when present) so signal.js can pin the
+    // probable band too, not just the possible high/low.
     return {
         source: 'ledger',
         date: row.date,
@@ -483,6 +501,7 @@ export async function readTodayLock(symbol) {
         entry,
         predictedHigh,
         predictedLow,
+        priceTargets,
         region: row.region || null,
     };
 }

@@ -194,6 +194,13 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         # target — no JS<->Python re-derivation. None for non-directional /
         # ATR-unavailable rows; those simply get capturedPct=null.
         'expectedMove': pred.get('expectedMove'),
+        # Full possible + probable price-target bands the engine LOCKED at this
+        # symbol's market open, anchored to the open entry. The browser
+        # (daily-lock via ledger-reader.readTodayLock) reads these directly so
+        # the displayed band is the one committed at open, held all day — not a
+        # re-derivation that could drift from the engine. None for
+        # NEUTRAL/NO_TRADE (no directional band) or when ATR was unavailable.
+        'priceTargets': pred.get('priceTargets'),
         'indicators': pred.get('indicators') or {},
         'horizons': {str(h): None for h in HORIZONS_DAYS},
     }

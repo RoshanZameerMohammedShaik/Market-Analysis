@@ -215,6 +215,104 @@ def expected_move_for(candles, signal, confidence):
     return round(dist, 4)
 
 
+def _bollinger_bands(closes, period=20, std_dev=2):
+    """Full Bollinger band edges (upper/middle/lower) for the price-target
+    clamps. The module's bollinger() returns only percent_b; the target math
+    needs the band edges, mirroring js/analysis.js calculateBollingerBands."""
+    if len(closes) < period:
+        return None
+    sl = closes[-period:]
+    mid = sum(sl) / period
+    var = sum((v - mid) ** 2 for v in sl) / period
+    std = math.sqrt(var)
+    return {'upper': mid + std_dev * std, 'middle': mid, 'lower': mid - std_dev * std}
+
+
+def price_targets(candles, signal, confidence, timeframe='today'):
+    """Possible + probable price-target bands, LOCKED at market open.
+
+    Mirrors js/analysis.js calculatePriceTargets EXACTLY — same ATR multiplier
+    (0.8 for the day horizon), same confidence-scaled possible-band distances,
+    the same Bollinger-width and recent-high/low clamps, and the same
+    probable-band math. Storing this on the ledger row at open means the
+    browser displays the SAME band the engine committed to at the open price,
+    held all day and graded by close — one engine, one number, no JS<->Python
+    re-derivation drift. Anchored to the open price (candles[-1].close, which
+    is the entry the row locks). Returns None when there isn't enough data."""
+    if not candles or len(candles) < 20:
+        return None
+    current_price = candles[-1]['close']
+    a = atr(candles, 14)
+    if not a or current_price <= 0:
+        return None
+    recent = candles[-20:]
+    recent_high = max(c['high'] for c in recent)
+    recent_low = min(c['low'] for c in recent)
+    closes = [c['close'] for c in candles]
+    bb = _bollinger_bands(closes, 20, 2)
+    atr_mult = 0.8 if timeframe == 'today' else 1.2
+    expected_move = a * atr_mult
+    cf = confidence / 100.0
+
+    if signal == 'BUY':
+        predicted_high = current_price + expected_move * (0.8 + cf * 0.7)
+        predicted_low = current_price - expected_move * (0.3 + (1 - cf) * 0.3)
+    elif signal == 'SELL':
+        predicted_high = current_price + expected_move * (0.3 + (1 - cf) * 0.3)
+        predicted_low = current_price - expected_move * (0.8 + cf * 0.7)
+    else:
+        predicted_high = current_price + expected_move * 0.6
+        predicted_low = current_price - expected_move * 0.6
+
+    if bb:
+        max_up = current_price + (bb['upper'] - bb['middle']) * 2
+        max_down = current_price - (bb['middle'] - bb['lower']) * 2
+        predicted_high = min(predicted_high, max_up)
+        predicted_low = max(predicted_low, max_down)
+
+    if predicted_high > recent_high * 1.05:
+        predicted_high = recent_high + (predicted_high - recent_high) * 0.5
+    if predicted_low < recent_low * 0.95:
+        predicted_low = recent_low - (recent_low - predicted_low) * 0.5
+
+    high_pct = ((predicted_high - current_price) / current_price) * 100
+    low_pct = ((predicted_low - current_price) / current_price) * 100
+
+    # Probable band — narrower zone biased toward the called direction.
+    probable_inner = 0.18 + (1 - cf) * 0.18
+    probable_outer = 0.45 + (1 - cf) * 0.20
+    if signal == 'BUY':
+        probable_high = current_price + expected_move * probable_outer
+        probable_low = current_price - expected_move * probable_inner
+    elif signal == 'SELL':
+        probable_high = current_price + expected_move * probable_inner
+        probable_low = current_price - expected_move * probable_outer
+    else:
+        probable_high = current_price + expected_move * 0.30
+        probable_low = current_price - expected_move * 0.30
+    probable_high = min(probable_high, predicted_high)
+    probable_low = max(probable_low, predicted_low)
+    probable_high_pct = ((probable_high - current_price) / current_price) * 100
+    probable_low_pct = ((probable_low - current_price) / current_price) * 100
+
+    return {
+        'currentPrice': round(current_price, 4),   # == the locked open entry
+        'predictedHigh': round(predicted_high, 2),
+        'predictedLow': round(predicted_low, 2),
+        'highPercent': round(high_pct, 2),
+        'lowPercent': round(low_pct, 2),
+        'probableHigh': round(probable_high, 2),
+        'probableLow': round(probable_low, 2),
+        'probableHighPercent': round(probable_high_pct, 2),
+        'probableLowPercent': round(probable_low_pct, 2),
+        'expectedMove': round(expected_move, 2),
+        'atr': round(a, 2),
+        'support': round(recent_low, 2),
+        'resistance': round(recent_high, 2),
+        'timeframe': timeframe,
+    }
+
+
 def generate_prediction(candles):
     if len(candles) < 30:
         return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
@@ -341,9 +439,17 @@ def generate_prediction(candles):
     expected_move = None
     if signal in ('BUY', 'SELL'):
         expected_move = expected_move_for(candles, signal, confidence)
+    # Full possible + probable price-target bands, locked at open right after
+    # the signal — the browser reads these directly instead of re-deriving an
+    # approximate band from expectedMove. Computed for directional calls (the
+    # bands are direction-shaped); None for NEUTRAL/NO_TRADE.
+    targets = None
+    if signal in ('BUY', 'SELL'):
+        targets = price_targets(candles, signal, confidence)
     return {'signal': signal, 'confidence': confidence, 'indicators': indicators,
             'weightedScore': weighted_score, 'dispersion': dispersion,
-            'expectedMove': expected_move, 'engineVersion': ENGINE_VERSION}
+            'expectedMove': expected_move, 'priceTargets': targets,
+            'engineVersion': ENGINE_VERSION}
 
 
 def classify_tier(price, avg_volume):

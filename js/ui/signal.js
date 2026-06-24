@@ -40,11 +40,21 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     let view = prediction;
     if (locked) {
         let pinnedTargets = prediction.priceTargets;
-        if (pinnedTargets && locked.predictedHigh != null && locked.predictedLow != null && Number.isFinite(locked.entry) && locked.entry > 0) {
-            // Pin the headline high/low to the locked values + recompute
-            // their % against the locked entry, so the predicted range the
-            // user acts on doesn't drift with live price. Keep the live
-            // currentPrice so the card still shows where price is NOW.
+        if (locked.priceTargets && Number.isFinite(locked.priceTargets.predictedHigh)) {
+            // BEST CASE: the cron locked a FULL band at market open (possible +
+            // probable high/low, anchored to the open entry). Use it wholesale
+            // — this is the engine's own committed band, identical for everyone
+            // all day. Keep only the LIVE currentPrice so the card still shows
+            // where price is NOW relative to the locked band.
+            pinnedTargets = {
+                ...locked.priceTargets,
+                currentPrice: prediction.priceTargets?.currentPrice ?? locked.priceTargets.currentPrice,
+            };
+        } else if (pinnedTargets && locked.predictedHigh != null && locked.predictedLow != null && Number.isFinite(locked.entry) && locked.entry > 0) {
+            // FALLBACK (legacy ledger row / visit-time lock): pin only the
+            // headline possible high/low to the locked values + recompute their
+            // % against the locked entry, so the range doesn't drift with live
+            // price. Keep the live currentPrice for the "where price is NOW" read.
             pinnedTargets = {
                 ...pinnedTargets,
                 predictedHigh: locked.predictedHigh,
