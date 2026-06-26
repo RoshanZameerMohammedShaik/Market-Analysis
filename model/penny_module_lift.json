@@ -1,12 +1,12 @@
 {
-  "runDate": "2026-06-25T07:54:59.744571Z",
-  "sampleSize": 3912,
+  "runDate": "2026-06-26T08:06:50.004881Z",
+  "sampleSize": 3952,
   "hitRateWith": 51.9,
   "hitRateWithout": 51.4,
   "liftPp": 0.6,
   "ciHalfWidthPp": 2.2,
   "confident": true,
-  "finraSamples": 726,
+  "finraSamples": 727,
   "caveats": [
     "FINRA-only replay; OpenInsider + Social velocity historical replay pending.",
     "Backtest accuracy != live accuracy due to penny survivorship bias.",
