@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-07-04T23:03:51Z",
+  "generatedAt": "2026-07-05T23:06:11Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
-  "skippedOldEngineResolved": 19628,
+  "skippedOldEngineResolved": 19634,
   "byHorizon": {
     "1": {
       "BUY": {
@@ -483,6 +483,6 @@
       }
     }
   },
-  "totalRowsConsidered": 29353,
+  "totalRowsConsidered": 29524,
   "totalResolvedHorizons": 28911
 }
