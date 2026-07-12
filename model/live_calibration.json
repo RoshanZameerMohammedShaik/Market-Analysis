@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T22:54:14Z",
+  "generatedAt": "2026-07-12T22:54:18Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 20153,
@@ -293,9 +293,9 @@
       },
       "SELL": {
         "50-55": {
-          "n": 544,
+          "n": 549,
           "predicted": 52.1,
-          "actual": 51.8
+          "actual": 52.3
         },
         "55-60": {
           "n": 171,
@@ -482,9 +482,9 @@
         "actual": 75.3
       },
       "50-55": {
-        "n": 13139,
+        "n": 13144,
         "predicted": 51.9,
-        "actual": 60.8
+        "actual": 60.9
       },
       "65-70": {
         "n": 536,
@@ -498,6 +498,6 @@
       }
     }
   },
-  "totalRowsConsidered": 34693,
-  "totalResolvedHorizons": 40425
+  "totalRowsConsidered": 34863,
+  "totalResolvedHorizons": 40430
 }
