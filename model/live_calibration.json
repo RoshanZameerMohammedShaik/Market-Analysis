@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-31T23:07:39Z",
+  "generatedAt": "2026-08-01T23:00:49Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 20153,
@@ -259,12 +259,12 @@
     "20": {
       "BUY": {
         "50-55": {
-          "n": 2536,
+          "n": 2543,
           "predicted": 51.8,
           "actual": 48.8
         },
         "55-60": {
-          "n": 1679,
+          "n": 1681,
           "predicted": 56.9,
           "actual": 51.3
         },
@@ -286,29 +286,29 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 708,
+          "n": 714,
           "predicted": 50.0,
-          "actual": 6.4
+          "actual": 6.6
         }
       },
       "SELL": {
         "50-55": {
-          "n": 2354,
+          "n": 2363,
           "predicted": 52.0,
-          "actual": 53.3
+          "actual": 53.2
         },
         "55-60": {
-          "n": 1029,
+          "n": 1040,
           "predicted": 57.3,
-          "actual": 46.9
+          "actual": 46.8
         },
         "60-65": {
-          "n": 273,
+          "n": 279,
           "predicted": 61.5,
-          "actual": 43.6
+          "actual": 43.7
         },
         "65-70": {
-          "n": 99,
+          "n": 103,
           "predicted": 66.4,
           "actual": 51.5
         },
@@ -416,19 +416,19 @@
     },
     "NSE": {
       "50-55": {
-        "n": 2286,
-        "predicted": 51.8,
-        "actual": 66.1
+        "n": 2294,
+        "predicted": 51.9,
+        "actual": 66.0
       },
       "55-60": {
-        "n": 1398,
+        "n": 1408,
         "predicted": 57.2,
-        "actual": 81.2
+        "actual": 80.9
       },
       "60-65": {
-        "n": 341,
+        "n": 345,
         "predicted": 61.8,
-        "actual": 82.4
+        "actual": 81.7
       },
       "65-70": {
         "n": 58,
@@ -477,24 +477,24 @@
     },
     "NYSE": {
       "55-60": {
-        "n": 13403,
+        "n": 13406,
         "predicted": 57.1,
         "actual": 74.4
       },
       "60-65": {
-        "n": 2702,
-        "predicted": 61.6,
+        "n": 2704,
+        "predicted": 61.5,
         "actual": 75.1
       },
       "50-55": {
-        "n": 24882,
+        "n": 24890,
         "predicted": 51.8,
         "actual": 60.6
       },
       "65-70": {
-        "n": 983,
+        "n": 987,
         "predicted": 66.5,
-        "actual": 70.3
+        "actual": 70.2
       },
       "70-75": {
         "n": 24,
@@ -503,6 +503,6 @@
       }
     }
   },
-  "totalRowsConsidered": 50282,
-  "totalResolvedHorizons": 73233
+  "totalRowsConsidered": 50452,
+  "totalResolvedHorizons": 73278
 }
