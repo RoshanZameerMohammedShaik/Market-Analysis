@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-04T23:09:12Z",
+  "generatedAt": "2026-08-05T23:06:44Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 20153,
@@ -7,58 +7,58 @@
     "1": {
       "BUY": {
         "50-55": {
-          "n": 5294,
+          "n": 5384,
           "predicted": 51.7,
-          "actual": 67.2
+          "actual": 67.3
         },
         "55-60": {
-          "n": 3319,
+          "n": 3374,
           "predicted": 57.0,
-          "actual": 86.7
+          "actual": 86.8
         },
         "60-65": {
-          "n": 737,
+          "n": 746,
           "predicted": 61.5,
           "actual": 89.7
         },
         "65-70": {
-          "n": 183,
+          "n": 187,
           "predicted": 66.6,
-          "actual": 88.5
+          "actual": 88.2
         },
         "70-75": {
-          "n": 20,
+          "n": 21,
           "predicted": 71.2,
-          "actual": 95.0
+          "actual": 95.2
         }
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 1473,
+          "n": 1506,
           "predicted": 50.0,
           "actual": 11.0
         }
       },
       "SELL": {
         "50-55": {
-          "n": 5039,
+          "n": 5176,
           "predicted": 51.9,
-          "actual": 64.3
+          "actual": 64.5
         },
         "55-60": {
-          "n": 2033,
+          "n": 2093,
           "predicted": 57.3,
-          "actual": 85.6
-        },
-        "60-65": {
-          "n": 519,
-          "predicted": 61.5,
           "actual": 85.9
         },
+        "60-65": {
+          "n": 538,
+          "predicted": 61.5,
+          "actual": 86.2
+        },
         "65-70": {
-          "n": 206,
+          "n": 214,
           "predicted": 66.4,
-          "actual": 73.8
+          "actual": 74.3
         },
         "70-75": {
           "n": 1,
@@ -70,24 +70,24 @@
     "3": {
       "BUY": {
         "50-55": {
-          "n": 4985,
+          "n": 5176,
           "predicted": 51.7,
-          "actual": 67.4
+          "actual": 67.5
         },
         "55-60": {
-          "n": 3111,
+          "n": 3247,
           "predicted": 57.0,
-          "actual": 85.3
+          "actual": 85.9
         },
         "60-65": {
-          "n": 695,
+          "n": 722,
           "predicted": 61.5,
-          "actual": 88.9
+          "actual": 89.2
         },
         "65-70": {
-          "n": 171,
+          "n": 181,
           "predicted": 66.6,
-          "actual": 89.5
+          "actual": 90.1
         },
         "70-75": {
           "n": 20,
@@ -97,29 +97,29 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 1399,
+          "n": 1438,
           "predicted": 50.0,
-          "actual": 11.9
+          "actual": 11.8
         }
       },
       "SELL": {
         "50-55": {
-          "n": 4758,
+          "n": 4891,
           "predicted": 51.9,
-          "actual": 63.3
+          "actual": 62.7
         },
         "55-60": {
-          "n": 1937,
+          "n": 1980,
           "predicted": 57.3,
-          "actual": 83.7
+          "actual": 83.3
         },
         "60-65": {
-          "n": 494,
+          "n": 506,
           "predicted": 61.5,
-          "actual": 85.6
+          "actual": 85.8
         },
         "65-70": {
-          "n": 195,
+          "n": 199,
           "predicted": 66.4,
           "actual": 74.9
         },
@@ -133,24 +133,24 @@
     "5": {
       "BUY": {
         "50-55": {
-          "n": 4716,
+          "n": 4847,
           "predicted": 51.7,
-          "actual": 63.8
+          "actual": 64.1
         },
         "55-60": {
-          "n": 2905,
-          "predicted": 56.9,
-          "actual": 79.6
+          "n": 3023,
+          "predicted": 57.0,
+          "actual": 80.2
         },
         "60-65": {
-          "n": 651,
+          "n": 674,
           "predicted": 61.5,
-          "actual": 84.8
+          "actual": 85.3
         },
         "65-70": {
-          "n": 143,
+          "n": 161,
           "predicted": 66.6,
-          "actual": 84.6
+          "actual": 85.7
         },
         "70-75": {
           "n": 20,
@@ -160,31 +160,31 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 1354,
+          "n": 1370,
           "predicted": 50.0,
           "actual": 17.7
         }
       },
       "SELL": {
         "50-55": {
-          "n": 4520,
-          "predicted": 51.9,
-          "actual": 63.2
+          "n": 4631,
+          "predicted": 52.0,
+          "actual": 63.5
         },
         "55-60": {
-          "n": 1848,
-          "predicted": 57.2,
-          "actual": 82.3
+          "n": 1902,
+          "predicted": 57.3,
+          "actual": 82.6
         },
         "60-65": {
-          "n": 465,
+          "n": 485,
           "predicted": 61.5,
-          "actual": 81.7
+          "actual": 82.3
         },
         "65-70": {
-          "n": 184,
+          "n": 191,
           "predicted": 66.4,
-          "actual": 72.8
+          "actual": 73.3
         },
         "70-75": {
           "n": 1,
@@ -196,24 +196,24 @@
     "10": {
       "BUY": {
         "50-55": {
-          "n": 4042,
+          "n": 4160,
           "predicted": 51.8,
-          "actual": 53.9
+          "actual": 53.7
         },
         "55-60": {
-          "n": 2450,
+          "n": 2506,
           "predicted": 56.9,
-          "actual": 57.8
+          "actual": 57.4
         },
         "60-65": {
-          "n": 522,
+          "n": 534,
           "predicted": 61.5,
-          "actual": 64.2
+          "actual": 63.7
         },
         "65-70": {
-          "n": 109,
-          "predicted": 66.5,
-          "actual": 63.3
+          "n": 114,
+          "predicted": 66.6,
+          "actual": 64.0
         },
         "70-75": {
           "n": 16,
@@ -223,31 +223,31 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 1199,
+          "n": 1230,
           "predicted": 50.0,
-          "actual": 29.8
+          "actual": 30.3
         }
       },
       "SELL": {
         "50-55": {
-          "n": 3926,
+          "n": 4037,
           "predicted": 52.0,
-          "actual": 54.9
+          "actual": 55.2
         },
         "55-60": {
-          "n": 1635,
+          "n": 1668,
           "predicted": 57.2,
-          "actual": 52.8
+          "actual": 53.1
         },
         "60-65": {
-          "n": 417,
+          "n": 420,
           "predicted": 61.5,
-          "actual": 58.5
+          "actual": 58.8
         },
         "65-70": {
-          "n": 160,
+          "n": 163,
           "predicted": 66.3,
-          "actual": 56.9
+          "actual": 57.1
         },
         "70-75": {
           "n": 1,
@@ -259,19 +259,19 @@
     "20": {
       "BUY": {
         "50-55": {
-          "n": 2804,
+          "n": 2925,
           "predicted": 51.8,
           "actual": 48.6
         },
         "55-60": {
-          "n": 1813,
+          "n": 1880,
           "predicted": 57.0,
-          "actual": 50.3
+          "actual": 50.1
         },
         "60-65": {
-          "n": 345,
+          "n": 360,
           "predicted": 61.6,
-          "actual": 51.3
+          "actual": 50.0
         },
         "65-70": {
           "n": 81,
@@ -286,31 +286,31 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 787,
+          "n": 831,
           "predicted": 50.0,
           "actual": 6.9
         }
       },
       "SELL": {
         "50-55": {
-          "n": 2704,
+          "n": 2782,
           "predicted": 52.0,
-          "actual": 53.2
+          "actual": 53.1
         },
         "55-60": {
-          "n": 1220,
+          "n": 1255,
           "predicted": 57.3,
-          "actual": 47.9
+          "actual": 48.2
         },
         "60-65": {
-          "n": 338,
+          "n": 346,
           "predicted": 61.5,
-          "actual": 45.9
+          "actual": 45.4
         },
         "65-70": {
-          "n": 123,
+          "n": 126,
           "predicted": 66.4,
-          "actual": 50.4
+          "actual": 50.8
         },
         "70-75": {
           "n": 1,
@@ -323,24 +323,24 @@
   "byRegion": {
     "CRYPTO": {
       "50-55": {
-        "n": 9361,
-        "predicted": 52.0,
+        "n": 9641,
+        "predicted": 51.9,
         "actual": 60.7
       },
       "55-60": {
-        "n": 4567,
-        "predicted": 57.0,
-        "actual": 68.3
+        "n": 4741,
+        "predicted": 57.1,
+        "actual": 68.8
       },
       "60-65": {
-        "n": 1428,
+        "n": 1476,
         "predicted": 61.5,
-        "actual": 78.1
+        "actual": 78.2
       },
       "65-70": {
-        "n": 303,
+        "n": 318,
         "predicted": 66.4,
-        "actual": 73.6
+        "actual": 74.8
       },
       "70-75": {
         "n": 60,
@@ -350,19 +350,19 @@
     },
     "ASX": {
       "50-55": {
-        "n": 1069,
+        "n": 1101,
         "predicted": 51.8,
-        "actual": 65.9
+        "actual": 66.3
       },
       "60-65": {
-        "n": 162,
+        "n": 166,
         "predicted": 61.2,
         "actual": 74.1
       },
       "55-60": {
-        "n": 602,
+        "n": 615,
         "predicted": 57.0,
-        "actual": 79.2
+        "actual": 79.5
       },
       "65-70": {
         "n": 44,
@@ -372,31 +372,31 @@
     },
     "TYO": {
       "55-60": {
-        "n": 505,
+        "n": 523,
         "predicted": 57.2,
-        "actual": 85.9
+        "actual": 86.0
       },
       "50-55": {
-        "n": 1256,
+        "n": 1292,
         "predicted": 51.7,
-        "actual": 62.3
+        "actual": 62.6
       },
       "60-65": {
-        "n": 94,
-        "predicted": 61.2,
-        "actual": 92.6
+        "n": 99,
+        "predicted": 61.1,
+        "actual": 92.9
       },
       "65-70": {
-        "n": 24,
+        "n": 27,
         "predicted": 66.8,
-        "actual": 87.5
+        "actual": 88.9
       }
     },
     "HKEX": {
       "55-60": {
-        "n": 530,
+        "n": 538,
         "predicted": 57.1,
-        "actual": 81.7
+        "actual": 81.6
       },
       "65-70": {
         "n": 34,
@@ -404,36 +404,36 @@
         "actual": 94.1
       },
       "60-65": {
-        "n": 145,
-        "predicted": 61.6,
-        "actual": 86.9
+        "n": 147,
+        "predicted": 61.5,
+        "actual": 86.4
       },
       "50-55": {
-        "n": 1159,
+        "n": 1190,
         "predicted": 51.9,
-        "actual": 68.5
+        "actual": 68.2
       }
     },
     "NSE": {
       "50-55": {
-        "n": 2444,
+        "n": 2511,
         "predicted": 51.8,
-        "actual": 66.0
+        "actual": 66.2
       },
       "55-60": {
-        "n": 1493,
+        "n": 1534,
         "predicted": 57.2,
-        "actual": 81.0
+        "actual": 81.4
       },
       "60-65": {
-        "n": 368,
+        "n": 374,
         "predicted": 61.8,
-        "actual": 81.2
+        "actual": 81.6
       },
       "65-70": {
-        "n": 63,
-        "predicted": 66.8,
-        "actual": 85.7
+        "n": 68,
+        "predicted": 66.7,
+        "actual": 85.3
       }
     },
     "LSE": {
@@ -477,32 +477,32 @@
     },
     "NYSE": {
       "55-60": {
-        "n": 14284,
+        "n": 14687,
         "predicted": 57.1,
-        "actual": 74.4
+        "actual": 74.5
       },
       "60-65": {
-        "n": 2901,
+        "n": 2984,
         "predicted": 61.6,
         "actual": 75.3
       },
       "50-55": {
-        "n": 26709,
+        "n": 27484,
         "predicted": 51.8,
         "actual": 60.5
       },
       "65-70": {
-        "n": 1077,
+        "n": 1116,
         "predicted": 66.5,
-        "actual": 70.3
+        "actual": 70.7
       },
       "70-75": {
-        "n": 28,
+        "n": 29,
         "predicted": 71.0,
-        "actual": 67.9
+        "actual": 69.0
       }
     }
   },
-  "totalRowsConsidered": 52586,
-  "totalResolvedHorizons": 78097
+  "totalRowsConsidered": 53570,
+  "totalResolvedHorizons": 80349
 }
