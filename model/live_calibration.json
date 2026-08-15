@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-14T22:30:10Z",
+  "generatedAt": "2026-08-15T22:25:29Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 20153,
@@ -259,14 +259,14 @@
     "20": {
       "BUY": {
         "50-55": {
-          "n": 3736,
+          "n": 3741,
           "predicted": 51.8,
-          "actual": 48.1
+          "actual": 48.2
         },
         "55-60": {
-          "n": 2304,
+          "n": 2307,
           "predicted": 56.9,
-          "actual": 49.3
+          "actual": 49.2
         },
         "60-65": {
           "n": 481,
@@ -286,26 +286,26 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 1128,
+          "n": 1129,
           "predicted": 50.0,
           "actual": 7.2
         }
       },
       "SELL": {
         "50-55": {
-          "n": 3629,
+          "n": 3636,
           "predicted": 52.0,
           "actual": 51.5
         },
         "55-60": {
-          "n": 1540,
+          "n": 1543,
           "predicted": 57.3,
           "actual": 48.5
         },
         "60-65": {
-          "n": 399,
-          "predicted": 61.4,
-          "actual": 46.1
+          "n": 400,
+          "predicted": 61.5,
+          "actual": 46.0
         },
         "65-70": {
           "n": 153,
@@ -416,14 +416,14 @@
     },
     "NSE": {
       "50-55": {
-        "n": 3140,
+        "n": 3148,
         "predicted": 51.9,
         "actual": 67.0
       },
       "55-60": {
-        "n": 1831,
+        "n": 1837,
         "predicted": 57.2,
-        "actual": 82.0
+        "actual": 81.9
       },
       "60-65": {
         "n": 413,
@@ -482,12 +482,12 @@
         "actual": 74.9
       },
       "60-65": {
-        "n": 3585,
+        "n": 3586,
         "predicted": 61.6,
         "actual": 76.2
       },
       "50-55": {
-        "n": 32441,
+        "n": 32445,
         "predicted": 51.8,
         "actual": 60.7
       },
@@ -503,6 +503,6 @@
       }
     }
   },
-  "totalRowsConsidered": 60117,
-  "totalResolvedHorizons": 95288
+  "totalRowsConsidered": 60287,
+  "totalResolvedHorizons": 95308
 }
