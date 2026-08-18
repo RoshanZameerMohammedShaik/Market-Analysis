@@ -295,9 +295,15 @@ def main():
     real_failures = err + no_pred + thin
     no_data_ratio = (no_data / total) if total else 1.0
 
-    if counts['ok'] == 0 and counts['skipped-dup'] == total:
+    if counts['ok'] == 0 and counts['skipped-dup'] > 0 and real_failures == 0:
         # Re-run for a region that already wrote rows today: legit no-op.
-        print('\nAll symbols already predicted today (cron retry / manual replay). Exit 0.')
+        # Requiring skipped-dup == total was too strict: a replay sees dups
+        # for every symbol that had data on the first pass PLUS no-data for
+        # the ones that are delisted/halted, so a single dataless symbol made
+        # the replay exit 1. Any dup at all proves today's rows already exist,
+        # which is the only thing this guard needs to establish.
+        print(f'\nNothing new to write: {counts["skipped-dup"]} of {total} symbols '
+              f'already predicted today (cron retry / manual replay). Exit 0.')
         return
     if counts['ok'] == 0 and no_data_ratio >= 0.95:
         # Likely a market-closed / holiday day, OR yfinance is down across

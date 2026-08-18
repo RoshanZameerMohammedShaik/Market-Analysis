@@ -90,28 +90,36 @@ jobs:
           echo "Resolved task: $task"
           echo "task=$task" >> $GITHUB_OUTPUT
 
+      # Task conditions are EXACT equality, never contains(). The task name
+      # 'predict-LSE-XETRA' contains the substring 'predict-LSE', so a
+      # contains() test made the standalone LSE step fire on the combined
+      # run. LSE was predicted twice per run, and the second (intended) leg
+      # then found every symbol already written and hard-failed, which
+      # skipped the commit step and threw away that run's LSE + XETRA rows.
+      # LSE and XETRA wrote nothing from 2026-06-19 to 2026-08-18 because of
+      # this. Keep these exact.
       - name: Predict NYSE
-        if: contains(steps.decide.outputs.task, 'predict-NYSE')
+        if: steps.decide.outputs.task == 'predict-NYSE'
         run: python record_predictions.py --region NYSE
 
       - name: Predict CRYPTO
-        if: contains(steps.decide.outputs.task, 'predict-CRYPTO')
+        if: steps.decide.outputs.task == 'predict-CRYPTO'
         run: python record_predictions.py --region CRYPTO
 
       - name: Predict NSE
-        if: contains(steps.decide.outputs.task, 'predict-NSE')
+        if: steps.decide.outputs.task == 'predict-NSE'
         run: python record_predictions.py --region NSE
 
       - name: Predict LSE
-        if: contains(steps.decide.outputs.task, 'predict-LSE')
+        if: steps.decide.outputs.task == 'predict-LSE'
         run: python record_predictions.py --region LSE
 
       - name: Predict XETRA
-        if: contains(steps.decide.outputs.task, 'predict-XETRA') || contains(steps.decide.outputs.task, 'predict-LSE-XETRA')
+        if: steps.decide.outputs.task == 'predict-XETRA' || steps.decide.outputs.task == 'predict-LSE-XETRA'
         run: python record_predictions.py --region XETRA
 
       - name: Predict LSE (combined run)
-        if: contains(steps.decide.outputs.task, 'predict-LSE-XETRA')
+        if: steps.decide.outputs.task == 'predict-LSE-XETRA'
         # Pause between the XETRA and LSE legs so Yahoo isn't hit with the
         # second region's full batch while still throttling the first. The
         # back-to-back call was the dominant cause of the LSE leg getting a
@@ -124,26 +132,31 @@ jobs:
           python record_predictions.py --region LSE
 
       - name: Predict HKEX
-        if: contains(steps.decide.outputs.task, 'predict-HKEX')
+        if: steps.decide.outputs.task == 'predict-HKEX'
         run: python record_predictions.py --region HKEX
 
       - name: Predict TYO
-        if: contains(steps.decide.outputs.task, 'predict-TYO')
+        if: steps.decide.outputs.task == 'predict-TYO'
         run: python record_predictions.py --region TYO
 
       - name: Predict ASX
-        if: contains(steps.decide.outputs.task, 'predict-ASX')
+        if: steps.decide.outputs.task == 'predict-ASX'
         run: python record_predictions.py --region ASX
 
       - name: Resolve outcomes
-        if: contains(steps.decide.outputs.task, 'resolve')
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
         run: python record_outcomes.py
 
       - name: Recalibrate
-        if: contains(steps.decide.outputs.task, 'recalibrate')
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
         run: python recalibrate_from_ledger.py
 
+      # always() so a failing leg of a multi-region run doesn't discard the
+      # rows the successful legs already wrote to disk. The job still reports
+      # red (the failed step decides the conclusion). We just stop throwing
+      # away good data on the way out.
       - name: Inspect what's on disk after the script
+        if: always()
         run: |
           echo "Working directory: $(pwd)"
           echo "Tree under model/:"
@@ -158,6 +171,7 @@ jobs:
           fi
 
       - name: Commit ledger updates
+        if: always() && steps.decide.outputs.task != ''
         env:
           TASK: ${{ steps.decide.outputs.task }}
         run: |
