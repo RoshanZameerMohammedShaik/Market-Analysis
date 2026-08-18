@@ -34,15 +34,24 @@ on:
         required: true
         default: 'predict-NYSE'
         type: choice
+        # Every value here must be handled by a step condition below, and the
+        # cron task names in "Decide task" must appear here too, otherwise the
+        # slot cannot be replayed by hand. predict-LSE-XETRA was missing, so
+        # the one cron that was failing was also the one nobody could
+        # manually re-run. resolve-and-recalibrate is the cron's name for the
+        # nightly job; resolve-outcomes and recalibrate stay as the
+        # finer-grained manual halves.
         options:
           - predict-NYSE
           - predict-CRYPTO
           - predict-NSE
           - predict-LSE
+          - predict-XETRA
+          - predict-LSE-XETRA
           - predict-HKEX
           - predict-TYO
-          - predict-XETRA
           - predict-ASX
+          - resolve-and-recalibrate
           - resolve-outcomes
           - recalibrate
 
@@ -143,12 +152,16 @@ jobs:
         if: steps.decide.outputs.task == 'predict-ASX'
         run: python record_predictions.py --region ASX
 
+      # The cron sends 'resolve-and-recalibrate' (both halves); the manual
+      # dispatch can also send either half on its own. Exact-matching each
+      # accepted value keeps the manual options working, which a bare
+      # == 'resolve-and-recalibrate' would have silently broken.
       - name: Resolve outcomes
-        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
         run: python record_outcomes.py
 
       - name: Recalibrate
-        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'recalibrate'
         run: python recalibrate_from_ledger.py
 
       # always() so a failing leg of a multi-region run doesn't discard the

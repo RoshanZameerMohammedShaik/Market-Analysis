@@ -6,12 +6,16 @@ on:
       - 'js/ai-model.js'
       - 'shared_features.py'
       - 'train_model.py'
+      - '.github/workflows/live-ledger.yml'
+      - 'tools/workflow_task_coverage.py'
   push:
     branches: [main]
     paths:
       - 'js/ai-model.js'
       - 'shared_features.py'
       - 'train_model.py'
+      - '.github/workflows/live-ledger.yml'
+      - 'tools/workflow_task_coverage.py'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -31,6 +35,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: pip install numpy
+      - run: pip install numpy pyyaml
       - name: Run sync check
         run: python tools/feature_sync_check.py
+
+  # Live ledger task routing. The cron dispatches work by task name, and those
+  # names are substrings of each other, so a contains() condition can silently
+  # run a region twice or route a task to nothing at all. That failure mode
+  # cost LSE + XETRA two months of data with no signal but a failure email.
+  ledger-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install pyyaml
+      - name: Check Live ledger task routing
+        run: python tools/workflow_task_coverage.py
