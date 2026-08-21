@@ -8,6 +8,11 @@ on:
       - 'train_model.py'
       - '.github/workflows/live-ledger.yml'
       - 'tools/workflow_task_coverage.py'
+      - 'js/forecast-band.js'
+      - 'tools/band_sync_check.py'
+      - 'tools/band_sync_check.mjs'
+      - 'tools/calibrate_bands.py'
+      - 'model/band_calibration.json'
   push:
     branches: [main]
     paths:
@@ -16,6 +21,11 @@ on:
       - 'train_model.py'
       - '.github/workflows/live-ledger.yml'
       - 'tools/workflow_task_coverage.py'
+      - 'js/forecast-band.js'
+      - 'tools/band_sync_check.py'
+      - 'tools/band_sync_check.mjs'
+      - 'tools/calibrate_bands.py'
+      - 'model/band_calibration.json'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -54,3 +64,20 @@ jobs:
       - run: pip install pyyaml
       - name: Check Live ledger task routing
         run: python tools/workflow_task_coverage.py
+
+  # The browser draws the High/Low bands the user sees; the cron scores them for
+  # calibration. If the two implementations drift, the displayed confidence stops
+  # describing the displayed band, which is the exact failure this feature
+  # replaced. Deterministic synthetic fixtures, so no network needed in CI.
+  band-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check band math parity (JS vs Python)
+        run: python tools/band_sync_check.py
