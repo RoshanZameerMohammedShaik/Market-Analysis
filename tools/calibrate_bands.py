@@ -133,6 +133,13 @@ def collect(symbols):
     return obs, used
 
 
+def _quantile(sorted_vals, q):
+    if not sorted_vals:
+        return None
+    idx = min(len(sorted_vals) - 1, int(math.ceil(q * len(sorted_vals))) - 1)
+    return sorted_vals[max(idx, 0)]
+
+
 def solve_z(pairs, target):
     """Smallest z whose symmetric band contains BOTH extremes `target` of the time.
 
@@ -141,9 +148,30 @@ def solve_z(pairs, target):
     """
     if len(pairs) < 200:
         return None
-    worst = sorted(max(u, d) for u, d in pairs)
-    idx = min(len(worst) - 1, int(math.ceil(target * len(worst))) - 1)
-    return worst[max(idx, 0)]
+    return _quantile(sorted(max(u, d) for u, d in pairs), target)
+
+
+# Probabilities the one-sided curves are emitted at. The band (two-sided) answers
+# "where will price stay inside"; a STOP is one-sided and needs a different
+# number. Using the two-sided z as a stop distance would understate how often the
+# low alone is breached, because containment of both extremes is a stricter event
+# than containment of one.
+ONE_SIDED_QUANTILES = [0.50, 0.60, 0.70, 0.80, 0.90, 0.95]
+
+
+def solve_one_sided(pairs, which):
+    """Quantile curve of how far ONE extreme reaches, in sigma*sqrt(h) units.
+
+    which='down' -> distribution of how far the LOW reached below entry.
+      Read as: a stop placed at z=curve['0.90'] survives 90% of holds.
+    which='up'   -> distribution of how far the HIGH reached above entry.
+      Read as: a target at z=curve['0.60'] is touched by 40% of holds
+      (since 60% of holds reach LESS far than that).
+    """
+    if len(pairs) < 200:
+        return None
+    vals = sorted(d if which == 'down' else u for u, d in pairs)
+    return {f'{q:.2f}': round(_quantile(vals, q), 4) for q in ONE_SIDED_QUANTILES}
 
 
 def main():
@@ -164,6 +192,8 @@ def main():
     z = {}
     coverage = {}
     counts = {}
+    stop_z = {}
+    target_z = {}
     for (tier, h), pairs in sorted(obs.items()):
         zz = solve_z(pairs, target)
         counts[f'{tier}:{h}'] = len(pairs)
@@ -172,6 +202,12 @@ def main():
         z.setdefault(tier, {})[str(h)] = round(zz, 4)
         hit = sum(1 for u, d in pairs if u <= zz and d <= zz)
         coverage[f'{tier}:{h}'] = round(hit / len(pairs), 4)
+        down = solve_one_sided(pairs, 'down')
+        up = solve_one_sided(pairs, 'up')
+        if down:
+            stop_z.setdefault(tier, {})[str(h)] = down
+        if up:
+            target_z.setdefault(tier, {})[str(h)] = up
 
     if not z:
         print('ERROR: no tier/horizon had enough observations to calibrate.',
@@ -192,6 +228,14 @@ def main():
         'realizedCoverage': coverage,
         'sampleCounts': counts,
         'symbolsUsed': used,
+        # One-sided curves, in sigma*sqrt(h) units, consumed by js/risk.js.
+        # stopZ[tier][h]['0.90'] = distance a stop must sit at to survive 90% of
+        # holds. targetZ[tier][h]['0.60'] = distance the high reaches on 40% of
+        # holds. A stop is a one-sided event and must not be sized off the
+        # two-sided band z.
+        'oneSidedQuantiles': ONE_SIDED_QUANTILES,
+        'stopZ': stop_z,
+        'targetZ': target_z,
     }
     os.makedirs('model', exist_ok=True)
     with open(OUT_PATH, 'w', encoding='utf-8') as f:

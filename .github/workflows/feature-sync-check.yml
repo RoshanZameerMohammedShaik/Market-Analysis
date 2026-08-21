@@ -13,6 +13,8 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'js/risk.js'
+      - 'tools/risk_check.mjs'
   push:
     branches: [main]
     paths:
@@ -26,6 +28,8 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'js/risk.js'
+      - 'tools/risk_check.mjs'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -81,3 +85,8 @@ jobs:
           node-version: '20'
       - name: Check band math parity (JS vs Python)
         run: python tools/band_sync_check.py
+      # Risk code is not verified by matching numbers to a fixture. A sizing bug
+      # does not throw, it quietly oversizes and surfaces as a drawdown months
+      # later, so these assert the properties that must never break.
+      - name: Check risk invariants
+        run: node tools/risk_check.mjs
