@@ -59,14 +59,17 @@ def range_sigma(candles, n):
     return math.sqrt(statistics.mean(sq) / (4 * math.log(2)))
 
 
-def py_forecast(cal, candles, price):
+def py_forecast(cal, candles, price, mode='perDay'):
     sigma = range_sigma(candles, cal['volLookbackDays'])
     if not sigma:
         return None
     tier = tier_for(sigma, [tuple(e) for e in cal['tierEdges']])
+    # perDay is what the UI shows: day h's own session extremes. cumulative is
+    # the running extremes over h days and is what stops are sized from.
+    table = cal['z'] if mode == 'cumulative' else cal.get('zPerDay', cal['z'])
     days = []
     for h in cal['horizons']:
-        z = cal['z'].get(tier, {}).get(str(h))
+        z = table.get(tier, {}).get(str(h))
         if z is None:
             return None
         move = z * sigma * math.sqrt(h)
@@ -172,6 +175,31 @@ def main():
     print(f'\ntiers exercised: {sorted(tiers)}')
     if len(tiers) < 3:
         print('WARNING: fewer than 3 volatility tiers exercised; a tier bug could hide.')
+
+    # A per-day band cannot be wider than the cumulative band that contains it,
+    # and must be identical at h=1. If this ever flips, the two calibration
+    # collections have been crossed and every displayed band is wrong.
+    print('\nper-day vs cumulative invariant:')
+    bad = 0
+    for name, o in payload.items():
+        pd = py_forecast(cal, o['candles'], o['price'], 'perDay')
+        cu = py_forecast(cal, o['candles'], o['price'], 'cumulative')
+        if not pd or not cu:
+            continue
+        for a, b in zip(pd['days'], cu['days']):
+            if a['day'] == 1:
+                if abs(a['high'] - b['high']) > TOL:
+                    print(f'  {name} h=1 differs between modes: {a["high"]} vs {b["high"]}')
+                    bad += 1
+            elif a['high'] >= b['high'] + TOL:
+                print(f'  {name} h={a["day"]} per-day WIDER than cumulative: '
+                      f'{a["high"]} vs {b["high"]}')
+                bad += 1
+    if bad:
+        print(f'  {bad} violation(s)')
+        failures += bad
+    else:
+        print('  OK: identical at day 1, strictly narrower beyond it')
 
     if failures:
         print(f'\nBAND SYNC FAIL: {failures} case(s) disagree.', file=sys.stderr)

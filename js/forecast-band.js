@@ -112,11 +112,20 @@ function forwardDates(n, { cryptoMode = false, from = null } = {}) {
  *   - candles: [{high, low, close}, ...] oldest-first, >= VOL_LOOKBACK bars
  *   - currentPrice: number
  *   - cryptoMode: boolean (7 calendar days vs 7 weekday sessions)
+ *   - mode: 'perDay' (default) | 'cumulative'
+ *       perDay     = day h's OWN session High/Low. This is what the UI shows,
+ *                    because "what will Thursday look like" is the question a
+ *                    per-day row is asking.
+ *       cumulative = the most extreme High/Low reached anywhere within h days.
+ *                    Wider, and the correct basis for a STOP, since a stop can be
+ *                    taken out on any day of the hold. js/risk.js uses this.
+ *       Identical at h = 1, since a one-day window is one day.
  *   - now: Date | null (injectable for deterministic tests)
  * @returns {Object|null} { calibrated, confidence, sigmaDaily, volTier, days: [...] }
  *   days[i] = { day, date, low, high, widthPct, confidence }
  */
-export function forecastBands({ candles, currentPrice, cryptoMode = false, now = null }) {
+export function forecastBands({ candles, currentPrice, cryptoMode = false,
+                                mode = 'perDay', now = null }) {
     const cal = _cal || FALLBACK;
     const price = Number(currentPrice);
     if (!(price > 0)) return null;
@@ -128,10 +137,12 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false, now =
     const horizons = cal.horizons || FALLBACK.horizons;
     const dates = forwardDates(horizons.length, { cryptoMode, from: now });
 
+    // perDay is the display default; cumulative is what stops are sized from.
+    const zTable = mode === 'cumulative' ? cal.z : (cal.zPerDay || cal.z);
     const days = horizons.map((h, i) => {
         // z from calibration when available. Without it we cannot state a
         // confidence, so the band is returned but flagged uncalibrated.
-        const z = cal.z?.[tier]?.[String(h)] ?? null;
+        const z = zTable?.[tier]?.[String(h)] ?? null;
         const zz = z ?? 1.96;   // placeholder ONLY for the uncalibrated path
         const move = zz * sigma * Math.sqrt(h);
         const high = price * Math.exp(move);
@@ -147,7 +158,8 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false, now =
     });
 
     return {
-        calibrated: !!cal.z?.[tier] && !cal._fallback,
+        calibrated: !!zTable?.[tier] && !cal._fallback,
+        mode,
         confidence: Math.round((cal.targetConfidence ?? 0.8) * 100),
         sigmaDaily: +(sigma * 100).toFixed(2),
         volTier: tier,

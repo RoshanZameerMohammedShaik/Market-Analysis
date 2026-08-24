@@ -97,9 +97,20 @@ def parkinson_sigma(bars, k, n=VOL_LOOKBACK):
 
 
 def collect(symbols):
-    """One observation per (bar, horizon): the sigma, the tier, and the realized
-    extremes over the forward window, expressed in sigma units."""
+    """Two observation sets per (tier, horizon), both in sigma*sqrt(h) units.
+
+    `obs` is CUMULATIVE: the most extreme high and low reached anywhere in the
+    forward window. This is the right semantics for a STOP, because a stop can be
+    taken out on any day of the hold, not only the last one.
+
+    `per_day` is PER-DAY: day h's own session high and low, measured against
+    today's close. This is the right semantics for a DISPLAYED band, because
+    "what will day 5 look like" is a different question from "what is the worst
+    case at any point by day 5". Per-day is the narrower of the two for h > 1 and
+    identical at h = 1, since a one-day window is one day.
+    """
     obs = {(t[2], h): [] for t in TIER_EDGES for h in HORIZONS}
+    per_day = {(t[2], h): [] for t in TIER_EDGES for h in HORIZONS}
     used = 0
     for i, sym in enumerate(symbols):
         try:
@@ -129,8 +140,13 @@ def collect(symbols):
                 denom = s * math.sqrt(h)
                 obs[(tier, h)].append((math.log(hi / c0) / denom,
                                        math.log(c0 / lo) / denom))
+                # Day h's OWN session extremes, still anchored on today's close,
+                # since today's close is all a forecast can be anchored to.
+                d_hi, d_lo = bars[k + h][1], bars[k + h][2]
+                per_day[(tier, h)].append((math.log(d_hi / c0) / denom,
+                                           math.log(c0 / d_lo) / denom))
         time.sleep(0.25 if i % 20 else 0.6)
-    return obs, used
+    return obs, per_day, used
 
 
 def _quantile(sorted_vals, q):
@@ -186,7 +202,7 @@ def main():
 
     print(f'Calibrating {len(HORIZONS)}-day bands at target confidence '
           f'{target:.0%} over {len(SAMPLE)} symbols...')
-    obs, used = collect(SAMPLE)
+    obs, per_day, used = collect(SAMPLE)
     print(f'Symbols used: {used}/{len(SAMPLE)}')
 
     z = {}
@@ -194,6 +210,8 @@ def main():
     counts = {}
     stop_z = {}
     target_z = {}
+    z_per_day = {}
+    coverage_per_day = {}
     for (tier, h), pairs in sorted(obs.items()):
         zz = solve_z(pairs, target)
         counts[f'{tier}:{h}'] = len(pairs)
@@ -208,6 +226,12 @@ def main():
             stop_z.setdefault(tier, {})[str(h)] = down
         if up:
             target_z.setdefault(tier, {})[str(h)] = up
+        pd_pairs = per_day.get((tier, h)) or []
+        zp = solve_z(pd_pairs, target)
+        if zp is not None:
+            z_per_day.setdefault(tier, {})[str(h)] = round(zp, 4)
+            hp = sum(1 for u, d in pd_pairs if u <= zp and d <= zp)
+            coverage_per_day[f'{tier}:{h}'] = round(hp / len(pd_pairs), 4)
 
     if not z:
         print('ERROR: no tier/horizon had enough observations to calibrate.',
@@ -236,6 +260,10 @@ def main():
         'oneSidedQuantiles': ONE_SIDED_QUANTILES,
         'stopZ': stop_z,
         'targetZ': target_z,
+        # PER-DAY band, the default for display: day h's own session High/Low.
+        # `z` above stays CUMULATIVE and is what stops are sized from.
+        'zPerDay': z_per_day,
+        'realizedCoveragePerDay': coverage_per_day,
     }
     os.makedirs('model', exist_ok=True)
     with open(OUT_PATH, 'w', encoding='utf-8') as f:
@@ -244,17 +272,34 @@ def main():
         json.dump(payload, f, indent=2, allow_nan=False)
 
     print(f'\nWrote {OUT_PATH}')
-    print(f"\n{'tier':<9}{'h':>3}{'z':>8}{'claimed':>9}{'realized':>10}{'n':>9}")
+    print(f"\n{'':<12}{'CUMULATIVE (stops)':>22}{'PER-DAY (display)':>24}")
+    print(f"{'tier':<9}{'h':>3}{'z':>10}{'cover':>10}{'n':>9}{'z':>10}{'cover':>10}")
     for tier in [t[2] for t in TIER_EDGES]:
         for h in HORIZONS:
             key = f'{tier}:{h}'
             if tier not in z or str(h) not in z[tier]:
                 continue
-            print(f'{tier:<9}{h:>3}{z[tier][str(h)]:>8.3f}'
-                  f'{target:>8.0%}{coverage[key]:>10.1%}{counts[key]:>9,}')
+            zp = z_per_day.get(tier, {}).get(str(h))
+            cp = coverage_per_day.get(key)
+            row = (f'{tier:<9}{h:>3}{z[tier][str(h)]:>10.3f}'
+                   f'{coverage[key]:>9.1%}{counts[key]:>9,}')
+            row += (f'{zp:>10.3f}{cp:>9.1%}' if zp is not None else f'{"-":>10}{"-":>10}')
+            print(row)
 
-    worst = max((abs(c - target) for c in coverage.values()), default=0)
-    print(f'\nWorst coverage error across all tier/horizon cells: {worst:.2%}')
+    # Per-day must be strictly narrower than cumulative beyond day 1: one
+    # session's extremes cannot exceed the running extremes of a window that
+    # contains it. A violation means the two collections got crossed.
+    violations = [f'{t}:{h}' for t in z for h in z[t]
+                  if int(h) > 1 and t in z_per_day and h in z_per_day[t]
+                  and z_per_day[t][h] >= z[t][h]]
+    if violations:
+        print(f'\nERROR: per-day z >= cumulative z at {violations}', file=sys.stderr)
+        sys.exit(1)
+
+    all_cov = list(coverage.values()) + list(coverage_per_day.values())
+    worst = max((abs(c - target) for c in all_cov), default=0)
+    print(f'\nWorst coverage error across all cells, both modes: {worst:.2%}'
+          f'  ({len(all_cov)} cells)')
     if worst > 0.03:
         print('WARNING: a cell is off by more than 3 points. Investigate before shipping.')
 
