@@ -392,3 +392,11 @@ html[data-dev="1"] body { padding-top: 22px; }
     .fb-table th.fb-span, .fb-table td.fb-span { display: none; }
     .fb-table td { font-size: 0.8rem; }
 }
+
+/* Badge marking a range as calibrated rather than heuristic. */
+.pt-cal-badge {
+    margin-left: 8px; font-size: 0.66rem; font-weight: 600;
+    color: var(--accent); border: 1px solid var(--border);
+    border-radius: 999px; padding: 1px 7px; vertical-align: middle;
+    letter-spacing: 0.02em;
+}

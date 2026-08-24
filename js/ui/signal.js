@@ -116,11 +116,11 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             : '';
         priceTargetHTML = `
             <div class="price-targets">
-                <div class="price-targets-title">Predicted Price Range — ${tfLabel}</div>
+                <div class="price-targets-title">Expected Price Range — ${tfLabel}${priceTargets.source === "calibrated-band" ? `<span class="pt-cal-badge" title="Derived from the calibrated 7-day band, not an ATR heuristic. Coverage is measured, not assumed.">${priceTargets.bandConfidence}% band</span>` : ""}</div>
                 ${probableStrip}
                 <div class="price-targets-grid">
                     <div class="price-target-card high">
-                        <div class="price-target-label">Possible High</div>
+                        <div class="price-target-label">${priceTargets.source === "calibrated-band" ? "Expected High" : "Possible High"}</div>
                         <div class="price-target-value high">${fmtPriceTag(priceTargets.predictedHigh, co)}</div>
                         <div class="price-target-pct up">▲ +${priceTargets.highPercent}%</div>
                     </div>
@@ -130,7 +130,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                         <div class="price-target-pct">ATR: ${fmtPriceTag(priceTargets.atr, co)}</div>
                     </div>
                     <div class="price-target-card low">
-                        <div class="price-target-label">Possible Low</div>
+                        <div class="price-target-label">${priceTargets.source === "calibrated-band" ? "Expected Low" : "Possible Low"}</div>
                         <div class="price-target-value low">${fmtPriceTag(priceTargets.predictedLow, co)}</div>
                         <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%</div>
                     </div>

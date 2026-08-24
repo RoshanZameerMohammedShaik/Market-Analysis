@@ -197,15 +197,19 @@ function renderCards(grid, picks, withFooter) {
         const spikeHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
             ? (() => {
                 const p = Number(pick.expectedPct);
-                const word = p >= 0 ? 'Spike Expected ⚡' : 'Drop Expected ⚡';
+                // highPercent now comes from the calibrated 80% band's upper edge, not a
+                // direction-scaled ATR guess, so 'Spike Expected' would overclaim: it is
+                // the top of a range, and the engine does not call which edge price
+                // approaches. Label it as range headroom instead.
+                const word = 'Range Top ⚡';
                 return `<div class="hot-pick-spike">${p >= 0 ? '+' : ''}${p.toFixed(2)}% ${word}</div>`;
             })()
             : '';
         const highHTML = (pick.expectedHigh != null && Number.isFinite(pick.expectedHigh))
-            ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Expected Highest Reach</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}</span></div>`
+            ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Range High (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}</span></div>`
             : '';
         const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
-            ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Expected Lowest Fall</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
+            ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
             : '';
         // HONESTY GUARD (display-only): a directional BUY/SELL whose CALIBRATED
         // confidence is below 50% is, on the engine's own grounded data, worse

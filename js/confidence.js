@@ -424,6 +424,48 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     } catch (_) { forecastBand = null; }
 
+    // ONE range on the card, and it is the calibrated one.
+    //
+    // calculatePriceTargets is the same unvalidated family as the multi-horizon
+    // predictor that was just deleted: magic ATR multipliers (0.8 for today,
+    // 1.2 for tomorrow), scaling by confidence (0.8 + confidenceFactor * 0.7),
+    // and an asymmetry keyed off the signal DIRECTION. It also rounds to 2
+    // decimals, which quantizes a 25-cent stock to whole cents: MDCX showed a
+    // "possible high" of $0.2900 purely as a rounding artifact where the band
+    // said $0.2877.
+    //
+    // Rather than show two contradicting ranges twelve pixels apart, the day-1
+    // band row becomes the source of truth for predictedHigh/Low. Everything
+    // downstream inherits it in one move: the signal card, Hot Picks (which
+    // reads highPercent as its headline number), the ledger row the cron locks
+    // at open, Mia's payload, and the suggested-decision copy.
+    //
+    // ATR, support and resistance are kept from the original: they are measured
+    // quantities, not predictions, and they do not contradict the band.
+    // NOTE: the targets live on technicalPred.priceTargets, not a local. They
+    // are only read at return time (see the `priceTargets:` key below), so this
+    // mutates the object in place.
+    const _pt = technicalPred?.priceTargets;
+    if (_pt && forecastBand?.calibrated && forecastBand.days?.length) {
+        const d1 = forecastBand.days[0];
+        const cp = _pt.currentPrice;
+        if (cp > 0 && Number.isFinite(d1.high) && Number.isFinite(d1.low)) {
+            _pt.predictedHigh = d1.high;
+            _pt.predictedLow = d1.low;
+            _pt.highPercent = +((d1.high / cp - 1) * 100).toFixed(2);
+            _pt.lowPercent = +((d1.low / cp - 1) * 100).toFixed(2);
+            // The probable band was a direction-biased narrowing of a guess.
+            // There is no calibrated inner band, so drop it rather than invent
+            // one; signal.js omits the strip when these are null.
+            _pt.probableHigh = null;
+            _pt.probableLow = null;
+            _pt.probableHighPct = null;
+            _pt.probableLowPct = null;
+            _pt.source = 'calibrated-band';
+            _pt.bandConfidence = forecastBand.confidence;
+        }
+    }
+
     // Confidence band (the "63–71%" shown by the number). Previously this
     // was a pure heuristic guess-stack (+2 for transition, +dispersion/6,
     // …) — a made-up width presented as engine uncertainty. Now it's
