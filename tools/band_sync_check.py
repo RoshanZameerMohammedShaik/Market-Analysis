@@ -50,13 +50,29 @@ def tier_for(sigma, edges):
     return edges[-1][2]
 
 
+MAX_SIGMA = 0.50
+MIN_LIVE_BARS = 20
+
+
 def range_sigma(candles, n):
+    """Mirror of tools/calibrate_bands.py parkinson_sigma and js/forecast-band.js
+    rangeSigma: max(Parkinson, close-to-close) with the same guards. All three
+    must agree or the z values were solved against a different sigma than the one
+    used at display time."""
     tail = candles[-n:]
-    sq = [math.log(c['high'] / c['low']) ** 2 for c in tail
-          if c['high'] > 0 and c['low'] > 0 and c['high'] >= c['low']]
-    if len(sq) < math.ceil(n * 0.7):
+    good = [c for c in tail if c['high'] > 0 and c['low'] > 0 and c['high'] >= c['low']]
+    if len(good) < math.ceil(n * 0.7):
         return None
-    return math.sqrt(statistics.mean(sq) / (4 * math.log(2)))
+    live = sum(1 for c in good if c['high'] > c['low'] * 1.0000001)
+    pk = 0.0
+    if live >= MIN_LIVE_BARS:
+        pk = math.sqrt(statistics.mean([math.log(c['high'] / c['low']) ** 2 for c in good])
+                       / (4 * math.log(2)))
+    rets = [math.log(tail[i]['close'] / tail[i - 1]['close']) for i in range(1, len(tail))
+            if tail[i - 1].get('close', 0) > 0 and tail[i].get('close', 0) > 0]
+    cc = statistics.stdev(rets) if len(rets) > 5 else 0.0
+    s = max(pk, cc)
+    return s if 0 < s <= MAX_SIGMA else None
 
 
 def py_forecast(cal, candles, price, mode='perDay'):

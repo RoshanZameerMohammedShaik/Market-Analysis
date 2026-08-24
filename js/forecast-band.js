@@ -64,22 +64,62 @@ export async function loadBandCalibration() {
     return _calPromise;
 }
 
-/** Daily sigma from the high-low range over the last n candles.
- *  sigma^2 = mean(ln(H/L)^2) / (4 ln 2)   [Parkinson 1980] */
+// Data-quality gates. MUST stay identical to tools/calibrate_bands.py, or the
+// browser will size bands with a different sigma than the one the z values were
+// solved against. tools/band_sync_check.py enforces that.
+//
+// These exist because the live ledger surfaced symbols printing high == low on 60
+// of 60 days: Parkinson collapses to 0.00%, the tier lookup says "calm", and the
+// band comes out near zero width. AUVI read 0.00% sigma while its true
+// close-to-close volatility was 14.3% per day. Measured effect on real ledger
+// rows: day-1 coverage 70.0% -> 75.9%, calm tier 56.7% -> 80.5%.
+const MIN_PRICE = 0.01;
+const MAX_SIGMA = 0.50;
+const MIN_LIVE_BARS = 20;
+
+/** Daily sigma over the last n candles, robust to untraded days.
+ *
+ *  Parkinson (high-low) is ~5x more efficient than close-to-close WHEN the asset
+ *  trades continuously: sigma^2 = mean(ln(H/L)^2) / (4 ln 2). On a thin name that
+ *  prints high == low it collapses toward zero, understating risk exactly where
+ *  risk is highest. Close-to-close cannot be hidden that way. max() of the two
+ *  never understates while keeping Parkinson's efficiency on liquid names.
+ */
 export function rangeSigma(candles, n = VOL_LOOKBACK) {
     if (!Array.isArray(candles) || candles.length < Math.ceil(n * 0.7)) return null;
     const tail = candles.slice(-n);
+
+    let live = 0;
     const sq = [];
     for (const c of tail) {
         const h = c.high ?? c.h;
         const l = c.low ?? c.l;
         if (!(h > 0) || !(l > 0) || h < l) continue;
+        if (h > l * 1.0000001) live++;
         sq.push(Math.log(h / l) ** 2);
     }
     if (sq.length < Math.ceil(n * 0.7)) return null;
-    const mean = sq.reduce((a, b) => a + b, 0) / sq.length;
-    const s = Math.sqrt(mean / (4 * Math.LN2));
-    return Number.isFinite(s) && s > 0 ? s : null;
+
+    let pk = 0;
+    if (live >= MIN_LIVE_BARS) {
+        pk = Math.sqrt((sq.reduce((a, b) => a + b, 0) / sq.length) / (4 * Math.LN2));
+    }
+
+    const rets = [];
+    for (let i = 1; i < tail.length; i++) {
+        const c0 = tail[i - 1].close ?? tail[i - 1].c;
+        const c1 = tail[i].close ?? tail[i].c;
+        if (c0 > 0 && c1 > 0) rets.push(Math.log(c1 / c0));
+    }
+    let cc = 0;
+    if (rets.length > 5) {
+        const m = rets.reduce((a, b) => a + b, 0) / rets.length;
+        // Sample standard deviation (n-1), matching Python's statistics.stdev.
+        cc = Math.sqrt(rets.reduce((a, r) => a + (r - m) ** 2, 0) / (rets.length - 1));
+    }
+
+    const s = Math.max(pk, cc);
+    return Number.isFinite(s) && s > 0 && s <= MAX_SIGMA ? s : null;
 }
 
 function tierFor(sigma, tierEdges) {

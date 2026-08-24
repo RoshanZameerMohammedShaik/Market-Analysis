@@ -127,6 +127,43 @@ async function scopeToCurrentEngine(rows) {
     return { rows: kept, retired, gated: true, version: ver };
 }
 
+// ---------------------------------------------------------------------------
+// The RECENT slice. Read this for anything that only needs the last few days.
+//
+// Why it exists: model/ledger/2026.jsonl is 85.6 MB at ~67,000 rows and is
+// served uncompressed with max-age=3600. Measured: ~5s on a fast desktop link,
+// ~143s on a 5 Mbps phone. loadLedger()'s catch sets _ledgerCache = [] on ANY
+// failure, so a slow or aborted download silently produces an EMPTY ledger,
+// readTodayLock() then returns null, and js/ui/daily-lock.js falls back to the
+// page-VISIT-time lock. That is how a market-open-anchored design silently
+// became "whenever the user opened the page": the transport broke it, not the
+// logic. recent.json is ~1.7 MB (237 KB gzipped), a 51x reduction.
+//
+// Written by tools/write_recent_slice.py on every cron run.
+let _recentCache = null;
+let _recentCacheTs = 0;
+
+export async function loadRecentRows() {
+    if (_recentCache && Date.now() - _recentCacheTs < LEDGER_CACHE_MS) {
+        return _recentCache;
+    }
+    try {
+        const res = await fetch('./model/ledger/recent.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const j = await res.json();
+        const rows = Array.isArray(j?.rows) ? j.rows : [];
+        if (!rows.length) throw new Error('empty slice');
+        _recentCache = rows;
+        _recentCacheTs = Date.now();
+        return _recentCache;
+    } catch (_) {
+        // Deliberately do NOT cache the failure. Caching [] for the TTL is what
+        // made the old path stick to the visit-time fallback for minutes at a
+        // time after one bad fetch.
+        return null;
+    }
+}
+
 export async function loadLedger() {
     if (_ledgerCache && Date.now() - _ledgerCacheTs < LEDGER_CACHE_MS) {
         return _ledgerCache;
@@ -441,8 +478,12 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
 // trading day "today" is.
 export async function readTodayLock(symbol) {
     if (!symbol) return null;
-    const rows = await loadLedger();
-    if (!rows.length) return null;
+    // Recent slice FIRST. This is the hot path on every symbol open, and it must
+    // not depend on an 85 MB download completing. Only fall back to the full
+    // year file if the slice is genuinely unavailable.
+    let rows = await loadRecentRows();
+    if (!rows) rows = await loadLedger();
+    if (!rows || !rows.length) return null;
     const today = new Date().toISOString().slice(0, 10);   // UTC — matches the cron
     const keys = ledgerKeyCandidates(symbol);
     // Scan newest→oldest for today's row for this symbol (one per day expected).

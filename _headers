@@ -40,5 +40,11 @@
 # Model artifacts (calibration tables, LSTM weights, ledger jsonl)
 # update daily via the cron. 1-hour cache so the page picks up new
 # numbers within the hour without hammering the edge on every visit.
+# Rewritten by every cron run (8x/day). A 1h cache here served a stale slice,
+# which put readTodayLock back on the visit-time fallback for up to an hour.
+# Revalidate every time; it is 237 KB gzipped so a 304 is cheap.
+/model/ledger/recent.json
+  Cache-Control: public, no-cache
+
 /model/*
   Cache-Control: public, max-age=3600, must-revalidate

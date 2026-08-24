@@ -164,6 +164,13 @@ jobs:
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'recalibrate'
         run: python recalibrate_from_ledger.py
 
+      # The browser reads this ~1.7 MB slice instead of the 85 MB year file.
+      # Without it, readTodayLock() falls back to a page-visit-time lock and the
+      # day's call stops being anchored on the market open.
+      - name: Write recent ledger slice for the browser
+        if: always()
+        run: python tools/write_recent_slice.py --days 3
+
       # always() so a failing leg of a multi-region run doesn't discard the
       # rows the successful legs already wrote to disk. The job still reports
       # red (the failed step decides the conclusion). We just stop throwing
@@ -193,6 +200,9 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           if [ -d model/ledger ]; then
             git add -fA model/ledger/
+          fi
+          if [ -f model/ledger/recent.json ]; then
+            git add -f model/ledger/recent.json
           fi
           if [ -f model/live_calibration.json ]; then
             git add -f model/live_calibration.json

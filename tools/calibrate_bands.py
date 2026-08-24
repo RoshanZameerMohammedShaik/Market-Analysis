@@ -55,15 +55,61 @@ VOL_LOOKBACK = 30
 TIER_EDGES = [(0.0, 0.015, 'calm'), (0.015, 0.025, 'normal'),
               (0.025, 0.040, 'active'), (0.040, 9.99, 'wild')]
 
-# Spread across the volatility spectrum on purpose: the calibration is only as
-# good as the tier coverage, and a mega-cap-only sample would leave 'wild' thin.
-SAMPLE = [
+# Fallback only. The real sample is drawn from the live ledger by
+# ledger_universe_sample(), because the calibration must describe the population
+# the app actually predicts on. Calibrating on hand-picked mega-caps and then
+# serving penny stocks is how the active/wild tiers ended up ~5 points short of
+# their claimed coverage on real ledger rows.
+FALLBACK_SAMPLE = [
     'KO', 'JNJ', 'PG', 'WMT', 'CSCO', 'VZ', 'MRK', 'PEP', 'ABT', 'MCD',
     'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'JPM', 'XOM', 'BAC', 'DIS', 'INTC', 'QCOM',
     'NVDA', 'TSLA', 'AMD', 'META', 'NFLX', 'CRM', 'UBER', 'SHOP', 'PLTR', 'COIN',
     'MARA', 'RIOT', 'PLUG', 'AMC', 'SNAP', 'NIO', 'SOFI', 'HOOD', 'AFRM', 'RIVN',
     'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'LINK-USD', 'AVAX-USD',
 ]
+
+
+def ledger_universe_sample(limit=140, per_region=24):
+    """Symbols the app actually predicts on, taken from the live ledger.
+
+    Stratified by region so one dominant region cannot crowd out the others, and
+    ranked by row count within each region so the picks have enough history to
+    calibrate against.
+    """
+    path = os.path.join('model', 'ledger', '2026.jsonl')
+    if not os.path.exists(path):
+        return None
+    by_region = {}
+    prices = {}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            sym, reg, e = r.get('symbol'), r.get('region'), r.get('entry')
+            if not sym or not isinstance(e, (int, float)) or e != e or e < MIN_PRICE:
+                continue
+            by_region.setdefault(reg, {}).setdefault(sym, 0)
+            by_region[reg][sym] += 1
+            prices[sym] = e
+    if not by_region:
+        return None
+    # Round-robin across regions rather than concatenate-then-truncate. With 8
+    # regions at 24 each the concatenated list is 192, so a straight out[:140]
+    # silently dropped whichever regions sorted last (TYO and XETRA), leaving
+    # those markets uncalibrated.
+    ranked = {reg: [s for s, _ in sorted(by_region[reg].items(), key=lambda kv: -kv[1])]
+              [:per_region] for reg in sorted(by_region)}
+    out = []
+    for i in range(per_region):
+        for reg in ranked:
+            if i < len(ranked[reg]) and len(out) < limit:
+                out.append(ranked[reg][i])
+    return out or None
 
 
 def tier_for(sigma):
@@ -86,14 +132,47 @@ def fetch(sym, start_year=2021):
     return bars
 
 
+# Data-quality gates. These exist because the live ledger surfaced symbols that
+# print high == low on 60 of 60 days: the range estimator collapses to 0.00%,
+# the tier lookup says "calm", and the band comes out near zero width. AUVI was
+# labelled calm at 0.00% sigma while its true close-to-close volatility was
+# 14.3% per day. Measured effect of these gates on real ledger rows: overall
+# day-1 coverage 70.0% -> 75.9%, and the calm tier 56.7% -> 80.5%.
+MIN_PRICE = 0.01        # sub-penny quotes are noise, not prices
+MAX_SIGMA = 0.50        # >50%/day is a data error (one crypto printed 139%)
+MIN_LIVE_BARS = 20      # need this many non-zero-range bars to trust Parkinson
+
+
 def parkinson_sigma(bars, k, n=VOL_LOOKBACK):
-    """Daily sigma from the high-low range over the n bars ending at k."""
+    """Daily sigma over the n bars ending at k, robust to untraded days.
+
+    Parkinson (high-low) is ~5x more efficient than close-to-close WHEN the asset
+    trades continuously. On a thin name that prints high == low it collapses
+    toward zero, which understates risk exactly where risk is highest. Close-to-
+    close cannot be hidden that way. Taking the max of the two never understates,
+    and keeps Parkinson's efficiency on liquid names where it is the better
+    estimator.
+    """
     if k < n:
         return None
-    sq = [math.log(bars[i][1] / bars[i][2]) ** 2 for i in range(k - n + 1, k + 1)]
-    if len(sq) < n * 0.7:
+    win = bars[k - n + 1:k + 1]
+    if len(win) < n * 0.7:
         return None
-    return math.sqrt(statistics.mean(sq) / (4 * math.log(2)))
+
+    live = sum(1 for _, h, l in win if h > l * 1.0000001)
+    pk = 0.0
+    if live >= MIN_LIVE_BARS:
+        pk = math.sqrt(statistics.mean([math.log(h / l) ** 2 for _, h, l in win])
+                       / (4 * math.log(2)))
+
+    rets = [math.log(win[i][0] / win[i - 1][0]) for i in range(1, len(win))
+            if win[i - 1][0] > 0 and win[i][0] > 0]
+    cc = statistics.stdev(rets) if len(rets) > 5 else 0.0
+
+    sigma = max(pk, cc)
+    if not (0 < sigma <= MAX_SIGMA):
+        return None
+    return sigma
 
 
 def collect(symbols):
@@ -200,10 +279,12 @@ def main():
         print('ERROR: --target must be between 0.50 and 0.99', file=sys.stderr)
         sys.exit(1)
 
+    sample = ledger_universe_sample() or FALLBACK_SAMPLE
+    src = 'live ledger' if sample is not FALLBACK_SAMPLE else 'fallback list'
     print(f'Calibrating {len(HORIZONS)}-day bands at target confidence '
-          f'{target:.0%} over {len(SAMPLE)} symbols...')
-    obs, per_day, used = collect(SAMPLE)
-    print(f'Symbols used: {used}/{len(SAMPLE)}')
+          f'{target:.0%} over {len(sample)} symbols from the {src}...')
+    obs, per_day, used = collect(sample)
+    print(f'Symbols used: {used}/{len(sample)}')
 
     z = {}
     coverage = {}
@@ -252,6 +333,10 @@ def main():
         'realizedCoverage': coverage,
         'sampleCounts': counts,
         'symbolsUsed': used,
+        'sampleSource': src,
+        'dataQualityGates': {'minPrice': MIN_PRICE, 'maxSigma': MAX_SIGMA,
+                             'minLiveBars': MIN_LIVE_BARS},
+        'sigmaEstimator': 'max(parkinson, close-to-close)',
         # One-sided curves, in sigma*sqrt(h) units, consumed by js/risk.js.
         # stopZ[tier][h]['0.90'] = distance a stop must sit at to survive 90% of
         # holds. targetZ[tier][h]['0.60'] = distance the high reaches on 40% of
