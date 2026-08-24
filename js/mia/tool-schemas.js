@@ -48,7 +48,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_current_signal',
-        description: 'Full on-screen signal for the symbol the user is currently viewing — confidence, trend regime, indicators, price targets, multi-horizon forecasts. Use when the user asks about the current view OR signal/confidence specifically. Do NOT use this for live price questions — call get_live_price instead, since this returns the price from the last analysis snapshot which can be minutes stale.',
+        description: 'Full on-screen signal for the symbol the user is currently viewing — confidence, trend regime, indicators, price targets, and the calibrated 7-day High/Low forecast band. Use when the user asks about the current view OR signal/confidence specifically. Do NOT use this for live price questions — call get_live_price instead, since this returns the price from the last analysis snapshot which can be minutes stale.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {

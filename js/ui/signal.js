@@ -6,6 +6,7 @@ import { isDev } from '../dev-mode.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
 import { getCalibrationSource } from '../calibration.js';
 import { renderTrustPanel } from './trust-panel.js';
+import { renderForecastBand } from './forecast-band-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 import { sharePredictionCard } from './share-card.js';
@@ -318,6 +319,14 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // trust panel header literally says "Why trust this {confidence}%?", so
     // it must reason about the same confidence/consensus the user sees.
     const trustHTML = renderTrustPanel(view);
+    // 7-day expected trading range. Sits right after the price targets because
+    // both are about price levels; the band is the calibrated, direction-free one.
+    let bandHTML = '';
+    try {
+        bandHTML = renderForecastBand(view.forecastBand, {
+            currency: cur, currentPrice: view.priceTargets?.currentPrice ?? null,
+        });
+    } catch (_) { bandHTML = ''; }
     // Per-symbol confidence-trend placeholder — filled async after paint
     // from the live ledger (removed if there isn't enough history).
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
@@ -347,6 +356,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             <div class="insight-summary">${insightSummary}</div>
             ${attributionHTML}
             ${priceTargetHTML}
+            ${bandHTML}
             ${newsHTML}
             ${technicalHTML}
             <div class="signal-meta" style="margin-top: 12px;">

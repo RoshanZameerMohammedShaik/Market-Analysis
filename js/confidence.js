@@ -21,7 +21,7 @@ import { loadPatterns, encodePattern, patternAdjustment } from './pattern-lookup
 import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
 import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
-import { predictMultiHorizon } from './multi-horizon.js';
+import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
 import { computeVolumeProfile, volumeProfileAdjustment } from './volume-profile.js';
@@ -389,20 +389,40 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const calibrationApplied = getCalibrationStatus() === 'loaded';
     const ci = getInterval(finalSignal, calibratedConfidence);
 
-    let multiHorizon = null;
+    // 7-day High/Low forecast band.
+    //
+    // Replaces predictMultiHorizon, which multiplied expected move by the
+    // signal's DIRECTION and by a hand-picked 0.5-to-1.5 "strength" multiplier
+    // keyed off confidence. Neither had an empirical basis, and direction is the
+    // one thing this engine cannot predict: correctly-graded ledger rows read
+    // 49.5%. It also reused ONE direction for every horizon, so 3d/5d/20d were
+    // never separate predictions.
+    //
+    // The band asks an answerable question instead: what High and Low will each
+    // of the next 7 sessions reach? Volatility clusters, so that IS forecastable,
+    // and the confidence attached to it is a measured coverage rate (80% claimed,
+    // 80.0% realized across 56 tier/horizon cells) rather than an assertion.
+    //
+    // NOTE: no squeeze amplification here. The old code multiplied the expected
+    // move by squeeze.expectedExpansionMult, which would silently break the
+    // calibration: the z values were solved against unamplified sigma, so scaling
+    // the output means the stated 80% no longer describes the band drawn. If
+    // squeeze should widen the band, it has to widen SIGMA before calibration,
+    // not the answer afterwards.
+    let forecastBand = null;
     try {
-        const closes = (multiData?.daily?.candles || []).map(c => c.close);
         const candles = multiData?.daily?.candles || [];
-        const atrV = calculateATR ? calculateATR(candles) : null;
+        const closes = candles.map(c => c.close);
         const currentPrice = multiData?.daily?.currentPrice || closes[closes.length - 1];
-        if (atrV && currentPrice) {
-            multiHorizon = predictMultiHorizon({ signal: finalSignal, confidence: calibratedConfidence, atr: atrV, currentPrice, volTier, conformal1d: ci });
-            if (multiHorizon && squeeze?.inSqueeze && squeeze.expectedExpansionMult > 1) {
-                multiHorizon.horizons = multiHorizon.horizons.map(h => ({ ...h, expectedPct: +(h.expectedPct * squeeze.expectedExpansionMult).toFixed(2), targetPrice: +(currentPrice * (1 + (h.expectedPct * squeeze.expectedExpansionMult) / 100)).toFixed(2) }));
-                multiHorizon.squeezeAmplified = true;
-            }
+        if (currentPrice && candles.length) {
+            await loadBandCalibration();
+            forecastBand = forecastBands({
+                candles,
+                currentPrice,
+                cryptoMode: mode === 'crypto',
+            });
         }
-    } catch (_) {}
+    } catch (_) { forecastBand = null; }
 
     // Confidence band (the "63–71%" shown by the number). Previously this
     // was a pure heuristic guess-stack (+2 for transition, +dispersion/6,
@@ -542,7 +562,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         options: options ? { ...options, ...optionsResult } : null,
         squeeze: squeeze || null,
         tfAgreement: tfAgreement || null,
-        multiHorizon: multiHorizon || null,
+        forecastBand: forecastBand || null,
         vwap: vwap || null,
         volProfile: volProfile || null,
         crossAsset: crossAsset || null,

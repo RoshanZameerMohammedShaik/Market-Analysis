@@ -97,7 +97,7 @@ const TOOLS = {
                 symbol: state.currentSymbol,
                 signal: sig.signal, confidence: sig.confidence, rawConfidence: sig.rawConfidence,
                 calibrationApplied: sig.calibrationApplied, trendRegime: sig.trendRegime,
-                breakdown: sig.breakdown, priceTargets: sig.priceTargets, multiHorizon: sig.multiHorizon,
+                breakdown: sig.breakdown, priceTargets: sig.priceTargets, forecastBand: sig.forecastBand,
                 topReasons: sig.reasons?.slice(0, 8),
                 conformal: sig.conformal, squeeze: sig.squeeze, vwap: sig.vwap,
                 tfAgreement: sig.tfAgreement, volProfile: sig.volProfile, rotation: sig.rotation,
@@ -148,7 +148,7 @@ const TOOLS = {
                 signal: result.signal, confidence: result.confidence, trendRegime: result.trendRegime,
                 regime: result.regime,
                 breakdown: result.breakdown, consensus: result.consensus,
-                priceTargets: result.priceTargets, multiHorizon: result.multiHorizon,
+                priceTargets: result.priceTargets, forecastBand: result.forecastBand,
                 // Sub-module reads — already computed by the engine, previously
                 // dropped on the floor for non-loaded symbols. Now exposed so
                 // Mia can answer targeted questions about any ticker.
