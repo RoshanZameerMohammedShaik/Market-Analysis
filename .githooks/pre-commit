@@ -1,0 +1,33 @@
+#!/bin/sh
+# Hard gate: no employer identity into this PUBLIC repo.
+#
+# Tracked in the repo (not .git/hooks) and activated with:
+#   git config core.hooksPath .githooks
+# so it survives a fresh clone instead of living only on one machine.
+#
+# Also verifies the commit IDENTITY, because a clean global config is not enough:
+# a per-repo user.email overrides it silently.
+set -e
+
+fail=0
+
+email=$(git config user.email || true)
+name=$(git config user.name || true)
+case "$email$name" in
+  *amazon.com*|*@amazon*)
+    echo "pre-commit BLOCKED: commit identity is an employer address" >&2
+    echo "  user.email = $email" >&2
+    echo "  fix: git config user.email '<id>+<user>@users.noreply.github.com'" >&2
+    fail=1
+    ;;
+esac
+
+if command -v python >/dev/null 2>&1; then
+  python tools/check_no_corp_identity.py --staged || fail=1
+elif command -v python3 >/dev/null 2>&1; then
+  python3 tools/check_no_corp_identity.py --staged || fail=1
+else
+  echo "pre-commit WARNING: python not found, content scan skipped" >&2
+fi
+
+exit $fail

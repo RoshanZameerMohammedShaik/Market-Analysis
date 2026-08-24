@@ -1,0 +1,31 @@
+name: No employer identity
+
+# This repo is PUBLIC and its owner's Windows username is also his employer
+# alias, so build artifacts that record absolute source paths leak identity
+# automatically. A .pyc in this repo was verified to contain the full path to
+# penny_universe.py.
+#
+# .githooks/pre-commit is the primary gate, but it only applies on a machine
+# where `git config core.hooksPath .githooks` has been run. This job is the
+# backstop that cannot be skipped or forgotten on a fresh clone.
+#
+# NO path filter on purpose: any file is a candidate.
+#
+# The alias is deliberately NOT passed here. Naming it in a public workflow
+# would publish the very string being guarded. The generic Windows-user-path,
+# employer-email, and internal-hostname rules catch the real vectors without it.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Scan tracked files for employer identity
+        run: python tools/check_no_corp_identity.py

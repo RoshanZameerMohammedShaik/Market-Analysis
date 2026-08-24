@@ -43,3 +43,18 @@ android/captures/
 android/.idea/
 android/*.iml
 android/app/release/
+
+# Build artifacts that embed the absolute source path. On this machine the
+# Windows username is also the owner's employer alias, so any file recording
+# a Windows user path leaks identity into a PUBLIC repo. Verified: a .pyc in
+# this repo contained the full path to penny_universe.py.
+# Enforced by .githooks/pre-commit and tools/check_no_corp_identity.py.
+*.pyd
+*.egg-info/
+.mypy_cache/
+.coverage
+htmlcov/
+*.log
+*.map
+.wrangler/
+*.tsbuildinfo
