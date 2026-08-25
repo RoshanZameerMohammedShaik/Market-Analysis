@@ -15,6 +15,8 @@ on:
       - 'model/band_calibration.json'
       - 'js/risk.js'
       - 'tools/risk_check.mjs'
+      - 'record_outcomes.py'
+      - 'tools/resolver_check.py'
   push:
     branches: [main]
     paths:
@@ -30,6 +32,8 @@ on:
       - 'model/band_calibration.json'
       - 'js/risk.js'
       - 'tools/risk_check.mjs'
+      - 'record_outcomes.py'
+      - 'tools/resolver_check.py'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -90,3 +94,7 @@ jobs:
       # later, so these assert the properties that must never break.
       - name: Check risk invariants
         run: node tools/risk_check.mjs
+      # Guards the worst defect this project has had: outcomes graded against
+      # another row's price window. Synthetic bars, so no network needed.
+      - name: Check outcome resolver anchoring
+        run: python tools/resolver_check.py

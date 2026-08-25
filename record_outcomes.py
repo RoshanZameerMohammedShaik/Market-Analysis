@@ -75,60 +75,163 @@ def trading_days_passed(prediction_date: str, today: datetime.date) -> int:
     return days
 
 
-def fetch_window(symbol: str, start_iso: str, days_needed: int):
-    """Pull daily bars from start_iso through today, return (closes, highs, lows)."""
+# A single-day move beyond this ratio is a corporate action (split, reverse
+# split, redenomination), not a return. Two AEHL rows in this ledger read +1192%
+# and +1803% in one day; unguarded they moved a 1,096-row sample's mean return
+# from -0.07% to +2.59% and its stdev from 1.6 to 65.3. Genuine penny moves of
+# 50-100% are real and must NOT be filtered, so the bar is set well above them.
+MAX_DAILY_RATIO = 3.0
+
+# Below this the close is unchanged to within float noise. A flat close is NOT a
+# miss: `move > 0` is False for BUY and `move < 0` is False for SELL, so the old
+# code scored an untraded symbol wrong in BOTH directions. 105 of 1,096 sampled
+# rows were flat, and one symbol (OST, high == low on 60 of 60 days) alone
+# supplied 56 of the 156 rows in the 60-70% confidence bucket, single-handedly
+# making that bucket look 28% accurate.
+FLAT_EPS = 1e-9
+
+
+def fetch_window(symbol: str, start_iso: str, days_needed: int = 0):
+    """Daily bars from start_iso through today as a DATE-KEYED series.
+
+    Returns {'dates': [iso, ...], 'close'/'high'/'low': [...], 'index': {iso: i}}
+    or None.
+
+    Why dated: the previous version returned bare lists, which left
+    resolve_horizon no option but POSITIONAL indexing (`closes[h_days]`). Since
+    the caller cached one window per SYMBOL, every row of that symbol was graded
+    against a window anchored to some other row's date. 84.6% of resolved rows
+    shared a graded close with another row, spreading up to 86 calendar days
+    apart, and the resulting hit rate read 76% BUY and 73% SELL simultaneously,
+    which is impossible. Dates make the anchor explicit and let one wide fetch
+    per symbol serve every row correctly.
+    """
     end = datetime.date.today() + datetime.timedelta(days=1)
     start = datetime.date.fromisoformat(start_iso)
     df = yf.download(symbol, start=start.isoformat(), end=end.isoformat(),
                      interval='1d', progress=False, auto_adjust=False)
     if df.empty:
         return None
-    closes = df['Close'].values.tolist() if hasattr(df['Close'], 'values') else []
-    highs = df['High'].values.tolist() if hasattr(df['High'], 'values') else []
-    lows = df['Low'].values.tolist() if hasattr(df['Low'], 'values') else []
-    if isinstance(closes[0] if closes else None, list):
-        # MultiIndex case for single ticker — flatten
-        closes = [c[0] if isinstance(c, list) else c for c in closes]
-        highs = [h[0] if isinstance(h, list) else h for h in highs]
-        lows = [l[0] if isinstance(l, list) else l for l in lows]
-    # Align the three series to a common length. They're extracted
-    # independently and a column-shape skew (rare MultiIndex edge) would
-    # otherwise let resolve_horizon grade a capturedPct against a shorter
-    # high/low window than the close it compares to — a wrong-but-plausible
-    # number that the idempotent rewrite would then freeze permanently.
-    n = min(len(closes), len(highs), len(lows))
-    return list(closes[:n]), list(highs[:n]), list(lows[:n])
+
+    def col(name):
+        v = df[name].values.tolist() if hasattr(df[name], 'values') else []
+        # MultiIndex case for a single ticker — flatten
+        return [x[0] if isinstance(x, list) else x for x in v]
+
+    closes, highs, lows = col('Close'), col('High'), col('Low')
+    try:
+        dates = [d.date().isoformat() if hasattr(d, 'date') else str(d)[:10]
+                 for d in df.index.tolist()]
+    except Exception:
+        return None
+
+    # Align all four series. They are extracted independently and a column-shape
+    # skew would otherwise grade a high/low window against a different close.
+    n = min(len(dates), len(closes), len(highs), len(lows))
+    dates, closes, highs, lows = dates[:n], closes[:n], highs[:n], lows[:n]
+
+    # Drop bars that are unusable, keeping the series internally consistent.
+    keep = [i for i in range(n)
+            if closes[i] and highs[i] and lows[i]
+            and not math.isnan(closes[i]) and not math.isnan(highs[i]) and not math.isnan(lows[i])
+            and closes[i] > 0 and highs[i] >= lows[i] > 0]
+    dates = [dates[i] for i in keep]
+    closes = [closes[i] for i in keep]
+    highs = [highs[i] for i in keep]
+    lows = [lows[i] for i in keep]
+    if not dates:
+        return None
+    return {'dates': dates, 'close': closes, 'high': highs, 'low': lows,
+            'index': {d: i for i, d in enumerate(dates)}}
+
+
+def find_anchor(bars, row_date: str, entry: float):
+    """Which bar does this row's `entry` price actually correspond to?
+
+    Returns (index, how) or (None, reason).
+
+    This exists because the ledger's stored `entry` matches its own date's close
+    only ~25% of the time: record_predictions.py takes `close[-1]` at the
+    market-open cron, which is usually the PREVIOUS session. Grading by date
+    therefore treats a 2-day forecast as a 1-day one. Measured effect of
+    anchoring on the matching bar instead: out-of-sample day-1 band coverage
+    68.4% -> 84.1%.
+
+    Price match is tried first and preferred, within a +/-4 session window so a
+    coincidental match far away cannot win. Falling back to the date keeps older
+    rows gradable, but the choice is recorded on the outcome so it is auditable
+    rather than silent.
+    """
+    idx = bars['index'].get(row_date)
+    closes = bars['close']
+    if entry and entry > 0:
+        lo = max(0, (idx - 4) if idx is not None else 0)
+        hi = min(len(closes), (idx + 2) if idx is not None else len(closes))
+        for i in range(lo, hi):
+            if abs(closes[i] - entry) / entry < 0.001:
+                return i, 'entry-match'
+    if idx is not None:
+        return idx, 'date'
+    return None, 'no-bar-for-date'
 
 
 def resolve_horizon(row: dict, h_days: int, bars):
-    """Compute the outcome dict for horizon h_days using fetched bars."""
-    if not bars or not bars[0]:
+    """Outcome dict for horizon h_days, anchored on the row's OWN bar.
+
+    `bars` is the dated series from fetch_window. The anchor is located per-row by
+    find_anchor, so one cached window per symbol is now correct rather than
+    silently grading every row against the first row's date.
+    """
+    if not bars or not bars.get('dates'):
         return None
-    closes, highs, lows = bars
-    # bars[0] is the prediction-day close (or the next available bar);
-    # we want the close at index h_days from the prediction day. Gate on
-    # ALL THREE series so window_high/window_low are graded over the same
-    # matured window as the close (not a truncated slice).
-    if len(closes) <= h_days or len(highs) <= h_days or len(lows) <= h_days:
+
+    entry = row.get('entry')
+    if not isinstance(entry, (int, float)) or entry != entry or entry <= 0:
+        return None  # NaN or absent entry: 650 such rows exist; never gradable
+
+    a_idx, a_how = find_anchor(bars, row.get('date'), float(entry))
+    if a_idx is None:
+        return None
+
+    closes, highs, lows, dates = bars['close'], bars['high'], bars['low'], bars['dates']
+    tgt = a_idx + h_days
+    if tgt >= len(closes):
         return None  # window not matured
 
-    entry = row['entry']
-    actual_close = float(closes[h_days])
-    # yfinance can return NaN closes on unsettled bars (NSE in particular —
-    # intraday H/L come back populated but the daily close stays NaN until
-    # the post-market settlement window completes). A NaN close coerced to
-    # directionMatch=False silently inverts the calibration for that region,
-    # so treat NaN as "not yet matured" and let the next cron retry.
-    if math.isnan(actual_close):
+    actual_close = float(closes[tgt])
+    if math.isnan(actual_close) or actual_close <= 0:
+        # yfinance returns NaN closes on unsettled bars (NSE especially: intraday
+        # H/L populate before the daily close settles). Coercing that to
+        # directionMatch=False silently inverted a whole region's calibration
+        # once already, so treat it as "not yet matured" and let the next cron
+        # retry rather than freezing a wrong answer.
         return None
-    window_high = float(max(highs[1:h_days + 1])) if highs[1:h_days + 1] else None
-    window_low = float(min(lows[1:h_days + 1])) if lows[1:h_days + 1] else None
+
+    # Corporate-action guard. A split shows up as an impossible one-day ratio.
+    ratio = max(actual_close / entry, entry / actual_close)
+    if ratio > MAX_DAILY_RATIO ** max(1, h_days ** 0.5):
+        return {'unresolvable': 'suspected-corporate-action',
+                'anchorDate': dates[a_idx], 'anchorHow': a_how,
+                'actualClose': round(actual_close, 6), 'directionMatch': None,
+                'capturedPct': None, 'rangeHit': None, 'pctMove': None}
+
+    window_high = float(max(highs[a_idx + 1:tgt + 1])) if tgt > a_idx else None
+    window_low = float(min(lows[a_idx + 1:tgt + 1])) if tgt > a_idx else None
 
     signal = row['signal']
     move = actual_close - entry
     pct_move = (move / entry) * 100 if entry else 0
 
-    if signal == 'BUY':
+    # A FLAT close validates neither direction. The old code returned
+    # `move > 0` for BUY and `move < 0` for SELL, both False when move == 0, so
+    # an untraded symbol was scored WRONG whichever way the engine called it.
+    # 105 of 1,096 sampled rows were flat, and one zero-range symbol supplied 56
+    # of the 156 rows in the 60-70% confidence bucket, dragging that bucket to an
+    # apparent 28% accuracy. null means "no directional outcome", which the
+    # calibrator already skips.
+    if signal in ('BUY', 'SELL') and abs(move) <= max(FLAT_EPS, entry * 1e-9):
+        direction_match = None
+    elif signal == 'BUY':
         direction_match = move > 0
     elif signal == 'SELL':
         direction_match = move < 0
@@ -153,8 +256,9 @@ def resolve_horizon(row: dict, h_days: int, bars):
     captured_pct = None
     range_hit = None
     expected_move = row.get('expectedMove')
-    if signal in ('BUY', 'SELL') and isinstance(expected_move, (int, float)) and expected_move > 0:
-        if not direction_match:
+    if (signal in ('BUY', 'SELL') and direction_match is not None
+            and isinstance(expected_move, (int, float)) and expected_move > 0):
+        if direction_match is False:
             # Directionally wrong (closed the wrong way) = a miss, full stop.
             # We do NOT credit a trivial intraday wiggle in the right
             # direction on a call that ultimately closed against us — that
@@ -174,6 +278,12 @@ def resolve_horizon(row: dict, h_days: int, bars):
             range_hit = 'reached' if raw >= 1.0 else 'inside'
 
     return {
+        # Which bar this row was graded against, and how that bar was chosen.
+        # Without this the anchor is implicit and a regression is invisible.
+        'anchorDate': dates[a_idx],
+        'anchorHow': a_how,
+        'targetDate': dates[tgt],
+        'flat': direction_match is None and signal in ('BUY', 'SELL'),
         'actualClose': round(actual_close, 4),
         'actualHigh': round(window_high, 4) if window_high is not None else None,
         'actualLow': round(window_low, 4) if window_low is not None else None,
@@ -184,8 +294,16 @@ def resolve_horizon(row: dict, h_days: int, bars):
     }
 
 
+RERESOLVE = False
+stats = defaultdict(int)
+
+
 def main():
     import sys
+    global RERESOLVE
+    RERESOLVE = '--reresolve' in sys.argv
+    if RERESOLVE:
+        print('RERESOLVE MODE: every matured horizon will be recomputed from scratch.')
     today = datetime.date.today()
     year = today.year
     path = ledger_path_for_year(year)
@@ -204,9 +322,25 @@ def main():
     errors = 0
     rows_with_unresolved_due = 0
 
+    # Earliest row date per symbol, so ONE window covers every row of that
+    # symbol. Previously the window began at whichever row happened to be seen
+    # first, which is what made a per-symbol cache unsafe. Anchoring is now
+    # per-row, so a wide window plus a symbol-keyed cache is both correct and
+    # cheap: ~1,100 fetches instead of ~67,000.
+    earliest = {}
+    for r in rows:
+        sym, d = r.get('symbol'), r.get('date')
+        if sym and d and (sym not in earliest or d < earliest[sym]):
+            earliest[sym] = d
+
     for row in rows:
         passed = trading_days_passed(row['date'], today)
-        unresolved_horizons = [h for h in HORIZONS_DAYS if row['horizons'].get(str(h)) is None and passed >= h]
+        if RERESOLVE:
+            # The corrupted values are frozen by the `is None` gate below, so they
+            # never self-correct. --reresolve rebuilds every matured horizon.
+            unresolved_horizons = [h for h in HORIZONS_DAYS if passed >= h]
+        else:
+            unresolved_horizons = [h for h in HORIZONS_DAYS if row['horizons'].get(str(h)) is None and passed >= h]
         if not unresolved_horizons:
             if any(row['horizons'].get(str(h)) is None for h in HORIZONS_DAYS):
                 skipped_immature += 1
@@ -216,7 +350,11 @@ def main():
         sym = row['symbol']
         if sym not in bars_cache:
             try:
-                bars_cache[sym] = fetch_window(sym, row['date'], max(unresolved_horizons) + 2)
+                # Start 10 calendar days before this symbol's FIRST row so
+                # find_anchor's backward search window always has bars available.
+                start = datetime.date.fromisoformat(earliest.get(sym, row['date']))
+                start = (start - datetime.timedelta(days=10)).isoformat()
+                bars_cache[sym] = fetch_window(sym, start)
                 fetched += 1
             except Exception as e:
                 bars_cache[sym] = None
@@ -231,12 +369,22 @@ def main():
             outcome = resolve_horizon(row, h, bars)
             if outcome is None:
                 continue
+            if outcome.get('unresolvable'):
+                stats['corporate-action'] += 1
+            else:
+                stats['anchor:' + str(outcome.get('anchorHow'))] += 1
+                if outcome.get('flat'):
+                    stats['flat (no directional outcome)'] += 1
             row['horizons'][str(h)] = outcome
             updated += 1
 
     save_rows(path, rows)
     print(f"Resolved horizons: {updated}, fetched: {fetched}, immature: {skipped_immature}, errors: {errors}")
     print(f"Rows considered for resolution: {rows_with_unresolved_due} (of {len(rows)} total in {year}.jsonl)")
+    if stats:
+        print('Grading breakdown:')
+        for k in sorted(stats):
+            print(f'  {k}: {stats[k]:,}')
 
     # Hard-fail when we had work to do (mature horizons due) but resolved
     # zero AND most fetches failed — that's yfinance being down across the
