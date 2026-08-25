@@ -228,6 +228,26 @@ def _bollinger_bands(closes, period=20, std_dev=2):
     return {'upper': mid + std_dev * std, 'middle': mid, 'lower': mid - std_dev * std}
 
 
+def _rp(v):
+    """Round a price to a precision appropriate to its magnitude.
+
+    A fixed 2 decimals is wrong for anything under a dollar: it collapses a
+    forecast range to zero width. Mirrors the sub-$1 handling in
+    js/forecast-band.js so the cron and the browser format alike.
+    """
+    if v is None:
+        return None
+    try:
+        av = abs(float(v))
+    except (TypeError, ValueError):
+        return None
+    if av >= 1:
+        return round(float(v), 2)
+    if av >= 0.01:
+        return round(float(v), 4)
+    return round(float(v), 8)
+
+
 def price_targets(candles, signal, confidence, timeframe='today'):
     """Possible + probable price-target bands, LOCKED at market open.
 
@@ -297,18 +317,26 @@ def price_targets(candles, signal, confidence, timeframe='today'):
 
     return {
         'currentPrice': round(current_price, 4),   # == the locked open entry
-        'predictedHigh': round(predicted_high, 2),
-        'predictedLow': round(predicted_low, 2),
+        # Precision must scale with price. round(x, 2) quantizes a sub-dollar
+        # quote to whole cents, which on a $0.09 name makes predictedHigh and
+        # predictedLow IDENTICAL: a zero-width range that any tick breaks out of.
+        # Observed on 2026-08-24 for DOGE-USD (0.0900/0.0900), KAS-USD
+        # (0.0300/0.0300), MANTA-USD and SCRT-USD, all recorded as "BROKE OUT"
+        # purely because the stored range had no width. Sub-dollar names are a
+        # large share of this universe, so this silently poisoned every
+        # range-hit statistic derived from the ledger.
+        'predictedHigh': _rp(predicted_high),
+        'predictedLow': _rp(predicted_low),
         'highPercent': round(high_pct, 2),
         'lowPercent': round(low_pct, 2),
-        'probableHigh': round(probable_high, 2),
-        'probableLow': round(probable_low, 2),
+        'probableHigh': _rp(probable_high),
+        'probableLow': _rp(probable_low),
         'probableHighPercent': round(probable_high_pct, 2),
         'probableLowPercent': round(probable_low_pct, 2),
-        'expectedMove': round(expected_move, 2),
-        'atr': round(a, 2),
-        'support': round(recent_low, 2),
-        'resistance': round(recent_high, 2),
+        'expectedMove': _rp(expected_move),
+        'atr': _rp(a),
+        'support': _rp(recent_low),
+        'resistance': _rp(recent_high),
         'timeframe': timeframe,
     }
 
