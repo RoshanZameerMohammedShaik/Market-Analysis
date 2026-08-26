@@ -177,15 +177,44 @@ if __name__ == '__main__':
     model, fold_accs, mean_acc, std_acc = walk_forward(per_symbol)
     sym_acc = per_symbol_accuracy(model, per_symbol)
 
+    # MEASURE the baseline, never assume it. `baseline_random: 50.0` was a lie by
+    # omission: the triple-barrier label is not balanced, so 50% is not the bar.
+    # Its measured base rate is ~53.6% on US equities, which means a model at
+    # 53.35% has NEGATIVE skill while appearing to beat chance by 3.35 points.
+    # Reporting the majority-class rate makes that impossible to misread.
+    label_mean = float(np.mean([y for _, ys in per_symbol.items() for y in ys[1]]))         if isinstance(next(iter(per_symbol.values()), None), tuple) else None
+    if label_mean is None:
+        # per_symbol shape varies by loader; fall back to pooling every label we
+        # can reach rather than silently emitting no baseline at all.
+        pooled = []
+        for v in per_symbol.values():
+            try:
+                pooled.extend(list(v[1]))
+            except Exception:
+                pass
+        label_mean = float(np.mean(pooled)) if pooled else None
+
     metrics = {
         'method': 'walk-forward LSTM',
         'folds': N_FOLDS,
         'fold_accuracies': [round(a * 100, 2) for a in fold_accs],
         'mean_accuracy': round(mean_acc * 100, 2),
         'std_accuracy': round(std_acc * 100, 2),
-        'baseline_random': 50.0,
         'per_symbol': sym_acc,
     }
+    if label_mean is not None:
+        up_rate = round(label_mean * 100, 2)
+        majority = round(max(up_rate, 100 - up_rate), 2)
+        metrics['label_up_rate'] = up_rate
+        metrics['baseline_majority_class'] = majority
+        metrics['skill_vs_majority_pp'] = round(metrics['mean_accuracy'] - majority, 2)
+        metrics['baseline_note'] = (
+            'skill_vs_majority_pp is the number that matters. baseline_random (50%) '
+            'was removed because the triple-barrier label is not balanced, so beating '
+            '50% can still mean the model only learned the class balance.'
+        )
+        print(f"  label up-rate {up_rate}%  majority baseline {majority}%  "
+              f"SKILL {metrics['skill_vs_majority_pp']:+.2f} pp")
     with open(METRICS_PATH, 'w') as f:
         json.dump(metrics, f, indent=2)
     print(f"✓ Metrics written to {METRICS_PATH}")

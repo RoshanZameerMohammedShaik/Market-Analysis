@@ -23,6 +23,14 @@ on:
       - 'forecast_band.py'
       - 'record_predictions.py'
       - 'js/analysis.js'
+      - 'ai_infer.py'
+      - 'js/ai-model.js'
+      - 'js/xgb-model.js'
+      - 'tools/ai_sync_check.py'
+      - 'tools/ai_sync_check.mjs'
+      - 'model/lstm_weights.json'
+      - 'model/xgb_trees.json'
+      - 'tools/skill_report.py'
   push:
     branches: [main]
     paths:
@@ -46,6 +54,14 @@ on:
       - 'forecast_band.py'
       - 'record_predictions.py'
       - 'js/analysis.js'
+      - 'ai_infer.py'
+      - 'js/ai-model.js'
+      - 'js/xgb-model.js'
+      - 'tools/ai_sync_check.py'
+      - 'tools/ai_sync_check.mjs'
+      - 'model/lstm_weights.json'
+      - 'model/xgb_trees.json'
+      - 'tools/skill_report.py'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -99,6 +115,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      # numpy is needed by ai_infer.py (the LSTM forward pass). Deliberately NOT
+      # torch: the runner should not pull a 900 MB dependency to multiply a
+      # 32-unit hidden state, and the exported weights are plain JSON.
+      - run: pip install numpy
       - name: Check band math parity (JS vs Python)
         run: python tools/band_sync_check.py
       # Risk code is not verified by matching numbers to a fixture. A sizing bug
@@ -117,3 +137,11 @@ jobs:
       # test passes happily on fixed precision for any symbol above a dollar.
       - name: Check price rounding parity and non-collapse
         run: python tools/price_round_check.py
+      # The cron now runs the LSTM to fill the ledger's `ai` breakdown while the
+      # browser runs it to show the user a score. Two implementations of one
+      # number: if they drift, the ledger records one AI opinion and the user is
+      # shown another, and the skill attributed to the AI source stops describing
+      # what is on screen. Exercises the DEPLOYED weights, so it also catches the
+      # input_size mismatch if the model is ever retrained at 11 features.
+      - name: Check AI inference parity (JS vs Python)
+        run: python tools/ai_sync_check.py

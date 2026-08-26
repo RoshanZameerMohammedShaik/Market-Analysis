@@ -10,7 +10,6 @@
   ],
   "mean_accuracy": 53.35,
   "std_accuracy": 0.75,
-  "baseline_random": 50.0,
   "per_symbol": {
     "AAPL": {
       "accuracy": 55.06,
@@ -1364,5 +1363,8 @@
       "accuracy": 51.66,
       "samples": 362
     }
-  }
+  },
+  "baseline_majority_class_estimate": 53.58,
+  "skill_vs_majority_pp_estimate": -0.23,
+  "baseline_note": "baseline_random:50.0 was REMOVED: the triple-barrier label is not balanced, so 50% is not the bar. The majority-class figure here is an ESTIMATE measured over 9,320 labelled bars across 20 of the trained symbols (2y daily), not the full 338-symbol training set, so treat it as approximate. On that basis mean_accuracy 53.35% is indistinguishable from always predicting 'up'. The next run of train_walkforward.py computes this from the actual training labels. Use tools/skill_report.py for live, forward-graded skill."
 }

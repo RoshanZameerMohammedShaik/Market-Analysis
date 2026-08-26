@@ -42,6 +42,7 @@ import yfinance as yf
 from backtest import generate_prediction
 from price_round import round_price
 from forecast_band import forecast_bands
+from ai_infer import ai_prediction
 from shared_features import extract_ohlcv
 from ledger_universe import symbols_for_region, region_for, HORIZONS_DAYS
 
@@ -166,6 +167,22 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         return ('skipped-no-pred', symbol)
     entry_price = float(close[-1])
 
+    # AI inference, same models and same numbers as the browser (ai_infer mirrors
+    # js/ai-model.js; tools/ai_sync_check.py asserts they agree to 1e-9).
+    # Tier mirrors classifyTier in js/calibration.js so the cron picks the same
+    # model the browser would: sub-$1 uses the isolated penny weights.
+    try:
+        # classifyTier's penny bucket is price < $1 alone; volume only separates
+        # the higher tiers, and the AI has no separate model for those, so it plays
+        # no part in this decision.
+        tier = 'penny' if entry_price < 1 else None
+        ai_block = ai_prediction(candles, tier=tier)
+    except Exception as e:
+        # Never let the AI stage kill a row. A missing AI opinion is recoverable;
+        # a lost prediction for the day is not, because the open cannot be replayed.
+        _add_diag('ai-failed', symbol, f'{type(e).__name__}: {e}')
+        ai_block = {'score': 50, 'available': False, 'reason': f'{type(e).__name__}'}
+
     row = {
         'symbol': symbol,
         'region': region,
@@ -202,9 +219,26 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # holds the rest at baseline — grounded, not faked. (A full 4-source
         # breakdown would require the browser engine to write the ledger,
         # which isn't possible against a git-committed file on free infra.)
+        # The cron used to hardcode ai/sentiment/market to null, so the LOCKED and
+        # GRADED prediction came from three indicators while the browser showed a
+        # four-source blend that included this same LSTM. The user saw one analysis
+        # and the ledger recorded another.
+        #
+        # `ai` is now real. It is RECORDED but deliberately does NOT influence the
+        # signal yet: the LSTM measures 53.35% against a triple-barrier label whose
+        # own base rate is 53.58%, so it is indistinguishable from always saying
+        # "up", and letting an unproven source move the locked call would be
+        # exactly the mistake this project already made once by tuning a
+        # mean-reversion tilt on leaked outcomes. Recording costs nothing and gives
+        # forward-graded data to decide on. Once resolved rows exist,
+        # tools/skill_report.py --source ai answers whether it earns weight.
+        #
+        # Because the signal is unchanged, engineVersion stays put and the existing
+        # track record remains comparable.
         'breakdown': {
             'technical': {'score': pred.get('weightedScore')},
-            'ai': None, 'sentiment': None, 'market': None,
+            'ai': ai_block,
+            'sentiment': None, 'market': None,
         },
         # Directional expected-move distance (price) this call implies, so
         # record_outcomes can grade capturedPct against the row's OWN stored

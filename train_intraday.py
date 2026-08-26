@@ -148,5 +148,8 @@ if __name__ == '__main__':
     export_model(model, WEIGHTS_PATH, acc)
     with open(METRICS_PATH, 'w') as f:
         json.dump({'method': '1h-candle LSTM', 'test_accuracy': round(acc * 100, 2),
-                   'baseline_random': 50.0, 'interval': INTRADAY_INTERVAL}, f, indent=2)
+                   # baseline_random removed: see train_walkforward.py. An unbalanced label
+                   # makes 50% the wrong bar, and the majority class is the right one.
+                   'baseline_note': 'compare against the majority-class rate, not 50%; see tools/skill_report.py',
+                   'interval': INTRADAY_INTERVAL}, f, indent=2)
     print(f"✓ Metrics written to {METRICS_PATH}")

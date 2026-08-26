@@ -17,6 +17,10 @@ const PENNY_KEY = 'penny';
 const INTRADAY_KEY = 'intraday';
 
 // Cache parsed model JSON per tier so we don't refetch on every prediction.
+// MUST stay in step with GBT_IN_BLEND in ai_infer.py. See the note in
+// getAIPrediction for the measurement behind it.
+const GBT_IN_BLEND = false;
+
 const modelCache = {};      // { main: {weights, config}, penny: {...} | 'unavailable' }
 const loadingPromises = {}; // { main: Promise<bool>, penny: Promise<bool> }
 
@@ -339,7 +343,26 @@ export async function getAIPrediction(candles, opts = {}) {
         try { gbtProb = predictGbt(features[features.length - 1]); } catch (_) {}
     }
 
-    const probability = (gbtProb != null && Number.isFinite(gbtProb)) ? (lstmProb + gbtProb) / 2 : lstmProb;
+    // The GBT has NO DISCRIMINATION and must not dilute the LSTM.
+    //
+    // Measured on 600 real market states (20 symbols x 30 recent sessions):
+    //     GBT   19 distinct outputs, min 0.529, 100.0% bullish, 60% on 0.646
+    //     LSTM  594 distinct outputs, range 0.018-0.842, 46.0% bullish
+    //
+    // The GBT never says "down". It is a near-constant bullish offset, which is
+    // also why it measures 51.79% against a label whose base rate is 53.58%.
+    // Averaging it 50/50 compressed the LSTM's range, shifted every score up, and
+    // let a constant OVERRIDE an informative call: DY came out LSTM 0.376
+    // (bearish) blended with GBT 0.646 to 0.511, i.e. neutral. The only model with
+    // an opinion was outvoted by one that never has one.
+    //
+    // gbtProb is still REPORTED below, so nothing is lost and it can be
+    // re-evaluated after a retrain. Only the headline blend changes.
+    // Flip GBT_IN_BLEND back on once a retrained GBT shows two-sided output; the
+    // ai_sync_check parity test will hold you to changing ai_infer.py too.
+    const probability = (GBT_IN_BLEND && gbtProb != null && Number.isFinite(gbtProb))
+        ? (lstmProb + gbtProb) / 2
+        : lstmProb;
     const score = Math.round(probability * 100);
 
     let signal;
@@ -350,9 +373,12 @@ export async function getAIPrediction(candles, opts = {}) {
     const modelLabel = modelKey === PENNY_KEY ? 'Penny-LSTM'
         : modelKey === INTRADAY_KEY ? 'Intraday-LSTM (1h)'
         : 'LSTM';
-    const reason = (gbtProb != null)
+    const reason = (GBT_IN_BLEND && gbtProb != null)
         ? `AI ensemble (${modelLabel} ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
-        : `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move`;
+        : (gbtProb != null)
+            ? `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move. `
+              + `GBT (${Math.round(gbtProb * 100)}%) recorded but excluded: no measurable discrimination.`
+            : `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move`;
 
     return {
         score, available: true,
