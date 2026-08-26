@@ -592,6 +592,18 @@ export function calculatePriceTargets(candles, signal, confidence, timeframe = '
     }
     if (predictedHigh > recentHigh * 1.05) predictedHigh = recentHigh + (predictedHigh - recentHigh) * 0.5;
     if (predictedLow < recentLow * 0.95) predictedLow = recentLow - (recentLow - predictedLow) * 0.5;
+    // The clamps above can CROSS the two levels. On a crashed symbol recentHigh
+    // sits below the current price, so the high clamp drags predictedHigh down
+    // past predictedLow and the range inverts. Measured on the live ledger:
+    // 2,486 of 18,814 rows with targets (13.2%) were inverted or zero-width. An
+    // inverted range makes "stayed inside" impossible, so the row can only ever
+    // score as a hit, which inflated every range statistic derived from it.
+    // Mirrors the guard in backtest.price_targets; the two must stay in step.
+    if (predictedHigh <= predictedLow) {
+        const half = Math.max(Math.abs(expectedMove) * 0.5, currentPrice * 0.002);
+        predictedHigh = currentPrice + half;
+        predictedLow = Math.max(currentPrice - half, currentPrice * 0.01);
+    }
     const highPct = ((predictedHigh - currentPrice) / currentPrice) * 100;
     const lowPct = ((predictedLow - currentPrice) / currentPrice) * 100;
 

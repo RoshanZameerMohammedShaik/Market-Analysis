@@ -295,6 +295,21 @@ def price_targets(candles, signal, confidence, timeframe='today'):
     if predicted_low < recent_low * 0.95:
         predicted_low = recent_low - (recent_low - predicted_low) * 0.5
 
+    # The clamps above can CROSS the two levels. If a symbol has crashed,
+    # recent_high sits below the locked price, the high clamp drags
+    # predicted_high down past predicted_low, and the stored range inverts.
+    # Measured on the live ledger: 2,486 of 18,814 rows with targets (13.2%)
+    # were inverted or zero-width. An inverted range makes "price stayed inside"
+    # impossible, so such a row can ONLY ever be scored as a hit, which silently
+    # inflated every range-hit statistic.
+    #
+    # Repair rather than discard: re-centre a minimum-width band on the locked
+    # price using the same expected move, so the row stays gradable and honest.
+    if predicted_high <= predicted_low:
+        half = max(abs(expected_move) * 0.5, current_price * 0.002)
+        predicted_high = current_price + half
+        predicted_low = max(current_price - half, current_price * 0.01)
+
     high_pct = ((predicted_high - current_price) / current_price) * 100
     low_pct = ((predicted_low - current_price) / current_price) * 100
 

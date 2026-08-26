@@ -223,6 +223,13 @@ def main():
         if not (ph > 0 and pl > 0):
             st['bad target'] += 1
             continue
+        if pl >= ph:
+            # predictedLow at or above predictedHigh. "Stayed inside" is
+            # impossible, so scoring it would guarantee a HIT and inflate the
+            # rate. 13.2% of historical rows are like this; the engine guard now
+            # prevents new ones, but old rows must be excluded, not counted.
+            st['inverted range (excluded)'] += 1
+            continue
         try:
             b = daily_bars(sym, date_iso)
         except Exception:
@@ -291,7 +298,8 @@ def main():
         print('\n  Nothing scored: ' + str(dict(st)))
         sys.exit(0)
     print(f'\n  Scored                  : {n:,} of {len(cand):,}')
-    for k in ('price data unavailable', 'no bar for that date', 'bad target'):
+    for k in ('price data unavailable', 'no bar for that date', 'bad target',
+              'inverted range (excluded)'):
         if st[k]:
             print(f'    excluded, {k}: {st[k]}')
     print(f'\n  HIT      {st["HIT"]:>5} ({100*st["HIT"]/n:>5.1f}%)   '
@@ -322,7 +330,11 @@ def main():
     print('  ' + '-' * sum(w for _, _, w, _ in cols))
     for x in show:
         cells = []
-        dp = 4 if (x['predictedHigh'] or 1) < 1 else 2
+        # Precision by magnitude. A flat 4dp made every column of a sub-penny row
+        # print an identical 0.0003, which reads as a data fault rather than a
+        # display limit.
+        mag = abs(x['predictedHigh'] or 1)
+        dp = 2 if mag >= 1 else 4 if mag >= 0.01 else 6 if mag >= 0.0001 else 8
         for _, key, w, kind in cols:
             v = x.get(key)
             if kind == 'p' and isinstance(v, (int, float)):
