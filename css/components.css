@@ -407,10 +407,25 @@
    search field that answers it. */
 .chart-container:has(.chart-placeholder) .chart-placeholder {
     width: 100%;
-    max-width: 600px;
+    /* 840 of the 1192px column, about 70%. Two earlier passes bracketed this:
+       full-bleed at 1188x220 was a 5.4:1 bar, and 600x280 read as a small box
+       adrift in the column. 840x350 is 2.4:1 — substantial enough to hold the
+       page while still reading as a panel rather than a stretched strip. */
+    max-width: 840px;
     margin-inline: auto;
     height: auto;
-    min-height: 280px;
+    min-height: 350px;
+    padding: var(--sp-10) var(--sp-8);
+}
+
+/* The mark scales with the panel; at 60px it looked lost in the larger frame. */
+.chart-container:has(.chart-placeholder) .chart-ph-glow {
+    width: 72px;
+    height: 72px;
+}
+.chart-container:has(.chart-placeholder) .chart-ph-glow::before {
+    left: 17px; right: 17px; bottom: 17px;
+    height: 36px;
 }
 
 .chart-header {
