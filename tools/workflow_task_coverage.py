@@ -96,6 +96,27 @@ def main():
                 'substrings of each other, so use == instead'
             )
 
+    # The push-recovery path re-runs the task from scratch after a hard reset, via
+    # its OWN `case "$TASK"` inside the commit step. That case list is a second,
+    # independent copy of the routing table, so it drifts silently: it was missing
+    # resolve-outcomes, recalibrate and reresolve-outcomes, all of which fell
+    # through to "Unknown TASK" and failed the recovery. Invisible in normal
+    # operation, because the nightly cron only sends resolve-and-recalibrate, so it
+    # broke exactly the manual halves and only under a concurrent push.
+    commit_step = next((s for s in steps
+                        if 'run_task()' in (s.get('run') or '')), None)
+    if not commit_step:
+        failures.append('no step defines run_task(); the push-recovery path is gone')
+    else:
+        body = commit_step['run']
+        # Bash case arms: `  task-name)` possibly several per arm.
+        covered = set(re.findall(r'^\s*([a-z][a-z0-9-]*)\)', body, re.M))
+        for t in sorted(set(tasks) - covered):
+            failures.append(
+                f'task {t!r} has no arm in the run_task() recovery case, so a rejected '
+                'push hits "Unknown TASK" and the retry fails'
+            )
+
     print(f'{WORKFLOW}: {len(tasks)} task values, {len(work)} conditional steps')
     for t in tasks:
         hit = [s['name'] for s in work if t in accepted_values(s['if'])]

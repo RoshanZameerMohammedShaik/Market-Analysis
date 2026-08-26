@@ -54,6 +54,9 @@ on:
           - resolve-and-recalibrate
           - resolve-outcomes
           - recalibrate
+          # Destructive: rebuilds every matured horizon (~67,000 rows). Manual
+          # only, never on a cron. See the step for why it has to exist.
+          - reresolve-outcomes
 
 jobs:
   ledger:
@@ -160,6 +163,21 @@ jobs:
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
         run: python record_outcomes.py
 
+      # Rebuilds EVERY matured horizon from scratch instead of only the null ones.
+      # Needed because outcomes written by the old positional resolver are frozen:
+      # the normal path skips any horizon that already holds a value, so a wrong
+      # value never self-corrects.
+      #
+      # Deliberately a separate manual-only task, never reachable from a cron.
+      # It rewrites roughly 67,000 rows in one pass, and the run is the only copy
+      # of that history, so it should be launched knowingly and its diff reviewed.
+      # Until now --reresolve existed as a flag with NO way to invoke it: the
+      # nightly job never passes it and the repo needs yfinance to run it locally,
+      # so the fix shipped in the resolver had no path to reach the stored data.
+      - name: Re-resolve ALL outcomes (destructive rebuild)
+        if: steps.decide.outputs.task == 'reresolve-outcomes'
+        run: python record_outcomes.py --reresolve
+
       - name: Recalibrate
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'recalibrate'
         run: python recalibrate_from_ledger.py
@@ -245,6 +263,15 @@ jobs:
                 python record_outcomes.py
                 python recalibrate_from_ledger.py
                 ;;
+              # These three were MISSING, so a push rejection on any of them fell
+              # through to "Unknown TASK" and the recovery re-run failed. The
+              # nightly cron only ever sends resolve-and-recalibrate, which is why
+              # it went unnoticed: it broke exactly the manually-dispatched halves,
+              # and only when a concurrent push forced a retry.
+              # tools/workflow_task_coverage.py now asserts this stays complete.
+              resolve-outcomes)    python record_outcomes.py ;;
+              recalibrate)         python recalibrate_from_ledger.py ;;
+              reresolve-outcomes)  python record_outcomes.py --reresolve ;;
               *) echo "Unknown TASK: $TASK"; return 1 ;;
             esac
           }
