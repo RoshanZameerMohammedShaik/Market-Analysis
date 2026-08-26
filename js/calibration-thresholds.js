@@ -80,7 +80,7 @@ function hitRateByConfidence(rows) {
         if (!Number.isFinite(conf)) continue;
         if (row.signal !== 'BUY' && row.signal !== 'SELL') continue;
         const h1 = row.horizons?.['1'];
-        if (!h1 || h1.directionMatch === undefined) continue;
+        if (!h1 || h1.directionMatch == null) continue;   // == null: also skips FLAT rows
         // Bucket the row at its actual confidence value (clamped
         // to our 38-88 band).
         const c = Math.max(38, Math.min(88, Math.round(conf)));
@@ -131,7 +131,7 @@ function hitRateByScore(rows) {
         if (!Number.isFinite(score)) continue;
         if (row.signal !== 'BUY' && row.signal !== 'SELL') continue;
         const h1 = row.horizons?.['1'];
-        if (!h1 || h1.directionMatch === undefined) continue;
+        if (!h1 || h1.directionMatch == null) continue;   // == null: also skips FLAT rows
         const bucket = Math.max(0, Math.min(100, Math.round(score / 5) * 5));
         buckets[bucket].resolved++;
         if (h1.directionMatch) buckets[bucket].hits++;
@@ -179,7 +179,7 @@ function learnDispersionPenalties(rows) {
         if (!Number.isFinite(dispersion)) continue;
         if (row.signal !== 'BUY' && row.signal !== 'SELL') continue;
         const h1 = row.horizons?.['1'];
-        if (!h1 || h1.directionMatch === undefined) continue;
+        if (!h1 || h1.directionMatch == null) continue;   // == null: also skips FLAT rows
         const bucket = Math.max(0, Math.min(80, Math.round(dispersion / 10) * 10));
         buckets[bucket].resolved++;
         if (h1.directionMatch) buckets[bucket].hits++;

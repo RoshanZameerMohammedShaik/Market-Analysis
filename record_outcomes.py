@@ -176,6 +176,41 @@ def find_anchor(bars, row_date: str, entry: float):
     return None, 'no-bar-for-date'
 
 
+# Keys dropped from a stored outcome when null/false. Every reader accesses these
+# with .get() / optional chaining, so absent and null are indistinguishable to them.
+#
+# directionMatch is deliberately NOT in this list even though it is often null:
+# audit_engine.py and audit_summary.py index it directly (h['directionMatch']), so
+# omitting it would raise KeyError rather than degrade.
+#
+# This is not cosmetic. The re-resolution added anchorDate/anchorHow/targetDate/flat
+# to all 291,214 horizons and pushed model/ledger/2026.jsonl to 114.7 MiB, past
+# GitHub's 100 MiB per-file HARD limit, which rejects the push outright.
+_OMIT_WHEN_EMPTY = ('anchorDate', 'targetDate', 'flat', 'actualHigh', 'actualLow',
+                    'capturedPct', 'rangeHit', 'pctMove')
+
+
+def compact_outcome(o, row_date=None):
+    """Drop fields that carry no information when absent.
+
+    Also drops anchorDate when it merely repeats the row's own date, which is the
+    case on 71.8% of horizons. A reader wanting the anchor date uses
+    `outcome.get('anchorDate') or row['date']`; anchorHow still records HOW the
+    bar was chosen, which is the part that matters for auditing.
+
+    Worth 5.3 MiB on the current ledger. That is the difference between a file
+    GitHub accepts and one it rejects outright, so it is load-bearing rather than
+    tidiness.
+    """
+    if not isinstance(o, dict):
+        return o
+    out = {k: v for k, v in o.items()
+           if not (k in _OMIT_WHEN_EMPTY and (v is None or v is False))}
+    if row_date and out.get('anchorDate') == row_date:
+        out.pop('anchorDate', None)
+    return out
+
+
 def resolve_horizon(row: dict, h_days: int, bars):
     """Outcome dict for horizon h_days, anchored on the row's OWN bar.
 
@@ -376,7 +411,7 @@ def main():
                 stats['anchor:' + str(outcome.get('anchorHow'))] += 1
                 if outcome.get('flat'):
                     stats['flat (no directional outcome)'] += 1
-            row['horizons'][str(h)] = outcome
+            row['horizons'][str(h)] = compact_outcome(outcome)
             updated += 1
 
     save_rows(path, rows)
