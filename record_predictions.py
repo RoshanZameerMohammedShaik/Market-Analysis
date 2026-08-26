@@ -134,7 +134,7 @@ def candles_as_records(close, high, low, volume, n=120):
     return out
 
 
-def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
+def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
     region = region_for(symbol)
     path = ledger_path_for(date_iso)
     if already_predicted_today(path, date_iso, symbol):
@@ -149,6 +149,16 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         _add_diag('skipped-thin', symbol, f'len(close)={len(close)}')
         return ('skipped-thin', symbol)
 
+    # Stamped HERE, right after this symbol's own price came back, not once for
+    # the whole region. A region run walks hundreds of symbols sequentially with
+    # retries and sleeps, so it spans a long wall-clock window: NYSE writes 651
+    # rows in one pass. Sharing one batch timestamp claimed every one of those
+    # rows was locked at 14:25 when the last of them was really read closer to
+    # 15:10, which let the grader credit ~45 minutes of price action to a
+    # prediction that did not exist yet. That is the same defect as the pre-lock
+    # credit, just at finer granularity, and it survives fixing the other one.
+    locked_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
     candles = candles_as_records(close, high, low, volume)
     pred = generate_prediction(candles)
     if not pred or not pred.get('signal'):
@@ -160,7 +170,12 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         'symbol': symbol,
         'region': region,
         'date': date_iso,
-        'predictedAt': ts_iso,
+        # This row's OWN lock instant: when its price was read. The grader slices
+        # the session at this timestamp, so it has to be per-row to be honest.
+        'predictedAt': locked_at,
+        # When the region's batch began. Diagnostic only; the gap between this and
+        # predictedAt is how long the run took to reach this symbol.
+        'batchStartedAt': batch_started,
         'entry': round_price(entry_price),
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
@@ -260,9 +275,11 @@ def main():
         # Empty universe is a config bug, not a runtime issue — fail loud.
         sys.exit(1)
 
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     date_iso = now.strftime('%Y-%m-%d')
-    ts_iso = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+    # Batch start, for diagnostics only. NOT the lock time of any individual row:
+    # see record_for_symbol, which stamps each row when ITS price is actually read.
+    batch_started = now.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     path_for_today = ledger_path_for(date_iso)
     print(f'Recording {args.region} predictions for {date_iso} ({len(symbols)} symbols).')
@@ -272,7 +289,7 @@ def main():
     counts = {'ok': 0, 'skipped-dup': 0, 'skipped-no-data': 0, 'skipped-thin': 0, 'skipped-no-pred': 0, 'error': 0}
     for sym in symbols:
         try:
-            status, _ = record_for_symbol(sym, date_iso, ts_iso)
+            status, _ = record_for_symbol(sym, date_iso, batch_started)
             counts[status] = counts.get(status, 0) + 1
         except Exception as e:
             counts['error'] += 1

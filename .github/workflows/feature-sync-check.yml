@@ -17,6 +17,12 @@ on:
       - 'tools/risk_check.mjs'
       - 'record_outcomes.py'
       - 'tools/resolver_check.py'
+      - 'price_round.py'
+      - 'js/price-round.js'
+      - 'tools/price_round_check.py'
+      - 'forecast_band.py'
+      - 'record_predictions.py'
+      - 'js/analysis.js'
   push:
     branches: [main]
     paths:
@@ -34,6 +40,12 @@ on:
       - 'tools/risk_check.mjs'
       - 'record_outcomes.py'
       - 'tools/resolver_check.py'
+      - 'price_round.py'
+      - 'js/price-round.js'
+      - 'tools/price_round_check.py'
+      - 'forecast_band.py'
+      - 'record_predictions.py'
+      - 'js/analysis.js'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -98,3 +110,10 @@ jobs:
       # another row's price window. Synthetic bars, so no network needed.
       - name: Check outcome resolver anchoring
         run: python tools/resolver_check.py
+      # Every stored entry price, price target and band edge goes through this
+      # pair. round(entry_price, 4) stored SHIB-USD as literally 0.0, which made
+      # every sub-penny row permanently ungradable while the app kept issuing
+      # calls on them. Asserts properties, not just fixture equality: a fixture
+      # test passes happily on fixed precision for any symbol above a dollar.
+      - name: Check price rounding parity and non-collapse
+        run: python tools/price_round_check.py
