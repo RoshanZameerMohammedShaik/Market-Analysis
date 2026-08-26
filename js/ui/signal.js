@@ -270,11 +270,28 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const st = computeStatus(locked, Number(state.currentPrice));
         if (st) {
             const lockedTime = (() => { try { return new Date(locked.lockedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (_) { return ''; } })();
+            // Say WHICH lock this is. getEffectiveLock prefers the cron's
+            // market-open ledger row and falls back to a lock taken when the user
+            // first opened the symbol today. Those are not the same claim: an open
+            // lock is a commitment made before the session, a visit lock is just
+            // "the price when you looked". Labelling both "today's call" implied
+            // the engine had committed at the open when it had not, which is how a
+            // $309.61 call on DY read as an open lock at 11:18 AM.
+            const fromLedger = locked.source === 'ledger';
+            const lockLabel = fromLedger
+                ? `today's call · locked ${lockedTime}`
+                : `locked ${lockedTime} when you opened it`;
+            const lockTitle = fromLedger
+                ? 'Locked by the engine at this market’s open, before the session — the same baseline for everyone.'
+                : 'Not in the daily cron universe, so there is no market-open row for it. '
+                  + 'This baseline was taken when you first opened the symbol today, so it '
+                  + 'differs from what someone opening it at another time would see.';
             statusHTML = `
                 <div class="call-status ${st.tone}" title="Live status of today's locked call">
                     <div class="call-status-row">
                         <span class="call-status-label">${st.label}</span>
-                        <span class="call-status-locked">today's call · locked ${lockedTime}</span>
+                        <span class="call-status-locked${fromLedger ? '' : ' is-visit-lock'}"
+                              title="${lockTitle}">${lockLabel}</span>
                     </div>
                     <div class="call-status-detail">${st.detail}</div>
                 </div>`;

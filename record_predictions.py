@@ -250,15 +250,25 @@ def main():
 
     symbols = symbols_for_region(args.region)
 
-    # Hybrid penny pull: union the static symbols list with whatever
-    # Yahoo's penny screeners surface today. Only on US stocks (NYSE
-    # region) — non-US regions don't have penny screeners and crypto
-    # is its own thing. Failure is non-fatal; if the screener call
-    # 503s, the cron continues with the static list.
+    # Union the static list with everything Yahoo's four predefined screeners
+    # surface today — the SAME four the browser's Hot Picks uses. US stocks only
+    # (NYSE region); other regions have no predefined screeners and crypto is its
+    # own thing. Failure is non-fatal: if the screener call 503s the cron continues
+    # with the static list.
+    #
+    # This used to cap at $5, which made the ledger universe and the Hot Picks
+    # universe disagree. Hot Picks would show DY at $309.61 with a full prediction
+    # while the cron had never analysed it, so daily-lock.js fell through to its
+    # visit-time fallback and the card read "today's call · locked 11:18 AM" — the
+    # moment the USER opened the page rather than the market open. Seven of the
+    # twelve Hot Picks on that screen were in the same state. The open lock is the
+    # thing that makes "did today's call reach its target?" answerable, because the
+    # baseline has to be identical for everyone regardless of when they looked, so
+    # the cron has to cover everything the app is willing to recommend.
     if args.region == 'NYSE':
         try:
-            from penny_dynamic import fetch_dynamic_pennies
-            dynamic = fetch_dynamic_pennies(max_price=5.0)
+            from penny_dynamic import fetch_dynamic_symbols
+            dynamic = fetch_dynamic_symbols()   # no price cap
             seen = set(symbols)
             added = 0
             for s in dynamic:
@@ -266,9 +276,9 @@ def main():
                     symbols.append(s)
                     seen.add(s)
                     added += 1
-            print(f'Dynamic pennies: {added} added on top of {len(symbols) - added} static.')
+            print(f'Dynamic movers: {added} added on top of {len(symbols) - added} static.')
         except Exception as e:
-            print(f'Dynamic penny fetch failed (continuing with static list): {e}')
+            print(f'Dynamic mover fetch failed (continuing with static list): {e}')
 
     if not symbols:
         print(f'No symbols for region {args.region}')

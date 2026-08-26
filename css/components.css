@@ -1219,6 +1219,21 @@ tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
 }
 
 /* ---------------------------------------------------------------------------
+   VISIT-TIME LOCK MARKER
+   .call-status-locked normally reads "today's call · locked HH:MM" for a row the
+   cron committed at the market open. When no such row exists the app falls back to
+   a lock taken when the user opened the symbol, and js/ui/signal.js adds
+   .is-visit-lock to say so. Tinted with the caution colour and given a dotted
+   underline so the distinction is visible, not just present in a tooltip: the two
+   are different claims and only one is a pre-session commitment.
+--------------------------------------------------------------------------- */
+.call-status-locked.is-visit-lock {
+    color: var(--yellow);
+    border-bottom: 1px dotted rgba(var(--yellow-rgb), 0.55);
+    cursor: help;
+}
+
+/* ---------------------------------------------------------------------------
    REDUCED MOTION: SHIMMER LEGIBILITY
    css/mia.css already stops the shimmer animation for reduced-motion users, but
    it parks the gradient at `background-position: 50%`, which freezes the bright

@@ -1,16 +1,26 @@
 """
-Dynamic penny fetcher for the daily cron. Pulls Yahoo's predefined
+Dynamic symbol fetcher for the daily cron. Pulls Yahoo's predefined
 screeners (aggressive_small_caps, day_gainers, day_losers,
-most_actives), filters to sub-$5 listed equity, returns the symbol
-list.
+most_actives) and returns the de-duplicated symbol list.
 
-Used by record_predictions.py to expand each daily ledger run beyond
-the static penny_universe.SYMBOLS — so movers that aren't on the
-curated stable list still get analyzed + recorded today.
+These are THE SAME FOUR SCREENERS the browser's Hot Picks uses
+(js/hotpicks.js), and that is the point: the cron has to analyse
+everything the app is willing to recommend.
 
-If yfinance / Yahoo screener call fails for any reason, returns an
-empty list so the cron continues with whatever's in the static
-universe. Failure is non-fatal by design.
+Why it matters — the bug this fixes. The cron only ever asked for
+sub-$5 names, so the ledger universe and the Hot Picks universe
+disagreed. DY at $309.61 was shown as a Hot Pick with a full
+prediction, but no cron row existed for it, so daily-lock.js fell
+through to its visit-time fallback and the card read "today's call ·
+locked 11:18 AM" — the time the USER opened the page, not the market
+open. Seven of twelve Hot Picks on that screen were in the same state.
+An open-locked call is what makes "did today's prediction reach its
+target?" answerable at all, because the baseline has to be the same
+for everyone regardless of when they looked.
+
+If the Yahoo screener call fails for any reason, returns an empty list
+so the cron continues with whatever's in the static universe. Failure
+is non-fatal by design.
 """
 from __future__ import annotations
 
@@ -41,11 +51,19 @@ def _fetch_one(scr_id: str) -> List[dict]:
     return quotes
 
 
-def fetch_dynamic_pennies(max_price: float = 5.0) -> List[str]:
+def fetch_dynamic_symbols(max_price: float | None = None) -> List[str]:
     """
-    Pull all four screeners and return de-duplicated symbols where the
-    listed price is < max_price. Skips ETFs, OTC ('.'-suffixed), futures
-    ('=' in symbol), and crypto pairs ('-USD').
+    Pull all four screeners and return de-duplicated symbols. Skips OTC
+    ('.'-suffixed), futures ('=' in symbol), and crypto pairs ('-USD').
+
+    max_price=None (the default) applies NO price cap, which is what the ledger
+    cron wants: it must cover every name Hot Picks can surface, and those run from
+    sub-$1 to $300+. A cap is still available for callers that genuinely want only
+    pennies.
+
+    A symbol missing regularMarketPrice is KEPT when there is no cap. Dropping it
+    would silently exclude names purely because one screener field was absent, and
+    the fetch below can still price it.
     """
     seen: set = set()
     out: List[str] = []
@@ -58,16 +76,22 @@ def fetch_dynamic_pennies(max_price: float = 5.0) -> List[str]:
                 continue
             if (q.get("quoteType") or "").upper() not in ("EQUITY", "ETF"):
                 continue
-            price = q.get("regularMarketPrice")
-            if not isinstance(price, (int, float)) or price >= max_price:
-                continue
+            if max_price is not None:
+                price = q.get("regularMarketPrice")
+                if not isinstance(price, (int, float)) or price >= max_price:
+                    continue
             seen.add(sym)
             out.append(sym)
     return out
 
 
+def fetch_dynamic_pennies(max_price: float = 5.0) -> List[str]:
+    """Sub-$5 subset. Kept so any caller wanting only pennies still has it."""
+    return fetch_dynamic_symbols(max_price=max_price)
+
+
 if __name__ == "__main__":
-    syms = fetch_dynamic_pennies()
-    print(f"Dynamic pennies fetched: {len(syms)}")
+    syms = fetch_dynamic_symbols()
+    print(f"Dynamic movers fetched: {len(syms)}")
     if syms[:10]:
         print("Sample:", ", ".join(syms[:10]))
