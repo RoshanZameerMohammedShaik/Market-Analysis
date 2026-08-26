@@ -63,3 +63,13 @@ htmlcov/
 # taken before a destructive re-resolution. Local diagnostics, never artifacts.
 # An 89 MB ledger snapshot committed by accident is very hard to remove later.
 tools/_*
+
+# Historical replay artifacts. Derived data, regenerable from tools/replay_history.py
+# in minutes, and far too large to track: the 500-symbol 12-year panel is ~150 MB,
+# well past GitHub's 100 MiB per-file limit, and the bars cache is hundreds of files.
+# The repo already carries a ~97 MB ledger; adding these would make it unusable.
+model/replay_panel.jsonl
+model/replay_panel*.jsonl
+model/_bars_cache/
+model/_replay*.log
+model/_replay*.jsonl
