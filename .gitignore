@@ -58,3 +58,8 @@ htmlcov/
 *.map
 .wrangler/
 *.tsbuildinfo
+
+# Scratch output from tools/ runs: report dumps, CSV exports, ledger snapshots
+# taken before a destructive re-resolution. Local diagnostics, never artifacts.
+# An 89 MB ledger snapshot committed by accident is very hard to remove later.
+tools/_*

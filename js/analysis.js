@@ -538,6 +538,11 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
             confidence: baseConfidence,
             reasons: [abstainReason, ...allReasons].slice(0, 7),
             breakdown: { daily: dailyPred, weekly: weeklyPred, fourHour: fourHourPred },
+            // Same top-level exposure as the main return below. NO_TRADE is the
+            // MAJORITY outcome (628 of 1,043 rows on 2026-08-25), so omitting it
+            // here would leave the indicator panel blank on most symbols the user
+            // opens, even after the main path was fixed.
+            indicators: dailyPred.indicators,
             meta: {
                 confluenceBonus, conflictPenalty, allAgree,
                 trendRegime: dailyPred.indicators?.trendRegime,
@@ -554,6 +559,20 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
         confidence: baseConfidence,
         reasons: allReasons.slice(0, 7),
         breakdown: { daily: dailyPred, weekly: weeklyPred, fourHour: fourHourPred },
+        // Exposed at the top level because THREE consumers in js/confidence.js read
+        // `technicalPred.indicators` and this function never provided it, so all
+        // three silently got undefined and no-oped:
+        //   * the ADX confidence adjustment (confidence.js:93) never applied
+        //   * encodePattern / pattern learning (confidence.js:372) never ran, so
+        //     that learner had no input at all
+        //   * the indicator panel (confidence.js:548) had nothing to render
+        // Nothing threw: `?.` on undefined is undefined and `if (indicators)` is
+        // just false, so three features were dead with no error anywhere.
+        //
+        // The daily set is the right one to surface: it carries 50% of the blend
+        // weight, and meta.trendRegime already reached into dailyPred.indicators
+        // for exactly this reason.
+        indicators: dailyPred.indicators,
         meta: { confluenceBonus, conflictPenalty, allAgree, trendRegime: dailyPred.indicators?.trendRegime },
         priceTargets,
     };
