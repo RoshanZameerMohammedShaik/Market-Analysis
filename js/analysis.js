@@ -5,6 +5,7 @@
 // + Volume-confirmed weighting (real-trader truth: setups on thin volume
 //   are statistically much weaker; setups on confirming volume much stronger)
 
+import { roundPrice } from './price-round.js';
 import { detectDivergences } from './divergence.js';
 import { detectFailedBreak } from './failed-break.js';
 
@@ -630,20 +631,24 @@ export function calculatePriceTargets(candles, signal, confidence, timeframe = '
     const probableHighPct = ((probableHigh - currentPrice) / currentPrice) * 100;
     const probableLowPct = ((probableLow - currentPrice) / currentPrice) * 100;
 
+    // Prices go through roundPrice, NOT toFixed(2). At the cent, every target on
+    // a sub-dollar asset was quantised and every target on a sub-penny asset
+    // became 0.00, a zero-width range that can only ever score as a hit.
+    // Percentages stay at 2dp: they are already scale-free.
     return {
         currentPrice,
-        predictedHigh: +predictedHigh.toFixed(2),
-        predictedLow: +predictedLow.toFixed(2),
+        predictedHigh: roundPrice(predictedHigh),
+        predictedLow: roundPrice(predictedLow),
         highPercent: +highPct.toFixed(2),
         lowPercent: +lowPct.toFixed(2),
-        probableHigh: +probableHigh.toFixed(2),
-        probableLow: +probableLow.toFixed(2),
+        probableHigh: roundPrice(probableHigh),
+        probableLow: roundPrice(probableLow),
         probableHighPercent: +probableHighPct.toFixed(2),
         probableLowPercent: +probableLowPct.toFixed(2),
-        expectedMove: +expectedMove.toFixed(2),
-        atr: +atr.toFixed(2),
-        support: +recentLow.toFixed(2),
-        resistance: +recentHigh.toFixed(2),
+        expectedMove: roundPrice(expectedMove),
+        atr: roundPrice(atr),
+        support: roundPrice(recentLow),
+        resistance: roundPrice(recentHigh),
         timeframe,
     };
 }

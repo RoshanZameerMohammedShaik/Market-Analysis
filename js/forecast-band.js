@@ -24,6 +24,8 @@
 // direction and by a hand-picked 0.5-1.5 confidence multiplier. Both were
 // unfounded; see git history.
 
+import { roundPrice } from './price-round.js';
+
 const CAL_URL = 'model/band_calibration.json';
 const VOL_LOOKBACK = 30;
 
@@ -173,12 +175,21 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
     const sigma = rangeSigma(candles, cal.volLookbackDays || VOL_LOOKBACK);
     if (!sigma) return null;
 
+    // Sub-penny assets are EXCLUDED from the calibration sample (MIN_PRICE in
+    // tools/calibrate_bands.py), so the z values were never validated at this
+    // price scale. Show the band, but do NOT claim a measured confidence for it:
+    // MIN_PRICE was declared here and never actually enforced, so SHIB, BONK and
+    // FLOKI were all being badged "80% confidence" on pure extrapolation.
+    const belowCalFloor = price < MIN_PRICE;
+
     const tier = tierFor(sigma, cal.tierEdges || FALLBACK.tierEdges);
     const horizons = cal.horizons || FALLBACK.horizons;
     const dates = forwardDates(horizons.length, { cryptoMode, from: now });
 
     // perDay is the display default; cumulative is what stops are sized from.
     const zTable = mode === 'cumulative' ? cal.z : (cal.zPerDay || cal.z);
+    // Edges go through roundPrice: see js/price-round.js. A flat 4dp collapsed
+    // both edges of a sub-penny asset onto the same number, a zero-width band.
     const days = horizons.map((h, i) => {
         // z from calibration when available. Without it we cannot state a
         // confidence, so the band is returned but flagged uncalibrated.
@@ -190,15 +201,16 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
         return {
             day: h,
             date: dates[i].toISOString().slice(0, 10),
-            low: +low.toFixed(low < 1 ? 4 : 2),
-            high: +high.toFixed(high < 1 ? 4 : 2),
+            low: roundPrice(low),
+            high: roundPrice(high),
             widthPct: +((high / price - 1) * 100).toFixed(2),
             confidence: z === null ? null : Math.round(cal.targetConfidence * 100),
         };
     });
 
     return {
-        calibrated: !!zTable?.[tier] && !cal._fallback,
+        calibrated: !!zTable?.[tier] && !cal._fallback && !belowCalFloor,
+        uncalibratedReason: belowCalFloor ? 'sub-penny: outside calibration sample' : null,
         mode,
         confidence: Math.round((cal.targetConfidence ?? 0.8) * 100),
         sigmaDaily: +(sigma * 100).toFixed(2),

@@ -15,12 +15,14 @@ import argparse
 import json
 import math
 import os
-import statistics
 import subprocess
 import sys
 import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+
+import forecast_band  # noqa: E402
 CAL_PATH = os.path.join(REPO, 'model', 'band_calibration.json')
 TOL = 0.011          # bands are rounded to 2dp, so anything under ~1 cent is rounding
 N_CANDLES = 40
@@ -43,58 +45,13 @@ def synth(seed, n=N_CANDLES, base=100.0, drift=0.0, spread=0.02):
     return bars
 
 
-def tier_for(sigma, edges):
-    for lo, hi, name in edges:
-        if lo <= sigma < hi:
-            return name
-    return edges[-1][2]
-
-
-MAX_SIGMA = 0.50
-MIN_LIVE_BARS = 20
-
-
-def range_sigma(candles, n):
-    """Mirror of tools/calibrate_bands.py parkinson_sigma and js/forecast-band.js
-    rangeSigma: max(Parkinson, close-to-close) with the same guards. All three
-    must agree or the z values were solved against a different sigma than the one
-    used at display time."""
-    tail = candles[-n:]
-    good = [c for c in tail if c['high'] > 0 and c['low'] > 0 and c['high'] >= c['low']]
-    if len(good) < math.ceil(n * 0.7):
-        return None
-    live = sum(1 for c in good if c['high'] > c['low'] * 1.0000001)
-    pk = 0.0
-    if live >= MIN_LIVE_BARS:
-        pk = math.sqrt(statistics.mean([math.log(c['high'] / c['low']) ** 2 for c in good])
-                       / (4 * math.log(2)))
-    rets = [math.log(tail[i]['close'] / tail[i - 1]['close']) for i in range(1, len(tail))
-            if tail[i - 1].get('close', 0) > 0 and tail[i].get('close', 0) > 0]
-    cc = statistics.stdev(rets) if len(rets) > 5 else 0.0
-    s = max(pk, cc)
-    return s if 0 < s <= MAX_SIGMA else None
-
-
 def py_forecast(cal, candles, price, mode='perDay'):
-    sigma = range_sigma(candles, cal['volLookbackDays'])
-    if not sigma:
-        return None
-    tier = tier_for(sigma, [tuple(e) for e in cal['tierEdges']])
-    # perDay is what the UI shows: day h's own session extremes. cumulative is
-    # the running extremes over h days and is what stops are sized from.
-    table = cal['z'] if mode == 'cumulative' else cal.get('zPerDay', cal['z'])
-    days = []
-    for h in cal['horizons']:
-        z = table.get(tier, {}).get(str(h))
-        if z is None:
-            return None
-        move = z * sigma * math.sqrt(h)
-        hi = price * math.exp(move)
-        lo = price * math.exp(-move)
-        days.append({'day': h,
-                     'low': round(lo, 4 if lo < 1 else 2),
-                     'high': round(hi, 4 if hi < 1 else 2)})
-    return {'sigmaDaily': round(sigma * 100, 2), 'volTier': tier, 'days': days}
+    """Delegate to the REAL module. This file used to carry its own copy of the
+    band math, which made it a third implementation and therefore a third thing
+    to drift: a parity test that reimplements the code under test can pass while
+    both sides are wrong together. forecast_band.py is now the only Python band,
+    used by the cron and validated here against the JS."""
+    return forecast_band.forecast_bands(candles, price, mode=mode, cal=cal)
 
 
 def build_fixtures(live=False):
@@ -106,6 +63,10 @@ def build_fixtures(live=False):
         'SYNTH_ACTIVE': (synth(3, spread=0.038), None),
         'SYNTH_WILD':   (synth(4, spread=0.070), None),
         'SYNTH_SUB1':   (synth(5, base=0.42, spread=0.05), None),   # exercises 4dp rounding
+        # Sub-penny. Under the old flat 4dp both edges rounded to 0.0003, a
+        # zero-width band that can only ever score as a hit. This fixture fails
+        # if either side reverts to fixed precision.
+        'SYNTH_SUBPENNY': (synth(6, base=0.00031, spread=0.05), None),
     }
     payload = {}
     for name, (bars, _) in cases.items():
@@ -180,11 +141,30 @@ def main():
         ok = (p['volTier'] == j['volTier']
               and abs(p['sigmaDaily'] - j['sigmaDaily']) < 0.01
               and worst < TOL
-              and j['calibrated'] is True
+              # calibrated must AGREE between the two, rather than the JS simply
+              # being true: a sub-penny fixture is legitimately uncalibrated on
+              # both sides, and a disagreement is the bug worth catching.
+              and j['calibrated'] == p['calibrated']
+              and j.get('uncalibratedReason') == p.get('uncalibratedReason')
               and j['confidence'] == round(cal['targetConfidence'] * 100))
         failures += 0 if ok else 1
         print(f'{name:<15}{p["volTier"]:<9}{p["sigmaDaily"]:>8.2f}{j["confidence"]:>5}%'
               f'{worst:>11.4f}  {"OK" if ok else "MISMATCH"}')
+
+    # A band whose edges collapse onto each other has zero width, so "price
+    # stayed inside" is impossible and the row can ONLY score as a hit. That is
+    # how sub-penny rows silently inflated every range statistic in the ledger.
+    print('\nnon-zero width invariant:')
+    zw = 0
+    for name, o in payload.items():
+        p = py_forecast(cal, o['candles'], o['price'])
+        for d in (p or {}).get('days', []):
+            if d['high'] <= d['low']:
+                print(f'  {name} h={d["day"]}: high {d["high"]} <= low {d["low"]} '
+                      f'(price {o["price"]})')
+                zw += 1
+    failures += zw
+    print('  OK: every day has positive width' if not zw else f'  {zw} collapsed band(s)')
 
     tiers = {p['volTier'] for p in
              (py_forecast(cal, o['candles'], o['price']) for o in payload.values()) if p}

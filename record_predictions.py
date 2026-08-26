@@ -40,6 +40,8 @@ import traceback
 import yfinance as yf
 
 from backtest import generate_prediction
+from price_round import round_price
+from forecast_band import forecast_bands
 from shared_features import extract_ohlcv
 from ledger_universe import symbols_for_region, region_for, HORIZONS_DAYS
 
@@ -159,7 +161,7 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         'region': region,
         'date': date_iso,
         'predictedAt': ts_iso,
-        'entry': round(entry_price, 4),
+        'entry': round_price(entry_price),
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
         # Provenance: which engine logic produced this call. recalibrate_from_
@@ -201,6 +203,22 @@ def record_for_symbol(symbol: str, date_iso: str, ts_iso: str):
         # re-derivation that could drift from the engine. None for
         # NEUTRAL/NO_TRADE (no directional band) or when ATR was unavailable.
         'priceTargets': pred.get('priceTargets'),
+        # The CALIBRATED 7-day High/Low band, which is what the app actually
+        # displays. Stored separately from priceTargets rather than replacing it:
+        #
+        #   priceTargets  = the legacy ATR-and-confidence heuristic. Never
+        #                   validated. Measured containment 52.6%.
+        #   forecastBand  = z solved from realized ledger outcomes per volatility
+        #                   tier and horizon. Measured containment 80.0%.
+        #
+        # Until now the cron wrote ONLY the heuristic, so every accuracy number in
+        # the scorecard graded a forecast no user ever saw. Both are kept for one
+        # calibration cycle so the two can be compared on identical rows; the
+        # heuristic goes once forecastBand has its own out-of-sample history.
+        # `calibrated` may be False (sub-penny), and the grader must respect that
+        # rather than reporting an unvalidated band as an 80% claim.
+        'forecastBand': forecast_bands(candles, entry_price,
+                                       mode='perDay') if candles else None,
         'indicators': pred.get('indicators') or {},
         'horizons': {str(h): None for h in HORIZONS_DAYS},
     }

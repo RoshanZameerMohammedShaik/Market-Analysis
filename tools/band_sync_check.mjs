@@ -47,6 +47,7 @@ for (const [sym, o] of Object.entries(input)) {
         sigmaDaily: r.sigmaDaily,
         volTier: r.volTier,
         calibrated: r.calibrated,
+        uncalibratedReason: r.uncalibratedReason ?? null,
         confidence: r.confidence,
         days: r.days.map(d => ({ day: d.day, low: d.low, high: d.high })),
     };

@@ -20,6 +20,8 @@ Writes:
 import argparse
 import json
 import math
+
+from price_round import round_price
 import os
 import datetime
 import numpy as np
@@ -229,23 +231,10 @@ def _bollinger_bands(closes, period=20, std_dev=2):
 
 
 def _rp(v):
-    """Round a price to a precision appropriate to its magnitude.
-
-    A fixed 2 decimals is wrong for anything under a dollar: it collapses a
-    forecast range to zero width. Mirrors the sub-$1 handling in
-    js/forecast-band.js so the cron and the browser format alike.
-    """
-    if v is None:
-        return None
-    try:
-        av = abs(float(v))
-    except (TypeError, ValueError):
-        return None
-    if av >= 1:
-        return round(float(v), 2)
-    if av >= 0.01:
-        return round(float(v), 4)
-    return round(float(v), 8)
+    """Magnitude-aware price rounding. Alias kept so existing call sites read the
+    same; the implementation is shared with the cron, the resolver and the band
+    module so the five copies of this rule cannot drift apart again."""
+    return round_price(v)
 
 
 def price_targets(candles, signal, confidence, timeframe='today'):

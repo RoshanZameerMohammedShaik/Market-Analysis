@@ -30,6 +30,7 @@ from collections import defaultdict
 import yfinance as yf
 
 from ledger_universe import HORIZONS_DAYS
+from price_round import round_price
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEDGER_DIR = os.path.join(SCRIPT_DIR, 'model', 'ledger')
@@ -212,7 +213,7 @@ def resolve_horizon(row: dict, h_days: int, bars):
     if ratio > MAX_DAILY_RATIO ** max(1, h_days ** 0.5):
         return {'unresolvable': 'suspected-corporate-action',
                 'anchorDate': dates[a_idx], 'anchorHow': a_how,
-                'actualClose': round(actual_close, 6), 'directionMatch': None,
+                'actualClose': round_price(actual_close), 'directionMatch': None,
                 'capturedPct': None, 'rangeHit': None, 'pctMove': None}
 
     window_high = float(max(highs[a_idx + 1:tgt + 1])) if tgt > a_idx else None
@@ -284,9 +285,9 @@ def resolve_horizon(row: dict, h_days: int, bars):
         'anchorHow': a_how,
         'targetDate': dates[tgt],
         'flat': direction_match is None and signal in ('BUY', 'SELL'),
-        'actualClose': round(actual_close, 4),
-        'actualHigh': round(window_high, 4) if window_high is not None else None,
-        'actualLow': round(window_low, 4) if window_low is not None else None,
+        'actualClose': round_price(actual_close),
+        'actualHigh': round_price(window_high),
+        'actualLow': round_price(window_low),
         'pctMove': round(pct_move, 3),
         'directionMatch': direction_match,
         'capturedPct': captured_pct,

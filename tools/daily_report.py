@@ -47,6 +47,9 @@ import sys
 import time
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from price_round import decimals_for  # noqa: E402
+
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis daily report)'}
 LEDGER = os.path.join('model', 'ledger')
 
@@ -253,7 +256,12 @@ def main():
         th = tl = ''
         iv = ''
         vh = vl = None
-        if want_times and (hh or hl) and (args.limit == 0 or len(out) < args.limit):
+        # Every HIT is verified against intraday bars, not just the rows that
+        # happen to fit --limit. A row that never reached a level cannot have
+        # reached it before the lock either, so the cost is bounded by the number
+        # of hits (tens, not hundreds) and the headline rate stops depending on
+        # how many rows were being displayed.
+        if want_times and (hh or hl):
             bars, iv = intraday_bars(sym, date_iso)
             if bars:
                 td = touch_detail(bars, ph, pl, lock_dt)
@@ -270,6 +278,11 @@ def main():
         if vh is not None or vl is not None:
             valid = bool(vh) or bool(vl)
             st['valid post-lock hit' if valid else 'hit was PRE-LOCK only'] += 1
+        elif hh or hl:
+            # A hit we could not verify: Yahoo keeps 1m bars ~30 days and 5m ~60,
+            # so older sessions cannot be sliced at the lock. Counted separately
+            # rather than assumed valid, which is what silently inflated the rate.
+            st['hit UNVERIFIABLE (no intraday)'] += 1
         out.append({
             'symbol': sym, 'region': r.get('region'), 'signal': r.get('signal'),
             'confidence': r.get('confidence'),
@@ -306,6 +319,25 @@ def main():
           f'HIGH {st["which:HIGH"]}, LOW {st["which:LOW"]}, BOTH {st["which:BOTH"]}')
     print(f'  NOT HIT  {st["NOT HIT"]:>5} ({100*st["NOT HIT"]/n:>5.1f}%)   '
           f'= price stayed inside the predicted range')
+
+    # The number above is FULL-SESSION and therefore over-credits: the US cron
+    # locks ~52 minutes after the 13:30 open, so a level the stock touched at
+    # 13:35 counts even though the prediction did not exist yet. The honest
+    # figure only counts touches at or after the lock timestamp.
+    checked = st['valid post-lock hit'] + st['hit was PRE-LOCK only']
+    if checked:
+        pl = st['valid post-lock hit']
+        print(f'\n  POST-LOCK HIT {pl:>4} ({100*pl/n:>5.1f}% of scored)   '
+              f'<- the honest number')
+        print(f'    of {checked} verified hits, {st["hit was PRE-LOCK only"]} touched the level '
+              f'ONLY before the prediction existed')
+        print(f'    and were being counted as wins. Full-session over-credits by '
+              f'{100*(st["HIT"]-pl)/n:.1f}pp.')
+    if st['hit UNVERIFIABLE (no intraday)']:
+        print(f'  UNVERIFIABLE {st["hit UNVERIFIABLE (no intraday)"]:>4}   '
+              f'hit, but no intraday bars survive to slice at the lock')
+    if not checked and not st['hit UNVERIFIABLE (no intraday)'] and st['HIT']:
+        print('\n  (post-lock split not computed: pass --hit-times)')
     if st['stale anchor']:
         print(f'  STALE ANCHOR {st["stale anchor"]:>4} ({100*st["stale anchor"]/n:>4.1f}%)  '
               f'locked price fell OUTSIDE the session range, so the forecast was')
@@ -330,11 +362,11 @@ def main():
     print('  ' + '-' * sum(w for _, _, w, _ in cols))
     for x in show:
         cells = []
-        # Precision by magnitude. A flat 4dp made every column of a sub-penny row
-        # print an identical 0.0003, which reads as a data fault rather than a
-        # display limit.
-        mag = abs(x['predictedHigh'] or 1)
-        dp = 2 if mag >= 1 else 4 if mag >= 0.01 else 6 if mag >= 0.0001 else 8
+        # Precision by magnitude, from the SAME ladder that stored the value, so
+        # the table can never show fewer digits than the row actually carries. A
+        # flat 4dp made every column of a sub-penny row print an identical 0.0003,
+        # which reads as a data fault rather than a display limit.
+        dp = decimals_for(x['predictedHigh'] or 1)
         for _, key, w, kind in cols:
             v = x.get(key)
             if kind == 'p' and isinstance(v, (int, float)):
