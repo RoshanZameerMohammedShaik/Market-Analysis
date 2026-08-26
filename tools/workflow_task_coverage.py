@@ -109,8 +109,11 @@ def main():
         failures.append('no step defines run_task(); the push-recovery path is gone')
     else:
         body = commit_step['run']
-        # Bash case arms: `  task-name)` possibly several per arm.
-        covered = set(re.findall(r'^\s*([a-z][a-z0-9-]*)\)', body, re.M))
+        # Bash case arms: `  task-name)`. The character class MUST allow uppercase:
+        # region names are capitalised (predict-NYSE), so a lowercase-only pattern
+        # silently matched none of the nine predict-* arms and reported them all as
+        # missing when they were present.
+        covered = set(re.findall(r'^\s*([A-Za-z][\w-]*)\)', body, re.M))
         for t in sorted(set(tasks) - covered):
             failures.append(
                 f'task {t!r} has no arm in the run_task() recovery case, so a rejected '
