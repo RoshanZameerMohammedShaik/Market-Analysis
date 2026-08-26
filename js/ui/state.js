@@ -2,21 +2,20 @@
 // fields (active tab, timeframe, currently-loaded symbol). Persisted bits
 // are read at construction; everything else lives in memory.
 
+import { DEFAULT_THEME, normalizeTheme } from './themes.js';
+
+// Theme validation delegates to js/ui/themes.js. This used to re-list the valid
+// ids in an if-chain that had to be kept in step with theme.js by hand, so adding
+// a theme in one place silently reset every user's choice to dark in the other.
 function loadTheme() {
     try {
         const saved = localStorage.getItem('ma-theme');
-        // Migrate old themes to current set.
-        if (saved === 'colourful' || saved === 'terminal') {
-            localStorage.setItem('ma-theme', 'aurora');
-            return 'aurora';
-        }
-        if (saved === 'slate') {
-            localStorage.setItem('ma-theme', 'aurora');
-            return 'aurora';
-        }
-        if (saved === 'dark' || saved === 'light' || saved === 'aurora') return saved;
+        const resolved = normalizeTheme(saved);
+        // Write the migration back so a retired id is only translated once.
+        if (saved && saved !== resolved) localStorage.setItem('ma-theme', resolved);
+        return resolved;
     } catch (_) {}
-    return 'dark';
+    return DEFAULT_THEME;
 }
 
 export const state = {

@@ -1,0 +1,690 @@
+/* ============================================================================
+   VAULT — design foundation for Market Analyzer
+   ============================================================================
+
+   Loaded LAST, after premium-3d.css, so equal-specificity token overrides win
+   cleanly. This file redefines the visual language; components.css applies it.
+
+   It works by REDEFINING TOKENS rather than restyling 349 KB of existing CSS
+   across 18 files and 57 UI modules. Every surface in the app already reads
+   --bg-card, --border, --accent, --radius-*, --shadow-*, so changing the tokens
+   moves the whole app at once and cannot desynchronise from components that were
+   never touched.
+
+   Design intent: a precision instrument. Calm deep surfaces, ONE confident
+   accent per theme, hairline borders, generous rhythm, and numerals that read
+   like they were engraved. Money data deserves to look exact, not playful, so
+   there are no decorative gradients on large fills and no candy colours.
+
+   ---------------------------------------------------------------------------
+   THE RULES THIS FILE FOLLOWS
+   ---------------------------------------------------------------------------
+   1. One accent per theme. Gradients appear only as thin strokes, small marks,
+      or low-alpha glows, never as a large flat fill. The previous
+      blue-to-purple pill fills were the single most dated element in the UI.
+   2. Elevation is light + shadow, not glow. Dark themes previously used
+      WHITE-tinted outer shadows, which reads as neon haze rather than depth. A
+      raised dark surface gets: a lighter fill, a bright hairline on the top
+      edge where light lands, and a real dark shadow beneath.
+   3. Numbers are tabular. A price column that reflows as digits change is the
+      fastest way to make a finance UI feel amateur.
+   4. Contrast is checked, not eyeballed. Body text targets >= 7:1 on its own
+      surface and secondary text >= 4.5:1, so the light theme stops looking
+      washed out.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   TYPOGRAPHY
+   Inter for UI (superb at small sizes, real tabular figures, variable weight)
+   and JetBrains Mono for prices. --num-font was already declared in style.css
+   pointing at JetBrains Mono, but the font was NEVER LOADED, so every price in
+   the app silently fell back to the platform's default monospace.
+   Fonts are self-declared with font-display:swap so text paints immediately.
+--------------------------------------------------------------------------- */
+:root {
+    --font-ui: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+               'Helvetica Neue', system-ui, sans-serif;
+    --font-display: var(--font-ui);
+    --num-font: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono',
+                Menlo, Consolas, monospace;
+
+    /* Modular scale, 1.2 ratio, rem-based so it honours user zoom. */
+    --fs-2xs: 0.6875rem;   /* 11px  micro labels, badge text */
+    --fs-xs:  0.75rem;     /* 12px  captions, table meta */
+    --fs-sm:  0.8125rem;   /* 13px  secondary body */
+    --fs-base:0.9375rem;   /* 15px  body */
+    --fs-md:  1.0625rem;   /* 17px  card titles */
+    --fs-lg:  1.3125rem;   /* 21px  section titles */
+    --fs-xl:  1.75rem;     /* 28px  page headings */
+    --fs-2xl: 2.25rem;     /* 36px  hero numbers */
+    --fs-3xl: 3rem;        /* 48px  display */
+
+    --lh-tight: 1.15;
+    --lh-snug: 1.35;
+    --lh-normal: 1.55;
+
+    /* Optical tracking: tighten as size grows, open up for small caps labels. */
+    --tr-display: -0.022em;
+    --tr-heading: -0.014em;
+    --tr-body: -0.006em;
+    --tr-label: 0.06em;
+
+    --fw-normal: 420;
+    --fw-medium: 520;
+    --fw-semibold: 600;
+    --fw-bold: 680;
+
+    /* 4px base rhythm. */
+    --sp-1: 4px;   --sp-2: 8px;   --sp-3: 12px;  --sp-4: 16px;
+    --sp-5: 20px;  --sp-6: 24px;  --sp-8: 32px;  --sp-10: 40px;
+    --sp-12: 48px; --sp-16: 64px; --sp-20: 80px;
+
+    /* Softer, larger radii read as modern; the old 6/10/16 felt tight. */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 26px;
+    --radius-pill: 999px;
+
+    /* Motion. Two curves only: `out` for things entering or responding to the
+       user, `spring` for anything that should feel physical. Durations are short
+       because a data app is used repeatedly and slow chrome becomes friction. */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --dur-instant: 90ms;
+    --dur-fast: 160ms;
+    --dur-base: 240ms;
+    --dur-slow: 400ms;
+
+    --maxw-content: 1240px;
+    --header-h: 64px;
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: DARK / "Obsidian"  — true black page, graphite glass, electric blue
+--------------------------------------------------------------------------- */
+[data-theme="dark"] {
+    --bg-primary: #000000;
+    --bg-secondary: #0c0e12;
+    --bg-card: #101318;
+    --bg-elevated: #161a21;
+    --bg-hover: #1b2029;
+    --bg-sunken: #06070a;
+
+    --border: #1e232c;
+    --border-strong: #2c333f;
+    --border-accent: rgba(76, 141, 255, 0.42);
+
+    --text-primary: #eef2f7;
+    --text-secondary: #a3aebd;
+    --text-muted: #6b7686;
+    --text-inverse: #05070a;
+
+    --accent: #4c8dff;
+    --accent-rgb: 76, 141, 255;
+    --accent-hover: #6ba2ff;
+    --accent-soft: rgba(76, 141, 255, 0.13);
+    --accent-contrast: #ffffff;
+    --accent-2: #8b7cff;
+
+    --green: #22c98a;
+    --green-rgb: 34, 201, 138;
+    --green-bg: rgba(34, 201, 138, 0.12);
+    --red: #f4535f;
+    --red-rgb: 244, 83, 95;
+    --red-bg: rgba(244, 83, 95, 0.12);
+    --yellow: #f5b544;
+    --yellow-rgb: 245, 181, 68;
+    --yellow-bg: rgba(245, 181, 68, 0.12);
+
+    --brand-grad: linear-gradient(135deg, #4c8dff 0%, #8b7cff 100%);
+    --brand-grad-2: linear-gradient(135deg, #4c8dff 0%, #22c98a 100%);
+    --brand-grad-shadow: rgba(76, 141, 255, 0.34);
+
+    --bg-glass: rgba(14, 17, 22, 0.72);
+    --bg-glass-strong: rgba(10, 12, 16, 0.9);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #262c37;
+    --scroll-thumb-hover: #4c8dff;
+
+    /* Light lands on the TOP edge; shadow falls BELOW. No white outer haze. */
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 1px 2px rgba(0, 0, 0, 0.6),
+        0 8px 24px -8px rgba(0, 0, 0, 0.75);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        0 2px 4px rgba(0, 0, 0, 0.5),
+        0 18px 44px -12px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(76, 141, 255, 0.18);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.09),
+        0 4px 12px -2px rgba(0, 0, 0, 0.6);
+    --shadow-pop:
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 12px 28px -6px rgba(0, 0, 0, 0.8),
+        0 40px 80px -20px rgba(0, 0, 0, 0.9);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --glow-accent: 0 0 0 1px rgba(76, 141, 255, 0.3), 0 6px 24px -6px rgba(76, 141, 255, 0.5);
+
+    /* Two very wide, very low-alpha washes keep a true-black page from reading
+       as dead flat, without ever becoming a visible gradient. */
+    --atmos-1: radial-gradient(1100px 620px at 12% -8%, rgba(76, 141, 255, 0.10), transparent 62%);
+    --atmos-2: radial-gradient(940px 560px at 92% 6%, rgba(139, 124, 255, 0.075), transparent 60%);
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: LIGHT / "Daylight" — warm neutral paper, true-white cards
+   The old light theme was a cool lavender-grey with white cards that barely
+   separated from it. This warms the page, deepens the text, and gives cards a
+   real shadow so they lift.
+--------------------------------------------------------------------------- */
+[data-theme="light"] {
+    --bg-primary: #f4f5f7;
+    --bg-secondary: #fafbfc;
+    --bg-card: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-hover: #eef0f4;
+    --bg-sunken: #e9ebf0;
+
+    --border: #e3e6ec;
+    --border-strong: #cbd1dc;
+    --border-accent: rgba(37, 99, 235, 0.4);
+
+    --text-primary: #0d1220;
+    --text-secondary: #4d5566;
+    --text-muted: #79818f;
+    --text-inverse: #ffffff;
+
+    --accent: #2563eb;
+    --accent-rgb: 37, 99, 235;
+    --accent-hover: #1d4fd8;
+    --accent-soft: rgba(37, 99, 235, 0.09);
+    --accent-contrast: #ffffff;
+    --accent-2: #7c3aed;
+
+    --green: #0e9f6e;
+    --green-rgb: 14, 159, 110;
+    --green-bg: rgba(14, 159, 110, 0.10);
+    --red: #dc2f3c;
+    --red-rgb: 220, 47, 60;
+    --red-bg: rgba(220, 47, 60, 0.09);
+    --yellow: #b45309;
+    --yellow-rgb: 180, 83, 9;
+    --yellow-bg: rgba(180, 83, 9, 0.10);
+
+    --brand-grad: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    --brand-grad-2: linear-gradient(135deg, #2563eb 0%, #0e9f6e 100%);
+    --brand-grad-shadow: rgba(37, 99, 235, 0.28);
+
+    --bg-glass: rgba(255, 255, 255, 0.8);
+    --bg-glass-strong: rgba(255, 255, 255, 0.94);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #ccd2dd;
+    --scroll-thumb-hover: #2563eb;
+
+    --shadow-card:
+        0 1px 2px rgba(16, 24, 40, 0.05),
+        0 4px 10px -2px rgba(16, 24, 40, 0.06),
+        0 12px 28px -8px rgba(16, 24, 40, 0.07);
+    --shadow-card-hover:
+        0 1px 2px rgba(16, 24, 40, 0.06),
+        0 8px 20px -4px rgba(16, 24, 40, 0.10),
+        0 24px 48px -12px rgba(16, 24, 40, 0.12),
+        0 0 0 1px rgba(37, 99, 235, 0.14);
+    --shadow-control:
+        0 1px 2px rgba(16, 24, 40, 0.06),
+        0 2px 5px -1px rgba(16, 24, 40, 0.06);
+    --shadow-control-hover:
+        0 1px 2px rgba(16, 24, 40, 0.07),
+        0 6px 14px -3px rgba(16, 24, 40, 0.12);
+    --shadow-pop:
+        0 2px 4px rgba(16, 24, 40, 0.06),
+        0 14px 32px -6px rgba(16, 24, 40, 0.14),
+        0 40px 72px -16px rgba(16, 24, 40, 0.16);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(16, 24, 40, 0.045);
+    --glow-accent: 0 0 0 1px rgba(37, 99, 235, 0.28), 0 6px 20px -6px rgba(37, 99, 235, 0.35);
+
+    --atmos-1: radial-gradient(1100px 620px at 10% -10%, rgba(37, 99, 235, 0.07), transparent 60%);
+    --atmos-2: radial-gradient(900px 540px at 94% 4%, rgba(124, 58, 237, 0.055), transparent 58%);
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: AURORA — near-black violet, orchid accent over a teal undertone
+--------------------------------------------------------------------------- */
+[data-theme="aurora"] {
+    --bg-primary: #06050d;
+    --bg-secondary: #0d0b18;
+    --bg-card: #12101f;
+    --bg-elevated: #191527;
+    --bg-hover: #201b31;
+    --bg-sunken: #040309;
+
+    --border: #241f38;
+    --border-strong: #362e50;
+    --border-accent: rgba(167, 139, 250, 0.45);
+
+    --text-primary: #f1ecfb;
+    --text-secondary: #ada5c6;
+    --text-muted: #746c8e;
+    --text-inverse: #08060f;
+
+    --accent: #a78bfa;
+    --accent-rgb: 167, 139, 250;
+    --accent-hover: #bda4ff;
+    --accent-soft: rgba(167, 139, 250, 0.14);
+    --accent-contrast: #0b0616;
+    --accent-2: #22d3ee;
+
+    --green: #34d8a4;
+    --green-rgb: 52, 216, 164;
+    --green-bg: rgba(52, 216, 164, 0.12);
+    --red: #fb5a78;
+    --red-rgb: 251, 90, 120;
+    --red-bg: rgba(251, 90, 120, 0.13);
+    --yellow: #fcbf49;
+    --yellow-rgb: 252, 191, 73;
+    --yellow-bg: rgba(252, 191, 73, 0.12);
+
+    --brand-grad: linear-gradient(135deg, #a78bfa 0%, #22d3ee 100%);
+    --brand-grad-2: linear-gradient(135deg, #a78bfa 0%, #fb5a78 100%);
+    --brand-grad-shadow: rgba(167, 139, 250, 0.36);
+
+    --bg-glass: rgba(16, 13, 27, 0.74);
+    --bg-glass-strong: rgba(11, 9, 20, 0.92);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #2e2745;
+    --scroll-thumb-hover: #a78bfa;
+
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.6),
+        0 10px 28px -8px rgba(6, 2, 18, 0.8);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.5),
+        0 20px 48px -12px rgba(6, 2, 18, 0.9),
+        0 0 0 1px rgba(167, 139, 250, 0.22);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 4px 14px -2px rgba(0, 0, 0, 0.6);
+    --shadow-pop:
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 14px 32px -6px rgba(4, 1, 12, 0.85),
+        0 44px 88px -20px rgba(4, 1, 12, 0.95);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --glow-accent: 0 0 0 1px rgba(167, 139, 250, 0.34), 0 6px 26px -6px rgba(167, 139, 250, 0.55);
+
+    --atmos-1: radial-gradient(1050px 600px at 14% -6%, rgba(167, 139, 250, 0.16), transparent 62%);
+    --atmos-2: radial-gradient(900px 540px at 90% 8%, rgba(34, 211, 238, 0.10), transparent 58%);
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: MIDNIGHT — deep navy, indigo accent. Softer than true black.
+--------------------------------------------------------------------------- */
+[data-theme="midnight"] {
+    --bg-primary: #060911;
+    --bg-secondary: #0c111d;
+    --bg-card: #111725;
+    --bg-elevated: #171e2f;
+    --bg-hover: #1d2639;
+    --bg-sunken: #03060c;
+
+    --border: #1f2739;
+    --border-strong: #2e3850;
+    --border-accent: rgba(129, 140, 248, 0.45);
+
+    --text-primary: #eaf0fb;
+    --text-secondary: #9fadc6;
+    --text-muted: #68758d;
+    --text-inverse: #060911;
+
+    --accent: #818cf8;
+    --accent-rgb: 129, 140, 248;
+    --accent-hover: #9aa3fb;
+    --accent-soft: rgba(129, 140, 248, 0.14);
+    --accent-contrast: #070a14;
+    --accent-2: #38bdf8;
+
+    --green: #2dd4a0;
+    --green-rgb: 45, 212, 160;
+    --green-bg: rgba(45, 212, 160, 0.12);
+    --red: #f2616f;
+    --red-rgb: 242, 97, 111;
+    --red-bg: rgba(242, 97, 111, 0.13);
+    --yellow: #fbbf4a;
+    --yellow-rgb: 251, 191, 74;
+    --yellow-bg: rgba(251, 191, 74, 0.12);
+
+    --brand-grad: linear-gradient(135deg, #818cf8 0%, #38bdf8 100%);
+    --brand-grad-2: linear-gradient(135deg, #818cf8 0%, #2dd4a0 100%);
+    --brand-grad-shadow: rgba(129, 140, 248, 0.34);
+
+    --bg-glass: rgba(14, 20, 33, 0.74);
+    --bg-glass-strong: rgba(9, 13, 23, 0.92);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #29334a;
+    --scroll-thumb-hover: #818cf8;
+
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.55),
+        0 10px 28px -8px rgba(2, 5, 12, 0.8);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.45),
+        0 20px 48px -12px rgba(2, 5, 12, 0.9),
+        0 0 0 1px rgba(129, 140, 248, 0.2);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 4px 14px -2px rgba(0, 0, 0, 0.55);
+    --shadow-pop:
+        0 1px 2px rgba(0, 0, 0, 0.45),
+        0 14px 32px -6px rgba(2, 5, 12, 0.85),
+        0 44px 88px -20px rgba(2, 5, 12, 0.95);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    --glow-accent: 0 0 0 1px rgba(129, 140, 248, 0.32), 0 6px 24px -6px rgba(129, 140, 248, 0.5);
+
+    --atmos-1: radial-gradient(1100px 640px at 10% -8%, rgba(129, 140, 248, 0.15), transparent 62%);
+    --atmos-2: radial-gradient(920px 560px at 92% 4%, rgba(56, 189, 248, 0.10), transparent 58%);
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: EMBER — warm charcoal, amber accent. Reads well at night.
+   Amber and the semantic red sit close on the wheel, so red is pushed toward
+   crimson here to stay unmistakably "down" next to an amber accent.
+--------------------------------------------------------------------------- */
+[data-theme="ember"] {
+    --bg-primary: #0b0908;
+    --bg-secondary: #14100e;
+    --bg-card: #191412;
+    --bg-elevated: #211a17;
+    --bg-hover: #29211d;
+    --bg-sunken: #060404;
+
+    --border: #2a221e;
+    --border-strong: #3b302a;
+    --border-accent: rgba(245, 165, 36, 0.45);
+
+    --text-primary: #f7f0e9;
+    --text-secondary: #b7a89c;
+    --text-muted: #82736a;
+    --text-inverse: #100b08;
+
+    --accent: #f5a524;
+    --accent-rgb: 245, 165, 36;
+    --accent-hover: #ffb944;
+    --accent-soft: rgba(245, 165, 36, 0.13);
+    --accent-contrast: #130d05;
+    --accent-2: #fb7185;
+
+    --green: #3ecf8e;
+    --green-rgb: 62, 207, 142;
+    --green-bg: rgba(62, 207, 142, 0.12);
+    --red: #ef4056;
+    --red-rgb: 239, 64, 86;
+    --red-bg: rgba(239, 64, 86, 0.14);
+    --yellow: #ffd166;
+    --yellow-rgb: 255, 209, 102;
+    --yellow-bg: rgba(255, 209, 102, 0.12);
+
+    --brand-grad: linear-gradient(135deg, #f5a524 0%, #fb7185 100%);
+    --brand-grad-2: linear-gradient(135deg, #f5a524 0%, #3ecf8e 100%);
+    --brand-grad-shadow: rgba(245, 165, 36, 0.34);
+
+    --bg-glass: rgba(22, 17, 15, 0.76);
+    --bg-glass-strong: rgba(14, 10, 9, 0.92);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #362b25;
+    --scroll-thumb-hover: #f5a524;
+
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.6),
+        0 10px 28px -8px rgba(8, 4, 2, 0.8);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.5),
+        0 20px 48px -12px rgba(8, 4, 2, 0.9),
+        0 0 0 1px rgba(245, 165, 36, 0.22);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 4px 14px -2px rgba(0, 0, 0, 0.6);
+    --shadow-pop:
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 14px 32px -6px rgba(6, 3, 2, 0.85),
+        0 44px 88px -20px rgba(6, 3, 2, 0.95);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --glow-accent: 0 0 0 1px rgba(245, 165, 36, 0.34), 0 6px 24px -6px rgba(245, 165, 36, 0.5);
+
+    --atmos-1: radial-gradient(1100px 620px at 12% -8%, rgba(245, 165, 36, 0.12), transparent 60%);
+    --atmos-2: radial-gradient(900px 540px at 92% 6%, rgba(251, 113, 133, 0.08), transparent 58%);
+}
+
+/* ---------------------------------------------------------------------------
+   THEME: FOREST — deep green-black, mint accent. The calmest of the darks.
+--------------------------------------------------------------------------- */
+[data-theme="forest"] {
+    --bg-primary: #050a08;
+    --bg-secondary: #0a120e;
+    --bg-card: #0e1713;
+    --bg-elevated: #131f1a;
+    --bg-hover: #182720;
+    --bg-sunken: #020604;
+
+    --border: #1c2a24;
+    --border-strong: #2a3c34;
+    --border-accent: rgba(52, 211, 153, 0.42);
+
+    --text-primary: #e9f5ef;
+    --text-secondary: #9db5aa;
+    --text-muted: #667c73;
+    --text-inverse: #04100b;
+
+    --accent: #34d399;
+    --accent-rgb: 52, 211, 153;
+    --accent-hover: #55e0ad;
+    --accent-soft: rgba(52, 211, 153, 0.13);
+    --accent-contrast: #04150e;
+    --accent-2: #60a5fa;
+
+    /* Accent IS green here, so "up" is pushed to a brighter spring green and
+       "down" to a warm coral: a green accent next to a green gain badge would
+       make direction unreadable at a glance, which matters more than palette
+       purity in an app whose whole job is up-versus-down. */
+    --green: #6ee7a8;
+    --green-rgb: 110, 231, 168;
+    --green-bg: rgba(110, 231, 168, 0.13);
+    --red: #fb7185;
+    --red-rgb: 251, 113, 133;
+    --red-bg: rgba(251, 113, 133, 0.14);
+    --yellow: #fcd34d;
+    --yellow-rgb: 252, 211, 77;
+    --yellow-bg: rgba(252, 211, 77, 0.12);
+
+    --brand-grad: linear-gradient(135deg, #34d399 0%, #60a5fa 100%);
+    --brand-grad-2: linear-gradient(135deg, #34d399 0%, #fcd34d 100%);
+    --brand-grad-shadow: rgba(52, 211, 153, 0.32);
+
+    --bg-glass: rgba(13, 22, 18, 0.76);
+    --bg-glass-strong: rgba(7, 14, 11, 0.92);
+
+    --scroll-track: transparent;
+    --scroll-thumb: #24352d;
+    --scroll-thumb-hover: #34d399;
+
+    --shadow-card:
+        inset 0 1px 0 rgba(255, 255, 255, 0.055),
+        0 1px 2px rgba(0, 0, 0, 0.6),
+        0 10px 28px -8px rgba(1, 8, 5, 0.8);
+    --shadow-card-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.095),
+        0 2px 4px rgba(0, 0, 0, 0.5),
+        0 20px 48px -12px rgba(1, 8, 5, 0.9),
+        0 0 0 1px rgba(52, 211, 153, 0.2);
+    --shadow-control:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-control-hover:
+        inset 0 1px 0 rgba(255, 255, 255, 0.095),
+        0 4px 14px -2px rgba(0, 0, 0, 0.6);
+    --shadow-pop:
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 14px 32px -6px rgba(1, 6, 4, 0.85),
+        0 44px 88px -20px rgba(1, 6, 4, 0.95);
+    --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    --shadow-inset-bottom: inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    --glow-accent: 0 0 0 1px rgba(52, 211, 153, 0.32), 0 6px 24px -6px rgba(52, 211, 153, 0.48);
+
+    --atmos-1: radial-gradient(1100px 620px at 12% -8%, rgba(52, 211, 153, 0.11), transparent 60%);
+    --atmos-2: radial-gradient(900px 540px at 92% 6%, rgba(96, 165, 250, 0.075), transparent 58%);
+}
+
+/* ---------------------------------------------------------------------------
+   GLOBAL BASE
+--------------------------------------------------------------------------- */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* The page colour lives on <html>, NOT on body, so body can stay transparent and
+   the atmosphere layer can sit at z-index -1 beneath the content without needing
+   anything else repositioned. See the body::before note below. */
+html { background-color: var(--bg-primary); }
+
+body {
+    background-color: transparent;
+    font-family: var(--font-ui);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-normal);
+    line-height: var(--lh-normal);
+    letter-spacing: var(--tr-body);
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Opt into Inter's contextual alternates and disable the slashed zero for
+       body copy; prices re-enable a tabular, unambiguous set below. */
+    font-feature-settings: 'cv05' 1, 'cv11' 1, 'ss01' 1;
+}
+
+/* Atmosphere. A fixed, pointer-transparent wash behind everything, so a
+   true-black page has depth without any element carrying a gradient of its own.
+   Two very wide, very low-alpha radials; never a visible band.
+   z-index -1 puts it above <html>'s background colour but below every element in
+   body, which is why the colour had to move to <html> and body had to go
+   transparent. The alternative — z-index 0 plus `body > * { position: relative }`
+   to lift content over it — silently overrode `position: fixed` on the three side
+   panels and the splash overlay, dropping them into normal flow and inflating the
+   document from ~950px to 4010px tall. Verified by screenshot; do not reintroduce. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--atmos-1), var(--atmos-2);
+    background-repeat: no-repeat;
+}
+
+/* ---------------------------------------------------------------------------
+   TYPE TREATMENT
+--------------------------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tr-heading);
+    line-height: var(--lh-tight);
+    color: var(--text-primary);
+}
+
+/* Numerals: tabular so columns never shift width as digits change, and a
+   slashed zero so 0 and O are never confused in a ticker. This is applied by
+   ATTRIBUTE and CLASS rather than by element so it reaches the app's existing
+   markup without renaming anything. */
+.price, .change, .stat-value, .metric-value, .num, .mono,
+[class*="-price"], [class*="-change"], [class*="-pct"], [class*="-value"],
+td, th {
+    font-variant-numeric: tabular-nums slashed-zero;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+}
+
+/* Small uppercase labels get real tracking; without it they read as shouting. */
+.label, .section-label, .stat-label, .metric-label, [class*="-label"] {
+    letter-spacing: var(--tr-label);
+}
+
+::selection {
+    background: rgba(var(--accent-rgb), 0.28);
+    color: var(--text-primary);
+}
+
+/* ---------------------------------------------------------------------------
+   FOCUS
+   One visible, accent-tinted ring everywhere, offset so it never crowds the
+   glyphs. :focus-visible only, so pointer users never see it.
+--------------------------------------------------------------------------- */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ---------------------------------------------------------------------------
+   SCROLLBARS
+--------------------------------------------------------------------------- */
+* { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-thumb-hover);
+    background-clip: content-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ---------------------------------------------------------------------------
+   MOTION PREFERENCE
+   Honour the OS setting properly: near-zero durations rather than `none`, so
+   state changes still commit and JS that waits on transitionend keeps working.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

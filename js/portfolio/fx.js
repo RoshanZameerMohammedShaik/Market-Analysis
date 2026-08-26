@@ -42,7 +42,9 @@ function saveCache(c) {
 // USD always returns 1 immediately. Throws on fetch failure (caller can
 // fall back to the cached value).
 //
-// Frankfurter API: GET https://api.frankfurter.app/latest?from=EUR&to=USD
+// Frankfurter API: GET https://api.frankfurter.dev/v1/latest?from=EUR&to=USD
+// (api.frankfurter.app/latest 301-redirects to this; requesting the
+//  canonical host directly avoids depending on redirect-following.)
 // Response: { amount: 1, base: "EUR", date: "2026-05-29", rates: { USD: 1.0823 } }
 // We always query "from=<currency>&to=USD" so the response's rates.USD
 // is exactly the rate we want.
@@ -54,7 +56,7 @@ export async function getRateToUSD(currency) {
     const hit = cache[cur];
     if (hit && (Date.now() - hit.t) < CACHE_MS) return hit.rate;
 
-    const url = `https://api.frankfurter.app/latest?from=${encodeURIComponent(cur)}&to=USD`;
+    const url = `https://api.frankfurter.dev/v1/latest?from=${encodeURIComponent(cur)}&to=USD`;
     let res;
     try {
         res = await fetch(url);

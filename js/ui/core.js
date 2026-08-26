@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { initTheme, cycleTheme } from './theme.js';
+import { initTheme, cycleTheme, onThemeChange } from './theme.js';
 import { initSearch, updatePlaceholder } from './search.js';
 import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
@@ -98,7 +98,16 @@ export function init() {
     loadCalibration().then(() => maybeRenderAccuracyStrip());
     maybeRenderAccuracyStrip();
 
-    document.getElementById('theme-toggle').addEventListener('click', () => {
+    // The swatch grid in the settings menu is the primary control; the menu row
+    // itself still cycles as a shortcut. Both need the chart rebuilt, because
+    // TradingView bakes its colours in at construction and will not repaint on a
+    // CSS variable change, so register the callback once for either path.
+    onThemeChange(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
+    // #theme-toggle no longer exists: the swatch grid in the settings menu
+    // replaced the cycle row, which showed the same control twice with no way to
+    // see the options. Bound optionally so the shortcut keeps working if the row
+    // is ever brought back, and so this cannot throw when it is absent.
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
         cycleTheme(() => { if (state.currentSymbol || state.currentCoinId) loadChart(); });
     });
 

@@ -9,7 +9,10 @@
 //     also picks up the active currency without each render site knowing.
 //
 // FX source: Frankfurter.app (free, key-less, ECB-backed daily rates).
-//   - Endpoint: https://api.frankfurter.dev/latest?from=USD
+//   - Endpoint: https://api.frankfurter.dev/v1/latest?from=USD
+//     The unversioned /latest path now returns 404; Frankfurter moved to
+//     /v1/. Verified live: /latest -> 404, /v1/latest -> 200. This failed
+//     silently because the fetch error path just falls back to no conversion.
 //   - Returns { rates: { EUR: 0.92, GBP: 0.79, INR: 83.5, ... } }
 //   - One fetch, all rates cached for 1h.
 // Fallback: Yahoo USDINR=X path retained for INR-only compatibility
@@ -119,7 +122,7 @@ export async function fetchRates(force = false) {
         try {
             // Frankfurter.app: free, ECB-backed, all major currencies in one call.
             const symbols = SUPPORTED_CODES.filter(c => c !== 'USD').join(',');
-            const url = `https://api.frankfurter.dev/latest?from=USD&to=${symbols}`;
+            const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${symbols}`;
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
             const json = await res.json();

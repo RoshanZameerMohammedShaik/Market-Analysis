@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — UI reference</title>
+<!--
+  Static style reference for the Vault design layer.
+
+  Why this exists: the live app populates its cards from a 70-symbol network scan
+  that takes tens of seconds and depends on third-party proxies, so during design
+  work every surface that matters — cards, badges, tables, prices, empty states —
+  renders as a skeleton. Tuning them from CSS alone is guesswork.
+
+  This page carries the SAME class names and the SAME stylesheets as index.html
+  with representative static content, so every theme can be checked against real
+  type, real numbers and real colour pairs in one screenshot.
+
+  It is a design tool, not a shipped route. Nothing links to it.
+-->
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/premium.css">
+<link rel="stylesheet" href="css/premium-3d.css">
+<link rel="stylesheet" href="css/design-system.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+    /* Preview-only scaffolding. Prefixed so it cannot be mistaken for app CSS. */
+    .pv-wrap { max-width: 1240px; margin: 0 auto; padding: 24px 24px 80px; }
+    .pv-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+    .pv-block { margin-block: 40px; }
+    .pv-h { font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+            color: var(--text-muted); font-weight: 600; margin-bottom: 14px;
+            padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .pv-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+    .pv-sw { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+    .pv-sw i { display: block; height: 46px; }
+    .pv-sw span { display: block; padding: 6px 8px; font-size: 10px; color: var(--text-muted);
+                  font-family: var(--num-font); }
+    .pv-type > * { margin: 0 0 10px; }
+    .pv-themebar { position: sticky; top: 0; z-index: 50; display: flex; gap: 8px; flex-wrap: wrap;
+                   padding: 12px 24px; background: var(--bg-glass); border-bottom: 1px solid var(--border);
+                   -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+</style>
+</head>
+<body>
+
+<div class="pv-themebar">
+    <button class="penny-filter-btn active" data-t="dark">Obsidian</button>
+    <button class="penny-filter-btn" data-t="midnight">Midnight</button>
+    <button class="penny-filter-btn" data-t="aurora">Aurora</button>
+    <button class="penny-filter-btn" data-t="forest">Forest</button>
+    <button class="penny-filter-btn" data-t="ember">Ember</button>
+    <button class="penny-filter-btn" data-t="light">Daylight</button>
+</div>
+
+<div class="pv-wrap">
+
+    <div class="pv-block">
+        <div class="pv-h">Type scale</div>
+        <div class="pv-type">
+            <h1 style="font-size:var(--fs-3xl)">Market Analyzer</h1>
+            <h2 style="font-size:var(--fs-xl)">Select a stock or crypto to start</h2>
+            <h3 style="font-size:var(--fs-lg)">Hot Picks — Top 20 Global Predictions</h3>
+            <p style="font-size:var(--fs-base);color:var(--text-primary)">Body copy at 15px. The engine's one-day
+                directional accuracy is 51.5% against 48.8% for always-buy.</p>
+            <p style="font-size:var(--fs-sm);color:var(--text-secondary)">Secondary at 13px, used for
+                supporting detail and card meta rows.</p>
+            <p style="font-size:var(--fs-xs);color:var(--text-muted)">Muted 12px caption — timestamps,
+                provenance, disclaimers.</p>
+            <p class="label" style="font-size:var(--fs-2xs);color:var(--text-muted);text-transform:uppercase">
+                Uppercase label with tracking</p>
+            <p style="font-family:var(--num-font);font-size:var(--fs-2xl);font-variant-numeric:tabular-nums slashed-zero">
+                $79,062.90 <span style="color:var(--green)">+2.41%</span></p>
+            <p style="font-family:var(--num-font);font-size:var(--fs-base);font-variant-numeric:tabular-nums slashed-zero">
+                0.00001283 &nbsp; 1,043.00 &nbsp; 309.90 &nbsp; -15.72%</p>
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Palette</div>
+        <div class="pv-swatches">
+            <div class="pv-sw"><i style="background:var(--bg-primary)"></i><span>bg-primary</span></div>
+            <div class="pv-sw"><i style="background:var(--bg-secondary)"></i><span>bg-secondary</span></div>
+            <div class="pv-sw"><i style="background:var(--bg-card)"></i><span>bg-card</span></div>
+            <div class="pv-sw"><i style="background:var(--bg-elevated)"></i><span>bg-elevated</span></div>
+            <div class="pv-sw"><i style="background:var(--bg-hover)"></i><span>bg-hover</span></div>
+            <div class="pv-sw"><i style="background:var(--accent)"></i><span>accent</span></div>
+            <div class="pv-sw"><i style="background:var(--accent-2)"></i><span>accent-2</span></div>
+            <div class="pv-sw"><i style="background:var(--green)"></i><span>green</span></div>
+            <div class="pv-sw"><i style="background:var(--red)"></i><span>red</span></div>
+            <div class="pv-sw"><i style="background:var(--yellow)"></i><span>yellow</span></div>
+            <div class="pv-sw"><i style="background:var(--border)"></i><span>border</span></div>
+            <div class="pv-sw"><i style="background:var(--brand-grad)"></i><span>brand-grad</span></div>
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Controls</div>
+        <div class="pv-row">
+            <div class="tab-group">
+                <button class="tab-btn active">Stock Analysis</button>
+                <button class="tab-btn">Crypto Analysis</button>
+            </div>
+            <div class="tab-group">
+                <button class="tab-btn active">Today</button>
+                <button class="tab-btn">Tomorrow</button>
+            </div>
+            <button class="portfolio-launcher"><span class="portfolio-launcher-label">Portfolio</span></button>
+            <button class="pl-launcher"><span class="pl-launcher-label">P&amp;L</span></button>
+            <button class="spikers-btn">🚀 Spikers</button>
+            <button class="refresh-btn"><span class="rb-label">Refresh</span></button>
+        </div>
+        <div class="penny-filters">
+            <button class="penny-filter-btn active">All prices</button>
+            <button class="penny-filter-btn">Pennies &lt; $10</button>
+            <button class="penny-filter-btn">Pennies &lt; $5</button>
+            <button class="penny-filter-btn">Sub-$1</button>
+        </div>
+        <div class="search-container" style="margin-top:12px">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" placeholder="Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T...">
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Badges</div>
+        <div class="pv-row">
+            <span class="badge badge-buy">BUY</span>
+            <span class="badge badge-sell">SELL</span>
+            <span class="badge badge-neutral">NEUTRAL</span>
+            <span class="badge" style="color:var(--text-secondary);background:var(--bg-hover);border-color:var(--border)">NO TRADE</span>
+            <span class="badge" style="color:var(--accent);background:var(--accent-soft);border-color:var(--border-accent)">80% BAND</span>
+            <kbd>/</kbd> <kbd>R</kbd> <kbd>Esc</kbd>
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Cards</div>
+        <!-- Copied verbatim from the template in js/ui/hotpicks.js (the
+             .hot-pick-* class names and their order), so what is verified here is
+             what actually ships. An invented approximation would validate CSS that
+             the real renderer never touches. -->
+        <div class="hotpicks-grid">
+            <div class="hot-pick-card buy">
+                <div class="hot-pick-symbol">NVDA</div>
+                <div class="hot-pick-name">NVIDIA Corporation</div>
+                <div class="hot-pick-spark"><svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none"><polyline points="0,22 12,19 24,20 36,14 48,15 60,9 72,11 84,5 100,3" fill="none" stroke="var(--green)" stroke-width="1.6"/></svg></div>
+                <div class="hot-pick-signal-badge buy">BUY</div>
+                <div class="hot-pick-confidence buy"><span class="hot-pick-arrow">▲</span> <span class="hot-pick-conf-num">62</span>% Confidence</div>
+                <div class="hot-pick-spike">+4.12% Spike Expected</div>
+                <div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Range High (80%)</span> <span class="hot-pick-target-value">$319.61</span></div>
+                <div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">$300.49</span></div>
+                <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">$309.90</span></div>
+            </div>
+            <div class="hot-pick-card sell">
+                <div class="hot-pick-symbol">SHIB</div>
+                <div class="hot-pick-name">Shiba Inu</div>
+                <div class="hot-pick-spark"><svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none"><polyline points="0,5 12,8 24,7 36,13 48,12 60,18 72,17 84,23 100,25" fill="none" stroke="var(--red)" stroke-width="1.6"/></svg></div>
+                <div class="hot-pick-signal-badge sell">SELL</div>
+                <div class="hot-pick-confidence sell"><span class="hot-pick-arrow">▼</span> <span class="hot-pick-conf-num">54</span>% Confidence</div>
+                <div class="hot-pick-lowtrust">⚠ low track record — exploratory</div>
+                <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">$0.00001283</span></div>
+            </div>
+            <div class="hot-pick-card neutral">
+                <div class="hot-pick-symbol">RELIANCE</div>
+                <div class="hot-pick-name">Reliance Industries Limited</div>
+                <div class="hot-pick-spark"><svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none"><polyline points="0,14 12,12 24,16 36,13 48,15 60,12 72,16 84,13 100,14" fill="none" stroke="var(--yellow)" stroke-width="1.6"/></svg></div>
+                <div class="hot-pick-signal-badge neutral">NEUTRAL</div>
+                <div class="hot-pick-confidence neutral"><span class="hot-pick-arrow">◆</span> <span class="hot-pick-conf-num">50</span>% Confidence</div>
+                <div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Range High (80%)</span> <span class="hot-pick-target-value">₹1,066.20</span></div>
+                <div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">₹1,021.40</span></div>
+                <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">₹1,043.00</span></div>
+            </div>
+            <div class="hp-skel"></div>
+            <div class="hp-skel"></div>
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Empty state</div>
+        <section class="chart-section">
+            <div class="chart-container">
+                <div id="tradingview-widget">
+                    <div class="chart-placeholder">
+                        <div class="chart-ph-glow"></div>
+                        <div class="chart-ph-title">Select a stock or crypto to start</div>
+                        <div class="chart-ph-sub">Search above, click a hot pick below, or press <kbd>/</kbd> to focus search.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Table — Full Ledger</div>
+        <div class="scanner-section" style="overflow:hidden">
+            <table>
+                <thead><tr>
+                    <th>Symbol</th><th>Call</th><th>Conf</th><th>Locked</th>
+                    <th>Pred Low</th><th>Pred High</th><th>Hit?</th><th>Which</th>
+                </tr></thead>
+                <tbody>
+                    <tr><td>NVDA</td><td><span class="badge badge-buy">BUY</span></td><td>54</td><td>309.90</td><td>300.49</td><td>319.61</td><td>HIT</td><td>HIGH</td></tr>
+                    <tr><td>0027.HK</td><td><span class="badge badge-buy">BUY</span></td><td>54</td><td>34.56</td><td>34.26</td><td>35.38</td><td>HIT</td><td>BOTH</td></tr>
+                    <tr><td>AVXL</td><td><span class="badge badge-sell">SELL</span></td><td>51</td><td>3.55</td><td>3.37</td><td>3.62</td><td>NOT HIT</td><td>—</td></tr>
+                    <tr><td>SHIB-USD</td><td><span class="badge badge-neutral">NEUTRAL</span></td><td>50</td><td>0.00001283</td><td>0.00001141</td><td>0.00001449</td><td>NOT HIT</td><td>—</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Section header + disclosure</div>
+        <div class="section-header">
+            <h2 class="section-title">🔥 Hot Picks — Top Stocks for Today</h2>
+            <div class="pv-row" style="margin:0">
+                <button class="spikers-btn">🚀 Spikers</button>
+                <button class="refresh-btn"><span class="rb-label">Refresh</span></button>
+            </div>
+        </div>
+        <section class="scanner-section">
+            <details class="scanner-details">
+                <summary class="scanner-summary">
+                    <span class="scanner-icon">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 4v16M16 4v16"/></svg>
+                    </span>
+                    <span class="scanner-title">Full Ledger</span>
+                </summary>
+                <div style="padding:16px 20px;color:var(--text-secondary);font-size:var(--fs-sm)">
+                    68,365 rows · 1,128 symbols · 8 regions
+                </div>
+            </details>
+        </section>
+    </div>
+
+    <div class="pv-block">
+        <div class="pv-h">Loading</div>
+        <div class="loading">
+            <div class="loader"></div>
+            <span class="loading-text">Scanning global markets for hot picks…</span>
+            <span class="loading-tip">Range forecasts calibrate to 80%; direction is close to a coin flip.</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    document.querySelectorAll('.pv-themebar button').forEach((b) => {
+        b.addEventListener('click', () => {
+            document.documentElement.setAttribute('data-theme', b.dataset.t);
+            document.querySelectorAll('.pv-themebar button')
+                .forEach((x) => x.classList.toggle('active', x === b));
+        });
+    });
+</script>
+</body>
+</html>

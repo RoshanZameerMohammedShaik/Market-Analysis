@@ -22,6 +22,29 @@
          Cursor-tilt + parallax + per-theme depth; degrades to a static
          dimensional extrusion with no JS / reduced-motion / touch. -->
     <link rel="stylesheet" href="css/premium-3d.css">
+    <!-- VAULT design layer — MUST be the LAST stylesheet. It redefines the
+         design tokens (colour, type, radius, elevation, motion) that every
+         earlier file already reads, so it moves the whole app at once; and
+         components.css then restyles real surfaces using the existing class
+         names. Load either one earlier and the base files win on equal
+         specificity and the redesign silently does nothing. -->
+    <link rel="stylesheet" href="css/design-system.css">
+    <link rel="stylesheet" href="css/components.css">
+    <!-- Fonts. --num-font pointed at JetBrains Mono but the font was never
+         actually loaded, so every price in the app fell back to the platform
+         default monospace. preconnect (not just dns-prefetch) because the
+         TLS handshake to fonts.gstatic.com is the slow part. display=swap
+         paints text immediately in the fallback and swaps when ready, which
+         matters more here than avoiding a reflow: a finance app that shows
+         nothing for 300ms reads as broken. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" media="print" onload="this.media='all'"
+          href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <noscript>
+        <link rel="stylesheet"
+              href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    </noscript>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
     <!-- Splash overlay styles. Inline so they render BEFORE the
@@ -222,15 +245,6 @@
                 </span>
                 <span class="header-menu-label">Currency Converter</span>
                 <span class="header-menu-meta" id="currency-toggle-meta">$ · USD</span>
-            </button>
-            <button class="header-menu-item" id="theme-toggle" type="button" role="menuitem">
-                <span class="header-menu-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
-                    </svg>
-                </span>
-                <span class="header-menu-label">Switch Theme</span>
-                <span class="header-menu-meta" id="theme-toggle-meta">Dark</span>
             </button>
             <button class="header-menu-item" id="pl-shortcut" type="button" role="menuitem">
                 <span class="header-menu-icon" aria-hidden="true">

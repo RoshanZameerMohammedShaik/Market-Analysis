@@ -1,0 +1,1180 @@
+/* ============================================================================
+   VAULT — component layer
+   ============================================================================
+   Loaded after design-system.css. Restyles the app's real surfaces using the
+   EXISTING class names, so no markup or JS module has to change. Where a rule
+   has to beat an earlier file it does so with specificity, never !important,
+   except in the handful of places noted inline where the base file itself used
+   !important first.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   LAYOUT — reclaim the wasted space
+   The old layout centred a 1200px column inside a 1512px viewport with an empty
+   glossary rail on the left, so the page read as off-centre with dead gutters.
+--------------------------------------------------------------------------- */
+.app-layout {
+    max-width: var(--maxw-content);
+    margin-inline: auto;
+    padding-inline: var(--sp-6);
+    gap: var(--sp-6);
+}
+
+.main-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+    padding-block: var(--sp-6) var(--sp-20);
+    min-width: 0;   /* lets grid/flex children shrink instead of overflowing */
+}
+
+@media (max-width: 900px) {
+    .app-layout { padding-inline: var(--sp-4); }
+    .main-container { gap: var(--sp-5); padding-block: var(--sp-4) var(--sp-16); }
+}
+
+/* ---------------------------------------------------------------------------
+   HEADER — a real sticky glass bar with presence
+--------------------------------------------------------------------------- */
+.app-header {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    min-height: var(--header-h);
+    /* env() keeps the bar clear of the iPhone notch in standalone PWA mode. */
+    padding: max(var(--sp-2), env(safe-area-inset-top)) var(--sp-6) var(--sp-2);
+    background: var(--bg-glass);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+/* A hairline of brand colour along the very bottom of the bar. This is the one
+   place a gradient earns its place: 2px tall, so it reads as a precision
+   detail rather than decoration. */
+.app-header::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: var(--brand-grad);
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex: 0 1 auto;
+    /* The title block was centred in a full-width flex row, which is what left
+       the bar looking empty. Anchor it left where a brand belongs. */
+    margin: 0;
+}
+
+.app-title-wrap { display: flex; align-items: center; gap: var(--sp-2); }
+
+.app-title,
+.app-title-static {
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.09em;
+    line-height: 1;
+    margin: 0;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+    .app-header { padding-inline: var(--sp-4); }
+    .app-title, .app-title-static { font-size: var(--fs-sm); letter-spacing: 0.06em; }
+}
+
+.header-actions { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* ---------------------------------------------------------------------------
+   BUTTONS
+--------------------------------------------------------------------------- */
+.header-btn,
+.refresh-btn,
+.spikers-btn,
+.portfolio-launcher,
+.pl-launcher {
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tr-body);
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-control);
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out);
+}
+
+.header-btn {
+    display: grid;
+    place-items: center;
+    width: 38px; height: 38px;
+    padding: 0;
+    border-radius: var(--radius-md);
+}
+
+.refresh-btn, .spikers-btn, .portfolio-launcher, .pl-launcher {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    min-height: 36px;
+}
+
+.header-btn:hover,
+.refresh-btn:hover,
+.spikers-btn:hover,
+.portfolio-launcher:hover,
+.pl-launcher:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-control-hover);
+    transform: translateY(-1px);
+}
+
+.header-btn:active,
+.refresh-btn:active,
+.spikers-btn:active,
+.portfolio-launcher:active,
+.pl-launcher:active { transform: translateY(0) scale(0.98); }
+
+/* The gear should rotate on hover, not sit inert. */
+.header-btn .settings-gear { transition: transform var(--dur-base) var(--ease-spring); }
+.header-btn:hover .settings-gear { transform: rotate(60deg); }
+
+/* Portfolio is the one primary action in the control row, so it alone gets the
+   accent treatment. Everything else stays quiet — if all buttons shout, none do. */
+.portfolio-launcher {
+    color: var(--accent-contrast);
+    background: var(--accent);
+    border-color: transparent;
+    font-weight: var(--fw-semibold);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
+                0 6px 18px -6px var(--brand-grad-shadow);
+}
+.portfolio-launcher:hover {
+    color: var(--accent-contrast);
+    background: var(--accent-hover);
+    border-color: transparent;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2),
+                0 10px 26px -6px var(--brand-grad-shadow);
+}
+
+/* ---------------------------------------------------------------------------
+   SEGMENTED CONTROLS (tab groups)
+   Replaces the blue-to-purple gradient pills. A segmented control on a sunken
+   track communicates "pick one of these" far better than two floating pills,
+   and it is what the platform conventions already teach.
+--------------------------------------------------------------------------- */
+.tabs-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+}
+
+.tab-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset-bottom);
+}
+
+.tab-group .tab-btn {
+    appearance: none;
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tr-body);
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: calc(var(--radius-md) - 4px);
+    padding: var(--sp-2) var(--sp-4);
+    min-height: 32px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.tab-group .tab-btn:hover:not(.active) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+/* Active reads as a raised chip lifted out of the track: solid surface, top
+   hairline, real shadow. No gradient. */
+.tab-group .tab-btn.active {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-inset-top), 0 1px 3px rgba(0, 0, 0, 0.28);
+    font-weight: var(--fw-semibold);
+}
+
+/* A 2px accent underline anchors which segment is live without colouring the
+   whole chip, so the label keeps full contrast against its own surface. */
+.tab-group .tab-btn.active::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: 4px;
+    width: 16px; height: 2px;
+    transform: translateX(-50%);
+    border-radius: 2px;
+    background: var(--accent);
+}
+.tab-group .tab-btn { position: relative; }
+
+/* ---------------------------------------------------------------------------
+   PENNY FILTER CHIPS
+--------------------------------------------------------------------------- */
+.penny-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+.penny-filter-btn {
+    font-family: var(--font-ui);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 6px var(--sp-3);
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+.penny-filter-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+}
+.penny-filter-btn.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-color: var(--border-accent);
+    font-weight: var(--fw-semibold);
+}
+
+/* ---------------------------------------------------------------------------
+   SEARCH
+   The emoji magnifier is replaced with a drawn glyph via a mask, so it inherits
+   currentColor and stops looking like a different typeface from everything else.
+--------------------------------------------------------------------------- */
+.search-container { position: relative; }
+
+.search-input {
+    width: 100%;
+    font-family: var(--font-ui);
+    font-size: var(--fs-base);
+    font-weight: var(--fw-normal);
+    color: var(--text-primary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--sp-4) var(--sp-5) var(--sp-4) 46px;
+    min-height: 52px;
+    box-shadow: var(--shadow-control);
+    transition: border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out);
+}
+.search-input::placeholder { color: var(--text-muted); }
+.search-input:hover { border-color: var(--border-strong); }
+.search-input:focus {
+    outline: none;
+    background: var(--bg-elevated);
+    border-color: var(--accent);
+    box-shadow: var(--glow-accent);
+}
+
+.search-icon {
+    position: absolute;
+    left: 16px; top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    width: 18px; height: 18px;
+    /* Hide the emoji glyph itself and paint a crisp vector in its place. */
+    font-size: 0;
+    color: var(--text-muted);
+    background-color: currentColor;
+    -webkit-mask: var(--icon-search) center / contain no-repeat;
+    mask: var(--icon-search) center / contain no-repeat;
+    pointer-events: none;
+    transition: color var(--dur-fast) var(--ease-out);
+}
+.search-container:focus-within .search-icon { color: var(--accent); }
+
+:root {
+    --icon-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-4.2-4.2'/%3E%3C/svg%3E");
+}
+
+.search-results {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-pop);
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   CARDS / SURFACES
+--------------------------------------------------------------------------- */
+.chart-section,
+.signal-section > *,
+.scanner-section,
+.accuracy-strip:not(:empty),
+.hot-pick-card,
+.card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.chart-container { border-radius: var(--radius-lg); overflow: hidden; }
+
+/* Chart section previously reserved ~470px of empty black before a symbol was
+   chosen, which made the first screen look broken. Let it size to its content
+   and give the empty state room to breathe instead. */
+.chart-section {
+    padding: var(--sp-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+}
+/* .chart-container carries a hard height: 360px in style.css, which is right for
+   a real chart and wrong for the empty state: with the section padding it made
+   the first screen ~530px of nothing, so a new user's first impression was a
+   void. Collapse it while the placeholder is showing, and give a real chart MORE
+   room than before, since price action is the reason the page exists.
+   :has() degrades safely — an engine without it keeps the original 360px. */
+.chart-container { height: 460px; }
+.chart-container:has(.chart-placeholder) {
+    height: auto;
+    min-height: 0;
+    background: transparent;
+    border-color: transparent;
+}
+
+/* ONE surface in the empty state, not two. The section is a card and the
+   placeholder inside it is a dashed panel, which stacked into a frame-within-a-
+   frame. While the placeholder is up, the section steps back and the dashed panel
+   is the only surface. */
+.chart-section:has(.chart-placeholder) {
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+@media (max-width: 900px) { .chart-container { height: 340px; } }
+
+/* The placeholder sets height:100% in extras.css to fill the fixed-height
+   container. Once the container is auto, it needs its own intrinsic size. */
+.chart-container:has(.chart-placeholder) .chart-placeholder {
+    height: auto;
+    min-height: 220px;
+}
+
+.chart-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding-bottom: var(--sp-4);
+    border-bottom: 1px solid var(--border);
+}
+.chart-symbol {
+    font-family: var(--font-display);
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-heading);
+}
+.chart-price {
+    font-family: var(--num-font);
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-medium);
+    font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* ---------------------------------------------------------------------------
+   SECTION HEADERS
+--------------------------------------------------------------------------- */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-4);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    font-family: var(--font-display);
+    font-size: var(--fs-lg);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-heading);
+    margin: 0;
+}
+
+/* Accent rule to the left of every section title: a single 3px bar that gives
+   the page a consistent spine and makes sections scannable. */
+.section-title::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 3px;
+    height: 1.1em;
+    border-radius: 2px;
+    background: var(--brand-grad);
+}
+
+.hotpicks-section, .scanner-section, .signal-section { scroll-margin-top: calc(var(--header-h) + var(--sp-4)); }
+
+/* ---------------------------------------------------------------------------
+   HOT PICKS GRID
+--------------------------------------------------------------------------- */
+.hotpicks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+    gap: var(--sp-4);
+}
+
+/* The real card class is .hot-pick-card (js/ui/hotpicks.js). Its children are
+   .hot-pick-symbol / -name / -spark / -signal-badge / -confidence / -target /
+   -price, so each is styled by name below rather than by position. */
+.hot-pick-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-4);
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform var(--dur-base) var(--ease-out),
+                box-shadow var(--dur-base) var(--ease-out),
+                border-color var(--dur-base) var(--ease-out);
+}
+.hot-pick-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-card-hover);
+}
+
+/* A 3px colour edge on the leading side states the call before any text is read,
+   which is the whole point of a scannable grid. Coloured from the signal class
+   the renderer already puts on the card. */
+.hot-pick-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--border-strong);
+}
+.hot-pick-card.buy::before, .hot-pick-card.signal-buy::before { background: var(--green); }
+.hot-pick-card.sell::before, .hot-pick-card.signal-sell::before { background: var(--red); }
+.hot-pick-card.neutral::before, .hot-pick-card.signal-neutral::before { background: var(--yellow); }
+
+.hot-pick-symbol {
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-heading);
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+.hot-pick-name {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    /* Long company names must not push the card taller than its neighbours. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: var(--sp-2);
+}
+.hot-pick-spark { margin-block: var(--sp-1) var(--sp-2); min-height: 28px; }
+
+.hot-pick-signal-badge {
+    align-self: flex-start;
+    padding: 3px var(--sp-2);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    border-radius: var(--radius-xs);
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+}
+.hot-pick-signal-badge.buy, .hot-pick-signal-badge.signal-buy {
+    color: var(--green); background: var(--green-bg); border-color: rgba(var(--green-rgb), 0.3);
+}
+.hot-pick-signal-badge.sell, .hot-pick-signal-badge.signal-sell {
+    color: var(--red); background: var(--red-bg); border-color: rgba(var(--red-rgb), 0.3);
+}
+.hot-pick-signal-badge.neutral, .hot-pick-signal-badge.signal-neutral {
+    color: var(--yellow); background: var(--yellow-bg); border-color: rgba(var(--yellow-rgb), 0.3);
+}
+
+.hot-pick-confidence {
+    display: flex;
+    align-items: center;
+    /* NO flex `gap` here. The markup is
+         <span class="hot-pick-arrow">▲</span> <span …>62</span>% Confidence
+       so "% Confidence" is a bare text node, which flex promotes to an anonymous
+       item. A gap therefore inserts space between the number and its own percent
+       sign and it renders as "62 % Confidence". Space the arrow with a margin. */
+    margin-top: var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.hot-pick-arrow { margin-right: 5px; }
+.hot-pick-conf-num { font-family: var(--num-font); font-weight: var(--fw-semibold); }
+.hot-pick-confidence.buy .hot-pick-arrow { color: var(--green); }
+.hot-pick-confidence.sell .hot-pick-arrow { color: var(--red); }
+
+.hot-pick-spike {
+    align-self: flex-start;
+    margin-top: var(--sp-2);
+    padding: 2px var(--sp-2);
+    font-family: var(--num-font);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-semibold);
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-xs);
+}
+
+/* Target rows are label/value pairs. A shared grid keeps the values in one
+   column across every card in the grid, so the numbers read as a table. */
+.hot-pick-target, .hot-pick-price {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: var(--sp-2);
+    padding-top: 5px;
+    font-size: var(--fs-xs);
+}
+.hot-pick-target-label { color: var(--text-muted); letter-spacing: var(--tr-body); }
+.hot-pick-target-value {
+    font-family: var(--num-font);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums slashed-zero;
+}
+.hot-pick-target-high .hot-pick-target-value { color: var(--green); }
+.hot-pick-target-low .hot-pick-target-value { color: var(--red); }
+
+/* Current price is the anchor number: separated by a rule and set larger. */
+.hot-pick-current-price {
+    margin-top: auto;
+    padding-top: var(--sp-3);
+    border-top: 1px solid var(--border);
+}
+.hot-pick-current-price .hot-pick-target-value {
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semibold);
+}
+
+.hot-pick-lowtrust {
+    margin-top: var(--sp-2);
+    padding: 4px var(--sp-2);
+    font-size: var(--fs-2xs);
+    color: var(--yellow);
+    background: var(--yellow-bg);
+    border: 1px solid rgba(var(--yellow-rgb), 0.28);
+    border-radius: var(--radius-xs);
+    line-height: 1.35;
+}
+
+/* ---------------------------------------------------------------------------
+   SKELETONS
+   Flat grey blocks read as broken. A slow sheen reads as loading. The gradient
+   is on a ::after so the block keeps its own background colour.
+--------------------------------------------------------------------------- */
+/* .hp-skel is the class js/ui/hotpicks.js actually emits (12 of them) while the
+   70-symbol scan runs, which is several seconds of screen time on first load.
+   cinematic.css animated its background-position, which on a flat dark fill is
+   nearly invisible, so the grid read as 12 dead grey boxes. Match the real grid's
+   sizing and give it a sheen that is actually legible on a dark surface. */
+.hp-skel-grid {
+    grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+    gap: var(--sp-4);
+}
+.hp-skel {
+    position: relative;
+    overflow: hidden;
+    /* min-height, NOT height: grid items stretch to the row by default, and a
+       fixed height opts out of that, so a skeleton sitting beside a populated
+       card came out visibly shorter. The floor keeps it sensible when the grid
+       holds nothing but skeletons. */
+    min-height: 236px;
+    align-self: stretch;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    /* Override cinematic.css's moving-gradient background and its animation:
+       a static surface plus a sheen overlay reads as loading far more clearly. */
+    background: var(--bg-card);
+    background-size: auto;
+    animation: none;
+    box-shadow: var(--shadow-card);
+}
+.hp-skel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(var(--accent-rgb), 0.06) 42%,
+        rgba(var(--accent-rgb), 0.14) 50%,
+        rgba(var(--accent-rgb), 0.06) 58%,
+        transparent);
+    animation: vault-sheen 1.6s var(--ease-in-out) infinite;
+}
+/* Stagger so the grid ripples instead of pulsing as one block. */
+.hp-skel:nth-child(3n+2)::after { animation-delay: 0.18s; }
+.hp-skel:nth-child(3n+3)::after { animation-delay: 0.36s; }
+
+.skeleton, .skeleton-card, .hotpick-skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+.skeleton::after, .skeleton-card::after, .hotpick-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(var(--accent-rgb), 0.07) 45%,
+        rgba(var(--accent-rgb), 0.12) 50%,
+        rgba(var(--accent-rgb), 0.07) 55%,
+        transparent);
+    animation: vault-sheen 1.7s var(--ease-in-out) infinite;
+}
+@keyframes vault-sheen { to { transform: translateX(100%); } }
+
+/* ---------------------------------------------------------------------------
+   EMPTY STATE
+   The "Select a stock or crypto to start" screen is the first thing a new user
+   sees, and it was 470px of void. Centre it, give it an accent mark, and let the
+   keyboard hint read as a real key.
+--------------------------------------------------------------------------- */
+/* The real empty-state markup from js/ui/chart.js is
+   .chart-placeholder > .chart-ph-glow + .chart-ph-title.shimmer + .chart-ph-sub,
+   so it is styled by those names rather than by a generic wrapper. */
+.chart-placeholder {
+    gap: var(--sp-4) !important;   /* extras.css sets gap:10px on this selector */
+    background:
+        radial-gradient(560px 240px at 50% -10%, var(--accent-soft), transparent 72%),
+        var(--bg-sunken);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+}
+
+.chart-ph-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-display);
+    line-height: var(--lh-tight);
+    color: var(--text-primary);
+}
+
+.chart-ph-sub {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    max-width: 52ch;
+}
+
+/* A drawn candle-and-trendline mark above the title. Pure CSS on the existing
+   empty glow element, so no markup changes: the element becomes the frame and
+   its ::before/::after draw the rising bars and the accent sweep. */
+.chart-ph-glow {
+    /* extras.css:322 sets `display: none` on this element (it was a leftover
+       blurred halo). Reclaimed here as the empty state's mark, so it has to be
+       turned back on explicitly. */
+    display: block;
+    position: relative;
+    flex: 0 0 auto;
+    width: 60px;
+    height: 60px;
+    margin-bottom: var(--sp-1);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-card), var(--glow-accent);
+    overflow: hidden;
+    /* extras.css may position this as a blurred blob; reset that. */
+    inset: auto;
+    filter: none;
+    opacity: 1;
+}
+/* Four rising bars. Each layer is a SOLID fill sized to its own bar height and
+   pinned to the bottom; the earlier version used a colour stop at 30% inside a
+   partial-height band, which left four stubs that read as dots. */
+.chart-ph-glow::before {
+    content: '';
+    position: absolute;
+    left: 14px; right: 14px; bottom: 14px;
+    height: 30px;
+    background:
+        linear-gradient(var(--accent), var(--accent)) 0    100% / 5px 36%  no-repeat,
+        linear-gradient(var(--accent), var(--accent)) 33%  100% / 5px 58%  no-repeat,
+        linear-gradient(var(--accent), var(--accent)) 67%  100% / 5px 79%  no-repeat,
+        linear-gradient(var(--accent), var(--accent)) 100% 100% / 5px 100% no-repeat;
+    border-radius: 1px;
+    opacity: 0.9;
+}
+.chart-ph-glow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.14) 50%, transparent 60%);
+    transform: translateX(-100%);
+    animation: vault-sheen 2.6s var(--ease-in-out) infinite;
+}
+
+.empty-state, .chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    min-height: 260px;
+    padding: var(--sp-10) var(--sp-6);
+    text-align: center;
+    color: var(--text-secondary);
+    background:
+        radial-gradient(420px 200px at 50% 0%, var(--accent-soft), transparent 70%),
+        var(--bg-sunken);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+}
+
+kbd, .kbd, .key-hint {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    padding: 2px 6px;
+    font-family: var(--num-font);
+    font-size: var(--fs-xs);
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-xs);
+    box-shadow: var(--shadow-inset-top);
+}
+
+/* ---------------------------------------------------------------------------
+   SETTINGS MENU
+--------------------------------------------------------------------------- */
+.header-settings-menu {
+    background: var(--bg-glass-strong);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-pop);
+    padding: var(--sp-2);
+    /* 268px forced "Currency Converter" and "P&L Calculator" to wrap onto two
+       lines, because the row is a 3-column grid (icon / label / meta) and the meta
+       column takes real width. 320px fits every current label on one line. */
+    min-width: 320px;
+}
+
+.header-menu-item {
+    display: grid;
+    grid-template-columns: 20px 1fr auto;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-sm);
+    color: var(--text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+}
+.header-menu-item:hover { background: var(--bg-hover); border-color: var(--border); }
+.header-menu-icon { display: grid; place-items: center; color: var(--text-secondary); }
+.header-menu-item:hover .header-menu-icon { color: var(--accent); }
+.header-menu-label {
+    font-weight: var(--fw-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.header-menu-meta {
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   THEME PICKER
+   Six themes cannot be driven by a cycle button: reaching the sixth means five
+   full repaints and no way to see the options. A swatch grid shows them all and
+   makes each one reachable in a single click. Markup is built by js/ui/theme.js.
+--------------------------------------------------------------------------- */
+.theme-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+}
+
+.theme-swatch {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                transform var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out);
+}
+.theme-swatch:hover {
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-control-hover);
+}
+.theme-swatch[aria-checked="true"] {
+    border-color: var(--accent);
+    box-shadow: var(--glow-accent);
+}
+
+/* Each swatch previews its OWN palette, not the active theme's, so the choice
+   is made by looking rather than by trial and error. The three colours are set
+   as inline custom properties from theme.js. */
+.theme-swatch-preview {
+    display: flex;
+    height: 30px;
+    border-radius: var(--radius-xs);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.theme-swatch-preview i { display: block; flex: 1 1 0; }
+.theme-swatch-preview i:nth-child(1) { background: var(--sw-bg); flex-grow: 2; }
+.theme-swatch-preview i:nth-child(2) { background: var(--sw-surface); }
+.theme-swatch-preview i:nth-child(3) { background: var(--sw-accent); }
+
+.theme-swatch-name {
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tr-body);
+    color: var(--text-secondary);
+    text-align: center;
+}
+.theme-swatch[aria-checked="true"] .theme-swatch-name { color: var(--text-primary); }
+
+.theme-picker-title {
+    padding: var(--sp-3) var(--sp-3) 0;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.header-menu-sep {
+    height: 1px;
+    margin: var(--sp-2) var(--sp-1);
+    background: var(--border);
+    border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   BADGES / SIGNAL PILLS
+--------------------------------------------------------------------------- */
+.badge, .signal-badge, .tag, .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px var(--sp-2);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    border-radius: var(--radius-xs);
+    border: 1px solid transparent;
+}
+
+.badge-buy, .signal-buy, .is-buy, .up, .positive {
+    color: var(--green);
+    background: var(--green-bg);
+    border-color: rgba(var(--green-rgb), 0.28);
+}
+.badge-sell, .signal-sell, .is-sell, .down, .negative {
+    color: var(--red);
+    background: var(--red-bg);
+    border-color: rgba(var(--red-rgb), 0.28);
+}
+.badge-neutral, .signal-neutral, .is-neutral, .flat {
+    color: var(--yellow);
+    background: var(--yellow-bg);
+    border-color: rgba(var(--yellow-rgb), 0.28);
+}
+
+/* ---------------------------------------------------------------------------
+   TABLES (Full Ledger)
+--------------------------------------------------------------------------- */
+table { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: left;
+    padding: var(--sp-3);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-strong);
+    white-space: nowrap;
+}
+
+tbody td {
+    padding: var(--sp-3);
+    font-size: var(--fs-sm);
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+}
+tbody tr { transition: background var(--dur-instant) linear; }
+tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
+
+/* ---------------------------------------------------------------------------
+   SCANNER / DISCLOSURE
+--------------------------------------------------------------------------- */
+.scanner-details { border-radius: var(--radius-lg); overflow: hidden; }
+
+.scanner-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-semibold);
+    letter-spacing: var(--tr-heading);
+    cursor: pointer;
+    list-style: none;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+/* Two rules are needed: modern Chrome/Safari expose the triangle as ::marker,
+   while older WebKit uses ::-webkit-details-marker. Suppressing only one leaves a
+   stray triangle next to the custom chevron. `display: block` on the summary is
+   what actually removes the list-item box in Chrome. */
+.scanner-summary { display: flex; list-style: none; }
+.scanner-summary::marker { content: ''; }
+.scanner-summary::-webkit-details-marker { display: none; }
+.scanner-summary:hover { background: var(--bg-hover); }
+.scanner-icon { display: grid; place-items: center; color: var(--accent); }
+
+/* A chevron that rotates on open, so the control states its own affordance. */
+.scanner-summary::after {
+    content: '';
+    margin-left: auto;
+    width: 9px; height: 9px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    transform: rotate(45deg);
+    transition: transform var(--dur-base) var(--ease-out);
+}
+.scanner-details[open] > .scanner-summary::after { transform: rotate(-135deg); }
+
+/* ---------------------------------------------------------------------------
+   SIDE PANELS
+--------------------------------------------------------------------------- */
+.pl-panel, .portfolio-panel, .mia-panel {
+    background: var(--bg-glass-strong);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    backdrop-filter: blur(28px) saturate(180%);
+    border-left: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-pop);
+}
+
+.pl-panel-close {
+    display: grid;
+    place-items: center;
+    width: 34px; height: 34px;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-out);
+}
+.pl-panel-close:hover {
+    color: var(--red);
+    background: var(--red-bg);
+    border-color: rgba(var(--red-rgb), 0.3);
+}
+
+/* ---------------------------------------------------------------------------
+   LOADER
+--------------------------------------------------------------------------- */
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-12) var(--sp-6);
+    text-align: center;
+}
+.loader {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--accent);
+    animation: vault-spin 0.75s linear infinite;
+}
+@keyframes vault-spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: var(--fs-sm); color: var(--text-secondary); }
+.loading-tip { font-size: var(--fs-xs); color: var(--text-muted); max-width: 44ch; }
+
+/* ---------------------------------------------------------------------------
+   EMPTY SECTIONS
+   .accuracy-strip and .signal-section are always in the DOM and filled later by
+   JS. Empty, they still contributed their own box plus two flex gaps, which put
+   ~90px of dead space between the chart and Hot Picks on desktop and more on
+   mobile. `display: none` while empty removes the gap too, since a hidden flex
+   item generates no gap.
+--------------------------------------------------------------------------- */
+.accuracy-strip:empty,
+.signal-section:empty { display: none; }
+
+/* ---------------------------------------------------------------------------
+   RESPONSIVE
+   The type scale is tuned for a 1240px column. Carried unchanged to 414px it
+   overwhelms: the empty-state heading wrapped to three lines and the section
+   title to two. Scale the display sizes down and tighten the rhythm, rather than
+   letting a desktop scale wrap its way down.
+--------------------------------------------------------------------------- */
+@media (max-width: 700px) {
+    :root {
+        --fs-xl: 1.375rem;    /* 22px, from 28 */
+        --fs-2xl: 1.75rem;    /* 28px, from 36 */
+        --fs-3xl: 2.125rem;   /* 34px, from 48 */
+        --fs-lg: 1.125rem;    /* 18px, from 21 */
+        --header-h: 56px;
+    }
+
+    .tabs-row { gap: var(--sp-2); }
+    .tab-group { width: auto; }
+    .tab-group .tab-btn { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); }
+
+    /* Both segmented groups fit one row at 414px once padding is trimmed, which
+       keeps the primary controls above the fold. */
+    .tab-group .tab-btn { min-height: 30px; }
+
+    .search-input {
+        min-height: 46px;
+        font-size: var(--fs-sm);
+        padding: var(--sp-3) var(--sp-4) var(--sp-3) 42px;
+    }
+    .search-icon { left: 14px; width: 16px; height: 16px; }
+
+    .section-title { font-size: var(--fs-lg); gap: var(--sp-2); }
+    .section-header { margin-bottom: var(--sp-3); gap: var(--sp-2); }
+
+    .chart-placeholder { min-height: 190px !important; padding: var(--sp-6) var(--sp-4); }
+    .chart-ph-glow { width: 46px; height: 46px; }
+    .chart-ph-glow::before { left: 11px; right: 11px; bottom: 11px; height: 22px; }
+    .chart-ph-sub { font-size: var(--fs-xs); }
+
+    /* Two columns at 414px: one wide card per row wastes the screen, and three
+       squeezes the price. */
+    .hotpicks-grid, .hp-skel-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: var(--sp-3);
+    }
+    .hot-pick-card { padding: var(--sp-3); }
+    .hot-pick-symbol { font-size: var(--fs-base); }
+    .hp-skel { min-height: 200px; }
+
+    .header-btn { width: 34px; height: 34px; }
+    .refresh-btn, .spikers-btn, .portfolio-launcher, .pl-launcher {
+        padding: 6px var(--sp-3);
+        min-height: 32px;
+        font-size: var(--fs-xs);
+    }
+    .header-settings-menu { min-width: 0; width: calc(100vw - var(--sp-8)); }
+    .theme-picker { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 420px) {
+    /* Long placeholders truncate mid-word at this width; a short one reads. */
+    .search-input::placeholder { font-size: var(--fs-xs); }
+}
+
+/* ---------------------------------------------------------------------------
+   THEME CROSS-FADE
+   Only while <html> carries .theme-transition, added by theme.js for the swap
+   window. Transitioning colour globally at rest would cost paint on every hover.
+--------------------------------------------------------------------------- */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+    transition: background-color var(--dur-base) var(--ease-out),
+                border-color var(--dur-base) var(--ease-out),
+                color var(--dur-base) var(--ease-out),
+                fill var(--dur-base) var(--ease-out),
+                stroke var(--dur-base) var(--ease-out) !important;
+}
