@@ -155,6 +155,73 @@ const menuVisible = await page.evaluate(() => {
 check('menu becomes visible on click', menuVisible.shown);
 check('menu stays inside the viewport', menuVisible.onScreen, JSON.stringify(menuVisible));
 
+console.log('\n=== hovering a hot pick must NOT soften its neighbours ===');
+// premium-3d.css blurred and dimmed every other card while one was hovered.
+// Removed on request, and guarded here because it is invisible in a static
+// screenshot and would come back silently if that rule were ever re-enabled.
+//
+// This runs in a context WITHOUT reducedMotion: the tilt/lift path is disabled
+// under reduced motion, so asserting it there would prove nothing.
+{
+    const hctx = await browser.newContext({ viewport: { width: 1512, height: 950 } });
+    const hp = await hctx.newPage();
+    await hp.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded' });
+    // Synthetic cards: the real grid depends on a 70-symbol scan that takes tens
+    // of seconds, and this assertion is about CSS state, not data.
+    await hp.evaluate(() => {
+        const g = document.getElementById('hotpicks-grid');
+        g.innerHTML = '';
+        for (let i = 0; i < 6; i++) {
+            const d = document.createElement('div');
+            d.className = 'hot-pick-card ' + (i % 2 ? 'sell' : 'buy');
+            d.innerHTML = `<div class="hot-pick-symbol">SYM${i}</div>`
+                + '<div class="hot-pick-name">Name</div>'
+                + '<div class="hot-pick-price hot-pick-current-price">'
+                + '<span class="hot-pick-target-label">Current Price</span> '
+                + '<span class="hot-pick-target-value">$10.00</span></div>';
+            g.appendChild(d);
+        }
+    });
+    await hp.waitForTimeout(400);
+    const cards = await hp.$$('#hotpicks-grid .hot-pick-card');
+    await cards[0].hover();
+    await hp.waitForTimeout(700);   // let --engage ramp and [data-lifting] land
+    const h = await hp.evaluate(() => {
+        const g = document.getElementById('hotpicks-grid');
+        const cs = [...g.querySelectorAll('.hot-pick-card')];
+        return {
+            lifting: g.getAttribute('data-lifting'),
+            tilting: cs.findIndex((c) => c.hasAttribute('data-tilting')),
+            soft: cs.slice(1).filter((c) => {
+                const s = getComputedStyle(c);
+                return s.filter !== 'none' || Number(s.opacity) < 0.99;
+            }).length,
+            total: cs.length - 1,
+        };
+    });
+    check('the hovered card still lifts', h.lifting === '1' && h.tilting === 0,
+        JSON.stringify(h));
+    check('neighbours stay crisp and fully opaque (no blur, no dim)', h.soft === 0,
+        `${h.soft} of ${h.total} softened`);
+    await hctx.close();
+}
+
+console.log('\n=== the empty chart panel is not a full-width letterbox ===');
+await boot();
+const ph = await page.evaluate(() => {
+    const p = document.querySelector('.chart-placeholder');
+    const c = document.querySelector('.chart-container');
+    if (!p || !c) return null;
+    const r = p.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height),
+             ratio: +(r.width / r.height).toFixed(2),
+             containerShadow: getComputedStyle(c).boxShadow };
+});
+check('placeholder exists', !!ph);
+check('aspect ratio is panel-like, not a bar', ph && ph.ratio <= 2.6, JSON.stringify(ph));
+check('container paints no ghost frame around it',
+    ph && ph.containerShadow === 'none', ph && ph.containerShadow);
+
 console.log('\n=== no new page errors from the UI layer ===');
 const relevant = pageErrors.filter((m) => !/setAttribute/.test(m));
 check('no unexpected page errors', relevant.length === 0, JSON.stringify(relevant.slice(0, 3)));

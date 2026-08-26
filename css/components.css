@@ -379,6 +379,11 @@
     min-height: 0;
     background: transparent;
     border-color: transparent;
+    /* box-shadow too, not just border and background. Clearing only the first two
+       left --shadow-card's inset top hairline and drop shadow painting a faint
+       full-width frame around the centred 600px panel, which is exactly the
+       stretched-bar look the width cap was meant to remove. */
+    box-shadow: none;
 }
 
 /* ONE surface in the empty state, not two. The section is a card and the
@@ -393,11 +398,19 @@
 }
 @media (max-width: 900px) { .chart-container { height: 340px; } }
 
-/* The placeholder sets height:100% in extras.css to fill the fixed-height
-   container. Once the container is auto, it needs its own intrinsic size. */
+/* The placeholder sets width:100% and height:100% in extras.css to fill the
+   fixed-height container. Once the container is auto, it needs its own size.
+   Capping the width matters as much as the height: full-bleed at 1188px against a
+   220px height is a 5.4:1 letterbox, which reads as a stretched bar rather than a
+   panel, and it drags the eye sideways across empty space instead of to the one
+   thing on it. ~600px puts it near 2:1 and lines the call to action up under the
+   search field that answers it. */
 .chart-container:has(.chart-placeholder) .chart-placeholder {
+    width: 100%;
+    max-width: 600px;
+    margin-inline: auto;
     height: auto;
-    min-height: 220px;
+    min-height: 280px;
 }
 
 .chart-header {
@@ -615,6 +628,27 @@
     border: 1px solid rgba(var(--yellow-rgb), 0.28);
     border-radius: var(--radius-xs);
     line-height: 1.35;
+}
+
+/* ---------------------------------------------------------------------------
+   NO SIBLING BLUR ON HOVER
+   premium-3d.css sets `filter: blur(2.5px) saturate(0.85); opacity: .62` on every
+   card EXCEPT the hovered one while #hotpicks-grid carries [data-lifting] (a
+   "lift one, soften the rest" focus effect).
+
+   Removed on request. It also has a real cost beyond taste: blurring ~19 cards on
+   every pointer move over the grid forces a full repaint of each, and it hides
+   prices the moment the cursor crosses the grid — in a scanning UI you want to
+   compare cards, which means the other nineteen have to stay readable.
+
+   The LIFT is kept: the hovered card still rises and gains a shadow, which is
+   enough to say "this one". Only the softening of its neighbours goes.
+   !important is required because the rule it overrides is inside a media query
+   with a compound selector; this is one of the cases the file header notes.
+--------------------------------------------------------------------------- */
+.hotpicks-grid[data-lifting] > .hot-pick-card:not([data-tilting]) {
+    filter: none !important;
+    opacity: 1 !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1133,7 +1167,13 @@ tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
     .section-title { font-size: var(--fs-lg); gap: var(--sp-2); }
     .section-header { margin-bottom: var(--sp-3); gap: var(--sp-2); }
 
-    .chart-placeholder { min-height: 190px !important; padding: var(--sp-6) var(--sp-4); }
+    /* No width cap needed below the cap itself, and a shorter panel keeps the
+       Hot Picks heading on the first screen. */
+    .chart-container:has(.chart-placeholder) .chart-placeholder {
+        max-width: none;
+        min-height: 210px;
+    }
+    .chart-placeholder { padding: var(--sp-6) var(--sp-4); }
     .chart-ph-glow { width: 46px; height: 46px; }
     .chart-ph-glow::before { left: 11px; right: 11px; bottom: 11px; height: 22px; }
     .chart-ph-sub { font-size: var(--fs-xs); }
