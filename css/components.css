@@ -1164,6 +1164,23 @@ tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
 }
 
 /* ---------------------------------------------------------------------------
+   REDUCED MOTION: SHIMMER LEGIBILITY
+   css/mia.css already stops the shimmer animation for reduced-motion users, but
+   it parks the gradient at `background-position: 50%`, which freezes the bright
+   band in the middle of the text and leaves both ends at 0.30 alpha. On the empty
+   state that gradient is applied to the FIRST heading a new user reads, so a
+   reduced-motion preference produced a permanently half-faded headline.
+   Drop the gradient entirely instead: solid text at full contrast.
+--------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .shimmer, .flash-shimmer {
+        background-image: none !important;
+        -webkit-text-fill-color: currentColor !important;
+        color: var(--text-primary) !important;
+    }
+}
+
+/* ---------------------------------------------------------------------------
    THEME CROSS-FADE
    Only while <html> carries .theme-transition, added by theme.js for the swap
    window. Transitioning colour globally at rest would cost paint on every hover.
