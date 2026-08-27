@@ -73,3 +73,8 @@ model/replay_panel*.jsonl
 model/_bars_cache/
 model/_replay*.log
 model/_replay*.jsonl
+
+# Mia 2.0 scratch: the request/advice handoff between bot/run.py and bot/advise.mjs.
+# Regenerated on every run and can contain a large per-symbol analysis dump. The
+# AUTHORITATIVE files (state.json, config.json, trades.jsonl, runs.jsonl) are tracked.
+model/bot/_*
