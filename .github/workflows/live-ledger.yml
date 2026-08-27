@@ -163,6 +163,25 @@ jobs:
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
         run: python record_outcomes.py
 
+      # Is the LIVE site actually serving what main says? Nothing checked this, and
+      # on 2026-08-27 the answer was no: market-ai.pages.dev was serving commit
+      # 289f775 from 2026-06-07, 592 commits behind. Green CI and successful pushes
+      # only prove where the code IS, not what the CDN is SERVING, so an 11-week
+      # stale deploy went unnoticed while every local check passed.
+      #
+      # continue-on-error because this workflow's job is to write the ledger, and a
+      # CDN problem must not fail that. It still prints loudly in the run log and
+      # sets a visible warning, which is all that was missing.
+      - name: Check the deployed site is current
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
+        continue-on-error: true
+        run: |
+          git fetch --quiet origin main
+          python tools/deploy_check.py || {
+            echo "::warning title=Stale deployment::market-ai.pages.dev is behind origin/main. See the step log; this needs the Cloudflare Pages dashboard, not a code change."
+            exit 1
+          }
+
       # Rebuilds EVERY matured horizon from scratch instead of only the null ones.
       # Needed because outcomes written by the old positional resolver are frozen:
       # the normal path skips any horizon that already holds a value, so a wrong
@@ -230,7 +249,27 @@ jobs:
             exit 0
           fi
           git status --short
-          git commit -m "chore(ledger): $TASK [skip ci]"
+          # "[skip actions]" NOT "[skip ci]".
+          #
+          # Both stop GitHub Actions from re-triggering on our own commit, but
+          # "[skip ci]" is ALSO a Cloudflare Pages build-skip token, and this cron
+          # pushes several times a day. That put the token on the branch head most of
+          # the time and told Pages not to deploy.
+          #
+          # On 2026-08-27 the live site was found serving commit 289f775 from
+          # 2026-06-07, 592 commits behind: the UI redesign, the calibrated band, the
+          # sub-penny price fix and the AI in the cron were all on GitHub and none
+          # were live. Worse, model/ledger/recent.json was never deployed at all, so
+          # the browser's daily-lock lookup always missed and every symbol fell back
+          # to a visit-time lock.
+          #
+          # "[skip actions]" is honoured by GitHub and is not a Pages token, so
+          # Actions still will not loop while Pages is free to publish. That also
+          # keeps recent.json fresh on the site, which is the point of writing it.
+          #
+          # Cost check: ~8 ledger pushes a day is ~240 builds a month against the
+          # 500/month Pages free allowance, so this fits.
+          git commit -m "chore(ledger): $TASK [skip actions]"
 
           # Push with retry. If the push is rejected because origin moved,
           # we try `rebase origin/main` first — for clean append-only changes
@@ -302,7 +341,7 @@ jobs:
               exit 0
             fi
             git status --short
-            git commit -m "chore(ledger): $TASK [skip ci]"
+            git commit -m "chore(ledger): $TASK [skip actions]"
             sleep $((attempt * 2))
           done
           echo "All push attempts exhausted."

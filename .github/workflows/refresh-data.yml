@@ -138,7 +138,7 @@ jobs:
           if [ "${{ steps.decide.outputs.do_retrain }}" = "true" ]; then msg="$msg retrain"; fi
           if [ "${{ steps.decide.outputs.do_retrain_penny }}" = "true" ]; then msg="$msg penny"; fi
           if [ "${{ steps.decide.outputs.do_retrain_intraday }}" = "true" ]; then msg="$msg intraday"; fi
-          msg="$msg [skip ci]"
+          msg="$msg [skip actions]"
           git status --short
           git commit -m "$msg"
           # Same retry logic as live-ledger: cron jobs can race.
