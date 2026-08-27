@@ -94,7 +94,12 @@ DEFAULTS = {
     'commissionPlan': PLAN_PRO_TIERED,   # the pricier realistic option, on purpose
     'benchmarkRatePct': 4.33,            # margin interest benchmark; MOVES, update it
 
-    'seedUSD': 10_000.0,                 # split equally across the sleeves
+    # $25,000 clears the $25k Pattern Day Trader threshold, so on a margin account Mia is
+    # never day-trade restricted. It also matters for measurement: IBKR's $0.35 per-order
+    # minimum is 0.11% each way on a $310 position, so at a $10k seed a real slice of the
+    # reported P/L would be commission-minimum friction rather than strategy. At $25k the
+    # positions are ~$780 and total drag falls to about 0.22% per round trip.
+    'seedUSD': 25_000.0,                 # split equally across the sleeves
 
     # ── universe ─────────────────────────────────────────────────────────────
     # Mia trades a liquid subset, not the full 924-name ledger universe. Costs are the
@@ -102,7 +107,11 @@ DEFAULTS = {
     # this project comes close to covering.
     'minPriceUSD': 5.0,
     'maxPriceUSD': 2000.0,               # avoids single-share-per-order absurdities
-    'regions': ['NYSE'],                 # crypto is a separate cadence question
+    # Crypto trades continuously; equities only inside their own sessions. bot/sessions.py
+    # is the gate. Other venues are deliberately absent until their fees are modelled:
+    # UK stamp duty alone is 0.5% on every purchase, larger than any edge measured
+    # anywhere in this project, so an LSE sleeve without it would be fiction.
+    'markets': ['NYSE', 'CRYPTO'],
     'maxCandidates': 60,                 # top N by engine score per run
 
     # ── risk ─────────────────────────────────────────────────────────────────
@@ -136,10 +145,18 @@ DEFAULTS = {
     # infrastructure. This is the honest cadence, and the bot records the real gap
     # between runs so the timeline never implies a precision it does not have.
     'cadence': {
-        'equityRunsPerDay': 6,
-        'cryptoEnabled': False,          # 24/7 crypto is phase 2
-        'note': 'GitHub Actions scheduling is best-effort; gaps are logged per run.',
+        'runsPerDay': 12,                # crypto keeps running when equities are shut
+        'note': 'GitHub Actions scheduling is best-effort: 5 min minimum, routinely '
+                'delayed 10-30 min, occasionally skipped. The real gap between runs is '
+                'recorded on every entry so the timeline never implies precision it '
+                'does not have.',
     },
+
+    # A wiped sleeve STAYS wiped. Roshan's reason, and it is the right one: the point is
+    # for Mia to treat simulated money as real, and reseeding a failed strategy both
+    # destroys the most informative result available and quietly subsidises the worst
+    # performer. A dead sleeve remains on the leaderboard at zero as a permanent record.
+    'reseedDeadSleeves': False,
 
     # ── AI ───────────────────────────────────────────────────────────────────
     'ai': {

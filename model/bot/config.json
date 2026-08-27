@@ -3,11 +3,12 @@
   "accountType": "cash",
   "commissionPlan": "ibkr-pro-tiered",
   "benchmarkRatePct": 4.33,
-  "seedUSD": 10000.0,
+  "seedUSD": 25000.0,
   "minPriceUSD": 5.0,
   "maxPriceUSD": 2000.0,
-  "regions": [
-    "NYSE"
+  "markets": [
+    "NYSE",
+    "CRYPTO"
   ],
   "maxCandidates": 60,
   "risk": {
@@ -30,10 +31,10 @@
     "stopLossPct": 5.0
   },
   "cadence": {
-    "equityRunsPerDay": 6,
-    "cryptoEnabled": false,
-    "note": "GitHub Actions scheduling is best-effort; gaps are logged per run."
+    "runsPerDay": 12,
+    "note": "GitHub Actions scheduling is best-effort: 5 min minimum, routinely delayed 10-30 min, occasionally skipped. The real gap between runs is recorded on every entry so the timeline never implies precision it does not have."
   },
+  "reseedDeadSleeves": false,
   "ai": {
     "model": "gemini-2.5-flash",
     "maxSymbolsPerCall": 12,
