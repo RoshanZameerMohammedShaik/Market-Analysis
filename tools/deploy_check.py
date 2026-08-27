@@ -134,11 +134,32 @@ def main():
                 found = line
                 break
         if found:
+            # index.html is usually identical across MANY commits, so a hash match
+            # names the commit that last CHANGED it, not the commit that is
+            # deployed. Reporting one hash as "the deployed commit" overclaims: on
+            # 2026-08-27 the match was 289f775 (2026-06-07), but the deployed
+            # css/style.css was a version that only appeared at 94bc9b2 two days
+            # later, so the real build sat somewhere in an 88-commit window. Report
+            # the WINDOW, which is what the evidence actually supports.
             h, date, subj = found.split('|', 2)
-            behind = git('rev-list', '--count', f'{h}..{args.ref}').decode().strip()
-            print(safe(f'    DEPLOYED COMMIT: {h[:7]}  {date}  {subj}'))
-            print(f'    the live site is {behind} commits behind {args.ref}')
-            problems.append(f'live build is {behind} commits behind ({date})')
+            nxt = git('log', args.ref, '--format=%H|%ad', '--date=short',
+                      '--reverse', f'{h}..{args.ref}', '--', 'index.html'
+                      ).decode('utf-8', 'replace').strip().splitlines()
+            upper = nxt[0].split('|') if nxt else None
+            behind_lo = git('rev-list', '--count', f'{h}..{args.ref}').decode().strip()
+            print(safe(f'    HTML last changed at: {h[:7]}  {date}  {subj}'))
+            if upper:
+                behind_hi = git('rev-list', '--count',
+                                f'{upper[0]}..{args.ref}').decode().strip()
+                print(f'    the deployed build is somewhere in '
+                      f'{h[:7]} ({date}) .. {upper[0][:7]} ({upper[1]}),')
+                print(f'    i.e. between {behind_hi} and {behind_lo} commits behind '
+                      f'{args.ref}')
+                problems.append(f'live build is {behind_hi}-{behind_lo} commits '
+                                f'behind (HTML from {date} or later)')
+            else:
+                print(f'    the live site is {behind_lo} commits behind {args.ref}')
+                problems.append(f'live build is {behind_lo} commits behind ({date})')
         else:
             print('    could not match any of the last 300 index.html versions;')
             print('    the deployment may predate them or be a different build')
