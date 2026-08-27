@@ -578,6 +578,17 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     return {
         signal: finalSignal,
         confidence: calibratedConfidence,
+        // The blended 0-100 score BEFORE it was thresholded into a signal. Computed
+        // above and previously kept internal, which meant any consumer wanting to RANK
+        // symbols had to re-derive it from breakdown scores and weights, or fall back
+        // to the coarse BUY/SELL/NEUTRAL label and lose all ordering.
+        //
+        // Exposed because record_predictions.py already stores `weightedScore` on every
+        // ledger row, so the JS engine was the only place the same quantity was hidden.
+        // Mia 2.0's trading desk ranks candidates on it: the measured signal in this
+        // project is cross-sectional ORDERING (mean IC +0.022, t 2.17), not the binary
+        // call, so a ranker needs the continuous number.
+        weightedScore,
         confidenceRange,
         confidenceInterval: ci,
         indicatorSnapshot: indSnap,
