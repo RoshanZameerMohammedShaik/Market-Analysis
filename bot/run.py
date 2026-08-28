@@ -269,7 +269,7 @@ def main():
     # ── session gate ──
     live, closed = open_markets(cfg['markets'])
     for m, why in closed.items():
-        log(f'closed: {m} — {why}')
+        log(f'closed: {m}: {why}')
     if not live:
         record_run(cfg, None, started, live, closed, [], [],
                    note='all configured markets closed', dry=args.dry_run)
@@ -346,7 +346,7 @@ def main():
         record_run(cfg, acct, started, live, closed, [], [],
                    note='every quote was stale; market likely closed or feed down',
                    dry=args.dry_run)
-        log('all quotes stale — treating as closed')
+        log('all quotes stale, treating as closed')
         return
 
     prices = {s: c['price'] for s, c in fresh.items()}
@@ -354,7 +354,7 @@ def main():
     mia_block = advice.get('mia') or {}
     strat = strategies.build(cfg, llm=(PrecomputedLLM(mia_block.get('decisions'))
                                        if mia_block.get('brain') == 'gemini' else None))
-    log(f"Mia's brain: {mia_block.get('brain')} — {mia_block.get('note', '')[:110]}")
+    log(f"Mia's brain: {mia_block.get('brain')}: {mia_block.get('note', '')[:110]}")
 
     meta = getattr(acct, '_meta', None) or {'openedAt': {}, 'tradesToday': {}, 'day': today.isoformat()}
     if meta.get('day') != today.isoformat():

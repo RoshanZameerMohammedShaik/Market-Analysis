@@ -1,0 +1,212 @@
+name: Mia 2.0 desk
+
+# Mia's paper-trading desk. She decides, sizes and fills; the timeline in the Portfolio
+# panel is the product.
+#
+# WHY HOURLY
+# ----------
+# Roshan asked for a bot that "stays active 24/7". A cron is the only way to get that
+# without his laptop being the compute, which he has ruled out. Hourly is the honest
+# compromise:
+#
+#   * Crypto never closes, so every run has at least one live market and the session gate
+#     in bot/sessions.py decides the rest. Stocks are only traded inside their own venue
+#     hours, which is what he asked for.
+#   * The engine's call is LOCKED once per day at the market open, so decisions do not
+#     improve with more frequent polling. What does need frequent checking is the
+#     take-profit / stop-loss on open positions, and that is the real argument for running
+#     between signals rather than once a day.
+#   * Actions minutes are free on public repos, so the run itself costs nothing. The
+#     metered resource is Cloudflare Pages builds, handled in the commit step below.
+#
+# It is NOT continuous, and the timeline says so: every run appends to runs.jsonl with the
+# gap since the previous one, so a delayed or skipped cron is visible in the UI instead of
+# looking like a quiet market. Actions routinely delays scheduled runs by 10-30 minutes
+# and drops them entirely under load; pretending otherwise would make the P/L record look
+# more deliberate than it is.
+
+on:
+  schedule:
+    # On the hour. Deliberately offset from every Live ledger cron (:00 vs :05/:35/:50)
+    # so the two workflows are unlikely to be pushing at the same moment.
+    - cron: '0 * * * *'
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: What to do
+        required: true
+        default: 'trade'
+        type: choice
+        options:
+          - trade
+          # Decides and prints, writes nothing. The safe way to see what she WOULD do.
+          - dry-run
+          # Destructive: deletes state, trades and runs, back to a fresh seed. The whole
+          # point of the desk is an unbroken record of decisions, so this throws away the
+          # only copy of it. Manual only, never reachable from the cron.
+          - reset
+
+# Mia gets her OWN group rather than sharing 'live-ledger'.
+#
+# Sharing looked tidier and is wrong: GitHub keeps at most ONE pending run per group and
+# CANCELS any earlier pending one. With an hourly bot and eight daily ledger crons, bot
+# runs would routinely be cancelled while waiting behind a ledger run. Separate groups let
+# both proceed; they touch disjoint paths (model/bot/ vs model/ledger/) so a concurrent
+# push rebases cleanly.
+#
+# cancel-in-progress: false because a run that has already filled an order must be allowed
+# to commit it. Cancelling mid-flight would leave the account state and the timeline
+# disagreeing about what happened.
+concurrency:
+  group: mia-desk
+  cancel-in-progress: false
+
+jobs:
+  desk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      # bot/advise.mjs imports the app's REAL engine (js/confidence.js, js/ai-model.js)
+      # rather than reimplementing it, so the desk needs Node as well as Python. Pinned to
+      # the same major the parity harnesses are developed against: a version skew here was
+      # already one wasted debugging session on ai_sync_check.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: pip install -r requirements.txt
+
+      - name: Decide mode
+        id: mode
+        run: |
+          set -e
+          mode="trade"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            mode="${{ github.event.inputs.mode }}"
+          fi
+          echo "Mode: $mode"
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+
+      # Exact equality, never contains(). 'dry-run' does not contain 'trade' and vice
+      # versa here, but the Live ledger workflow lost two months of LSE and XETRA rows to
+      # exactly this shortcut ('predict-LSE-XETRA' contains 'predict-LSE'), so the pattern
+      # is banned in this repo regardless of whether today's values happen to be safe.
+      - name: Run the desk
+        id: desk
+        if: steps.mode.outputs.mode == 'trade'
+        env:
+          # Optional. bot/advise.mjs returns an empty decision list and a note when the key
+          # is absent, and the LSTM/engine sleeves keep trading, so the desk degrades to
+          # three working strategies instead of failing. Sent as an x-goog-api-key HEADER,
+          # never a query string, so it cannot land in a URL log.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m bot.run
+
+      - name: Dry run (decide, write nothing)
+        if: steps.mode.outputs.mode == 'dry-run'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m bot.run --dry-run
+
+      - name: Reset the account (destructive)
+        if: steps.mode.outputs.mode == 'reset'
+        run: python -m bot.run --reset
+
+      # Rebuild the browser slice even when the desk step failed. A failed run still
+      # appended its runs.jsonl row, and that row is how the UI shows something went wrong
+      # instead of showing a stale-but-healthy-looking panel.
+      - name: Write the browser timeline slice
+        if: always() && steps.mode.outputs.mode != 'dry-run'
+        run: python tools/write_bot_slice.py
+
+      - name: What is on disk
+        if: always() && steps.mode.outputs.mode != 'dry-run'
+        run: |
+          ls -la model/bot/ 2>&1 || echo "model/bot/ does not exist"
+          wc -l model/bot/*.jsonl 2>&1 || true
+
+      # always() so a failure in the middle of the desk step does not discard the fills it
+      # had already booked. The job still reports red -- the failed step decides the
+      # conclusion. This only stops good data dying with the runner, which is precisely how
+      # 2026-08-27's NYSE ledger rows were permanently lost.
+      - name: Commit the desk state
+        if: always() && steps.mode.outputs.mode != 'dry-run'
+        run: |
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          # NO -f here, unlike the Live ledger's commit step. -f force-adds IGNORED files,
+          # and .gitignore deliberately excludes model/bot/_* -- the request/advice handoff
+          # between bot/run.py and bot/advise.mjs. _advice.json alone is ~86 KB and is
+          # rewritten every run, so force-adding it would commit it hourly: roughly 62 MB of
+          # repo growth a month, for a scratch file that is regenerated before it is ever
+          # read. The ledger needs -f because some of its tracked paths are ignored; nothing
+          # authoritative under model/bot/ is.
+          git add -A model/bot/ || true
+          if git diff --cached --quiet; then
+            echo 'Nothing changed; not committing.'
+            exit 0
+          fi
+          git status --short
+
+          # PAGES BUILD BUDGET.
+          #
+          # Cloudflare Pages allows 500 builds/month on the free plan. The Live ledger
+          # already spends ~240 (about 8 pushes a day). An hourly desk would add up to 720
+          # and blow the budget, after which NOTHING deploys -- including the ledger.
+          #
+          # So the desk commits every hour (state must persist; a lost hour of decisions
+          # cannot be reconstructed) but only asks for a DEPLOY four times a day, at 01,
+          # 07, 13 and 19 UTC. That is ~120/month, for ~360 total, leaving real headroom.
+          #
+          # The two tokens are NOT interchangeable:
+          #   [skip actions]  GitHub skips; Cloudflare Pages still builds  -> publish
+          #   [skip ci]       BOTH skip                                    -> no publish
+          # Getting this backwards is what left the live site 592 commits and 11 weeks
+          # stale while every local check passed.
+          hour=$(date -u +%-H)
+          if [ $(( (hour + 5) % 6 )) -eq 0 ]; then
+            token='[skip actions]'
+            echo "Publish window (${hour}:00 UTC): Pages will build."
+          else
+            token='[skip ci]'
+            echo "Non-publish hour (${hour}:00 UTC): committing without a Pages build."
+          fi
+          git commit -m "chore(bot): desk run $token"
+
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "Pushed on attempt $attempt"
+              exit 0
+            fi
+            echo "Push $attempt rejected; rebasing onto origin/main..."
+            git fetch origin main
+            if git rebase origin/main; then
+              sleep $((attempt * 3))
+              continue
+            fi
+            # A conflict here means something else rewrote model/bot/, which should be
+            # impossible given the concurrency group. Drop this cycle rather than re-running
+            # the desk: a re-run would make FRESH decisions at a new timestamp and could
+            # double-book fills the first attempt had already committed. Losing one hour of
+            # a paper desk is harmless; a duplicated trade corrupts the P/L record that is
+            # the entire point of this workflow.
+            git rebase --abort || true
+            git reset --hard origin/main
+            echo "::warning title=Desk cycle skipped::Rebase conflict in model/bot/. This cycle's decisions were discarded rather than risk double-booking. The next hourly run continues from origin/main."
+            exit 0
+          done
+          echo "::warning title=Desk push failed::Could not push after 3 attempts. Next run will retry; no data is lost because the desk is deterministic from state.json."
+          exit 1

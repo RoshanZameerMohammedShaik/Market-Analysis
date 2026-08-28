@@ -1,0 +1,230 @@
+{
+  "schema": 1,
+  "createdAt": "2026-08-28T17:53:29Z",
+  "updatedAt": "2026-08-28T17:54:50Z",
+  "runs": 1,
+  "seedUSD": 25000.0,
+  "totals": {
+    "equityUSD": 24987.293001,
+    "cashUSD": 16902.553122,
+    "holdingsUSD": 8084.739879,
+    "realizedUSD": 0.0,
+    "unrealizedUSD": -12.706999,
+    "feesUSD": 12.706999,
+    "pnlUSD": -12.706999,
+    "pnlPct": -0.0508,
+    "trades": 11
+  },
+  "sleeves": {
+    "engine": {
+      "id": "engine",
+      "name": "The Engine",
+      "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
+      "cashUSD": 4344.90498,
+      "positions": {
+        "CTOS": {
+          "units": 70.42486858390363,
+          "lots": [
+            {
+              "units": 70.42486858390363,
+              "costUSD": 642.3084997848185,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "EXR": {
+          "units": 4.417823960522027,
+          "lots": [
+            {
+              "units": 4.417823960522027,
+              "costUSD": 631.3068672456393,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "CCL": {
+          "units": 25.351691538114515,
+          "lots": [
+            {
+              "units": 25.351691538114515,
+              "costUSD": 630.4296527630931,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 3.148554,
+      "trades": 3
+    },
+    "reversion": {
+      "id": "reversion",
+      "name": "Mean Reversion",
+      "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
+      "cashUSD": 4447.465815,
+      "positions": {
+        "TJX": {
+          "units": 4.691022155456521,
+          "lots": [
+            {
+              "units": 4.691022155456521,
+              "costUSD": 630.46875,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "FOA": {
+          "units": 32.61769782902762,
+          "lots": [
+            {
+              "units": 32.61769782902762,
+              "costUSD": 594.6512920591329,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "LION": {
+          "units": 50.82915078261726,
+          "lots": [
+            {
+              "units": 50.82915078261726,
+              "costUSD": 576.3641430368881,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 3.478367,
+      "trades": 3
+    },
+    "mia-ai": {
+      "id": "mia-ai",
+      "name": "Mia's Own Call",
+      "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
+      "cashUSD": 4985.693019,
+      "positions": {
+        "COE": {
+          "units": 41.40870488016032,
+          "lots": [
+            {
+              "units": 41.40870488016032,
+              "costUSD": 645.0,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "DRIO": {
+          "units": 89.50103385516545,
+          "lots": [
+            {
+              "units": 89.50103385516545,
+              "costUSD": 618.6069807277627,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 2.844486,
+      "trades": 2
+    },
+    "control": {
+      "id": "control",
+      "name": "Buy & Hold (control)",
+      "blurb": "Buys an equal-weight basket once and never trades again. The bar every other sleeve has to clear to have earned anything.",
+      "cashUSD": 3124.489307,
+      "positions": {
+        "COST": {
+          "units": 1.1004619996190177,
+          "lots": [
+            {
+              "units": 1.1004619996190177,
+              "costUSD": 1041.6666666666667,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "LITE": {
+          "units": 1.1465379510803682,
+          "lots": [
+            {
+              "units": 1.1465379510803682,
+              "costUSD": 1041.486890565493,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        },
+        "DE": {
+          "units": 1.6674605084725707,
+          "lots": [
+            {
+              "units": 1.6674605084725707,
+              "costUSD": 1041.3071354235262,
+              "openedAt": "2026-08-28T17:54:50Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 3.235593,
+      "trades": 3
+    }
+  },
+  "broker": {
+    "accountType": "cash",
+    "plan": "ibkr-pro-tiered",
+    "benchmarkRatePct": 4.33,
+    "pending": [],
+    "debitUSD": 0.0,
+    "interestUSD": 0.0,
+    "dayTrades": [],
+    "openedToday": {
+      "2026-08-28": {
+        "CTOS": 70.42486858390363,
+        "EXR": 4.417823960522027,
+        "CCL": 25.351691538114515,
+        "TJX": 4.691022155456521,
+        "FOA": 32.61769782902762,
+        "LION": 50.82915078261726,
+        "COE": 41.40870488016032,
+        "DRIO": 89.50103385516545,
+        "COST": 1.1004619996190177,
+        "LITE": 1.1465379510803682,
+        "DE": 1.6674605084725707
+      }
+    },
+    "lastAccrual": "2026-08-28",
+    "violations": []
+  },
+  "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
+  "meta": {
+    "openedAt": {
+      "engine:CTOS": "2026-08-28T17:54:50Z",
+      "engine:EXR": "2026-08-28T17:54:50Z",
+      "engine:CCL": "2026-08-28T17:54:50Z",
+      "reversion:TJX": "2026-08-28T17:54:50Z",
+      "reversion:FOA": "2026-08-28T17:54:50Z",
+      "reversion:LION": "2026-08-28T17:54:50Z",
+      "mia-ai:COE": "2026-08-28T17:54:50Z",
+      "mia-ai:DRIO": "2026-08-28T17:54:50Z",
+      "control:COST": "2026-08-28T17:54:50Z",
+      "control:LITE": "2026-08-28T17:54:50Z",
+      "control:DE": "2026-08-28T17:54:50Z"
+    },
+    "tradesToday": {
+      "engine": 3,
+      "reversion": 3,
+      "mia-ai": 2,
+      "control": 3
+    },
+    "day": "2026-08-28"
+  },
+  "equityOpen": {
+    "engine": 6250.0,
+    "reversion": 6250.0,
+    "mia-ai": 6250.0,
+    "control": 6250.0
+  },
+  "pendingBySleeve": {}
+}
