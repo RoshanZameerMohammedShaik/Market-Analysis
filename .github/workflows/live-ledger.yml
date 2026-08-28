@@ -58,6 +58,17 @@ on:
           # only, never on a cron. See the step for why it has to exist.
           - reresolve-outcomes
 
+# Serialise ledger runs against each other. Overlapping runs are what create the rejected
+# push that sends the commit step down its fragile recovery path, and Actions delays a cron
+# by 10-30 minutes often enough that a late run collides with the next scheduled one.
+#
+# cancel-in-progress is FALSE on purpose: a predict run that has already written rows must
+# be allowed to commit them. Cancelling mid-flight would discard real work and leave the day
+# with a partial universe, which is worse than waiting.
+concurrency:
+  group: live-ledger
+  cancel-in-progress: false
+
 jobs:
   ledger:
     runs-on: ubuntu-latest
@@ -162,6 +173,23 @@ jobs:
       - name: Resolve outcomes
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
         run: python record_outcomes.py
+
+      # Did every region actually WRITE on every day it should have? Nothing asked that
+      # until now, and on 2026-08-27 the answer was no: the NYSE cron analysed its
+      # universe, wrote 924 rows to the runner's disk, then failed in the commit step and
+      # the rows died with the runner. The ledger has a permanent hole and no check
+      # noticed, because a failure email is easy to miss among the transient ones.
+      #
+      # A market open cannot be replayed, so detection is the whole value: a hole found
+      # the next morning can be understood, while one found in six months has silently
+      # corrupted every accuracy figure over that window.
+      #
+      # continue-on-error because a historical gap must not fail tonight's run; it emits
+      # a ::warning that lands in the run summary instead.
+      - name: Check ledger coverage
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate'
+        continue-on-error: true
+        run: python tools/ledger_coverage_check.py --days 14
 
       # Is the LIVE site actually serving what main says? Nothing checked this, and
       # on 2026-08-27 the answer was no: market-ai.pages.dev was serving commit
@@ -331,7 +359,25 @@ jobs:
             echo "Rebase had a content conflict. Aborting rebase, hard-resetting to origin/main, and re-running task."
             git rebase --abort || true
             git reset --hard origin/main
-            run_task
+
+            # `|| true` is load-bearing. `set -e` is active, so a bare `run_task` that
+            # exits non-zero kills this step and fails the whole job. That is exactly how
+            # runs #449 and #450 died on 2026-08-27/28: every other step was green and
+            # only "Commit ledger updates" failed.
+            #
+            # The chain was: a day of frequent pushes to main rejected the cron's push ->
+            # rebase hit a REAL conflict, because record_outcomes.py REWRITES ledger rows
+            # rather than appending -> the hard reset above DISCARDED the rows this run had
+            # just written -> so the re-run became a fresh full 924-symbol pass back-to-back
+            # with the first -> Yahoo throttled it -> record_predictions.py exited 1 on its
+            # own ">30% real failures looks systemic" guard -> set -e killed the step.
+            #
+            # Every link in that chain works as designed except the last. A failed re-run is
+            # not a reason to fail the job: the `git diff --cached --quiet` check immediately
+            # below already decides correctly whether there is anything to commit, and the
+            # push loop still has attempts left. Swallowing the status lets that logic run
+            # instead of pre-empting it.
+            run_task || echo "Task re-run failed (likely throttled on a second full pass in one job); continuing so the staged-changes check can decide."
             git add -fA model/ledger/ || true
             if [ -f model/live_calibration.json ]; then
               git add -f model/live_calibration.json
