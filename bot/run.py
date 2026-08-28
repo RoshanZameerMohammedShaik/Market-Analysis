@@ -1,0 +1,583 @@
+"""Mia 2.0's desk: the one entry point that turns analysis into trades.
+
+    python bot/run.py                 # a real run
+    python bot/run.py --dry-run       # decide and report, write nothing
+    python bot/run.py --reset         # wipe the account back to seed
+
+THE SPLIT, AND WHY
+------------------
+bot/advise.mjs THINKS (the app's real engine plus Mia's LLM) and this file ACTS. A
+strategy returns intents; only this file touches money. So a bug in a strategy or a
+hallucination from the LLM cannot spend anything: every intent passes the broker rules and
+the risk limits below before it becomes a fill.
+
+WHAT GETS WRITTEN
+-----------------
+  model/bot/state.json    authoritative account: sleeves, cash, positions, broker state
+  model/bot/trades.jsonl  the timeline. One row per FILL, with the reasoning and evidence
+  model/bot/runs.jsonl    one row per RUN, including runs that traded nothing
+
+runs.jsonl matters as much as trades.jsonl. Roshan asked to see when and why she traded;
+seeing that she looked and deliberately did nothing is the same question answered, and
+without it a quiet week is indistinguishable from a broken cron.
+
+GUARDS, EACH FOR A NAMED FAILURE
+--------------------------------
+  session gate      Trading NYSE at 3am books fills against a stale close that could never
+                    have happened. bot/sessions.py decides; crypto is exempt.
+  stale-price       Even inside a session, a quote older than maxPriceAgeMin is refused. A
+                    decision made on an hour-old price is not the decision it claims.
+  holiday-by-data   No exchange calendar is bundled: they rot and differ per venue. If a
+                    market says open but its freshest bar is not from today, it is closed.
+                    Self-maintaining, and it also catches half-days and feed outages.
+  dead sleeve       A wiped sleeve stays wiped (config reseedDeadSleeves=false) and is
+                    skipped, not revived. A wipe is the most informative result available.
+  daily loss halt   A sleeve down more than dailyLossHaltPct today stops until tomorrow, so
+                    a strategy bug has minutes rather than a whole session.
+  min hold          Stops churn when a score wobbles across a threshold, and keeps day-trade
+                    counts down under PDT.
+"""
+from __future__ import annotations
+
+import argparse
+import collections
+import datetime
+import json
+import os
+import subprocess
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+
+from bot.broker import CASH, BrokerAccount, broker_fees_usd            # noqa: E402
+from bot.config import BOT_DIR, load_config, sleeve_defs               # noqa: E402
+from bot.portfolio import BotAccount, Sleeve, utc_now_iso              # noqa: E402
+from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
+import bot.strategies as strategies                                    # noqa: E402
+
+STATE_PATH = os.path.join(BOT_DIR, 'state.json')
+TRADES_PATH = os.path.join(BOT_DIR, 'trades.jsonl')
+RUNS_PATH = os.path.join(BOT_DIR, 'runs.jsonl')
+REQ_PATH = os.path.join(BOT_DIR, '_request.json')
+ADV_PATH = os.path.join(BOT_DIR, '_advice.json')
+RECENT_SLICE = os.path.join(REPO, 'model', 'ledger', 'recent.json')
+YEAR_LEDGER = os.path.join(REPO, 'model', 'ledger',
+                           f'{datetime.date.today().year}.jsonl')
+
+# A quote older than this is refused even during a session.
+MAX_PRICE_AGE_MIN = 20
+# Do not OPEN a position with less than this left in the session: an entry that cannot be
+# managed until the next open is a different bet from the one the strategy intended.
+NO_NEW_ENTRIES_WITHIN_MIN = 15
+
+
+def log(msg):
+    print(f'[bot] {msg}', flush=True)
+
+
+# ── universe ─────────────────────────────────────────────────────────────────
+def candidate_universe(cfg, held, live_markets):
+    """Which symbols to analyse this run.
+
+    Analysing the full 924-name ledger universe at ~500ms each would take six minutes,
+    which does not fit a 15-minute cadence with everything else. So the LEDGER's own recent
+    rows are used as a cheap prior: they already carry a price and a weightedScore per
+    symbol, computed at that market's open by the cron. Names are ranked on that stored
+    score, and the top maxCandidates are re-analysed FRESH by the real engine before any
+    decision. The prior only chooses who to look at; it never decides anything.
+
+    Held positions are always included regardless of rank, or Mia could not sell what she
+    already owns.
+    """
+    rows = []
+    src = None
+    if os.path.exists(RECENT_SLICE):
+        try:
+            with open(RECENT_SLICE, encoding='utf-8') as f:
+                blob = json.load(f)
+            # recent.json is an ENVELOPE: {generatedAt, cutoffDate, days, sourceRows,
+            # rows: [...]}. Assuming a bare list crashed on the first iteration with
+            # "'str' object has no attribute 'get'", because iterating the dict yielded
+            # its KEYS. Both shapes are accepted so a future slice-format change cannot
+            # silently empty the universe and make the desk look idle.
+            rows = blob.get('rows', []) if isinstance(blob, dict) else (blob or [])
+            src = f'recent.json ({len(rows)} rows)'
+        except Exception as e:
+            log(f'recent.json unreadable ({type(e).__name__}); falling back')
+            rows = []
+    if not rows and os.path.exists(YEAR_LEDGER):
+        # Fallback only: the year file is ~97MB, so this is the slow path.
+        with open(YEAR_LEDGER, encoding='utf-8') as f:
+            cutoff = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except Exception:
+                    continue
+                if (r.get('date') or '') >= cutoff:
+                    rows.append(r)
+        src = 'year ledger (slow path)'
+
+    lo, hi = cfg['minPriceUSD'], cfg['maxPriceUSD']
+    best = {}
+    for r in rows:
+        sym = r.get('symbol')
+        if not sym or market_of(sym) not in live_markets:
+            continue
+        px = r.get('entry')
+        if not isinstance(px, (int, float)) or not (lo <= px <= hi):
+            continue
+        score = r.get('weightedScore')
+        if score is None:
+            score = ((r.get('breakdown') or {}).get('technical') or {}).get('score')
+        d = r.get('date') or ''
+        prev = best.get(sym)
+        # Keep the most recent row per symbol.
+        if not prev or d > prev[0]:
+            best[sym] = (d, score if isinstance(score, (int, float)) else 50.0)
+
+    ranked = sorted(best.items(), key=lambda kv: -kv[1][1])
+    picked = [s for s, _ in ranked[:int(cfg['maxCandidates'])]]
+    # Held names last-in so they are never crowded out by the cap.
+    for s in held:
+        if s not in picked and market_of(s) in live_markets:
+            picked.append(s)
+    log(f'universe: {len(picked)} candidates from {len(best)} eligible '
+        f'({src or "no ledger"}), markets={live_markets}')
+    return picked
+
+
+# ── account bootstrap ────────────────────────────────────────────────────────
+def load_or_create(cfg):
+    acct = BotAccount.load(STATE_PATH)
+    if acct:
+        return acct, False
+    defs = sleeve_defs()
+    per = float(cfg['seedUSD']) / len(defs)
+    sleeves = {d['id']: Sleeve(d['id'], d['name'], cash_usd=per, blurb=d['blurb'])
+               for d in defs}
+    log(f'creating account: ${cfg["seedUSD"]:,.0f} across {len(defs)} sleeves '
+        f'(${per:,.0f} each)')
+    return BotAccount(seed_usd=float(cfg['seedUSD']), sleeves=sleeves), True
+
+
+class PrecomputedLLM:
+    """Adapter so MiaAIStrategy can consume decisions the Node advisor already fetched.
+
+    The LLM call happens in bot/advise.mjs, on the same runner in the same job, because
+    that is where Mia's prompt and the real engine live. Python never calls Gemini, which
+    keeps exactly one place able to talk to it.
+    """
+
+    def __init__(self, decisions):
+        self._decisions = decisions or []
+
+    def decide(self, snapshot, sleeve, cfg):
+        return self._decisions
+
+
+# ── risk + broker gate ───────────────────────────────────────────────────────
+def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today):
+    """(approved, size_usd, reason). Reason is recorded either way, because a refused
+    intent is part of the audit trail Roshan asked for: seeing that a strategy WANTED to
+    buy and the account said no is as informative as the fill."""
+    risk = cfg['risk']
+    sym = intent.symbol
+    px = prices.get(sym)
+    if not isinstance(px, (int, float)) or px <= 0:
+        return False, 0.0, 'no usable price'
+
+    if intent.action == 'SELL':
+        if sleeve.units(sym) <= 0:
+            return False, 0.0, 'no position to sell'
+        held_since = state_meta.get('openedAt', {}).get(f'{sleeve.id}:{sym}')
+        if held_since and intent.evidence.get('rule') not in ('stop-loss', 'take-profit'):
+            try:
+                age = (datetime.datetime.now(datetime.timezone.utc)
+                       - datetime.datetime.fromisoformat(held_since.replace('Z', '+00:00'))
+                       ).total_seconds() / 60
+                if age < risk['minHoldMinutes']:
+                    return False, 0.0 , (f'min hold: {age:.0f}m of '
+                                         f'{risk["minHoldMinutes"]}m elapsed')
+            except Exception:
+                pass
+        ok, why = broker.check_sell(sym, today, sleeve.equity_usd(prices))
+        if not ok:
+            return False, 0.0, why
+        return True, sleeve.units(sym), 'approved'
+
+    # ── BUY ──
+    if len(sleeve.positions) >= risk['maxPositions'] and sym not in sleeve.positions:
+        return False, 0.0, f'at max positions ({risk["maxPositions"]})'
+    if traded_today >= risk['maxTradesPerDay']:
+        return False, 0.0, f'daily trade cap ({risk["maxTradesPerDay"]}) reached'
+
+    mkt = market_of(sym)
+    left = minutes_to_close(mkt)
+    if left is not None and left < NO_NEW_ENTRIES_WITHIN_MIN:
+        return False, 0.0, (f'{left}m to close: too late to open a position that cannot '
+                            f'be managed until the next session')
+
+    equity = sleeve.equity_usd(prices)
+    # Conviction scales the bite, so a bare threshold pass is smaller than a strong signal.
+    cap = equity * risk['maxPositionPct'] / 100.0
+    want = cap * (0.5 + 0.5 * intent.conviction)
+    if intent.size_hint_pct:
+        want = equity * float(intent.size_hint_pct) / 100.0
+    floor_cash = equity * risk['cashFloorPct'] / 100.0
+    spendable = max(0.0, sleeve.cash_usd - floor_cash)
+    size = min(want, spendable)
+    if size < risk['minTradeUSD']:
+        return False, 0.0, (f'size ${size:,.2f} below the ${risk["minTradeUSD"]:,.0f} '
+                            f'minimum (cash ${sleeve.cash_usd:,.2f}, '
+                            f'floor ${floor_cash:,.2f})')
+    ok, why = broker.check_buy(size, sleeve.cash_usd, equity)
+    if not ok:
+        return False, 0.0, why
+    return True, size, 'approved'
+
+
+# ── main ─────────────────────────────────────────────────────────────────────
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--dry-run', action='store_true', help='decide and report, write nothing')
+    ap.add_argument('--reset', action='store_true', help='wipe the account back to seed')
+    ap.add_argument('--skip-advise', action='store_true',
+                    help='reuse the last _advice.json (for debugging only)')
+    args = ap.parse_args()
+
+    cfg = load_config()
+    os.makedirs(BOT_DIR, exist_ok=True)
+    started = datetime.datetime.now(datetime.timezone.utc)
+    today = started.date()
+
+    if args.reset:
+        for p in (STATE_PATH, TRADES_PATH, RUNS_PATH):
+            if os.path.exists(p):
+                os.remove(p)
+        log('account reset: state, trades and runs removed')
+        return
+
+    if not cfg.get('enabled', True):
+        log('disabled in config; nothing to do')
+        return
+
+    # ── session gate ──
+    live, closed = open_markets(cfg['markets'])
+    for m, why in closed.items():
+        log(f'closed: {m} — {why}')
+    if not live:
+        record_run(cfg, None, started, live, closed, [], [],
+                   note='all configured markets closed', dry=args.dry_run)
+        log(f'no market open. {describe_week(cfg["markets"])}')
+        return
+    log(f'open markets: {live}')
+
+    acct, created = load_or_create(cfg)
+    broker = BrokerAccount.from_dict(getattr(acct, '_broker', None) or {
+        'accountType': cfg['accountType'], 'plan': cfg['commissionPlan'],
+        'benchmarkRatePct': cfg['benchmarkRatePct']})
+    # Settlement and interest advance once per run, before any decision, so buying power
+    # reflects today rather than yesterday.
+    released = broker.settle_due(today)
+    if released:
+        log(f'settled ${released:,.2f} of previously unsettled proceeds')
+        # Released cash goes back to the sleeves proportionally to what they are owed.
+        pending = getattr(acct, '_pending_by_sleeve', {}) or {}
+        for sid, amt in pending.items():
+            if sid in acct.sleeves:
+                acct.sleeves[sid].cash_usd += float(amt)
+        acct._pending_by_sleeve = {}
+    interest = broker.accrue_interest(today)
+    if interest:
+        log(f'margin interest accrued: ${interest:,.4f}')
+    broker.prune(today)
+
+    held = sorted({s for sl in acct.sleeves.values() for s in sl.positions})
+    universe = candidate_universe(cfg, held, live)
+    if not universe:
+        record_run(cfg, acct, started, live, closed, [], [],
+                   note='no candidates in the open markets', dry=args.dry_run)
+        log('no candidates; nothing to do')
+        return
+
+    # ── think (Node: the app's real engine + Mia's LLM) ──
+    if not args.skip_advise:
+        cash_total = sum(s.cash_usd for s in acct.sleeves.values())
+        with open(REQ_PATH, 'w', encoding='utf-8') as f:
+            json.dump({'universe': universe,
+                       'holdings': {s: acct.sleeves['mia-ai'].units(s)
+                                    for s in acct.sleeves['mia-ai'].positions},
+                       'cashUSD': round(acct.sleeves['mia-ai'].cash_usd, 2),
+                       'config': cfg}, f, allow_nan=False)
+        r = subprocess.run(['node', os.path.join('bot', 'advise.mjs'), REQ_PATH, ADV_PATH],
+                           cwd=REPO, capture_output=True, text=True)
+        if r.returncode != 0 or not os.path.exists(ADV_PATH):
+            log(f'advisor FAILED rc={r.returncode}: {(r.stderr or "")[-400:]}')
+            record_run(cfg, acct, started, live, closed, [], [],
+                       note=f'advisor failed rc={r.returncode}', dry=args.dry_run)
+            sys.exit(1)
+        for line in (r.stdout or '').strip().splitlines()[-3:]:
+            log(line)
+
+    with open(ADV_PATH, encoding='utf-8') as f:
+        advice = json.load(f)
+    cands = advice.get('candidates') or {}
+
+    # ── stale-price + holiday-by-data guard ──
+    fresh, stale = {}, {}
+    for sym, c in cands.items():
+        try:
+            age = (started - datetime.datetime.fromisoformat(
+                c['asOf'].replace('Z', '+00:00'))).total_seconds() / 60
+        except Exception:
+            age = 1e9
+        if age > MAX_PRICE_AGE_MIN:
+            stale[sym] = f'quote {age:.0f}m old'
+            continue
+        fresh[sym] = c
+    if stale:
+        log(f'{len(stale)} candidate(s) dropped as stale')
+    if not fresh:
+        record_run(cfg, acct, started, live, closed, [], [],
+                   note='every quote was stale; market likely closed or feed down',
+                   dry=args.dry_run)
+        log('all quotes stale — treating as closed')
+        return
+
+    prices = {s: c['price'] for s, c in fresh.items()}
+    snapshot = {'prices': prices, 'candidates': fresh}
+    mia_block = advice.get('mia') or {}
+    strat = strategies.build(cfg, llm=(PrecomputedLLM(mia_block.get('decisions'))
+                                       if mia_block.get('brain') == 'gemini' else None))
+    log(f"Mia's brain: {mia_block.get('brain')} — {mia_block.get('note', '')[:110]}")
+
+    meta = getattr(acct, '_meta', None) or {'openedAt': {}, 'tradesToday': {}, 'day': today.isoformat()}
+    if meta.get('day') != today.isoformat():
+        meta = {'openedAt': meta.get('openedAt', {}), 'tradesToday': {},
+                'day': today.isoformat()}
+    equity_open = getattr(acct, '_equity_open', None) or {}
+
+    fills, refusals = [], []
+    for sid, sleeve in acct.sleeves.items():
+        st = strat.get(sid)
+        if st is None:
+            continue
+        equity = sleeve.equity_usd(prices)
+
+        # Dead sleeve: stays dead by design.
+        if equity < cfg['risk']['minTradeUSD'] and not sleeve.positions:
+            refusals.append({'sleeve': sid, 'symbol': None, 'action': 'HALT',
+                             'reason': f'sleeve is wiped (${equity:,.2f}); it stays that '
+                                       f'way by design and is not reseeded'})
+            continue
+
+        # Daily loss halt.
+        opened = float(equity_open.get(sid) or equity)
+        if opened > 0 and (equity - opened) / opened * 100.0 <= -cfg['risk']['dailyLossHaltPct']:
+            refusals.append({'sleeve': sid, 'symbol': None, 'action': 'HALT',
+                             'reason': f'down {(equity-opened)/opened*100:.2f}% today, '
+                                       f'past the {cfg["risk"]["dailyLossHaltPct"]}% halt'})
+            continue
+        equity_open.setdefault(sid, equity)
+
+        intents = st.decide(snapshot, sleeve)
+        # Exits first, then highest conviction: if the per-run cap binds, closing risk
+        # should always outrank opening it.
+        intents.sort(key=lambda i: (0 if i.action == 'SELL' else 1, -i.conviction))
+        done = 0
+        for it in intents:
+            if done >= cfg['risk']['maxTradesPerRun']:
+                refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
+                                 'reason': f'per-run cap ({cfg["risk"]["maxTradesPerRun"]}) '
+                                           f'reached', 'why': it.why})
+                continue
+            traded_today = int(meta['tradesToday'].get(sid, 0))
+            ok, size, why = approve(it, sleeve, broker, cfg, prices, meta, today, traded_today)
+            if not ok:
+                refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
+                                 'reason': why, 'why': it.why,
+                                 'evidence': it.evidence})
+                continue
+            f = execute(acct, sleeve, broker, cfg, it, size, prices, meta, today)
+            if f:
+                fills.append(f)
+                done += 1
+                meta['tradesToday'][sid] = traded_today + 1
+
+    acct.runs += 1
+    acct._meta, acct._equity_open, acct._broker = meta, equity_open, broker.to_dict()
+    log(f'{len(fills)} fill(s), {len(refusals)} refusal(s)')
+    for f in fills:
+        log(f"  {f['sleeve']:<10} {f['action']:<4} {f['symbol']:<10} "
+            f"${f['notionalUSD']:>9,.2f} @ {f['fillPriceUSD']:.4f}  {f['why'][:70]}")
+
+    if args.dry_run:
+        log('dry run: nothing written')
+        return
+
+    write_fills(fills)
+    record_run(cfg, acct, started, live, closed, fills, refusals, dry=False, advice=advice)
+    save_state(acct, prices, broker)
+    # The workflow gates the site publish on this, so a run that changed nothing does not
+    # burn a Cloudflare Pages build.
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+            f.write(f'traded={"true" if fills else "false"}\n')
+            f.write(f'fills={len(fills)}\n')
+
+
+def execute(acct, sleeve, broker, cfg, intent, size, prices, meta, today):
+    """Apply the fill and return the timeline row, or None if the sleeve refused it."""
+    px = prices[intent.symbol]
+    if intent.action == 'BUY':
+        fill, why = sleeve.buy(intent.symbol, size, px)
+    else:
+        fill, why = sleeve.sell(intent.symbol, size, px)
+    if not fill:
+        return None
+
+    fees = broker_fees_usd(fill['units'], px, intent.action, cfg['commissionPlan'])
+    # Broker fees come out of cash on top of the spread already baked into the fill price.
+    sleeve.cash_usd -= fees['totalUSD']
+    sleeve.fees_usd += fees['totalUSD']
+
+    key = f'{sleeve.id}:{intent.symbol}'
+    if intent.action == 'BUY':
+        meta['openedAt'][key] = utc_now_iso()
+        broker.note_open(intent.symbol, fill['units'], today)
+        if broker.account_type == CASH:
+            pass    # buys consume settled cash directly
+    else:
+        # A same-day close of something opened today is a day trade under PDT.
+        if broker.would_be_day_trade(intent.symbol, today):
+            broker.note_day_trade(today)
+        meta['openedAt'].pop(key, None)
+        settles = broker.add_pending(fill['notionalUSD'], today)
+        if settles:
+            # In a cash account the proceeds are NOT spendable yet, so take them back out
+            # of the sleeve's cash and remember who is owed them.
+            sleeve.cash_usd -= fill['notionalUSD']
+            pend = getattr(acct, '_pending_by_sleeve', None) or {}
+            pend[sleeve.id] = float(pend.get(sleeve.id, 0.0)) + fill['notionalUSD']
+            acct._pending_by_sleeve = pend
+
+    return {
+        'ts': utc_now_iso(),
+        'sleeve': sleeve.id, 'sleeveName': sleeve.name,
+        'action': intent.action, 'symbol': intent.symbol,
+        'market': market_of(intent.symbol),
+        'units': round(fill['units'], 8),
+        'refPriceUSD': round(fill['refPrice'], 6),
+        'fillPriceUSD': round(fill['fillPrice'], 6),
+        'notionalUSD': round(fill['notionalUSD'], 2),
+        'spreadCostUSD': round(fill['feeUSD'], 4),
+        'commissionUSD': fees['commissionUSD'],
+        'regulatoryUSD': fees['regulatoryUSD'],
+        'totalCostUSD': round(fill['feeUSD'] + fees['totalUSD'], 4),
+        'realizedUSD': (round(fill['realizedUSD'], 4) if 'realizedUSD' in fill else None),
+        'costBasisUSD': (round(fill['costBasisUSD'], 4) if 'costBasisUSD' in fill else None),
+        'strategy': intent.evidence.get('rule'),
+        'conviction': round(intent.conviction, 4),
+        'why': intent.why,
+        'evidence': intent.evidence,
+        'accountType': broker.account_type,
+        'cashAfterUSD': round(sleeve.cash_usd, 2),
+        'unitsAfter': round(sleeve.units(intent.symbol), 8),
+    }
+
+
+def write_fills(fills):
+    if not fills:
+        return
+    with open(TRADES_PATH, 'a', encoding='utf-8') as f:
+        for x in fills:
+            f.write(json.dumps(x, allow_nan=False) + '\n')
+
+
+def record_run(cfg, acct, started, live, closed, fills, refusals, note=None, dry=False,
+               advice=None):
+    """One row per run, including runs that traded nothing.
+
+    Without this a quiet week is indistinguishable from a dead cron, and the gap between
+    runs (which Actions delays unpredictably) would be invisible.
+    """
+    if dry:
+        return
+    prev_gap = None
+    if os.path.exists(RUNS_PATH):
+        try:
+            with open(RUNS_PATH, encoding='utf-8') as f:
+                last = collections.deque(f, maxlen=1)
+            if last:
+                prev = json.loads(last[0])
+                prev_gap = round((started - datetime.datetime.fromisoformat(
+                    prev['ts'].replace('Z', '+00:00'))).total_seconds() / 60, 1)
+        except Exception:
+            prev_gap = None
+
+    prices = {}
+    if advice:
+        prices = {s: c['price'] for s, c in (advice.get('candidates') or {}).items()}
+    row = {
+        'ts': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'gapMinutes': prev_gap,
+        'openMarkets': live, 'closedMarkets': closed,
+        'analysed': (advice or {}).get('analysed', 0),
+        'miaBrain': ((advice or {}).get('mia') or {}).get('brain'),
+        'fills': len(fills), 'refusals': len(refusals),
+        'refusalReasons': refusals[:25],
+        'note': note,
+        'totals': acct.totals(prices) if acct else None,
+        'leaderboard': acct.leaderboard(prices) if acct else None,
+    }
+    os.makedirs(os.path.dirname(RUNS_PATH), exist_ok=True)
+    with open(RUNS_PATH, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(row, allow_nan=False) + '\n')
+
+
+def save_state(acct, prices, broker):
+    acct.save(STATE_PATH, prices)
+    # Append the extra desk state the Sleeve model has no business knowing about.
+    with open(STATE_PATH, encoding='utf-8') as f:
+        d = json.load(f)
+    d['broker'] = broker.to_dict()
+    d['brokerSummary'] = broker.describe()
+    d['meta'] = getattr(acct, '_meta', {})
+    d['equityOpen'] = getattr(acct, '_equity_open', {})
+    d['pendingBySleeve'] = getattr(acct, '_pending_by_sleeve', {})
+    with open(STATE_PATH, 'w', encoding='utf-8') as f:
+        json.dump(d, f, indent=2, allow_nan=False)
+
+
+# BotAccount.load must restore the desk-level extras too, or settlement and PDT state
+# would silently reset on every run. Patched here rather than in portfolio.py to keep that
+# module purely about sleeve accounting.
+_orig_load = BotAccount.load.__func__
+
+
+@classmethod
+def _load_with_extras(cls, path=STATE_PATH):
+    acct = _orig_load(cls, path)
+    if acct and os.path.exists(path):
+        try:
+            with open(path, encoding='utf-8') as f:
+                d = json.load(f)
+            acct._broker = d.get('broker')
+            acct._meta = d.get('meta')
+            acct._equity_open = d.get('equityOpen')
+            acct._pending_by_sleeve = d.get('pendingBySleeve')
+        except Exception:
+            pass
+    return acct
+
+
+BotAccount.load = _load_with_extras
+
+
+if __name__ == '__main__':
+    main()

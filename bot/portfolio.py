@@ -124,7 +124,7 @@ class Sleeve:
         raises on ordinary refusals: a bot run must not die because one order was
         too small.
         """
-        px = fill_price(price, 'BUY')
+        px = fill_price(price, 'BUY', symbol)
         if px is None or px <= 0:
             return None, 'unusable price'
         spend = min(float(notional_usd), self.cash_usd)
@@ -133,7 +133,7 @@ class Sleeve:
         units = spend / px
         if units <= 0:
             return None, 'zero units'
-        fee = cost_usd(price, units)
+        fee = cost_usd(price, units, symbol)
 
         pos = self.positions.setdefault(symbol, {'units': 0.0, 'lots': []})
         pos['lots'].append({'units': units, 'costUSD': spend, 'openedAt': utc_now_iso()})
@@ -150,7 +150,7 @@ class Sleeve:
         units = min(float(units_wanted), held)
         if units <= 0:
             return None, 'no position'
-        px = fill_price(price, 'SELL')
+        px = fill_price(price, 'SELL', symbol)
         if px is None or px <= 0:
             return None, 'unusable price'
         proceeds = units * px
@@ -180,7 +180,7 @@ class Sleeve:
             del self.positions[symbol]
 
         realized = proceeds - cost_consumed
-        fee = cost_usd(price, units)
+        fee = cost_usd(price, units, symbol)
         self.cash_usd += proceeds
         self.realized_usd += realized
         self.fees_usd += fee

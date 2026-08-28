@@ -45,33 +45,59 @@ HALF_SPREAD_PCT = [
 SLIPPAGE_PCT = 0.05
 
 
-def half_spread_pct(price):
-    """Effective half-spread for one side, in percent. None if price is unusable."""
+# Crypto multiplier on the equity tier. The tiers above are EQUITY microstructure, where
+# price is a decent proxy for depth. That mapping does not transfer to crypto: a $5 altcoin
+# is not a $5 NYSE listing. GOAT-USD at $5.09 landed in the 0.35% equity tier during the
+# first desk dry-run, which is roughly what a liquid $5 stock costs and far tighter than a
+# small-cap alt actually trades.
+#
+# So crypto pays 2.5x the tier. It is an ESTIMATE, chosen on the high side because
+# understating cost is how a losing system passes a backtest, and the whole point of this
+# desk is to find out what the decisions are worth. Majors (BTC/ETH) genuinely trade tighter
+# than this implies, so the multiplier is conservative for them and closer to right for the
+# long tail the engine keeps surfacing. Replace it with measured venue spreads when there is
+# a source for them.
+CRYPTO_SPREAD_MULTIPLIER = 2.5
+
+
+def is_crypto(symbol):
+    return bool(symbol) and str(symbol).upper().endswith('-USD')
+
+
+def half_spread_pct(price, symbol=None):
+    """Effective half-spread for one side, in percent. None if price is unusable.
+
+    `symbol` is optional so every existing caller keeps working; passing it applies the
+    crypto adjustment. The research tools deliberately do NOT pass it, because their panels
+    are equity-only.
+    """
     try:
         p = float(price)
     except (TypeError, ValueError):
         return None
     if not (p > 0):
         return None
+    base = HALF_SPREAD_PCT[-1][1]
     for ceiling, half in HALF_SPREAD_PCT:
         if p < ceiling:
-            return half
-    return HALF_SPREAD_PCT[-1][1]
+            base = half
+            break
+    return base * CRYPTO_SPREAD_MULTIPLIER if is_crypto(symbol) else base
 
 
-def side_cost_pct(price):
+def side_cost_pct(price, symbol=None):
     """Cost of ONE side (entry or exit) in percent of notional."""
-    h = half_spread_pct(price)
+    h = half_spread_pct(price, symbol)
     return None if h is None else h + SLIPPAGE_PCT
 
 
-def round_trip_cost_pct(price):
+def round_trip_cost_pct(price, symbol=None):
     """Cost to get in AND out, in percent of notional."""
-    s = side_cost_pct(price)
+    s = side_cost_pct(price, symbol)
     return None if s is None else 2 * s
 
 
-def fill_price(price, side):
+def fill_price(price, side, symbol=None):
     """The price actually paid or received, after crossing the spread.
 
     A BUY lifts the offer and a SELL hits the bid, so the bot must never book a fill
@@ -81,16 +107,16 @@ def fill_price(price, side):
     position's cost basis honest for later P/L.
     """
     p = float(price)
-    s = side_cost_pct(p)
+    s = side_cost_pct(p, symbol)
     if s is None:
         return None
     adj = p * (s / 100.0)
     return p + adj if str(side).upper() == 'BUY' else p - adj
 
 
-def cost_usd(price, units):
+def cost_usd(price, units, symbol=None):
     """Absolute cost in USD of one side, for reporting on the trade timeline."""
-    s = side_cost_pct(price)
+    s = side_cost_pct(price, symbol)
     if s is None:
         return 0.0
     return abs(float(price) * float(units)) * (s / 100.0)
