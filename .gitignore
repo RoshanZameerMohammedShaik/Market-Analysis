@@ -78,3 +78,9 @@ model/_replay*.jsonl
 # Regenerated on every run and can contain a large per-symbol analysis dump. The
 # AUTHORITATIVE files (state.json, config.json, trades.jsonl, runs.jsonl) are tracked.
 model/bot/_*
+
+# Scratch from API/diagnostic poking at the repo root (curl bodies, log dumps).
+# joblog.txt got committed once: it was a 403 response body from trying to read
+# Actions logs without admin rights.
+/joblog.txt
+/*.tmp.json
