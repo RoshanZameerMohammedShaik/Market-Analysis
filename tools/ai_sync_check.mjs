@@ -29,6 +29,12 @@ globalThis.fetch = async (url) => {
 
 const aiUrl = pathToFileURL(join(REPO, 'js', 'ai-model.js')).href;
 const { getAIPrediction, loadModel } = await import(aiUrl);
+// Imported separately so the harness can report whether the GBT was actually
+// resident, not just infer it from a null in the output. When loadModel raced its
+// own GBT fetch, the symptom was six identical "GBT presence" mismatches that read
+// like a model disagreement instead of a load failure.
+const { isGbtLoaded } = await import(
+    pathToFileURL(join(REPO, 'js', 'xgb-model.js')).href);
 
 const payload = JSON.parse(await readFile(process.argv[2], 'utf8'));
 
@@ -46,7 +52,9 @@ if (!loaded) {
     process.exit(2);
 }
 
-const out = {};
+// Underscore-prefixed so the Python side, which iterates its own CASES keys, ignores
+// it as a case while still being able to assert on it.
+const out = { _meta: { gbtLoadedAfterLoadModel: isGbtLoaded() } };
 for (const [name, candles] of Object.entries(payload)) {
     try {
         out[name] = await getAIPrediction(candles);

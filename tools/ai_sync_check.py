@@ -34,9 +34,47 @@ N_BARS = 90
 PASS, FAIL = [], []
 
 
+def _emit_annotation(msg):
+    """Surface a failure reason where it can be read WITHOUT repo admin rights.
+
+    GitHub's job-log endpoint returns 403 to non-admins, so the actual error was invisible
+    from outside when this check first went red in CI. `::error::` lines become check
+    annotations, which the public API does expose.
+    """
+    if os.environ.get('GITHUB_ACTIONS'):
+        one_line = str(msg).replace('\n', ' | ')[:900]
+        print(f'::error title=ai_sync_check::{one_line}')
+
+
 def check(name, cond, detail=''):
     (PASS if cond else FAIL).append(name)
     print(f"  {'PASS' if cond else 'FAIL'}  {name}" + (f'  -> {detail}' if detail and not cond else ''))
+
+
+def _versions():
+    """python / node / numpy, for the failure message.
+
+    This check passed six consecutive times locally and failed on the runner, and Node,
+    Python and numpy all differed at once, so there was no way to tell which mattered.
+    Printing them makes the next failure self-describing instead of a guess.
+    """
+    import platform
+    try:
+        node = subprocess.run(['node', '--version'], capture_output=True,
+                              text=True).stdout.strip() or 'unknown'
+    except OSError:
+        node = 'unavailable'
+    try:
+        import numpy
+        npv = numpy.__version__
+    except ImportError:
+        npv = 'unavailable'
+    return platform.python_version(), node, npv
+
+
+_PY, _NODE, _NUMPY = _versions()
+print('=== environment ===')
+print(f'  python {_PY}  node {_NODE}  numpy {_NUMPY}')
 
 
 def synth(seed, n=N_BARS, base=100.0, drift=0.0, spread=0.02):
@@ -82,8 +120,40 @@ finally:
 if proc.returncode != 0 or not proc.stdout.strip():
     print('ERROR: node harness failed.', file=sys.stderr)
     print(proc.stderr[:1800], file=sys.stderr)
+    # A GitHub ::error:: line becomes a check ANNOTATION, which is readable through the
+    # public API without admin rights. Job LOGS are not: reading them returns 403 "Must
+    # have admin rights to Repository", which is why the first attempt to diagnose this
+    # failure was blind. Anything worth debugging from outside belongs in an annotation.
+    _emit_annotation(f'node harness rc={proc.returncode} on python {_PY} / node {_NODE} / '
+                     f'numpy {_NUMPY}: '
+                     + (proc.stderr or '').strip().replace('\n', ' ')[-400:])
     sys.exit(1)
-js = json.loads(proc.stdout)
+
+try:
+    js = json.loads(proc.stdout)
+except json.JSONDecodeError as exc:
+    # The harness exited 0 but did not hand back JSON. Almost always something else
+    # wrote to stdout ahead of the payload -- a Node deprecation notice, an
+    # experimental-feature warning -- which is exactly the kind of thing that differs
+    # between Node versions and therefore between here and the runner.
+    print(f'ERROR: node stdout was not JSON: {exc}', file=sys.stderr)
+    print(proc.stdout[:600], file=sys.stderr)
+    _emit_annotation(f'node stdout was not JSON on node {_NODE}: {exc}; '
+                     f'first 200 chars: {proc.stdout[:200]!r}')
+    sys.exit(1)
+
+# Assert the RACE is gone, not just that today's run happened to win it.
+#
+# loadModel() used to start the GBT fetch without awaiting it, so isGbtLoaded() was
+# decided by which of two files arrived first. That failed roughly 1 run in 10 -- and
+# only ever as six identical "GBT presence matches" mismatches, which read like the two
+# languages disagreeing about the model rather than the JS side never having loaded it.
+# Naming the real condition turns a confusing flake into one obvious failure.
+print('=== the GBT is resident once loadModel() resolves ===')
+check('loadModel() awaits the GBT load (no fetch race)',
+      bool((js.get('_meta') or {}).get('gbtLoadedAfterLoadModel')),
+      'isGbtLoaded() was false right after loadModel() resolved -- the GBT fetch is '
+      'not being awaited, so every case reports gbt:null at random')
 
 print('=== the deployed model reports its own shape ===')
 cfg = (ai_infer._load_json(ai_infer.MAIN_WEIGHTS) or {}).get('config') or {}
@@ -186,4 +256,8 @@ check('model consumes only what it declares',
 
 print(f"\n{'AI SYNC PASS' if not FAIL else 'AI SYNC FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
+if FAIL:
+    _emit_annotation(f'{len(FAIL)}/{len(PASS) + len(FAIL)} assertions failed on '
+                     f'python {_PY} / node {_NODE} / numpy {_NUMPY}: '
+                     + '; '.join(FAIL[:6]))
 sys.exit(1 if FAIL else 0)

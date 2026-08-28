@@ -65,10 +65,28 @@ async function loadModelForTier(tier) {
 }
 
 export async function loadModel() {
-    // Kick off GBT load in parallel.
-    loadGbtModel();
+    // Both loads start together AND both are awaited. The GBT load used to be
+    // fire-and-forget, which made isGbtLoaded() a RACE between two independent
+    // fetches: whichever of xgb_trees.json / lstm_weights.json arrived first decided
+    // whether the GBT appeared in the result at all.
+    //
+    // The parity check caught it as an intermittent 1-in-10 failure -- green here
+    // where both files sit in the OS page cache, red on a cold CI runner where the
+    // bigger GBT file loses. The same race exists in the browser on a slow
+    // connection, and it silently drops the `gbt` field from recorded ledger rows.
+    // That field is the ONLY evidence being collected to decide whether to
+    // re-enable GBT_IN_BLEND after a retrain, so losing it at random is a data
+    // problem, not a cosmetic one.
+    //
+    // Promise.all keeps the parallelism that motivated the original code. .catch is
+    // belt-and-braces: loadGbtModel already swallows its own errors, but a future
+    // edit that lets it reject must not take the LSTM down with it.
+    const [, mainOk] = await Promise.all([
+        loadGbtModel().catch(() => null),
+        loadModelForTier(MAIN_KEY),
+    ]);
     // Pre-warm main; penny is loaded on demand via getAIPrediction.
-    return await loadModelForTier(MAIN_KEY);
+    return mainOk;
 }
 
 export function computeFeatures(candles, configOverride) {
@@ -338,7 +356,17 @@ export async function getAIPrediction(candles, opts = {}) {
         return { score: 50, available: false, reason: 'AI inference failed' };
     }
 
+    // Ensure the GBT is loaded rather than merely hoping someone called loadModel().
+    // isGbtLoaded() alone was a latent bug independent of the race above: this
+    // function never triggered the load, so ANY caller reaching getAIPrediction
+    // without going through loadModel() got gbt:null forever. The only two callers
+    // that do call it (js/ui/core.js and bot/advise.mjs) both did so without
+    // awaiting, so in practice this was decided by fetch timing.
+    //
+    // Awaiting is close to free: loadGbtModel returns the cached model immediately
+    // once status has left 'unloaded', so only the first call ever pays.
     let gbtProb = null;
+    await loadGbtModel().catch(() => null);
     if (isGbtLoaded()) {
         try { gbtProb = predictGbt(features[features.length - 1]); } catch (_) {}
     }

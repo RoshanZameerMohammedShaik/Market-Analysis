@@ -80,7 +80,13 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Match the version these harnesses are actually developed and verified
+          # against. The gap was a real hazard, not housekeeping: ai_sync_check failed on
+          # the runner while passing six consecutive times locally, and Node was one of
+          # three environment axes differing at once (Node 20 vs 24, Python 3.11 vs 3.13,
+          # numpy pinned vs latest). GitHub also now force-runs Node-20 actions on 24 and
+          # annotates the deprecation, so 20 was already not what was executing.
+          node-version: '24'
       - run: pip install numpy pyyaml
       - name: Run sync check
         run: python tools/feature_sync_check.py
@@ -114,7 +120,13 @@ jobs:
           python-version: '3.11'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Match the version these harnesses are actually developed and verified
+          # against. The gap was a real hazard, not housekeeping: ai_sync_check failed on
+          # the runner while passing six consecutive times locally, and Node was one of
+          # three environment axes differing at once (Node 20 vs 24, Python 3.11 vs 3.13,
+          # numpy pinned vs latest). GitHub also now force-runs Node-20 actions on 24 and
+          # annotates the deprecation, so 20 was already not what was executing.
+          node-version: '24'
       # numpy is needed by ai_infer.py (the LSTM forward pass). Deliberately NOT
       # torch: the runner should not pull a 900 MB dependency to multiply a
       # 32-unit hidden state, and the exported weights are plain JSON.
