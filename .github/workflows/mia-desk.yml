@@ -39,6 +39,15 @@ on:
         default: 'trade'
         type: choice
         options:
+          # START HERE. Arms the desk with the allocation in `allocationUSD` below and
+          # opens the book. Until this is run once, every scheduled run exits immediately
+          # having done nothing: allocating capital is Roshan's decision, not a side
+          # effect of the workflow existing. It self-seeded $25,000 and executed 11 fills
+          # the first time round purely because the cron landed on main, which is exactly
+          # the behaviour this mode exists to prevent.
+          - arm
+          # Stops trading. Positions and history are kept, so it is reversible.
+          - disarm
           - trade
           # Decides and prints, writes nothing. The safe way to see what she WOULD do.
           - dry-run
@@ -46,6 +55,10 @@ on:
           # point of the desk is an unbroken record of decisions, so this throws away the
           # only copy of it. Manual only, never reachable from the cron.
           - reset
+      allocationUSD:
+        description: 'For mode=arm only: how much of your portfolio to hand the desk, in USD'
+        required: false
+        default: ''
 
 # Mia gets her OWN group rather than sharing 'live-ledger'.
 #
@@ -103,6 +116,24 @@ jobs:
       # versa here, but the Live ledger workflow lost two months of LSE and XETRA rows to
       # exactly this shortcut ('predict-LSE-XETRA' contains 'predict-LSE'), so the pattern
       # is banned in this repo regardless of whether today's values happen to be safe.
+      # Arm/disarm run BEFORE the trading step so a single dispatch can arm and then let
+      # the next scheduled run trade. They are exact-equality guarded like everything else
+      # in this repo.
+      - name: Arm the desk with an allocation
+        if: steps.mode.outputs.mode == 'arm'
+        run: |
+          set -e
+          alloc="${{ github.event.inputs.allocationUSD }}"
+          if [ -z "$alloc" ]; then
+            echo "::error title=No allocation::mode=arm needs allocationUSD. Re-run and enter how much of your portfolio the desk should trade."
+            exit 1
+          fi
+          python -m bot.run --arm "$alloc"
+
+      - name: Disarm the desk
+        if: steps.mode.outputs.mode == 'disarm'
+        run: python -m bot.run --disarm
+
       - name: Run the desk
         id: desk
         if: steps.mode.outputs.mode == 'trade'

@@ -41,5 +41,8 @@
     "temperature": 0.2
   },
   "enabled": true,
-  "notes": "Paper money. No broker connection exists and none is planned."
+  "notes": "Paper money. No broker connection exists and none is planned.",
+  "armed": false,
+  "allocationUSD": null,
+  "armedAt": null
 }

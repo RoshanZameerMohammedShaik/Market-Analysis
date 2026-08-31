@@ -153,6 +153,17 @@ def main():
             'markets': cfg.get('markets'),
             'enabled': cfg.get('enabled', True),
             'reseedDeadSleeves': cfg.get('reseedDeadSleeves'),
+            # The UI switches between the Start button and the live desk on `armed`. It is
+            # a fact about configuration, not an event, so it belongs here and not in the
+            # run log -- the disarmed desk deliberately records no runs at all, because an
+            # hourly "still not armed" row would be 24 commits a day of nothing happening.
+            'armed': bool(cfg.get('armed')),
+            'armedAt': cfg.get('armedAt'),
+            'allocationUSD': cfg.get('allocationUSD'),
+            # What the Start dialog pre-fills. NOT a seed: nothing is opened until the user
+            # picks an amount.
+            'suggestedUSD': cfg.get('seedUSD'),
+            'minAllocationUSD': 400.0,
         },
         'equityCurve': curve[-args.runs:],
         'trades': trades[-args.trades:][::-1],   # newest first: the UI reads top-down

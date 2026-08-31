@@ -51,8 +51,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 from bot.broker import CASH, BrokerAccount, broker_fees_usd            # noqa: E402
-from bot.config import BOT_DIR, load_config, sleeve_defs               # noqa: E402
-from bot.portfolio import BotAccount, Sleeve, utc_now_iso              # noqa: E402
+from bot.config import BOT_DIR, CONFIG_PATH, load_config, sleeve_defs  # noqa: E402
+from bot.portfolio import MIN_TRADE_USD, BotAccount, Sleeve, utc_now_iso  # noqa: E402
 from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
 import bot.strategies as strategies                                    # noqa: E402
 
@@ -152,17 +152,47 @@ def candidate_universe(cfg, held, live_markets):
 
 
 # ── account bootstrap ────────────────────────────────────────────────────────
+# Four sleeves split the allocation evenly, and each sleeve still has to clear
+# portfolio.MIN_TRADE_USD per fill. Below this the pot cannot buy anything and the desk
+# would look broken rather than small.
+MIN_ALLOCATION_USD = 400.0
+
+
+def set_armed(armed, allocation_usd):
+    """Persist the arm state into model/bot/config.json.
+
+    Written to the CONFIG rather than to state.json because it is a user decision, not
+    accounting. It has to survive a --reset (which wipes the book) without the desk
+    silently re-arming itself, and it has to be readable by the browser: the UI reads it
+    back out of timeline.json to decide whether to show the Start button or the desk.
+    """
+    with open(CONFIG_PATH, encoding='utf-8') as f:
+        cfg = json.load(f)
+    cfg['armed'] = bool(armed)
+    cfg['allocationUSD'] = round(float(allocation_usd), 2) if allocation_usd else None
+    cfg['armedAt'] = utc_now_iso() if armed else None
+    tmp = CONFIG_PATH + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(cfg, f, indent=2, allow_nan=False)
+    os.replace(tmp, CONFIG_PATH)
+
+
 def load_or_create(cfg):
     acct = BotAccount.load(STATE_PATH)
     if acct:
         return acct, False
+    # Seeded from the allocation the USER chose, never from a default in the config file.
+    # cfg['seedUSD'] survives only as the amount the UI pre-fills in the Start dialog; if
+    # it were still the seed, deploying the workflow would open a book on its own, which
+    # is exactly what happened the first time.
+    alloc = float(cfg['allocationUSD'])
     defs = sleeve_defs()
-    per = float(cfg['seedUSD']) / len(defs)
+    per = alloc / len(defs)
     sleeves = {d['id']: Sleeve(d['id'], d['name'], cash_usd=per, blurb=d['blurb'])
                for d in defs}
-    log(f'creating account: ${cfg["seedUSD"]:,.0f} across {len(defs)} sleeves '
-        f'(${per:,.0f} each)')
-    return BotAccount(seed_usd=float(cfg['seedUSD']), sleeves=sleeves), True
+    log(f'opening the book Roshan allocated: ${alloc:,.2f} across {len(defs)} sleeves '
+        f'(${per:,.2f} each)')
+    return BotAccount(seed_usd=alloc, sleeves=sleeves), True
 
 
 class PrecomputedLLM:
@@ -248,6 +278,11 @@ def main():
     ap.add_argument('--reset', action='store_true', help='wipe the account back to seed')
     ap.add_argument('--skip-advise', action='store_true',
                     help='reuse the last _advice.json (for debugging only)')
+    ap.add_argument('--arm', type=float, metavar='USD',
+                    help='START the desk with this allocation, in USD. Until this is run '
+                         'the desk does nothing at all.')
+    ap.add_argument('--disarm', action='store_true',
+                    help='stop the desk trading. Keeps positions and history.')
     args = ap.parse_args()
 
     cfg = load_config()
@@ -262,8 +297,50 @@ def main():
         log('account reset: state, trades and runs removed')
         return
 
+    if args.disarm:
+        set_armed(False, None)
+        log('DISARMED. The desk will not trade until it is armed again. Positions and '
+            'history are left untouched.')
+        return
+
+    if args.arm is not None:
+        amount = float(args.arm)
+        if amount < MIN_ALLOCATION_USD:
+            log(f'refusing to arm with ${amount:,.2f}: below the ${MIN_ALLOCATION_USD:,.0f} '
+                f'minimum. Four sleeves split the allocation, and each one still has to clear '
+                f'the ${MIN_TRADE_USD:.0f} minimum trade size, so a smaller pot cannot trade.')
+            sys.exit(1)
+        if os.path.exists(STATE_PATH):
+            log('refusing to arm: the desk already has an account. Use --reset first if you '
+                'really want to start over, which permanently discards the trade history.')
+            sys.exit(1)
+        set_armed(True, amount)
+        log(f'ARMED with ${amount:,.2f}. The desk will begin trading on its next scheduled '
+            f'run.')
+        return
+
     if not cfg.get('enabled', True):
         log('disabled in config; nothing to do')
+        return
+
+    # ── the desk does NOTHING until Roshan starts it ──
+    #
+    # It used to self-seed from cfg['seedUSD'] the first time load_or_create found no
+    # state.json, which meant merely landing the cron on main was enough to open a
+    # $25,000 book and execute 11 fills. Nobody asked it to. Allocating capital is the
+    # user's decision, not a side effect of deploying a workflow.
+    #
+    # Deliberately returns WITHOUT recording a run row. An hourly "still not armed" row
+    # would append 24 rows a day, and every one would be a commit and a possible
+    # Cloudflare Pages build, so the disarmed state would cost more than the running one.
+    # The UI reads `armed` out of the config block in timeline.json instead, which is a
+    # fact about configuration and does not belong in a log of things that happened.
+    if not cfg.get('armed'):
+        log('NOT ARMED. Waiting for a starting allocation. Nothing to do.')
+        return
+    if not cfg.get('allocationUSD'):
+        log('armed but allocationUSD is missing or zero; refusing to trade on an '
+            'undefined pot.')
         return
 
     # ── session gate ──
