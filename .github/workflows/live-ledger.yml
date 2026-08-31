@@ -343,12 +343,21 @@ jobs:
             esac
           }
 
+          # Capture the LAST push's stderr for the annotation. Job logs return 403 to
+          # non-admins, so an "All push attempts exhausted" step failure was previously
+          # invisible from outside; the annotation surfaces the real reason (rejected,
+          # non-fast-forward, ref-locked, credentials, etc.) through the check-runs API.
+          last_push_err=""
           for attempt in 1 2 3 4 5; do
-            if git push; then
+            if push_err=$(git push 2>&1); then
               echo "Pushed on attempt $attempt"
+              echo "$push_err"
               exit 0
             fi
-            echo "Push attempt $attempt rejected; pulling origin/main..."
+            last_push_err="$push_err"
+            echo "Push attempt $attempt rejected. git push stderr:"
+            echo "$push_err"
+            echo "Pulling origin/main..."
             git fetch origin main
             if git rebase origin/main; then
               echo "Rebase clean on attempt $attempt; pushing again."
@@ -391,4 +400,9 @@ jobs:
             sleep $((attempt * 2))
           done
           echo "All push attempts exhausted."
+          # Surface the ACTUAL failure so the next red run does not need repo-admin log
+          # access to diagnose. GitHub's annotation UI collapses newlines and clips at 300ish
+          # chars; feed it the last stderr, which is where the real reason lives.
+          one_line=$(printf '%s' "$last_push_err" | tr '\n' ' | ' | cut -c1-400)
+          echo "::error title=Ledger push exhausted::task=$TASK, 5 pushes rejected. Last git push stderr: $one_line"
           exit 1

@@ -30,6 +30,10 @@
          specificity and the redesign silently does nothing. -->
     <link rel="stylesheet" href="css/design-system.css">
     <link rel="stylesheet" href="css/components.css">
+    <!-- Mia 2.0's desk, inside the Portfolio panel. After components.css because it
+         styles new classes rather than overriding existing ones, so order only matters
+         for the tokens it consumes from design-system.css. -->
+    <link rel="stylesheet" href="css/mia-desk.css">
     <!-- Fonts. --num-font pointed at JetBrains Mono but the font was never
          actually loaded, so every price in the app fell back to the platform
          default monospace. preconnect (not just dns-prefetch) because the

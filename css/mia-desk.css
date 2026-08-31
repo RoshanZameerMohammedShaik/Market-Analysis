@@ -1,0 +1,633 @@
+/* Mia 2.0 auto-trading desk (js/ui/mia-desk-panel.js).
+ *
+ * Its own file rather than an append to components.css: this is one self-contained
+ * feature and keeping it separate means it can be reasoned about, and reverted, without
+ * touching 1,200 lines of unrelated component CSS.
+ *
+ * Loaded AFTER components.css. Everything below is expressed in Vault tokens, so all six
+ * themes work with zero per-theme overrides -- the moment a literal hex appears here, one
+ * of the light themes breaks.
+ */
+
+.mia-desk {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    /* Reads as a distinct book from the practice portfolio above it, which is the whole
+       point: two ledgers, never one blended number. */
+    background: var(--bg-sunken);
+}
+
+.desk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.desk-title {
+    font-family: var(--font-display);
+    font-size: var(--fs-md);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-heading);
+    background: var(--brand-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.desk-title-sub {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-medium);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    /* Needed because the parent sets -webkit-text-fill-color: transparent for the gradient
+       clip, and that inherits. Without resetting it the subtitle renders invisible. */
+    -webkit-text-fill-color: var(--text-muted);
+}
+
+.desk-badge {
+    flex: none;
+    padding: 3px 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    background: var(--bg-card);
+}
+
+/* hero: equity, P/L, sparkline
+   -------------------------------------------------------------------------- */
+
+.desk-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-card);
+}
+
+.desk-hero-label {
+    display: block;
+    font-size: var(--fs-2xs);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.desk-hero-value {
+    display: block;
+    font-family: var(--num-font);
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+    line-height: var(--lh-tight);
+}
+
+.desk-hero-pnl {
+    font-family: var(--num-font);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+}
+
+.desk-hero-pnl.pos,
+.desk-board-val.pos,
+.desk-realized.pos { color: var(--green); }
+
+.desk-hero-pnl.neg,
+.desk-board-val.neg,
+.desk-realized.neg { color: var(--red); }
+
+.desk-hero-pct { opacity: 0.75; font-weight: var(--fw-medium); }
+
+.desk-spark { width: 120px; height: 34px; flex: none; }
+.desk-spark.pos { color: var(--green); }
+.desk-spark.neg { color: var(--red); }
+
+/* pills
+   -------------------------------------------------------------------------- */
+
+.desk-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.desk-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: var(--bg-card);
+    font-size: var(--fs-2xs);
+}
+
+.desk-pill-k { color: var(--text-muted); }
+
+.desk-pill-v {
+    font-family: var(--num-font);
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+}
+
+.desk-pill[title] { cursor: help; }
+
+/* heartbeat
+   -------------------------------------------------------------------------- */
+
+.desk-heartbeat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 10px;
+    font-size: var(--fs-2xs);
+    color: var(--text-secondary);
+}
+
+.desk-hb-dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--green);
+    animation: desk-pulse 2.4s var(--ease-out) infinite;
+}
+
+.desk-heartbeat.stale { color: var(--yellow); }
+
+.desk-heartbeat.stale .desk-hb-dot {
+    background: var(--yellow);
+    /* A desk that has stopped running must not look alive. */
+    animation: none;
+}
+
+@keyframes desk-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(var(--green-rgb), 0.55); }
+    70%  { box-shadow: 0 0 0 7px rgba(var(--green-rgb), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--green-rgb), 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .desk-hb-dot { animation: none; }
+}
+
+.desk-note,
+.desk-msg-sub {
+    margin: 8px 0 0;
+    font-size: var(--fs-2xs);
+    line-height: var(--lh-normal);
+    color: var(--text-muted);
+}
+
+.desk-msg {
+    padding: 14px 0;
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+}
+
+.desk-msg .portfolio-action-btn { margin-top: 8px; }
+
+/* combined totals
+   -------------------------------------------------------------------------- */
+
+.desk-combined {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+}
+
+.desk-combined-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: var(--fs-2xs);
+    color: var(--text-secondary);
+}
+
+.desk-combined-row .num {
+    font-family: var(--num-font);
+    color: var(--text-primary);
+}
+
+.desk-combined-row.total {
+    margin-top: 5px;
+    padding-top: 7px;
+    border-top: 1px solid var(--border);
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+}
+
+/* sections
+   -------------------------------------------------------------------------- */
+
+.desk-section { margin-top: 18px; }
+
+.desk-h4 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.desk-h4-count {
+    font-family: var(--num-font);
+    font-weight: var(--fw-medium);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* leaderboard
+   -------------------------------------------------------------------------- */
+
+.desk-board { display: flex; flex-direction: column; gap: 7px; }
+
+.desk-board-row {
+    display: grid;
+    grid-template-columns: 1fr 72px auto;
+    grid-template-areas:
+        "name bar val"
+        "meta meta meta";
+    align-items: center;
+    gap: 3px 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+}
+
+/* The benchmark is the bar to clear, not a rival, so it reads as furniture. */
+.desk-board-row.is-control {
+    background: var(--bg-sunken);
+    opacity: 0.88;
+}
+
+.desk-board-name {
+    grid-area: name;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+}
+
+.desk-board-tag {
+    font-style: normal;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-medium);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.desk-board-tag.win {
+    color: var(--green);
+    border-color: rgba(var(--green-rgb), 0.4);
+    background: var(--green-bg);
+}
+
+/* A DIVERGING bar: zero is the centre, gains grow right, losses grow left.
+ *
+ * It was a plain left-anchored bar whose length was the ABSOLUTE return, which meant a
+ * sleeve down 5% and one up 5% drew the identical bar and only the colour distinguished
+ * them. Length that ignores sign is worse than no bar, because length is the first thing
+ * the eye reads. */
+.desk-board-bar {
+    grid-area: bar;
+    position: relative;
+    height: 6px;
+    border-radius: var(--radius-pill);
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    overflow: hidden;
+}
+
+/* The zero line. Without it a diverging bar is unreadable: there is no way to tell a small
+   gain from a small loss without a reference. */
+.desk-board-bar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--border-strong);
+}
+
+.desk-board-fill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    /* Minimum visible width so a tiny-but-real return is still a mark rather than nothing.
+       The number beside it carries the precision; the bar only has to show direction. */
+    min-width: 2px;
+}
+
+.desk-board-fill.pos {
+    left: 50%;
+    background: var(--green);
+    border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+
+.desk-board-fill.neg {
+    right: 50%;
+    background: var(--red);
+    border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+
+.desk-board-val {
+    grid-area: val;
+    font-family: var(--num-font);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-bold);
+}
+
+.desk-board-meta {
+    grid-area: meta;
+    font-family: var(--num-font);
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+}
+
+/* timeline
+   -------------------------------------------------------------------------- */
+
+.desk-timeline {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* The rail is what makes this read as a timeline rather than a list of cards. */
+    padding-left: 14px;
+}
+
+.desk-timeline::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 6px;
+    bottom: 6px;
+    width: 1px;
+    background: linear-gradient(180deg, var(--border-strong), transparent);
+}
+
+.desk-entry {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    transition: border-color var(--dur-fast) var(--ease-out),
+                box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.desk-entry::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 14px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--border-strong);
+}
+
+.desk-entry:hover {
+    border-color: var(--border-accent);
+    box-shadow: var(--shadow-card);
+}
+
+.desk-entry.open { border-color: var(--border-accent); }
+
+.desk-entry.open::before {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.desk-entry-head {
+    display: block;
+    width: 100%;
+    padding: 10px 11px;
+    background: none;
+    border: 0;
+    border-radius: inherit;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+}
+
+.desk-entry-head:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.desk-entry-line1 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.desk-act {
+    flex: none;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: 0.05em;
+}
+
+.desk-act.buy {
+    color: var(--green);
+    background: var(--green-bg);
+    border: 1px solid rgba(var(--green-rgb), 0.35);
+}
+
+.desk-act.sell {
+    color: var(--red);
+    background: var(--red-bg);
+    border: 1px solid rgba(var(--red-rgb), 0.35);
+}
+
+.desk-sym {
+    font-family: var(--num-font);
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+    color: var(--text-primary);
+}
+
+.desk-notional {
+    font-family: var(--num-font);
+    font-size: var(--fs-xs);
+    color: var(--text-secondary);
+}
+
+.desk-realized {
+    font-family: var(--num-font);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    margin-left: auto;
+}
+
+.desk-caret {
+    flex: none;
+    width: 0;
+    height: 0;
+    margin-left: auto;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid var(--text-muted);
+    transition: transform var(--dur-fast) var(--ease-out);
+}
+
+/* A BUY has no realized figure, so the caret takes the auto margin. A SELL does, and then
+   the realized figure takes it -- without this the two would fight for the same slot and
+   sit on top of each other. */
+.desk-realized ~ .desk-caret { margin-left: 7px; }
+
+.desk-entry.open .desk-caret { transform: rotate(180deg); }
+
+.desk-entry-line2 {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
+}
+
+.desk-entry-line2 time {
+    font-family: var(--num-font);
+    margin-left: auto;
+}
+
+.desk-chip {
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--accent-soft);
+    border: 1px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-weight: var(--fw-medium);
+}
+
+.desk-chip.subtle {
+    background: var(--bg-sunken);
+    border-color: var(--border);
+    color: var(--text-muted);
+    font-family: var(--num-font);
+}
+
+.desk-why {
+    display: block;
+    margin-top: 7px;
+    font-size: var(--fs-2xs);
+    line-height: var(--lh-normal);
+    color: var(--text-secondary);
+}
+
+/* expanded detail
+   -------------------------------------------------------------------------- */
+
+.desk-entry-body {
+    display: none;
+    padding: 0 11px 11px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border);
+}
+
+.desk-entry.open .desk-entry-body { display: block; }
+
+.desk-kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    margin: 10px 0 0;
+    font-size: var(--fs-2xs);
+}
+
+.desk-kv dt { color: var(--text-muted); }
+.desk-kv dt[title] { cursor: help; }
+
+.desk-kv dd {
+    margin: 0;
+    text-align: right;
+    font-family: var(--num-font);
+    color: var(--text-primary);
+}
+
+.desk-info {
+    display: inline-block;
+    margin-left: 3px;
+    width: 11px;
+    height: 11px;
+    line-height: 11px;
+    text-align: center;
+    font-size: 8px;
+    border-radius: 50%;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    vertical-align: text-top;
+}
+
+.desk-evidence {
+    margin-top: 11px;
+    padding-top: 9px;
+    border-top: 1px dashed var(--border);
+}
+
+.desk-evidence-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.desk-evidence-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3px 10px;
+    font-size: var(--fs-2xs);
+}
+
+.desk-ev-k { color: var(--text-muted); }
+
+.desk-ev-v {
+    text-align: right;
+    font-family: var(--num-font);
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.desk-more {
+    width: 100%;
+    margin-top: 9px;
+}

@@ -21,6 +21,7 @@ import { COMMON_CURRENCIES, getRateToUSD, fromUSDCached, warmCommonRates } from 
 import { subscribe, refreshStockPrices, isCryptoSymbol } from '../portfolio/pricing.js';
 import { sell as tradeSell, unrealizedPnL } from '../portfolio/trade.js';
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';
+import { initMiaDesk, setPracticeTotalUSD } from './mia-desk-panel.js';
 import { controlSelectSymbol } from '../mia/ui-bridge.js';
 import { flashShimmer } from './flash-shimmer.js';
 import { notify } from './notify.js';
@@ -64,6 +65,7 @@ export function initPortfolioPanel() {
     document.addEventListener('ma:portfolio-changed', () => {
         rebindLiveSubs();
         renderPanel();
+        pushPracticeTotal();
     });
     // FX rate pre-warming used to run unconditionally here, fetching 20
     // currencies the user might never look at. Now we defer the warm
@@ -72,6 +74,22 @@ export function initPortfolioPanel() {
     // stock snapshots, no portfolio math. The bare empty-state panel
     // renders fine without any of that.
     renderPanel();
+    // Mia's desk is independent of whether a practice portfolio exists: her book lives in
+    // the repo, not localStorage, so it has something to show even on a first visit.
+    initMiaDesk();
+    pushPracticeTotal();
+}
+
+/** Hand the desk the practice portfolio's current total so it can show the combined figure.
+ *
+ *  Pushed rather than pulled to keep the import one-directional. Sends null when there is
+ *  no portfolio, so the desk can say "not loaded" instead of implying a real $0.00. */
+function pushPracticeTotal() {
+    if (!isInstantiated()) {
+        setPracticeTotalUSD(null);
+        return;
+    }
+    setPracticeTotalUSD(getPortfolio().cashUSD + computeHoldingsUSD());
 }
 
 function ensurePanelMounted() {
@@ -87,7 +105,11 @@ function ensurePanelMounted() {
         </div>
         <div class="portfolio-panel-scroll">
             <div class="portfolio-body" id="portfolio-body"></div>
+            <div class="mia-desk" id="mia-desk"></div>
         </div>`;
+    // #mia-desk sits OUTSIDE #portfolio-body on purpose. renderPanel() replaces the body's
+    // innerHTML wholesale, which would wipe the desk on every portfolio change and collapse
+    // any timeline entry the user had expanded. Separate containers keep the two independent.
     // Delegated click handler on the panel itself so even if the close
     // button is re-rendered or the SVG inside swallows pointer-events,
     // we still catch it. (Kept the direct listener too for redundancy.)
@@ -333,6 +355,9 @@ function updateTotals() {
         stats[3].classList.toggle('pos', pnlUSD >= 0);
         stats[3].classList.toggle('neg', pnlUSD < 0);
     }
+    // Keep the desk's "Combined" line honest on every tick. It patches two cells rather
+    // than re-rendering, so an expanded timeline entry stays expanded.
+    setPracticeTotalUSD(totalUSD);
 }
 
 // ── click handlers ────────────────────────────────────────────────────

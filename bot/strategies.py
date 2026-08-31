@@ -307,12 +307,23 @@ class MiaAIStrategy(Strategy):
             if isinstance(p, (int, float)) and p >= floor:
                 ranked.append((p, c))
         for p, c in sorted(ranked, key=lambda t: -t[0]):
+            # 'aiScore' used to be recorded here as ai.get('score'), reading the `ai` name
+            # left bound by the EXIT loop above. Python does not scope loop variables, so
+            # every BUY intent was stamped with the last-iterated candidate's score: two
+            # fills with probabilities 0.72 and 0.65 both recorded aiScore 34, a number
+            # belonging to neither. Caught by reading the rendered timeline, not by any test.
+            #
+            # Rather than re-derive it from `c`, the field is GONE. advise.mjs defines
+            # probability as score/100, so the two were the same number twice, and a value
+            # stored twice is a value that can disagree with itself. One number, one source.
+            # The engine sleeve still records aiScore, correctly derived inline, because there
+            # it cross-references a DIFFERENT model's opinion and is not a duplicate.
             out.append(Intent(
                 'BUY', c['symbol'],
                 f'My model puts a {p * 100:.0f}% chance on this rising, above my '
                 f'{floor * 100:.0f}% bar. (LSTM only: no Gemini key configured, so this '
                 f'is the model talking, not my judgement.)',
-                {'aiProbability': p, 'brain': 'lstm', 'aiScore': ai.get('score'),
+                {'aiProbability': p, 'brain': 'lstm',
                  'threshold': floor, 'rule': 'ai-entry'},
                 conviction=float(p)))
         return out
