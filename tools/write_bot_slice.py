@@ -77,6 +77,23 @@ def read_json(path):
         return None
 
 
+def _content_changed(payload):
+    """Does the new payload differ from what is on disk, ignoring generatedAt?
+
+    Returns True when there is no existing file or it is unreadable, so a corrupt or missing
+    slice is always rebuilt rather than left broken.
+    """
+    if not os.path.exists(OUT_PATH):
+        return True
+    try:
+        with open(OUT_PATH, encoding='utf-8') as f:
+            old = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return True
+    strip = lambda d: {k: v for k, v in d.items() if k != 'generatedAt'}
+    return strip(old) != strip(payload)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--trades', type=int, default=200,
@@ -171,6 +188,23 @@ def main():
     }
 
     os.makedirs(BOT_DIR, exist_ok=True)
+
+    # Rewrite ONLY when something other than the clock changed.
+    #
+    # generatedAt moves on every single run, so an unconditional write made the file differ
+    # every hour even when the desk was disarmed and had done literally nothing. The cron
+    # dutifully committed that one-line timestamp diff: 24 commits a day of no information,
+    # each one a candidate Cloudflare Pages build against a 500/month budget. Being idle cost
+    # more than trading.
+    #
+    # The comparison excludes generatedAt on both sides, so a genuine change (a fill, a new
+    # run row, arming) still publishes immediately, while a no-op leaves the file untouched
+    # and `git diff --cached --quiet` in the workflow correctly finds nothing to commit.
+    if not _content_changed(payload):
+        print(f'{os.path.relpath(OUT_PATH, REPO)} unchanged apart from the timestamp; '
+              f'left alone so the cron has nothing to commit')
+        return 0
+
     tmp = OUT_PATH + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         # allow_nan=False: bare NaN is invalid JSON and silently breaks every browser
