@@ -104,9 +104,7 @@ DEFAULTS = {
     # ── universe ─────────────────────────────────────────────────────────────
     # Mia trades a liquid subset, not the full 924-name ledger universe. Costs are the
     # reason: below $5 the round trip is 0.80% and climbing, which no measured edge in
-    # this project comes close to covering.
-    'minPriceUSD': 5.0,
-    'maxPriceUSD': 2000.0,               # avoids single-share-per-order absurdities
+    # this project comes close to covering.               # avoids single-share-per-order absurdities
     # Crypto trades continuously; equities only inside their own sessions. bot/sessions.py
     # is the gate. Other venues are deliberately absent until their fees are modelled:
     # UK stamp duty alone is 0.5% on every purchase, larger than any edge measured
@@ -129,15 +127,13 @@ DEFAULTS = {
     # ── decision thresholds ──────────────────────────────────────────────────
     # Deliberately demanding. The engine's measured 1-day skill is zero against the
     # majority-class baseline, so a low bar produces churn, not returns.
-    'signals': {
-        'engineBuyScore': 62.0,          # weightedScore needed to open
-        'engineSellScore': 42.0,         # below this, close
-        'reversionRsiBuy': 32.0,
-        'reversionRsiSell': 62.0,
-        'aiMinConfidence': 0.58,         # Mia's own stated confidence to act
-        'takeProfitPct': 8.0,
-        'stopLossPct': 5.0,
-    },
+    # NO 'signals' BLOCK. Entry and exit thresholds are computed per run from the
+    # cross-section in bot/dynamic.py, not configured. They used to live here as seven
+    # hardcoded numbers (score >= 62, RSI <= 32, TP +8%, SL -5%, ...) that I picked and never
+    # validated; an absolute level stops describing the market the day after it is chosen,
+    # and a fixed percentage cannot be right for a 0.9%-sigma large cap and a 6%-sigma
+    # altcoin at the same time. Keeping them here would invite editing a number nothing
+    # reads.
 
     # ── cadence ──────────────────────────────────────────────────────────────
     # GitHub Actions crons fire every 5 minutes at BEST and are routinely delayed
@@ -226,7 +222,6 @@ def validate(cfg):
         cfg['commissionPlan'] = PLAN_PRO_TIERED
 
     clamp('seedUSD', 100.0, 10_000_000.0)
-    clamp('minPriceUSD', 0.01, 10_000.0)
     clamp('maxCandidates', 5, 500)
     clamp('risk.maxPositionPct', 1.0, 50.0)
     clamp('risk.maxPositions', 1, 50)
@@ -235,8 +230,10 @@ def validate(cfg):
     clamp('risk.minHoldMinutes', 0, 10_080)
     clamp('risk.dailyLossHaltPct', 0.5, 50.0)
     clamp('risk.cashFloorPct', 0.0, 90.0)
-    clamp('signals.takeProfitPct', 0.5, 200.0)
-    clamp('signals.stopLossPct', 0.5, 90.0)
+    # No signals.* clamps. Those thresholds are computed per run, not configured, and the
+    # clamp helper walks the path with setdefault -- so validating a key that no longer
+    # exists silently RECREATED an empty 'signals' dict in the loaded config, making it look
+    # like the setting was still live. A validator for a dead setting is worse than none.
     clamp('ai.temperature', 0.0, 2.0)
     clamp('benchmarkRatePct', 0.0, 25.0)
 

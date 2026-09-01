@@ -1,0 +1,135 @@
+"""Assert the desk's thresholds are DERIVED, not typed in.
+
+Every entry and exit level used to be a constant in config.json. The point of
+bot/dynamic.py is that the same absolute reading means different things in different
+markets, so the test that matters most here is one a fixed threshold cannot pass: the SAME
+engine score has to be a buy in a weak tape and not a buy in a strong one.
+
+Run: python tools/bot_dynamic_check.py
+"""
+import os
+import sys
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, REPO)
+
+from bot.dynamic import (  # noqa: E402
+    ENTRY_PCTILE, CrossSection, exit_levels, exposure_scale, is_tradeable,
+    percentile, risk_parity_size_usd,
+)
+from trading_costs import round_trip_cost_pct  # noqa: E402
+
+PASS, FAIL = [], []
+
+
+def ck(name, cond, detail=''):
+    (PASS if cond else FAIL).append(name)
+    print(f"  {'PASS' if cond else 'FAIL'}  {name}"
+          + (f'  -> {detail}' if detail and not cond else ''))
+
+
+def universe(base_score, base_rsi, base_ai, n=20):
+    return {f'S{i}': {'symbol': f'S{i}', 'score': base_score + i, 'price': 10.0,
+                      'indicators': {'rsi': base_rsi + i, 'atrPct': 2.0},
+                      'ai': {'probability': base_ai + i / 100.0}}
+            for i in range(n)}
+
+
+print('=== percentile ===')
+ck('p50 of 1..9 is 5', percentile(range(1, 10), 0.5) == 5)
+ck('non-numeric values are ignored', percentile([1, None, float('nan'), 3], 0.5) == 2)
+ck('empty input is None', percentile([], 0.5) is None)
+
+print()
+print('=== the same score means different things in different markets ===')
+weak = CrossSection(universe(30, 20, 0.30))
+strong = CrossSection(universe(60, 50, 0.60))
+ck('a weak tape sets a lower entry bar',
+   weak.cut('score', ENTRY_PCTILE) < strong.cut('score', ENTRY_PCTILE),
+   f"{weak.cut('score', ENTRY_PCTILE)} vs {strong.cut('score', ENTRY_PCTILE)}")
+# THE test. A fixed "score >= 62" cannot distinguish these two cases at all, which is
+# exactly why it was the wrong shape of rule.
+ck('score 62 IS top-decile in the weak tape', 62 >= weak.cut('score', ENTRY_PCTILE))
+ck('score 62 is NOT top-decile in the strong tape',
+   62 < strong.cut('score', ENTRY_PCTILE), f"cut {strong.cut('score', ENTRY_PCTILE)}")
+ck('a thin universe refuses to rank',
+   CrossSection(universe(30, 20, 0.3, n=5)).rankable is False)
+ck('breadth is the median score', abs(weak.breadth() - 39.5) < 0.6, str(weak.breadth()))
+ck('the summary records the cuts actually used',
+   set(weak.summary()) >= {'scoreP90', 'rsiP10', 'breadthMedianScore', 'symbols'})
+
+print()
+print('=== exits scale with the instrument, not a flat percentage ===')
+calm = {'price': 100, 'indicators': {'atrPct': 1.0},
+        'band': {'calibrated': True, 'tier': 'calm', 'confidence': 80,
+                 'day1': {'low': 98, 'high': 102}}}
+wild = {'price': 100, 'indicators': {'atrPct': 6.0},
+        'band': {'calibrated': True, 'tier': 'active', 'confidence': 80,
+                 'day1': {'low': 88, 'high': 112}}}
+tc, sc, _ = exit_levels(calm, 100.0)
+tw, sw, _ = exit_levels(wild, 100.0)
+ck('a calm name gets a tight target', abs(tc - 102) < 0.01, str(tc))
+ck('a volatile name gets a wider target', tw > tc and abs(tw - 112) < 0.01, str(tw))
+ck('stops differ by volatility too', sw < sc, f'{sw} vs {sc}')
+# A stop anchored on the live price would ratchet upward as the price rose, so the position
+# could never show a loss. It has to be fixed relative to what was paid.
+ck('levels anchor on COST, not on current price',
+   abs(exit_levels(calm, 50.0)[0] - 51.0) < 0.01, str(exit_levels(calm, 50.0)[0]))
+ck('no band falls back to ATR',
+   exit_levels({'price': 100, 'indicators': {'atrPct': 3.0}}, 100.0)[2]['source'] == 'atr')
+ck('no band and no ATR invents no level', exit_levels({'price': 100}, 100.0)[0] is None)
+ck('a degenerate band is rejected',
+   exit_levels({'price': 100, 'band': {'day1': {'low': 101, 'high': 102}}}, 100.0)[0] is None)
+
+print()
+print('=== size by risk, not by notional ===')
+lo = risk_parity_size_usd(10000, 8, 1.0, 12.0)
+hi = risk_parity_size_usd(10000, 8, 6.0, 12.0)
+ck('a low-vol name gets a bigger notional', lo > hi, f'{lo:.0f} vs {hi:.0f}')
+ck('6x the volatility is ~1/6 the size', abs(lo / hi - 6) < 0.1, f'ratio {lo / hi:.2f}')
+ck('an unmeasurable name does NOT get the largest bite',
+   risk_parity_size_usd(10000, 8, None, 12.0) == 1250)
+ck('a suspiciously calm name is floored',
+   risk_parity_size_usd(10000, 8, 0.0001, 12.0) <= 10000 * 0.12 / 8 / 0.0025 + 1)
+ck('zero equity sizes nothing', risk_parity_size_usd(0, 8, 2.0, 12.0) == 0.0)
+
+print()
+print('=== breadth throttle: ranking alone is always fully invested ===')
+hist = list(range(40, 60))
+ck('the worst breadth on record shrinks exposure', exposure_scale(39, hist) < 0.3,
+   str(exposure_scale(39, hist)))
+ck('the best breadth on record is full size', exposure_scale(61, hist) == 1.0)
+ck('no history means full size, not paralysis', exposure_scale(50, []) == 1.0)
+ck('too little history means full size', exposure_scale(50, [1, 2, 3]) == 1.0)
+
+print()
+print('=== a name must be able to pay for its own round trip ===')
+# Sub-penny: roughly a 5% half-spread each side, so it needs a large expected move to earn
+# a place in the universe at all.
+cheap = {'symbol': 'X-USD', 'entry': 0.004,
+         'forecastBand': {'days': [{'day': 1, 'widthPct': 1.0}]}}
+ck('a wide-spread name with a small expected move is refused',
+   is_tradeable(cheap, round_trip_cost_pct)[0] is False,
+   str(is_tradeable(cheap, round_trip_cost_pct)))
+rich = {'symbol': 'BTC-USD', 'entry': 78000.0,
+        'forecastBand': {'days': [{'day': 1, 'widthPct': 4.0}]}}
+# The old maxPriceUSD 2000 excluded BTC outright, which was never a real constraint: the
+# desk trades fractional units.
+ck('a four-figure price is NOT excluded',
+   is_tradeable(rich, round_trip_cost_pct)[0] is True,
+   str(is_tradeable(rich, round_trip_cost_pct)))
+ck('a name with no band yet is admitted rather than frozen out',
+   is_tradeable({'symbol': 'NEW', 'entry': 25.0}, round_trip_cost_pct)[0] is True)
+ck('no price means no trade', is_tradeable({'symbol': 'Z'}, round_trip_cost_pct)[0] is False)
+# The band's width is a volatility interval, not a directional forecast. Calling the ratio
+# an "edge" would repeat the mislabelling that produced a believed-in 71.6% accuracy.
+ck('the ratio is not called an edge',
+   'moveToCostRatio' in (is_tradeable(rich, round_trip_cost_pct)[2] or {}),
+   str(is_tradeable(rich, round_trip_cost_pct)[2]))
+
+print()
+print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
+      f'{len(PASS)} passed, {len(FAIL)} failed')
+if FAIL and os.environ.get('GITHUB_ACTIONS'):
+    print(f"::error title=bot_dynamic_check::{'; '.join(FAIL[:6])}")
+sys.exit(1 if FAIL else 0)

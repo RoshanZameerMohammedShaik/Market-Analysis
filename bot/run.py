@@ -55,6 +55,9 @@ from bot.config import BOT_DIR, CONFIG_PATH, load_config, sleeve_defs  # noqa: E
 from bot.portfolio import MIN_TRADE_USD, BotAccount, Sleeve, utc_now_iso  # noqa: E402
 from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
 import bot.strategies as strategies                                    # noqa: E402
+from bot.dynamic import (CrossSection, exposure_scale, is_tradeable,  # noqa: E402
+                         risk_parity_size_usd)
+from trading_costs import round_trip_cost_pct                          # noqa: E402
 
 STATE_PATH = os.path.join(BOT_DIR, 'state.json')
 TRADES_PATH = os.path.join(BOT_DIR, 'trades.jsonl')
@@ -122,15 +125,23 @@ def candidate_universe(cfg, held, live_markets):
                     rows.append(r)
         src = 'year ledger (slow path)'
 
-    lo, hi = cfg['minPriceUSD'], cfg['maxPriceUSD']
-    best = {}
+    # ECONOMIC screen, not a price band. minPriceUSD/maxPriceUSD used to decide this, and
+    # both were wrong: maxPriceUSD 2000 excluded BTC and every four-figure name even though
+    # the desk trades fractional units, and minPriceUSD 5 was a crude proxy for "wide spread"
+    # while the spread is already charged properly on the fill. The real question is whether
+    # a name's expected move clears its own round trip, which is an identity rather than a
+    # tuned threshold. On the current universe this admits 264 names where the price band
+    # admitted 169, and every rejection has a reason attached.
+    best, skipped = {}, {}
     for r in rows:
         sym = r.get('symbol')
         if not sym or market_of(sym) not in live_markets:
             continue
-        px = r.get('entry')
-        if not isinstance(px, (int, float)) or not (lo <= px <= hi):
+        ok, why, _detail = is_tradeable(r, round_trip_cost_pct)
+        if not ok:
+            skipped[why] = skipped.get(why, 0) + 1
             continue
+        px = r.get('entry')
         score = r.get('weightedScore')
         if score is None:
             score = ((r.get('breakdown') or {}).get('technical') or {}).get('score')
@@ -146,9 +157,38 @@ def candidate_universe(cfg, held, live_markets):
     for s in held:
         if s not in picked and market_of(s) in live_markets:
             picked.append(s)
-    log(f'universe: {len(picked)} candidates from {len(best)} eligible '
+    log(f'universe: {len(picked)} candidates from {len(best)} tradeable '
         f'({src or "no ledger"}), markets={live_markets}')
+    if skipped:
+        log(f'  screened out: {skipped}')
     return picked
+
+
+def breadth_history(limit=60):
+    """Median engine score from previous runs, for the exposure throttle.
+
+    Read from runs.jsonl, which already records the cross-section summary, so nothing extra
+    has to be stored. Returns [] on a fresh desk, and exposure_scale treats an empty or short
+    history as "no opinion" and returns full size -- a new desk must trade normally rather
+    than refuse to until it has accumulated statistics.
+    """
+    if not os.path.exists(RUNS_PATH):
+        return []
+    out = []
+    try:
+        with open(RUNS_PATH, encoding='utf-8') as f:
+            rows = collections.deque(f, maxlen=limit)
+        for line in rows:
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            b = ((r.get('crossSection') or {}).get('breadthMedianScore'))
+            if isinstance(b, (int, float)):
+                out.append(b)
+    except OSError:
+        return []
+    return out
 
 
 # ── account bootstrap ────────────────────────────────────────────────────────
@@ -211,7 +251,8 @@ class PrecomputedLLM:
 
 
 # ── risk + broker gate ───────────────────────────────────────────────────────
-def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today):
+def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today,
+            snapshot=None):
     """(approved, size_usd, reason). Reason is recorded either way, because a refused
     intent is part of the audit trail Roshan asked for: seeing that a strategy WANTED to
     buy and the account said no is as informative as the fill."""
@@ -253,9 +294,34 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
                             f'be managed until the next session')
 
     equity = sleeve.equity_usd(prices)
-    # Conviction scales the bite, so a bare threshold pass is smaller than a strong signal.
+
+    # SIZE BY RISK, NOT BY NOTIONAL.
+    #
+    # A flat percentage of equity meant a 6%-sigma altcoin contributed roughly six times the
+    # portfolio variance of a 1%-sigma large cap, so the book's actual risk was decided by
+    # whichever volatile name happened to signal that run. Scaling notional by 1/sigma
+    # equalises the contribution across names.
+    #
+    # maxPositionPct stays as a hard CAP. It is a rail, not a signal: it bounds how wrong any
+    # single position can be, and a rail that moves with conditions is not a rail.
+    cand = ((snapshot or {}).get('candidates') or {}).get(sym) or {}
+    sigma_pct = (cand.get('indicators') or {}).get('atrPct')
+    parity = risk_parity_size_usd(equity, risk['maxPositions'], sigma_pct,
+                                  risk['maxPositionPct'])
+    # Conviction is a cross-sectional rank now, so this scales the bite by how good the name
+    # is relative to the alternatives that were actually available this run.
+    want = parity * (0.5 + 0.5 * intent.conviction)
+
+    # Breadth throttle. Pure ranking is always fully invested, because a top decile exists on
+    # the worst day of a bear market too. Exposure is scaled by where today's median score
+    # sits against the medians the ledger has already recorded, so a universally bad tape
+    # produces smaller positions rather than the same ones.
+    scale = exposure_scale((snapshot or {}).get('breadth'),
+                           (snapshot or {}).get('breadthHistory'))
+    want *= scale
+
     cap = equity * risk['maxPositionPct'] / 100.0
-    want = cap * (0.5 + 0.5 * intent.conviction)
+    want = min(want, cap)
     if intent.size_hint_pct:
         want = equity * float(intent.size_hint_pct) / 100.0
     floor_cash = equity * risk['cashFloorPct'] / 100.0
@@ -264,7 +330,15 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     if size < risk['minTradeUSD']:
         return False, 0.0, (f'size ${size:,.2f} below the ${risk["minTradeUSD"]:,.0f} '
                             f'minimum (cash ${sleeve.cash_usd:,.2f}, '
-                            f'floor ${floor_cash:,.2f})')
+                            f'floor ${floor_cash:,.2f}, atr {sigma_pct}, '
+                            f'exposure x{scale})')
+    intent.evidence.setdefault('sizing', {
+        'atrPct': round(sigma_pct, 3) if isinstance(sigma_pct, (int, float)) else None,
+        'riskParityUSD': round(parity, 2),
+        'exposureScale': scale,
+        'capUSD': round(cap, 2),
+        'finalUSD': round(size, 2),
+    })
     ok, why = broker.check_buy(size, sleeve.cash_usd, equity)
     if not ok:
         return False, 0.0, why
@@ -427,7 +501,18 @@ def main():
         return
 
     prices = {s: c['price'] for s, c in fresh.items()}
-    snapshot = {'prices': prices, 'candidates': fresh}
+    # Build the run's distribution ONCE and share it with every sleeve, so they rank
+    # against the same market instead of each forming its own view of it. Every entry and
+    # exit threshold is now read off this rather than out of config.
+    cross = CrossSection(fresh)
+    snapshot = {'prices': prices, 'candidates': fresh, 'cross': cross,
+                'breadth': cross.breadth(),
+                'breadthHistory': breadth_history()}
+    log(f'cross-section: {cross.n} symbols, rankable={cross.rankable}, '
+        f'breadth(median score)={cross.breadth()}')
+    if not cross.rankable:
+        log(f'WARNING: fewer than the minimum needed to rank; sleeves fall back on '
+            f'absolute engine semantics this run')
     mia_block = advice.get('mia') or {}
     strat = strategies.build(cfg, llm=(PrecomputedLLM(mia_block.get('decisions'))
                                        if mia_block.get('brain') == 'gemini' else None))
@@ -474,7 +559,8 @@ def main():
                                            f'reached', 'why': it.why})
                 continue
             traded_today = int(meta['tradesToday'].get(sid, 0))
-            ok, size, why = approve(it, sleeve, broker, cfg, prices, meta, today, traded_today)
+            ok, size, why = approve(it, sleeve, broker, cfg, prices, meta, today,
+                                    traded_today, snapshot)
             if not ok:
                 refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
                                  'reason': why, 'why': it.why,
@@ -498,7 +584,8 @@ def main():
         return
 
     write_fills(fills)
-    record_run(cfg, acct, started, live, closed, fills, refusals, dry=False, advice=advice)
+    record_run(cfg, acct, started, live, closed, fills, refusals, dry=False, advice=advice,
+               cross_summary=cross.summary())
     save_state(acct, prices, broker)
     # The workflow gates the site publish on this, so a run that changed nothing does not
     # burn a Cloudflare Pages build.
@@ -577,7 +664,7 @@ def write_fills(fills):
 
 
 def record_run(cfg, acct, started, live, closed, fills, refusals, note=None, dry=False,
-               advice=None):
+               advice=None, cross_summary=None):
     """One row per run, including runs that traded nothing.
 
     Without this a quiet week is indistinguishable from a dead cron, and the gap between
@@ -605,6 +692,10 @@ def record_run(cfg, acct, started, live, closed, fills, refusals, note=None, dry
         'gapMinutes': prev_gap,
         'openMarkets': live, 'closedMarkets': closed,
         'analysed': (advice or {}).get('analysed', 0),
+        # The distribution the run's decisions were made against. Without this a threshold
+        # that moves every run is unauditable: there would be no way to replay why a name
+        # cleared the bar on Tuesday and not on Wednesday.
+        'crossSection': cross_summary,
         'miaBrain': ((advice or {}).get('mia') or {}).get('brain'),
         'fills': len(fills), 'refusals': len(refusals),
         'refusalReasons': refusals[:25],

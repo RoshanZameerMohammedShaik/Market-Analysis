@@ -157,3 +157,29 @@ jobs:
       # input_size mismatch if the model is ever retrained at 11 features.
       - name: Check AI inference parity (JS vs Python)
         run: python tools/ai_sync_check.py
+
+  # Mia 2.0's desk. These three existed but were registered in NO workflow, so 88 account
+  # and broker assertions had never once run in CI -- they only ever passed because I ran
+  # them by hand. A test that is not wired up is documentation.
+  bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy
+
+      # FIFO lots, cost basis, realized P/L, sleeve isolation.
+      - name: Check the desk's accounting
+        run: python tools/bot_account_check.py
+
+      # Commissions, T+1 settlement, unsettled cash, PDT counting, margin interest.
+      - name: Check the broker rules
+        run: python tools/bot_broker_check.py
+
+      # The thresholds are derived rather than configured. The load-bearing assertion is
+      # that the SAME engine score is a buy in a weak tape and not a buy in a strong one,
+      # which no fixed threshold can satisfy.
+      - name: Check the thresholds are dynamic
+        run: python tools/bot_dynamic_check.py

@@ -130,17 +130,41 @@ async function analyse(symbol) {
     }
 }
 
-// Sequential on purpose. Yahoo rate-limits aggressively and the existing cron already
-// carries retry/backoff scars from hammering it; 60 symbols at ~500ms is under a minute,
-// which is far inside the cadence.
+// BOUNDED CONCURRENCY.
+//
+// This was sequential, which was right when the universe was capped at 60 names: ~1.36s each
+// measured, so about 80 seconds. The cap is gone -- Roshan asked for the whole universe to be
+// reviewed -- and 264 tradeable names sequentially is roughly six minutes, which does not fit
+// a near-real-time loop.
+//
+// A small pool rather than Promise.all over everything: Yahoo rate-limits aggressively and
+// this repo already carries retry/backoff scars from hammering it (one run degraded into a
+// 3h17m hang). Five in flight is a large speedup over one while staying far below the rate at
+// which the ledger cron started getting empty responses. Each worker still fails
+// independently, so one bad ticker cannot abort the pass.
+const CONCURRENCY = 5;
 const candidates = {};
 const failures = [];
-for (const sym of (req.universe || [])) {
+const queue = [...(req.universe || [])];
+let cursor = 0;
+
+async function worker() {
+  while (cursor < queue.length) {
+    const sym = queue[cursor++];
     const a = await analyse(sym);
-    if (!a) { failures.push({ symbol: sym, error: 'no data' }); continue; }
-    if (a.error) { failures.push(a); continue; }
+    absorb(sym, a);
+  }
+}
+
+function absorb(sym, a) {
+    if (!a) { failures.push({ symbol: sym, error: 'no data' }); return; }
+    // `return`, not `continue`: this used to be the body of a for-loop and moving it into a
+    // function turned the loop keyword into a syntax error.
+    if (a.error) { failures.push(a); return; }
     candidates[sym] = a;
 }
+
+await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
 
 // ── Mia's own judgement ──────────────────────────────────────────────────────
 /**

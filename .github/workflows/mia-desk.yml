@@ -29,7 +29,18 @@ on:
   schedule:
     # On the hour. Deliberately offset from every Live ledger cron (:00 vs :05/:35/:50)
     # so the two workflows are unlikely to be pushing at the same moment.
-    - cron: '0 * * * *'
+    # Every FIVE hours, and each job then trades in a loop for ~4h50m. Overlapping
+    # long-lived jobs, not hourly one-shots.
+    #
+    # Hourly cron was the wrong shape twice over. Actions delivered it every 2-3 hours in
+    # practice -- 00:00 and 01:00 were skipped outright and 03:00 never fired at all -- so
+    # the advertised cadence was fiction. And a cron cannot go below 5 minutes anyway, which
+    # is nowhere near "watch the position". Doing the waiting INSIDE the job costs one cron
+    # delivery per five hours instead of 24, and the loop's own pacing is then reliable.
+    #
+    # 5h spacing against a ~4h50m runtime gives continuous cover with margin, and the
+    # concurrency group below serialises any overlap rather than doubling up.
+    - cron: '0 */5 * * *'
 
   workflow_dispatch:
     inputs:
@@ -78,6 +89,9 @@ concurrency:
 jobs:
   desk:
     runs-on: ubuntu-latest
+    # Actions hard-kills a job at 6h. The loop stops itself at 4h50m; this is the backstop
+    # if that arithmetic is ever wrong, and it must stay comfortably under 360.
+    timeout-minutes: 320
     permissions:
       contents: write
     steps:
@@ -134,7 +148,23 @@ jobs:
         if: steps.mode.outputs.mode == 'disarm'
         run: python -m bot.run --disarm
 
-      - name: Run the desk
+      # THE TRADING LOOP.
+      #
+      # One cycle = scan every tradeable name in the open markets, decide, execute. A cycle
+      # currently measures ~21s for 41 crypto names and would be ~2min for the full 264 when
+      # equities are open too, so the pace is set by the scan rather than by the sleep.
+      #
+      # Commits happen ONLY when trades.jsonl actually grew, i.e. when she filled something.
+      # Committing every cycle would be ~100 commits per job for a file whose only change is
+      # a timestamp, and each one is a candidate Cloudflare Pages build against a 500/month
+      # budget shared with the ledger. Fills are capped at 8/day by the risk rails, so this
+      # is bounded by design.
+      #
+      # SELL intents are deliberately NOT subject to the daily trade cap in approve(), so
+      # stop-loss and take-profit keep firing every cycle even after the entry budget is
+      # spent. That is the actual value of running continuously: entries do not improve with
+      # polling, but exits do.
+      - name: Trade in a loop
         id: desk
         if: steps.mode.outputs.mode == 'trade'
         env:
@@ -143,7 +173,57 @@ jobs:
           # three working strategies instead of failing. Sent as an x-goog-api-key HEADER,
           # never a query string, so it cannot land in a URL log.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python -m bot.run
+        run: |
+          set -uo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          END=$(( $(date +%s) + 17400 ))   # 4h50m
+          MIN_CYCLE=90                     # floor between cycle STARTS, seconds
+          cycles=0; commits=0
+
+          # Existence checked BEFORE the redirect: `wc -l < missing 2>/dev/null` still
+          # prints "No such file or directory", because the shell reports the failed
+          # redirection itself and 2>/dev/null only silences wc. On a fresh desk that is one
+          # spurious error line per cycle, ~200 per job.
+          fills_now() {
+            if [ -f model/bot/trades.jsonl ]; then wc -l < model/bot/trades.jsonl; else echo 0; fi
+          }
+
+          while [ "$(date +%s)" -lt "$END" ]; do
+            started=$(date +%s)
+            cycles=$(( cycles + 1 ))
+            before=$(fills_now)
+
+            # `|| true` is load-bearing. A single bad cycle -- a throttled quote feed, a
+            # transient Yahoo empty response -- must not end a 5-hour job and leave the desk
+            # unattended with open positions. The next cycle retries in 90 seconds.
+            python -m bot.run || echo "cycle $cycles failed; continuing"
+
+            after=$(fills_now)
+            if [ "$after" != "$before" ]; then
+              python tools/write_bot_slice.py || true
+              git add -A model/bot/ || true
+              if ! git diff --cached --quiet; then
+                # Publish on a fill: this is real news and worth a deploy.
+                git commit -q -m "chore(bot): $(( after - before )) fill(s) [skip actions]"
+                for a in 1 2 3; do
+                  if git push -q; then commits=$(( commits + 1 )); break; fi
+                  git fetch -q origin main && git rebase -q origin/main || {
+                    git rebase --abort 2>/dev/null || true
+                    git reset -q --hard origin/main
+                    break
+                  }
+                done
+              fi
+            fi
+
+            elapsed=$(( $(date +%s) - started ))
+            nap=$(( MIN_CYCLE - elapsed ))
+            [ "$nap" -gt 0 ] && sleep "$nap"
+          done
+          echo "Loop finished: $cycles cycles, $commits commit(s)."
+          echo "cycles=$cycles" >> "$GITHUB_OUTPUT"
 
       - name: Dry run (decide, write nothing)
         if: steps.mode.outputs.mode == 'dry-run'
