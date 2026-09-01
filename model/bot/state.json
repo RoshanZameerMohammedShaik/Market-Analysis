@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-01T10:02:40Z",
-  "runs": 14,
+  "updatedAt": "2026-09-01T10:30:55Z",
+  "runs": 33,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9660.249225,
-    "cashUSD": 4146.83746,
-    "holdingsUSD": 5513.411765,
+    "equityUSD": 9672.76315,
+    "cashUSD": 3847.240814,
+    "holdingsUSD": 5825.522337,
     "realizedUSD": -2.092676,
-    "unrealizedUSD": -337.658099,
-    "feesUSD": 51.222426,
-    "pnlUSD": -339.750775,
-    "pnlPct": -3.3975,
-    "trades": 21
+    "unrealizedUSD": -325.144174,
+    "feesUSD": 54.354805,
+    "pnlUSD": -327.23685,
+    "pnlPct": -3.2724,
+    "trades": 22
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1199.85741,
+      "cashUSD": 900.260764,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -71,11 +71,21 @@
               "openedAt": "2026-09-01T10:00:54Z"
             }
           ]
+        },
+        "METIS-USD": {
+          "units": 111.45273191572757,
+          "lots": [
+            {
+              "units": 111.45273191572757,
+              "costUSD": 299.20656136462185,
+              "openedAt": "2026-09-01T10:30:55Z"
+            }
+          ]
         }
       },
       "realizedUSD": 0.0,
-      "feesUSD": 13.251332,
-      "trades": 5
+      "feesUSD": 16.383711,
+      "trades": 6
     },
     "reversion": {
       "id": "reversion",
@@ -274,7 +284,7 @@
         "GOAT-USD": 58.86649317374859,
         "ILV-USD": 196.8941847323033,
         "MKR-USD": 0.19352913337023944,
-        "METIS-USD": 112.56560000451728,
+        "METIS-USD": 224.01833192024486,
         "RPL-USD": 186.66635267161317,
         "BTC-USD": 0.005338882639361581,
         "ETH-USD": 0.1696494004617218,
@@ -312,10 +322,11 @@
       "mia-ai:NEO-USD": "2026-09-01T09:50:41Z",
       "mia-ai:ETC-USD": "2026-09-01T09:56:26Z",
       "engine:DASH-USD": "2026-09-01T10:00:54Z",
-      "mia-ai:CVX-USD": "2026-09-01T10:02:40Z"
+      "mia-ai:CVX-USD": "2026-09-01T10:02:40Z",
+      "engine:METIS-USD": "2026-09-01T10:30:55Z"
     },
     "tradesToday": {
-      "engine": 5,
+      "engine": 6,
       "reversion": 5,
       "mia-ai": 8,
       "control": 3
