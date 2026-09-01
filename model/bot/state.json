@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-01T09:56:26Z",
-  "runs": 10,
+  "updatedAt": "2026-09-01T10:00:54Z",
+  "runs": 13,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9656.762088,
-    "cashUSD": 4457.211406,
-    "holdingsUSD": 5199.550682,
+    "equityUSD": 9658.567207,
+    "cashUSD": 4272.212496,
+    "holdingsUSD": 5386.354711,
     "realizedUSD": -2.092676,
-    "unrealizedUSD": -341.145236,
-    "feesUSD": 49.099985,
-    "pnlUSD": -343.237912,
-    "pnlPct": -3.4324,
-    "trades": 19
+    "unrealizedUSD": -339.340117,
+    "feesUSD": 49.726544,
+    "pnlUSD": -341.432793,
+    "pnlPct": -3.4143,
+    "trades": 20
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1384.85632,
+      "cashUSD": 1199.85741,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -61,11 +61,21 @@
               "openedAt": "2026-09-01T09:44:28Z"
             }
           ]
+        },
+        "DASH-USD": {
+          "units": 4.095343208805344,
+          "lots": [
+            {
+              "units": 4.095343208805344,
+              "costUSD": 184.64890978730722,
+              "openedAt": "2026-09-01T10:00:54Z"
+            }
+          ]
         }
       },
       "realizedUSD": 0.0,
-      "feesUSD": 12.624773,
-      "trades": 4
+      "feesUSD": 13.251332,
+      "trades": 5
     },
     "reversion": {
       "id": "reversion",
@@ -263,7 +273,8 @@
         "INJ-USD": 53.86786176624838,
         "CAKE-USD": 160.20963394076216,
         "NEO-USD": 145.91204430825582,
-        "ETC-USD": 40.88646910374845
+        "ETC-USD": 40.88646910374845,
+        "DASH-USD": 4.095343208805344
       }
     },
     "lastAccrual": "2026-09-01",
@@ -288,10 +299,11 @@
       "mia-ai:ILV-USD": "2026-09-01T09:44:28Z",
       "mia-ai:CAKE-USD": "2026-09-01T09:44:28Z",
       "mia-ai:NEO-USD": "2026-09-01T09:50:41Z",
-      "mia-ai:ETC-USD": "2026-09-01T09:56:26Z"
+      "mia-ai:ETC-USD": "2026-09-01T09:56:26Z",
+      "engine:DASH-USD": "2026-09-01T10:00:54Z"
     },
     "tradesToday": {
-      "engine": 4,
+      "engine": 5,
       "reversion": 5,
       "mia-ai": 7,
       "control": 3
