@@ -240,6 +240,29 @@ function render() {
         return;
     }
 
+    // ARMED BUT NOT YET TRADED. A real state with a real screen: arming only writes the
+    // allocation, and the book is opened by the next scheduled run. Without this the panel
+    // rendered a hero reading "n/a", an empty leaderboard and no heartbeat, which looks
+    // broken rather than pending.
+    if (!slice.totals || !slice.sleeves) {
+        const cfg = slice.config || {};
+        host.innerHTML = shell(`
+            <div class="desk-start">
+                <p class="desk-start-lead">Armed with ${money(cfg.allocationUSD)}.</p>
+                <p class="desk-msg-sub">Her book opens on the next scheduled run, then this
+                   fills with her positions and the reason for every trade. Crypto is always
+                   open; stocks wait for their own market hours.</p>
+                ${cfg.armedAt
+                    ? `<p class="desk-msg-sub">Started ${escapeHtml(fmtRelative(cfg.armedAt))}.</p>`
+                    : ''}
+                <div class="desk-footer">
+                    <button class="desk-linkbtn danger" id="desk-stop" type="button">Stop auto-trading</button>
+                    ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
+                </div>
+            </div>`);
+        return;
+    }
+
     const t = slice.totals || {};
     const pnl = num(t.pnlUSD);
     const cls = pnl >= 0 ? 'pos' : 'neg';
@@ -612,7 +635,7 @@ function num(x) { return Number.isFinite(x) ? x : 0; }
 
 function money(usd, dp = 2) {
     const v = Number(usd);
-    if (!Number.isFinite(v)) return '—';
+    if (!Number.isFinite(v)) return 'n/a';
     return `$${v.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
 }
 
@@ -624,7 +647,7 @@ function signed(v, dp = 2, asMoney = false) {
 
 function fmtUnits(n) {
     const v = Number(n);
-    if (!Number.isFinite(v)) return '—';
+    if (!Number.isFinite(v)) return 'n/a';
     if (v >= 100) return v.toFixed(2);
     if (v >= 1) return v.toFixed(4);
     return v.toFixed(8);
@@ -639,7 +662,7 @@ function prettyKey(k) {
 }
 
 function fmtEvidence(v) {
-    if (v == null) return '—';
+    if (v == null) return 'n/a';
     if (typeof v === 'boolean') return v ? 'yes' : 'no';
     if (typeof v === 'number') {
         // Whole numbers stay whole; fractions get enough precision to be meaningful without

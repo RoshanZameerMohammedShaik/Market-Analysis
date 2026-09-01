@@ -111,7 +111,16 @@ export async function fetchWithProxy(url) {
     const directBlockedHosts = /^([^.]+\.)?(news\.google\.com|reddit\.com)$/i;
     let urlHost = '';
     try { urlHost = new URL(url).hostname; } catch (_) {}
-    const tryDirect = !yahoo && !directBlockedHosts.test(urlHost);
+
+    // CORS is a BROWSER policy. Node has none, so every host in directBlockedHosts is
+    // reachable directly there and the proxy chain is not just unnecessary but harmful:
+    // it was the reason Mia's desk got zero news. news.google.com answers a plain fetch
+    // from Node with HTTP 200 and 100 items, while the proxy chain failed and tripped the
+    // breaker, so crypto sentiment -- which has no Yahoo fallback -- was always empty.
+    // Detected by capability rather than by a NODE env var, so it is correct in a browser,
+    // in Node, and in a worker without anyone having to remember to set a flag.
+    const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+    const tryDirect = !yahoo && (!isBrowser || !directBlockedHosts.test(urlHost));
     if (tryDirect) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });

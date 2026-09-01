@@ -85,7 +85,18 @@ async function analyse(symbol) {
         const price = md.daily.currentPrice ?? candles[candles.length - 1]?.close;
         if (!(price > 0)) return null;
 
-        const r = await computeFullConfidence(md, 'stock', symbol, 'today',
+        // MODE matters, and 'stock' was hardcoded for every symbol including crypto. The
+        // engine routes its news lookup on it, so BTC-USD was being sent to
+        // fetchStockNews('BTC-USD') -- a stock-news query for a ticker no stock headline
+        // ever contains -- instead of fetchCryptoNews. Combined with the DOMParser and
+        // proxy problems, that is why the sentiment source scored a flat 50 across the
+        // whole universe.
+        //
+        // Crypto is also given its BASE name: news talks about "Bitcoin", never about
+        // "BTC-USD", and the relevance filter matches on the name it is handed.
+        const isCrypto = /-USD$/i.test(symbol);
+        const newsKey = isCrypto ? symbol.replace(/-USD$/i, '') : symbol;
+        const r = await computeFullConfidence(md, isCrypto ? 'crypto' : 'stock', newsKey, 'today',
                                               { bulkScan: true });
         const ind = r.indicatorSnapshot || {};
         const b = r.breakdown || {};

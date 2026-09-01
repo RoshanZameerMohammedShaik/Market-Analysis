@@ -66,7 +66,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const ai = aiResult.status === 'fulfilled' ? aiResult.value : { score: 50, available: false };
     const news = newsItems.status === 'fulfilled' ? newsItems.value : [];
     const sentiment = await analyzeNewsSentiment(news);
-    const market = marketResult.status === 'fulfilled' ? marketResult.value : { score: 50, reasons: [] };
+    const market = marketResult.status === 'fulfilled' ? marketResult.value
+        : { score: 50, available: false, reasons: ['Market conditions unavailable'] };
 
     let regime = null;
     if (mode === 'stock') {
@@ -95,7 +96,44 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const macroStrength = regimeStrengthFromVix(currentVix, regime?.regime);
     weights = applyWeightShifts(weights, regime?.regime, trendRegime, attributionShifts(), { trendStrength, macroStrength });
 
-    const weightedScore = ai.score * weights.ai + technicalScore * weights.technical + sentiment.score * weights.sentiment + market.score * weights.market;
+    // RENORMALISE OVER LIVE SOURCES, so the score always spans the full 0-100.
+    //
+    // This used to be a flat weighted sum over all four sources whether or not they had
+    // anything to say, and the consequence was measured rather than theoretical: on a
+    // 41-symbol crypto scan, sentiment returned the constant 50 for every single name and
+    // market returned 67 for 40 of 41. Together they hold half the weight, so half of every
+    // score was a fixed +29.25 offset carrying no information.
+    //
+    // The scores could therefore only span 42.6 to 60.9 out of 0-100 -- an 18-point sliver
+    // in the middle of the scale. Any absolute threshold was being applied to a compressed
+    // axis: the old engineBuyScore of 62 sat ABOVE the observed maximum, so on that universe
+    // it could never have fired at all.
+    //
+    // Abstaining is not the same as voting neutral. A source with no data now drops out and
+    // its weight is redistributed across the rest, which is what market.js already does
+    // internally for its own components. When technical and ai are the only live sources
+    // their 0.35/0.15 becomes 0.70/0.30 and the score uses its whole range.
+    const sources = [
+        { key: 'ai', score: ai.score, available: ai.available === true },
+        { key: 'technical', score: technicalScore, available: Number.isFinite(technicalScore) },
+        { key: 'sentiment', score: sentiment.score, available: sentiment.available === true },
+        { key: 'market', score: market.score, available: market.available === true },
+    ];
+    const liveSources = sources.filter(
+        s => s.available && Number.isFinite(s.score) && (weights[s.key] || 0) > 0);
+    const liveWeightSum = liveSources.reduce((sum, s) => sum + weights[s.key], 0);
+    // 50 only when NOTHING is available, which means genuinely no opinion rather than a
+    // blend that happens to average out.
+    const weightedScore = liveWeightSum > 0
+        ? liveSources.reduce((sum, s) => sum + s.score * (weights[s.key] / liveWeightSum), 0)
+        : 50;
+    // Effective weights after redistribution, surfaced so the UI and the ledger can show
+    // what actually drove a score instead of the nominal configured split.
+    const effectiveWeights = {};
+    for (const s of sources) {
+        effectiveWeights[s.key] = liveWeightSum > 0 && liveSources.includes(s)
+            ? weights[s.key] / liveWeightSum : 0;
+    }
 
     // ALL thresholds below are LEARNED from the live ledger by
     // calibration-thresholds.js. No hardcoded magic numbers.
@@ -115,9 +153,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     else if (weightedScore < thresh.sellScoreThreshold && rawConfidence >= thresh.commitFloorConfidence) finalSignal = 'SELL';
     else finalSignal = 'NEUTRAL';
 
-    const sourceScores = [technicalScore, sentiment.score, market.score];
-    if (ai.available) sourceScores.push(ai.score);
-    const dispersion = Math.max(...sourceScores) - Math.min(...sourceScores);
+    // LIVE sources only. Including abstainers inflated this badly: a pinned sentiment of 50
+    // against a technical of 18 reported a 49-point "disagreement" between one real reading
+    // and one source that had no opinion, which then docked confidence via the dispersion
+    // penalty for a conflict that did not exist.
+    const sourceScores = liveSources.map(s => s.score);
+    const dispersion = sourceScores.length > 1
+        ? Math.max(...sourceScores) - Math.min(...sourceScores) : 0;
     // Dispersion penalty bands learned from the ledger — see
     // calibration-thresholds.js. Previously hardcoded as
     // 50/35/25 → 12/7/3, those numbers were guesses. The learner
@@ -133,9 +175,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // from calibration-thresholds.js (learned from the ledger).
     let unanimousBonus = 0;
     if (finalSignal === 'BUY' || finalSignal === 'SELL') {
-        const all = [technicalScore, sentiment.score, market.score];
-        if (ai.available) all.push(ai.score);
-        const allAgree = finalSignal === 'BUY'
+        // Again LIVE only. A constant 50 from an abstaining source could never clear the
+        // bullish cutoff, so the unanimous-agreement bonus was close to unreachable
+        // regardless of how strongly the real sources agreed.
+        const all = liveSources.map(s => s.score);
+        const allAgree = all.length > 0 && finalSignal === 'BUY'
             ? all.every(s => s > thresh.unanimousAgreementCutoff)
             : all.every(s => s < thresh.sellAgreementCutoff);
         if (allAgree) {
@@ -155,7 +199,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // abstaining ones). The dock magnitude reuses the learned
     // dispersion penalty scale so we introduce no new magic numbers.
     const consensus = computeConsensus(
-        { ai: ai.available ? ai.score : null, technical: technicalScore, sentiment: sentiment.score, market: market.score },
+        // null means "did not vote". Passing an abstaining source's placeholder 50 made it
+        // look like a contradicting vote against any committed signal.
+        Object.fromEntries(sources.map(s => [s.key, liveSources.includes(s) ? s.score : null])),
         finalSignal,
         thresh,
     );
@@ -638,7 +684,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         breakdown: {
             ai: { score: ai.score, available: ai.available, weight: weights.ai * 100, modelTier: ai.modelTier || 'main' },
             technical: { score: technicalScore, weight: weights.technical * 100 },
-            sentiment: { score: sentiment.score, weight: weights.sentiment * 100 },
+            sentiment: { score: sentiment.score, weight: effectiveWeights.sentiment * 100,
+                         available: sentiment.available === true, method: sentiment.method },
             market: { score: market.score, weight: weights.market * 100 },
         },
         news: sentiment.items || news.map(n => ({ title: n.title, date: n.date, source: n.source, url: n.url || null, sentiment: { label: 'neutral', score: 0 } })),

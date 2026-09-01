@@ -79,9 +79,15 @@ function recencyWeight(date) {
 
 export async function analyzeNewsSentiment(newsItems) {
     if (!newsItems || newsItems.length === 0) {
+        // available:false is the load-bearing field. score 50 here means "we have nothing
+        // to say", NOT "we looked and it is balanced", and those must not be treated alike:
+        // a source with no information was still taking 25% of the weighted score and
+        // dragging every symbol toward neutral. computeFullConfidence now renormalises over
+        // available sources, so this abstains instead of voting 50.
         return {
             overall: 'neutral',
             score: 50,
+            available: false,
             items: [],
             reasons: ['No recent news available'],
             method: 'none',
@@ -181,6 +187,8 @@ export async function analyzeNewsSentiment(newsItems) {
     return {
         overall,
         score: score100,
+        // Real headlines were read and scored, so this source has earned its weight.
+        available: true,
         items: analyzed,
         reasons,
         method,

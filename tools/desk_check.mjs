@@ -57,6 +57,17 @@ await new Promise(r => server.listen(PORT, r));
 await mkdir(OUT, { recursive: true });
 
 const PASS = [], FAIL = [];
+
+/** First line of `text` matching `re`, for failure detail.
+ *
+ *  Splits on a one-character STRING, not a regex. Every regex spelling of "newline" written
+ *  into this file arrived mangled, leaving a real line break inside the literal and an
+ *  unparseable module. A trailing carriage return is trimmed per line instead, which handles
+ *  CRLF without the escape that kept breaking.
+ */
+const firstLineMatching = (text, re) =>
+    (String(text || '').split('\n')
+        .map(l => l.replace(/\r$/, '')).find(l => re.test(l)) || '');
 const check = (name, cond, detail = '') => {
     (cond ? PASS : FAIL).push(name);
     console.log(`  ${cond ? 'PASS' : 'FAIL'}  ${name}${!cond && detail ? `  -> ${detail}` : ''}`);
@@ -89,6 +100,37 @@ for (const theme of THEMES) {
     await page.waitForSelector('#mia-desk .desk-hero, #mia-desk .desk-start',
                                { timeout: 30000 });
     await page.waitForTimeout(400);   // let the slide-in settle before capturing
+
+    // Three legitimate states, not two: not started, armed-and-waiting, and trading.
+    // Asserting the trading state's contents against a waiting desk produced eight failures
+    // that were all really one missing UI state.
+    const waiting = await page.evaluate(() =>
+        /Armed with/i.test(document.querySelector('.desk-start-lead')?.textContent || ''));
+    if (waiting) {
+        console.log(`
+=== ${theme} (ARMED, AWAITING FIRST RUN) ===`);
+        const d = await page.evaluate(() => ({
+            lead: document.querySelector('.desk-start-lead')?.textContent.trim() || '',
+            text: document.getElementById('mia-desk')?.innerText || '',
+            canStop: !!document.getElementById('desk-stop'),
+        }));
+        console.log(`  lead        ${d.lead}`);
+        if (firstRun) {
+            check('states the allocation it was armed with', /\$[\d,]+/.test(d.lead), d.lead);
+            check('explains that the book opens on the next run',
+                  /next scheduled run/i.test(d.text));
+            check('offers a way to stop', d.canStop);
+            check('shows no n/a placeholders in this state', !/n\/a/.test(d.text),
+                  firstLineMatching(d.text, /n\/a/));
+            check('no NaN or undefined', !/NaN|undefined/.test(d.text));
+            firstRun = false;
+        }
+        const elw = await page.$('#portfolio-panel');
+        await elw.screenshot({ path: join(OUT, `desk-${theme}-armed-waiting.png`) });
+        console.log(`  shot        desk-${theme}-armed-waiting.png`);
+        await ctx.close();
+        continue;
+    }
 
     const armed = await page.$('#mia-desk .desk-hero') !== null;
     if (!armed) {
@@ -224,6 +266,20 @@ for (const theme of THEMES) {
 
         // INTERACTION. A details panel that never opens is the single most likely bug here,
         // and no static check would catch it.
+        //
+        // Guarded on there BEING an entry. An armed desk that has not filled anything yet
+        // renders zero timeline entries, and querySelector then returned null straight into
+        // getComputedStyle, which threw and took the whole harness down -- a test that
+        // crashes on a legitimate state is worse than no test.
+        const hasEntry = await page.$('.desk-entry .desk-entry-body') !== null;
+        if (!hasEntry) {
+            console.log('  SKIP  interaction checks: the desk has no fills yet');
+            firstRun = false;
+            const elx = await page.$('#portfolio-panel');
+            await elx.screenshot({ path: join(OUT, `desk-${theme}-nofills.png`) });
+            await ctx.close();
+            continue;
+        }
         const before = await page.evaluate(() =>
             getComputedStyle(document.querySelector('.desk-entry .desk-entry-body')).display);
         await page.click('.desk-entry .desk-entry-head');

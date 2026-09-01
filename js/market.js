@@ -208,11 +208,23 @@ export async function getMarketConditionsScore(mode = 'stock') {
     }
 
     const totalWeight = scores.reduce((sum, s) => sum + s.weight, 0);
-    const weightedScore = scores.reduce((sum, s) => sum + s.value * s.weight, 0) / totalWeight;
+    // Guard the divide. Every component here is a separate network call, so all three
+    // failing at once is entirely possible offline or during an outage, and 0/0 would have
+    // produced NaN -> a NaN weighted score -> invalid JSON in the ledger. That exact class
+    // of bug has already taken down the browser's calibration load once.
+    const available = scores.length > 0 && totalWeight > 0;
+    const weightedScore = available
+        ? scores.reduce((sum, s) => sum + s.value * s.weight, 0) / totalWeight
+        : 50;
 
     return {
         score: Math.round(weightedScore),  // 0-100 bullish scale
-        reasons,
+        // False when not one component resolved. computeFullConfidence renormalises over
+        // available sources, so an unreachable market feed abstains rather than voting a
+        // neutral 50 with a quarter of the total weight.
+        available,
+        componentsUsed: scores.length,
+        reasons: available ? reasons : ['Market conditions unavailable'],
         raw: { fg, vix: vixData, breadth: market },
     };
 }
