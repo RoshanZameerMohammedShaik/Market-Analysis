@@ -207,10 +207,33 @@ async function tryProxy(proxy, url) {
     return createTextResponse(text, res);
 }
 
+// Does this look like real data rather than a proxy's HTML error page?
+//
+// The guard is worth keeping: a CORS proxy that is rate-limiting returns HTTP 200 with an
+// HTML apology, and accepting that as data is how a scan silently fills with garbage. But it
+// used to allow ONLY JSON, XML and RSS, which rejected valid CSV -- so FRED's macro series
+// came back HTTP 200 with 209 KB of correct data and were thrown away, then the whole CORS
+// chain was burned trying to "fix" a response that was never broken.
+//
+// CSV is recognised structurally rather than by trusting a content-type header, because the
+// proxies rewrite headers. A first line of comma-separated tokens with no HTML tag start is
+// data; anything opening a tag is a page.
 function isValidResponse(text) {
     const trimmed = text.trim();
-    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<?xml') || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) return true;
-    return false;
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<?xml')
+        || trimmed.startsWith('<rss') || trimmed.startsWith('<feed')) return true;
+    return looksLikeCsv(trimmed);
+}
+
+function looksLikeCsv(trimmed) {
+    if (!trimmed || trimmed.startsWith('<')) return false;
+    const firstLine = trimmed.slice(0, 400).split('\n')[0];
+    if (!firstLine.includes(',')) return false;
+    // Needs a header AND at least one row, and no HTML tag near the top: a rate-limited
+    // proxy answers 200 with an HTML apology, and accepting that as data is how a scan
+    // silently fills with garbage.
+    if (!trimmed.includes('\n')) return false;
+    return !/<\s*(html|head|body|script)/i.test(trimmed.slice(0, 400));
 }
 
 function createTextResponse(text, originalRes) {

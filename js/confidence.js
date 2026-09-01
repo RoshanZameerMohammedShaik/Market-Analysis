@@ -10,6 +10,7 @@ import { fetchStockNews, fetchCryptoNews } from './news.js';
 import { calibrate, calibrateAsync, calibrateWithMeta, classifyTier, classifyVolTier, getCalibrationStatus, getHorizonCalibrations, regionFor } from './calibration.js';
 import { loadConformal, getInterval } from './conformal.js';
 import { getMacroRegime, regimeBias } from './regime.js';
+import { computeBeta, getBenchmarkCloses, getMacroScore, marketScoreForSymbol } from './macro.js';
 import { getSectorAdjustment } from './sectors.js';
 import { getYieldAdjustment } from './yields.js';
 import { getEarningsProximity, earningsCap } from './earnings.js';
@@ -54,10 +55,14 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const useIntraday = timeframe === 'today' && Array.isArray(multiData.hourly?.candles) && multiData.hourly.candles.length > 0;
     const aiCandles = useIntraday ? multiData.hourly.candles : multiData.daily.candles;
 
-    const [aiResult, newsItems, marketResult] = await Promise.allSettled([
+    // Macro and the beta benchmark join the same parallel batch. Both are cached market-wide
+    // in js/macro.js, so a 264-symbol scan pays for them ONCE rather than per symbol.
+    const [aiResult, newsItems, marketResult, macroResult, benchResult] = await Promise.allSettled([
         getAIPrediction(aiCandles, { tier, intraday: useIntraday }),
         mode === 'stock' ? fetchStockNews(symbolOrCoinId).catch(() => []) : fetchCryptoNews(symbolOrCoinId).catch(() => []),
         getMarketConditionsScore(mode),
+        getMacroScore(),
+        getBenchmarkCloses(mode),
     ]);
 
     const technicalPred = generateMultiTimeframePrediction(multiData, timeframe);
@@ -66,8 +71,32 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const ai = aiResult.status === 'fulfilled' ? aiResult.value : { score: 50, available: false };
     const news = newsItems.status === 'fulfilled' ? newsItems.value : [];
     const sentiment = await analyzeNewsSentiment(news);
-    const market = marketResult.status === 'fulfilled' ? marketResult.value
+    const conditions = marketResult.status === 'fulfilled' ? marketResult.value
         : { score: 50, available: false, reasons: ['Market conditions unavailable'] };
+    const macro = macroResult.status === 'fulfilled' ? macroResult.value
+        : { score: 50, available: false };
+
+    // MAKE THE MARKET SOURCE PER-SYMBOL.
+    //
+    // getMarketConditionsScore takes the MODE, not the symbol, so it returned the same number
+    // for every name -- measured at 67 for 40 of 41 in a scan. A constant cannot rank, and the
+    // desk now selects by cross-sectional rank, so a quarter of the weight was being spent on a
+    // term mathematically incapable of changing any ordering.
+    //
+    // Beta is the fix. A weak tape does not hurt every name equally: the market-wide reading is
+    // tilted by how sensitive THIS symbol actually is to the benchmark, measured on the candles
+    // already in hand. High beta amplifies the market's deviation from neutral in both
+    // directions; low beta is pulled toward 50 because the market matters less to it.
+    const benchCloses = benchResult.status === 'fulfilled' ? benchResult.value : [];
+    const ownCloses = (multiData?.daily?.candles || []).map(c => c.close);
+    const beta = computeBeta(ownCloses, benchCloses);
+    const market = marketScoreForSymbol(conditions, macro, beta);
+    // Keep the human-readable reasons from whichever inputs resolved.
+    market.reasons = [
+        ...(conditions.reasons || []),
+        ...(macro.reasons || []),
+        ...(beta != null ? [`Beta ${beta.toFixed(2)} to ${mode === 'crypto' ? 'BTC' : 'the S&P 500'}`] : []),
+    ];
 
     let regime = null;
     if (mode === 'stock') {
@@ -686,7 +715,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             technical: { score: technicalScore, weight: weights.technical * 100 },
             sentiment: { score: sentiment.score, weight: effectiveWeights.sentiment * 100,
                          available: sentiment.available === true, method: sentiment.method },
-            market: { score: market.score, weight: weights.market * 100 },
+            market: { score: market.score, weight: effectiveWeights.market * 100,
+                      available: market.available === true, beta: market.beta,
+                      marketWide: market.marketWide },
         },
         news: sentiment.items || news.map(n => ({ title: n.title, date: n.date, source: n.source, url: n.url || null, sentiment: { label: 'neutral', score: 0 } })),
         newsOverall: sentiment.overall,

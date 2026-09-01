@@ -158,6 +158,15 @@ jobs:
       - name: Check AI inference parity (JS vs Python)
         run: python tools/ai_sync_check.py
 
+      # Macro + beta. The load-bearing assertion is that two symbols with different betas get
+      # DIFFERENT market scores from the same market-wide reading -- the `market` source used
+      # to return one constant for the whole universe, which cannot affect a cross-sectional
+      # ranking at all. Network assertions here are tolerant: FRED being unreachable is an
+      # outage, not a defect, and a check that fails on someone else's downtime gets ignored
+      # and then deleted.
+      - name: Check macro regime and per-symbol beta
+        run: node tools/macro_check.mjs
+
   # Mia 2.0's desk. These three existed but were registered in NO workflow, so 88 account
   # and broker assertions had never once run in CI -- they only ever passed because I ran
   # them by hand. A test that is not wired up is documentation.
