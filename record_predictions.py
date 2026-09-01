@@ -159,6 +159,25 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         _add_diag('skipped-thin', symbol, f'len(close)={len(close)}')
         return ('skipped-thin', symbol)
 
+    # REFUSE a broken price feed rather than predicting on it.
+    #
+    # Yahoo returns a literal 0 close for some illiquid names: MOG-USD came back with 0 for
+    # four of its last five bars and 1.1e-07 on the other. That used to raise
+    # ZeroDivisionError, which at least skipped the symbol. Once the division was guarded
+    # the failure got WORSE rather than better -- MOG-USD, BABYDOGE-USD, LADYS-USD and
+    # BTT-USD all produced a confident SELL at score ~28, because RSI and MACD computed
+    # across a run of zeros look catastrophically bearish. A locked, graded, fabricated
+    # signal is far worse than a skipped symbol, and it would have quietly polluted the
+    # accuracy figures the whole project is measured on.
+    #
+    # A zero price is not a price. It means the feed had nothing, and the honest response is
+    # to have no opinion.
+    recent_bad = sum(1 for x in close[-10:] if not (x > 0))
+    if recent_bad:
+        _add_diag('skipped-bad-bars', symbol,
+                  f'{recent_bad} of the last 10 closes are zero or missing')
+        return ('skipped-bad-bars', symbol)
+
     # Stamped HERE, right after this symbol's own price came back, not once for
     # the whole region. A region run walks hundreds of symbols sequentially with
     # retries and sleeps, so it spans a long wall-clock window: NYSE writes 651

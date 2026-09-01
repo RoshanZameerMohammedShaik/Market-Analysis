@@ -424,11 +424,23 @@ def generate_prediction(candles):
 
     # 5-bar price momentum = momentum signal
     wmo = 1 * mom_tilt
-    total += wmo
     recent = closes[-5:]
-    momentum = (recent[-1] - recent[0]) / recent[0] * 100
-    if momentum > 2: bull += wmo
-    elif momentum < -2: bear += wmo
+    base = recent[0] if recent else 0.0
+    # Yahoo returns a literal 0 close for illiquid names -- MOG-USD came back with 0 for its
+    # last five bars and only 1.1e-07 on the sixth -- and dividing by it raised
+    # ZeroDivisionError that killed the ENTIRE prediction for that symbol. Not just a
+    # sub-penny problem: any halt or feed gap producing a zero bar did the same.
+    #
+    # `total += wmo` is inside the guard on purpose. Adding the component's weight to the
+    # denominator while it contributes nothing to bull or bear would dilute every other
+    # signal, which is the same defect that had sentiment voting a constant 50 for a quarter
+    # of the engine's weight. A component that cannot compute must abstain from the
+    # denominator too.
+    if base > 0:
+        total += wmo
+        momentum = (recent[-1] - base) / base * 100
+        if momentum > 2: bull += wmo
+        elif momentum < -2: bear += wmo
 
     if total == 0:
         return {'signal': 'NEUTRAL', 'confidence': 0, 'indicators': None}
