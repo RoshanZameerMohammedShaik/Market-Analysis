@@ -238,14 +238,31 @@ class BotAccount:
     def totals(self, prices):
         eq = sum(s.equity_usd(prices) for s in self.sleeves.values())
         cash = sum(s.cash_usd for s in self.sleeves.values())
+        # UNSETTLED SELL PROCEEDS ARE STILL OURS.
+        #
+        # In a cash account T+1 settlement means proceeds cannot be SPENT until they
+        # settle, so execute() removes them from the sleeve's cash and parks them in
+        # _pending_by_sleeve. That is correct for buying power and was silently wrong for
+        # net worth: totals() summed only cash_usd, so the money vanished from equity for a
+        # day and reappeared later as a phantom gain.
+        #
+        # Measured on the live desk: three sells parked $893.56, and the panel reported
+        # -8.73% when the positions were only -0.94% against cost. Nearly the entire
+        # reported loss was money the desk still had. Held out of buying power, counted in
+        # equity -- those are different questions and conflating them made the P/L a lie.
+        pending = sum(float(v or 0) for v in (getattr(self, '_pending_by_sleeve', None) or {}).values())
+        eq += pending
         realized = sum(s.realized_usd for s in self.sleeves.values())
         fees = sum(s.fees_usd for s in self.sleeves.values())
         trades = sum(s.trades for s in self.sleeves.values())
         pnl = eq - self.seed_usd
         return {
             'equityUSD': _round_money(eq),
+            # Spendable cash only, which is what a sizing decision must use.
             'cashUSD': _round_money(cash),
-            'holdingsUSD': _round_money(eq - cash),
+            # Reported separately so the difference is visible rather than inferred.
+            'unsettledCashUSD': _round_money(pending),
+            'holdingsUSD': _round_money(eq - cash - pending),
             'realizedUSD': _round_money(realized),
             'unrealizedUSD': _round_money(pnl - realized),
             'feesUSD': _round_money(fees),

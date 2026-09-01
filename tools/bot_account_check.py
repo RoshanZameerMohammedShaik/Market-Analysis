@@ -204,6 +204,40 @@ check('sorted best-first', all(lb[i]['pnlPct'] >= lb[i + 1]['pnlPct']
 check('the control sleeve is present so beta is visible',
       any(r['id'] == 'ctl' for r in lb))
 
+print('')
+print('=== unsettled sell proceeds leave BUYING POWER but stay in EQUITY ===')
+# The bug this pins down: in a cash account, execute() moves sell proceeds out of the
+# sleeve's cash into _pending_by_sleeve until T+1, which is correct for what can be SPENT.
+# totals() then summed only cash_usd, so the money vanished from net worth for a day and
+# reappeared later as a phantom gain. On the live desk it reported -8.73% while the
+# positions were only -0.94% against cost: almost the entire loss was money still owned.
+#
+# 38 assertions passed while this was broken, which is precisely why it needed its own.
+acct2 = BotAccount(seed_usd=10000.0, sleeves={
+    'a': Sleeve('a', 'A', cash_usd=4000.0),
+    'b': Sleeve('b', 'B', cash_usd=5000.0),
+})
+base = acct2.totals({})
+check('with nothing pending, equity is just cash',
+      approx(base['equityUSD'], 9000.0), str(base['equityUSD']))
+check('unsettled is reported even when zero', base.get('unsettledCashUSD') == 0.0,
+      str(base.get('unsettledCashUSD')))
+# Park proceeds exactly as execute() does after a sell.
+acct2._pending_by_sleeve = {'a': 600.0, 'b': 400.0}
+t2 = acct2.totals({})
+check('equity INCLUDES unsettled proceeds', approx(t2['equityUSD'], 10000.0),
+      f"expected 10000.00, got {t2['equityUSD']}")
+check('spendable cash EXCLUDES them', approx(t2['cashUSD'], 9000.0), str(t2['cashUSD']))
+check('unsettled is reported on its own', approx(t2['unsettledCashUSD'], 1000.0),
+      str(t2['unsettledCashUSD']))
+check('P/L is not a phantom loss', approx(t2['pnlUSD'], 0.0),
+      f"expected 0.00, got {t2['pnlUSD']}")
+check('holdings are not inflated by pending cash',
+      approx(t2['holdingsUSD'], 0.0), str(t2['holdingsUSD']))
+check('equity reconciles with its parts',
+      approx(t2['equityUSD'], t2['cashUSD'] + t2['unsettledCashUSD'] + t2['holdingsUSD']),
+      str(t2))
+
 print(f"\n{'BOT ACCOUNT CHECK PASS' if not FAIL else 'BOT ACCOUNT CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 sys.exit(1 if FAIL else 0)
