@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-01T09:44:28Z",
-  "runs": 2,
+  "updatedAt": "2026-09-01T09:50:41Z",
+  "runs": 6,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9658.083662,
-    "cashUSD": 5054.701036,
-    "holdingsUSD": 4603.382626,
+    "equityUSD": 9657.036832,
+    "cashUSD": 4755.682274,
+    "holdingsUSD": 4901.354558,
     "realizedUSD": -2.092676,
-    "unrealizedUSD": -339.823663,
-    "feesUSD": 44.463616,
-    "pnlUSD": -341.916338,
-    "pnlPct": -3.4192,
-    "trades": 17
+    "unrealizedUSD": -340.870492,
+    "feesUSD": 47.710201,
+    "pnlUSD": -342.963168,
+    "pnlPct": -3.4296,
+    "trades": 18
   },
   "sleeves": {
     "engine": {
@@ -112,7 +112,7 @@
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 1000.241925,
+      "cashUSD": 701.223164,
       "positions": {
         "MKR-USD": {
           "units": 0.19352913337023944,
@@ -163,11 +163,21 @@
               "openedAt": "2026-09-01T09:44:28Z"
             }
           ]
+        },
+        "NEO-USD": {
+          "units": 145.91204430825582,
+          "lots": [
+            {
+              "units": 145.91204430825582,
+              "costUSD": 298.5080693459849,
+              "openedAt": "2026-09-01T09:50:41Z"
+            }
+          ]
         }
       },
       "realizedUSD": 0.0,
-      "feesUSD": 13.582642,
-      "trades": 5
+      "feesUSD": 16.829227,
+      "trades": 6
     },
     "control": {
       "id": "control",
@@ -241,7 +251,8 @@
         "YFI-USD": 0.18694820480447571,
         "AVAX-USD": 41.17652733327112,
         "INJ-USD": 53.86786176624838,
-        "CAKE-USD": 160.20963394076216
+        "CAKE-USD": 160.20963394076216,
+        "NEO-USD": 145.91204430825582
       }
     },
     "lastAccrual": "2026-09-01",
@@ -264,12 +275,13 @@
       "engine:AVAX-USD": "2026-09-01T09:44:28Z",
       "reversion:INJ-USD": "2026-09-01T09:44:28Z",
       "mia-ai:ILV-USD": "2026-09-01T09:44:28Z",
-      "mia-ai:CAKE-USD": "2026-09-01T09:44:28Z"
+      "mia-ai:CAKE-USD": "2026-09-01T09:44:28Z",
+      "mia-ai:NEO-USD": "2026-09-01T09:50:41Z"
     },
     "tradesToday": {
       "engine": 4,
       "reversion": 5,
-      "mia-ai": 5,
+      "mia-ai": 6,
       "control": 3
     },
     "day": "2026-09-01"
