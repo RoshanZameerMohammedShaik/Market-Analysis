@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-09-01T04:16:52Z",
+  "roundTrips": 0,
+  "tradeRows": 0,
+  "trialsExamined": 2,
+  "deflatedTBar": 2.0,
+  "minRoundTrips": 20,
+  "bounds": {
+    "maxCapitalTilt": 0.35,
+    "maxEntryShift": 0.05
+  },
+  "perSleeve": {},
+  "walkForward": {
+    "status": "insufficient",
+    "need": 40,
+    "have": 0
+  },
+  "acting": 0,
+  "verdict": "no conclusion drawn yet: not enough closed round trips clear the deflated significance bar"
+}

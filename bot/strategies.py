@@ -78,8 +78,27 @@ class Strategy:
     id = 'base'
     name = 'Base'
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, pctile_shift=0.0):
         self.cfg = cfg
+        # Learned selectivity, from bot/learn.py. POSITIVE means "be fussier": demand a
+        # higher rank before acting. Zero unless the learner has enough closed round trips to
+        # clear its deflated significance bar, so the default behaviour is exactly as if
+        # there were no learner at all.
+        self.pctile_shift = float(pctile_shift or 0.0)
+
+    def entry_p(self):
+        """Entry percentile after the learned shift. Higher = fussier."""
+        return max(0.50, min(0.99, ENTRY_PCTILE + self.pctile_shift))
+
+    def oversold_p(self):
+        """Oversold percentile after the learned shift.
+
+        The sign INVERTS here: for reversion, being fussier means demanding a more extreme
+        oversold reading, which is a LOWER percentile. Applying the shift in the same
+        direction as the engine's would have made a losing reversion sleeve less selective,
+        i.e. exactly backwards.
+        """
+        return max(0.01, min(0.49, OVERSOLD_PCTILE - self.pctile_shift))
 
     def decide(self, snapshot, sleeve):
         raise NotImplementedError
@@ -170,7 +189,7 @@ class EngineStrategy(Strategy):
         # Top decile of TODAY's scores to open, below the median to close. Was a fixed
         # 62/42 pair, which meant the rule's real aggressiveness drifted with the market
         # instead of staying constant.
-        buy_at = self.cut(snapshot, 'score', ENTRY_PCTILE, NEUTRAL_SCORE)
+        buy_at = self.cut(snapshot, 'score', self.entry_p(), NEUTRAL_SCORE)
         sell_at = self.cut(snapshot, 'score', EXIT_PCTILE, NEUTRAL_SCORE)
 
         # Close anything the engine has turned against, even without a stop trigger.
@@ -212,7 +231,8 @@ class EngineStrategy(Strategy):
                 {'score': c['score'], 'signal': c.get('signal'),
                  'confidence': c.get('confidence'), 'rsi': rsi,
                  'aiScore': (c.get('ai') or {}).get('score'),
-                 'entryAbove': round(buy_at, 2), 'entryPctile': ENTRY_PCTILE,
+                 'entryAbove': round(buy_at, 2), 'entryPctile': round(self.entry_p(), 4),
+                 'learnedShift': self.pctile_shift,
                  'scoreRank': _pc(self.rank(snapshot, 'score', c['score'])),
                  'universeSize': snapshot['cross'].n, 'rule': 'engine-entry'},
                 # Conviction is the symbol's RANK inside the cross-section, rescaled so
@@ -220,7 +240,7 @@ class EngineStrategy(Strategy):
                 # above a fixed 62 measured nothing comparable between a calm day and a
                 # volatile one; rank does.
                 conviction=_rank_conviction(self.rank(snapshot, 'score', c['score']),
-                                            ENTRY_PCTILE)))
+                                            self.entry_p())))
         return out
 
 
@@ -244,7 +264,7 @@ class ReversionStrategy(Strategy):
         # back through the 70th percentile. Was a fixed 32/62 pair, which fired on a third
         # of the universe in a selloff and on nothing at all in a grind upward -- the same
         # rule meaning "be fully invested" one month and "do nothing" the next.
-        buy_rsi = self.cut(snapshot, 'rsi', OVERSOLD_PCTILE, 30.0)
+        buy_rsi = self.cut(snapshot, 'rsi', self.oversold_p(), 30.0)
         sell_rsi = self.cut(snapshot, 'rsi', RECOVERED_PCTILE, 70.0)
 
         for sym in list(sleeve.positions.keys()):
@@ -291,13 +311,14 @@ class ReversionStrategy(Strategy):
                 f'Oversold: {bits}. Short-horizon reversal is the one effect measured '
                 f'with real positive IC here (+0.05, t 3.3).',
                 {'rsi': rsi, 'percentB': pct_b, 'entryBelow': round(buy_rsi, 2),
-                 'entryPctile': OVERSOLD_PCTILE, 'rsiRank': _pc(rsi_rank),
+                 'entryPctile': round(self.oversold_p(), 4),
+                 'learnedShift': self.pctile_shift, 'rsiRank': _pc(rsi_rank),
                  'universeSize': snapshot['cross'].n, 'rule': 'reversion-entry'},
                 # Conviction rises the DEEPER inside the oversold tail it sits. Rank is
                 # inverted here because low RSI is the signal, so rank 0 is the strongest.
                 conviction=_rank_conviction(
                     1.0 - rsi_rank if isinstance(rsi_rank, (int, float)) else None,
-                    1.0 - OVERSOLD_PCTILE)))
+                    1.0 - self.oversold_p())))
         return out
 
 
@@ -352,8 +373,8 @@ class MiaAIStrategy(Strategy):
     id = 'mia-ai'
     name = "Mia's Own Call"
 
-    def __init__(self, cfg, llm=None):
-        super().__init__(cfg)
+    def __init__(self, cfg, llm=None, pctile_shift=0.0):
+        super().__init__(cfg, pctile_shift)
         self.llm = llm      # None -> LSTM-only mode
 
     def decide(self, snapshot, sleeve):
@@ -369,7 +390,7 @@ class MiaAIStrategy(Strategy):
         # The LSTM's absolute level drifts with the market: on a calm bullish day most
         # names print 0.55-0.65, so a 0.58 bar bought nearly everything, and on a fearful
         # day almost nothing cleared it. Rank keeps the book the same size either way.
-        floor = self.cut(snapshot, 'aiProbability', ENTRY_PCTILE, 0.55)
+        floor = self.cut(snapshot, 'aiProbability', self.entry_p(), 0.55)
         release = self.cut(snapshot, 'aiProbability', EXIT_PCTILE, 0.5)
         for sym in list(sleeve.positions.keys()):
             if sym in exiting:
@@ -417,14 +438,15 @@ class MiaAIStrategy(Strategy):
                 f'{floor * 100:.0f}%). (LSTM only: no Gemini key configured, so this is '
                 f'the model talking, not my judgement.)',
                 {'aiProbability': p, 'brain': 'lstm',
-                 'entryAbove': round(floor, 4), 'entryPctile': ENTRY_PCTILE,
+                 'entryAbove': round(floor, 4), 'entryPctile': round(self.entry_p(), 4),
+                 'learnedShift': self.pctile_shift,
                  'aiRank': _pc(self.rank(snapshot, 'aiProbability', p)),
                  'universeSize': snapshot['cross'].n, 'rule': 'ai-entry'},
                 # Rank, not the raw probability. A 0.62 reading means something different on
                 # a day when the median is 0.60 than on one where it is 0.45, and only the
                 # rank distinguishes those.
                 conviction=_rank_conviction(
-                    self.rank(snapshot, 'aiProbability', p), ENTRY_PCTILE)))
+                    self.rank(snapshot, 'aiProbability', p), self.entry_p())))
         return out
 
     # ── primary brain: the LLM ──────────────────────────────────────────────
@@ -493,11 +515,23 @@ class MiaAIStrategy(Strategy):
         return out
 
 
-def build(cfg, llm=None):
-    """All four sleeves, in display order. Keyed by sleeve id."""
+def build(cfg, llm=None, learned=None):
+    """All four sleeves, in display order. Keyed by sleeve id.
+
+    `learned` is model/bot/learned.json. Each sleeve receives only its OWN shift, and the
+    control sleeve is never given one -- bot/learn.py refuses to produce one for it, and
+    passing 0.0 here makes that structural rather than dependent on the learner behaving.
+    """
+    per = ((learned or {}).get('perSleeve') or {})
+
+    def shift(sid):
+        return float((per.get(sid) or {}).get('entryPctileShift') or 0.0)
+
     return {
-        EngineStrategy.id: EngineStrategy(cfg),
-        ReversionStrategy.id: ReversionStrategy(cfg),
-        MiaAIStrategy.id: MiaAIStrategy(cfg, llm),
-        ControlStrategy.id: ControlStrategy(cfg),
+        EngineStrategy.id: EngineStrategy(cfg, shift(EngineStrategy.id)),
+        ReversionStrategy.id: ReversionStrategy(cfg, shift(ReversionStrategy.id)),
+        MiaAIStrategy.id: MiaAIStrategy(cfg, llm, shift(MiaAIStrategy.id)),
+        # Never shifted. It buys once and holds; a selectivity knob on the benchmark would
+        # destroy the only fixed reference on the leaderboard.
+        ControlStrategy.id: ControlStrategy(cfg, 0.0),
     }

@@ -183,3 +183,10 @@ jobs:
       # which no fixed threshold can satisfy.
       - name: Check the thresholds are dynamic
         run: python tools/bot_dynamic_check.py
+
+      # The learner. The load-bearing assertions here are the NEGATIVE ones: five straight
+      # winners must move nothing, and 800 pure-noise samples must leave the book within a
+      # fraction of a percent of equal weight. Learning something that was never there is the
+      # failure mode that matters, and this repo has hit it before.
+      - name: Check the learner refuses noise
+        run: python tools/bot_learn_check.py

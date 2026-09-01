@@ -55,6 +55,7 @@ from bot.config import BOT_DIR, CONFIG_PATH, load_config, sleeve_defs  # noqa: E
 from bot.portfolio import MIN_TRADE_USD, BotAccount, Sleeve, utc_now_iso  # noqa: E402
 from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
 import bot.strategies as strategies                                    # noqa: E402
+from bot.learn import learn, load_learned                              # noqa: E402
 from bot.dynamic import (CrossSection, exposure_scale, is_tradeable,  # noqa: E402
                          risk_parity_size_usd)
 from trading_costs import round_trip_cost_pct                          # noqa: E402
@@ -67,6 +68,12 @@ ADV_PATH = os.path.join(BOT_DIR, '_advice.json')
 RECENT_SLICE = os.path.join(REPO, 'model', 'ledger', 'recent.json')
 YEAR_LEDGER = os.path.join(REPO, 'model', 'ledger',
                            f'{datetime.date.today().year}.jsonl')
+
+# Fraction of the gap to a learned target that moves per run. A rate limit so the book
+# converges over several cycles rather than lurching on one noisy reading.
+REBALANCE_STEP = 0.25
+# Below this, a transfer is not worth the log line it would print.
+MIN_REBALANCE_USD = 25.0
 
 # A quote older than this is refused even during a session.
 MAX_PRICE_AGE_MIN = 20
@@ -248,6 +255,77 @@ class PrecomputedLLM:
 
     def decide(self, snapshot, sleeve, cfg):
         return self._decisions
+
+
+def prices_for_rebalance(acct, cfg):
+    """Marks for the rebalance, taken from the last saved state rather than a fresh fetch.
+
+    Rebalancing moves CASH only, so it does not need live prices to be correct -- it needs a
+    consistent view of each sleeve's equity. Using cost basis where a price is missing (which
+    Sleeve.holdings_value_usd already does) keeps a quote failure from making a sleeve look
+    like it lost everything and triggering a large spurious transfer.
+    """
+    return {}
+
+
+def rebalance_sleeves(acct, learned, prices, cfg):
+    """Move FREE CASH toward the capital weights the learner has earned.
+
+    Three deliberate limits, because reallocating on past performance is the classic way to
+    chase noise:
+
+      * CASH ONLY. Positions are never force-closed to hit a target. A rebalance that
+        liquidated holdings would pay the spread twice for an accounting preference and could
+        realize a loss purely to satisfy a weight.
+      * RATE LIMITED. At most REBALANCE_STEP of the gap moves per run, so the book converges
+        over several cycles instead of lurching on one noisy reading. This is a rate limit,
+        not a tuned parameter: any value below 1.0 has the same qualitative effect.
+      * THE CONTROL SLEEVE IS EXCLUDED. Its capital must stay put or it stops being a
+        benchmark. bot/learn.py never emits a weight for it; this skips it regardless.
+
+    Does nothing at all when no sleeve has actionable evidence, which is the normal state.
+    """
+    per = (learned or {}).get('perSleeve') or {}
+    weights = {sid: ls.get('capitalWeight') for sid, ls in per.items()
+               if not ls.get('frozen') and isinstance(ls.get('capitalWeight'), (int, float))}
+    if not weights or not (learned or {}).get('acting'):
+        return
+    active = {sid: acct.sleeves[sid] for sid in weights if sid in acct.sleeves}
+    if len(active) < 2:
+        return
+
+    total = sum(sl.equity_usd(prices) for sl in active.values())
+    if total <= 0:
+        return
+    wsum = sum(weights[sid] for sid in active) or 1.0
+
+    # Work out every sleeve's surplus or shortfall, then move the smaller of what the donors
+    # can spare and what the receivers need, so cash is never created or destroyed.
+    floor_pct = float(cfg['risk']['cashFloorPct']) / 100.0
+    give, want = {}, {}
+    for sid, sl in active.items():
+        target = total * (weights[sid] / wsum)
+        gap = sl.equity_usd(prices) - target
+        if gap > 0:
+            spare = max(0.0, sl.cash_usd - sl.equity_usd(prices) * floor_pct)
+            give[sid] = min(gap, spare) * REBALANCE_STEP
+        elif gap < 0:
+            want[sid] = -gap * REBALANCE_STEP
+
+    pool = sum(give.values())
+    need = sum(want.values())
+    moved = min(pool, need)
+    if moved < MIN_REBALANCE_USD:
+        return
+
+    for sid, amt in give.items():
+        if pool > 0:
+            acct.sleeves[sid].cash_usd -= moved * (amt / pool)
+    for sid, amt in want.items():
+        if need > 0:
+            acct.sleeves[sid].cash_usd += moved * (amt / need)
+    log(f'rebalanced ${moved:,.2f} toward the learned weights '
+        f'({ {k: round(v, 3) for k, v in weights.items()} })')
 
 
 # ── risk + broker gate ───────────────────────────────────────────────────────
@@ -448,6 +526,21 @@ def main():
         log(f'margin interest accrued: ${interest:,.4f}')
     broker.prune(today)
 
+    # What the desk has learned from its own closed round trips. Inert until there is
+    # enough evidence: load_learned returns an empty structure when the file is absent or
+    # unreadable, so a missing learner can never block or distort a run.
+    learned = load_learned()
+    if learned.get('roundTrips'):
+        log(f"learned from {learned['roundTrips']} closed round trips; "
+            f"{learned.get('acting', 0)} sleeve(s) have actionable evidence "
+            f"(deflated |t| bar {learned.get('deflatedTBar')})")
+        for sid, ls in sorted((learned.get('perSleeve') or {}).items()):
+            st = ls.get('stats') or {}
+            log(f"  {sid:<10} n={st.get('n')} mean={st.get('meanNetPct')}% "
+                f"t={st.get('t')} belief={ls.get('belief')} "
+                f"weight={ls.get('capitalWeight')} shift={ls.get('entryPctileShift')}")
+        rebalance_sleeves(acct, learned, prices_for_rebalance(acct, cfg), cfg)
+
     held = sorted({s for sl in acct.sleeves.values() for s in sl.positions})
     universe = candidate_universe(cfg, held, live)
     if not universe:
@@ -514,7 +607,7 @@ def main():
         log(f'WARNING: fewer than the minimum needed to rank; sleeves fall back on '
             f'absolute engine semantics this run')
     mia_block = advice.get('mia') or {}
-    strat = strategies.build(cfg, llm=(PrecomputedLLM(mia_block.get('decisions'))
+    strat = strategies.build(cfg, learned=learned, llm=(PrecomputedLLM(mia_block.get('decisions'))
                                        if mia_block.get('brain') == 'gemini' else None))
     log(f"Mia's brain: {mia_block.get('brain')}: {mia_block.get('note', '')[:110]}")
 
@@ -584,6 +677,18 @@ def main():
         return
 
     write_fills(fills)
+    # Re-learn immediately after writing, so the NEXT cycle already reflects what just
+    # closed. Cheap: it re-reads one local append-only file. Placed after write_fills so the
+    # round trips it sees include this cycle's exits.
+    if fills:
+        try:
+            summary = learn()
+            log(f"relearned: {summary['roundTrips']} round trips, "
+                f"{summary['acting']} actionable -- {summary['verdict']}")
+        except Exception as e:
+            # Learning is an enhancement, never a precondition for trading. A broken learner
+            # must not stop the desk from recording what it already did.
+            log(f'learner failed ({type(e).__name__}); continuing with the previous file')
     record_run(cfg, acct, started, live, closed, fills, refusals, dry=False, advice=advice,
                cross_summary=cross.summary())
     save_state(acct, prices, broker)
