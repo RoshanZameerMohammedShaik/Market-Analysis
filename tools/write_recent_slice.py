@@ -37,6 +37,9 @@ import os
 import sys
 
 LEDGER_DIR = os.path.join('model', 'ledger')
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ledger_store  # noqa: E402
 OUT_NAME = 'recent.json'
 
 
@@ -46,34 +49,20 @@ def main():
                     help='how many trailing calendar days to include')
     args = ap.parse_args()
 
-    year = datetime.datetime.now(datetime.UTC).year
-    src = os.path.join(LEDGER_DIR, f'{year}.jsonl')
-    if not os.path.exists(src):
-        print(f'ERROR: {src} not found', file=sys.stderr)
+    # Sharded by month: a single year file hit GitHub's hard 100 MB blob limit and every
+    # ledger push started failing outright. iter_rows prunes whole shards below the cutoff
+    # before opening them, so building a 3-day slice no longer reads 100 MB.
+    if not ledger_store.shard_files():
+        print('ERROR: no ledger shards found in model/ledger/', file=sys.stderr)
         sys.exit(1)
 
     cutoff = (datetime.datetime.now(datetime.UTC).date()
               - datetime.timedelta(days=args.days)).isoformat()
 
     rows, scanned, bad = [], 0, 0
-    with open(src, encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            scanned += 1
-            # Cheap prefilter before paying for a JSON parse on 67k rows. Rows
-            # are written with "date" early in the object, but do not rely on
-            # that: fall through to a real parse if the substring test is
-            # inconclusive rather than dropping rows silently.
-            try:
-                r = json.loads(line)
-            except Exception:
-                bad += 1
-                continue
-            if (r.get('date') or '') >= cutoff:
-                rows.append(r)
-
+    for r in ledger_store.iter_rows(since=cutoff):
+        scanned += 1
+        rows.append(r)
     out = os.path.join(LEDGER_DIR, OUT_NAME)
     payload = {
         'generatedAt': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -89,13 +78,18 @@ def main():
         # inside the window, and failing loudly here beats a silent browser throw.
         json.dump(payload, f, separators=(',', ':'), allow_nan=False)
 
-    src_mb = os.path.getsize(src) / 1048576
+    shard_mb = sum(s['mb'] for s in ledger_store.sizes())
     out_mb = os.path.getsize(out) / 1048576
-    print(f'{out}: {len(rows):,} rows from {scanned:,} '
-          f'(dates >= {cutoff}), {bad} unparseable')
-    print(f'  {src_mb:.1f} MB -> {out_mb:.2f} MB  '
-          f'({src_mb / out_mb:.0f}x smaller)' if out_mb else '')
-
+    print(f'{out}: {len(rows):,} rows (dates >= {cutoff}), {bad} unparseable')
+    print(f'  ledger {shard_mb:.1f} MB across {len(ledger_store.shard_files())} shard(s) '
+          f'-> {out_mb:.2f} MB slice')
+    # A shard nearing 100 MB is the failure that took the ledger down for days. Say so while
+    # there is still time to act, rather than discovering it in a rejected push.
+    for s in ledger_store.sizes():
+        if s['mb'] >= 80:
+            print(f"  WARNING: {s['file']} is {s['mb']} MB, approaching GitHub's 100 MB "
+                  f'blob limit', file=sys.stderr)
+    return 0
 
 if __name__ == '__main__':
     main()

@@ -35,31 +35,51 @@ from price_round import round_price
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LEDGER_DIR = os.path.join(SCRIPT_DIR, 'model', 'ledger')
 
+import ledger_store  # noqa: E402
+
 
 def ledger_path_for_year(year: int) -> str:
     return os.path.join(LEDGER_DIR, f'{year}.jsonl')
 
 
-def load_rows(path: str):
-    if not os.path.exists(path):
-        return []
-    rows = []
-    with open(path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return rows
+def load_rows(path: str = None):
+    """Every ledger row, across all monthly shards.
+
+    The ledger is sharded by month because a single year file hit GitHub's hard 100 MB blob
+    limit and made every push fail outright. `path` is accepted and ignored so existing
+    callers keep working unchanged.
+    """
+    return list(ledger_store.iter_rows())
 
 
-def save_rows(path: str, rows):
-    with open(path, 'w') as f:
-        for r in rows:
-            f.write(json.dumps(r) + '\n')
+def save_rows(path, rows):
+    """Write rows back to the shard each one belongs to, atomically per shard.
+
+    This resolver REWRITES rows in place (filling matured horizons), so it cannot append.
+    Rows are grouped by their own date, and each shard goes through a temp file plus
+    os.replace, so an interrupted run leaves either the old shard or the new one and never
+    half of each. The ledger is the only copy of this history and a market open cannot be
+    replayed.
+
+    A row with an unusable date lands in a quarantine shard rather than being dropped or
+    filed under today: misfiling it would corrupt that month's coverage figures, and
+    dropping it would delete data to tidy up a formatting problem.
+    """
+    by_shard = {}
+    for r in rows:
+        mk = ledger_store.month_key(r.get('date')) or 'unresolved-dates'
+        by_shard.setdefault(mk, []).append(r)
+    for mk, group in sorted(by_shard.items()):
+        target = os.path.join(LEDGER_DIR, f'{mk}.jsonl')
+        tmp = target + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            for r in group:
+                # allow_nan=False: a bare NaN is invalid JSON and has silently broken the
+                # browser's calibration load before.
+                f.write(json.dumps(r, allow_nan=False) + '\n')
+        os.replace(tmp, target)
+    print(f'  wrote {len(rows):,} rows across {len(by_shard)} shard(s): '
+          f'{", ".join(sorted(by_shard))}')
 
 
 def trading_days_passed(prediction_date: str, today: datetime.date) -> int:

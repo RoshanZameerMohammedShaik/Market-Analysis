@@ -62,8 +62,17 @@ def _add_diag(reason: str, symbol: str, detail: str):
 
 
 def ledger_path_for(date_iso: str) -> str:
-    year = date_iso[:4]
-    return os.path.join(LEDGER_DIR, f'{year}.jsonl')
+    """The MONTHLY shard this row belongs in.
+
+    Was f'{year}.jsonl', and that file reached 101.30 MB -- past GitHub's hard 100 MB blob
+    limit. Every cron then failed at the commit step with the rows already written to the
+    runner's disk, so several market opens were lost before the cause was even visible (the
+    push error lives in a job log that returns 403 without repo admin).
+
+    Sharding by month also makes the duplicate check below cheaper: it now reads one ~30 MB
+    shard instead of scanning the whole year.
+    """
+    return os.path.join(LEDGER_DIR, f'{date_iso[:7]}.jsonl')
 
 
 def already_predicted_today(path: str, date_iso: str, symbol: str) -> bool:

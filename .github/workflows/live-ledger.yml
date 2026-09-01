@@ -255,6 +255,19 @@ jobs:
             echo "model/ledger/ directory does NOT exist after the script ran."
           fi
 
+      # BEFORE the commit, because the failure this guards against happens at PUSH time --
+      # after the rows are already computed and written to a disk that is about to disappear.
+      # model/ledger/2026.jsonl reached 101.30 MB and GitHub rejected every push outright,
+      # so the cron kept doing its work correctly and then throwing it away. Several market
+      # opens were lost that way, and a market open cannot be replayed.
+      #
+      # continue-on-error so a size warning never blocks writing today's rows: the point is to
+      # raise the alarm while there is still headroom, not to add a second way to lose data.
+      - name: Check ledger shard sizes
+        if: always()
+        continue-on-error: true
+        run: python tools/ledger_size_check.py
+
       - name: Commit ledger updates
         if: always() && steps.decide.outputs.task != ''
         env:

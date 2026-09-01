@@ -59,6 +59,7 @@ from bot.learn import learn, load_learned                              # noqa: E
 from bot.dynamic import (CrossSection, exposure_scale, is_tradeable,  # noqa: E402
                          risk_parity_size_usd)
 from trading_costs import round_trip_cost_pct                          # noqa: E402
+import ledger_store                                                    # noqa: E402
 
 STATE_PATH = os.path.join(BOT_DIR, 'state.json')
 TRADES_PATH = os.path.join(BOT_DIR, 'trades.jsonl')
@@ -66,8 +67,6 @@ RUNS_PATH = os.path.join(BOT_DIR, 'runs.jsonl')
 REQ_PATH = os.path.join(BOT_DIR, '_request.json')
 ADV_PATH = os.path.join(BOT_DIR, '_advice.json')
 RECENT_SLICE = os.path.join(REPO, 'model', 'ledger', 'recent.json')
-YEAR_LEDGER = os.path.join(REPO, 'model', 'ledger',
-                           f'{datetime.date.today().year}.jsonl')
 
 # Fraction of the gap to a learned target that moves per run. A rate limit so the book
 # converges over several cycles rather than lurching on one noisy reading.
@@ -116,21 +115,13 @@ def candidate_universe(cfg, held, live_markets):
         except Exception as e:
             log(f'recent.json unreadable ({type(e).__name__}); falling back')
             rows = []
-    if not rows and os.path.exists(YEAR_LEDGER):
-        # Fallback only: the year file is ~97MB, so this is the slow path.
-        with open(YEAR_LEDGER, encoding='utf-8') as f:
-            cutoff = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    r = json.loads(line)
-                except Exception:
-                    continue
-                if (r.get('date') or '') >= cutoff:
-                    rows.append(r)
-        src = 'year ledger (slow path)'
+    if not rows:
+        # Fallback only. The ledger is sharded by month (a single year file hit GitHub's hard
+        # 100 MB blob limit and broke every push), and iter_rows prunes whole shards below the
+        # cutoff before opening them, so this fallback is no longer the 97 MB scan it was.
+        cutoff = (datetime.date.today() - datetime.timedelta(days=5)).isoformat()
+        rows = list(ledger_store.iter_rows(since=cutoff))
+        src = f'ledger shards since {cutoff}'
 
     # ECONOMIC screen, not a price band. minPriceUSD/maxPriceUSD used to decide this, and
     # both were wrong: maxPriceUSD 2000 excluded BTC and every four-figure name even though
