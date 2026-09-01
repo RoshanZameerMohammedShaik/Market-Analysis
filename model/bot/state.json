@@ -1,0 +1,241 @@
+{
+  "schema": 1,
+  "createdAt": "2026-09-01T09:42:41Z",
+  "updatedAt": "2026-09-01T09:43:16Z",
+  "runs": 1,
+  "seedUSD": 10000.0,
+  "totals": {
+    "equityUSD": 9967.490908,
+    "cashUSD": 6215.930072,
+    "holdingsUSD": 3751.560836,
+    "realizedUSD": 0.0,
+    "unrealizedUSD": -32.509092,
+    "feesUSD": 32.509092,
+    "pnlUSD": -32.509092,
+    "pnlPct": -0.3251,
+    "trades": 12
+  },
+  "sleeves": {
+    "engine": {
+      "id": "engine",
+      "name": "The Engine",
+      "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
+      "cashUSD": 1683.830623,
+      "positions": {
+        "NEAR-USD": {
+          "units": 154.53622744487419,
+          "lots": [
+            {
+              "units": 154.53622744487419,
+              "costUSD": 300.0,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "MOVR-USD": {
+          "units": 260.60041858611186,
+          "lots": [
+            {
+              "units": 260.60041858611186,
+              "costUSD": 215.636574814509,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "SOL-USD": {
+          "units": 2.920643887865272,
+          "lots": [
+            {
+              "units": 2.920643887865272,
+              "costUSD": 298.7298238545356,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 11.233233,
+      "trades": 3
+    },
+    "reversion": {
+      "id": "reversion",
+      "name": "Mean Reversion",
+      "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
+      "cashUSD": 1683.630589,
+      "positions": {
+        "GOAT-USD": {
+          "units": 58.86649317374859,
+          "lots": [
+            {
+              "units": 58.86649317374859,
+              "costUSD": 300.0,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "MOVR-USD": {
+          "units": 260.79812069164376,
+          "lots": [
+            {
+              "units": 260.79812069164376,
+              "costUSD": 215.80016551440812,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "ILV-USD": {
+          "units": 98.41078083434766,
+          "lots": [
+            {
+              "units": 98.41078083434766,
+              "costUSD": 298.9564524767668,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 11.786232,
+      "trades": 3
+    },
+    "mia-ai": {
+      "id": "mia-ai",
+      "name": "Mia's Own Call",
+      "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
+      "cashUSD": 1599.135756,
+      "positions": {
+        "MKR-USD": {
+          "units": 0.19352913337023944,
+          "lots": [
+            {
+              "units": 0.19352913337023944,
+              "costUSD": 300.0,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "METIS-USD": {
+          "units": 112.56560000451728,
+          "lots": [
+            {
+              "units": 112.56560000451728,
+              "costUSD": 299.92203596403596,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "RPL-USD": {
+          "units": 186.66635267161317,
+          "lots": [
+            {
+              "units": 186.66635267161317,
+              "costUSD": 299.5448961297827,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 7.19126,
+      "trades": 3
+    },
+    "control": {
+      "id": "control",
+      "name": "Buy & Hold (control)",
+      "blurb": "Buys an equal-weight basket once and never trades again. The bar every other sleeve has to clear to have earned anything.",
+      "cashUSD": 1249.333104,
+      "positions": {
+        "BTC-USD": {
+          "units": 0.005338882639361581,
+          "lots": [
+            {
+              "units": 0.005338882639361581,
+              "costUSD": 416.66666666666674,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "ETH-USD": {
+          "units": 0.1696494004617218,
+          "lots": [
+            {
+              "units": 0.1696494004617218,
+              "costUSD": 416.53895826395825,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        },
+        "YFI-USD": {
+          "units": 0.18694820480447571,
+          "lots": [
+            {
+              "units": 0.18694820480447571,
+              "costUSD": 416.4112711247202,
+              "openedAt": "2026-09-01T09:43:16Z"
+            }
+          ]
+        }
+      },
+      "realizedUSD": 0.0,
+      "feesUSD": 2.298369,
+      "trades": 3
+    }
+  },
+  "broker": {
+    "accountType": "cash",
+    "plan": "ibkr-pro-tiered",
+    "benchmarkRatePct": 4.33,
+    "pending": [],
+    "debitUSD": 0.0,
+    "interestUSD": 0.0,
+    "dayTrades": [],
+    "openedToday": {
+      "2026-09-01": {
+        "NEAR-USD": 154.53622744487419,
+        "MOVR-USD": 521.3985392777556,
+        "SOL-USD": 2.920643887865272,
+        "GOAT-USD": 58.86649317374859,
+        "ILV-USD": 98.41078083434766,
+        "MKR-USD": 0.19352913337023944,
+        "METIS-USD": 112.56560000451728,
+        "RPL-USD": 186.66635267161317,
+        "BTC-USD": 0.005338882639361581,
+        "ETH-USD": 0.1696494004617218,
+        "YFI-USD": 0.18694820480447571
+      }
+    },
+    "lastAccrual": "2026-09-01",
+    "violations": []
+  },
+  "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
+  "meta": {
+    "openedAt": {
+      "engine:NEAR-USD": "2026-09-01T09:43:16Z",
+      "engine:MOVR-USD": "2026-09-01T09:43:16Z",
+      "engine:SOL-USD": "2026-09-01T09:43:16Z",
+      "reversion:GOAT-USD": "2026-09-01T09:43:16Z",
+      "reversion:MOVR-USD": "2026-09-01T09:43:16Z",
+      "reversion:ILV-USD": "2026-09-01T09:43:16Z",
+      "mia-ai:MKR-USD": "2026-09-01T09:43:16Z",
+      "mia-ai:METIS-USD": "2026-09-01T09:43:16Z",
+      "mia-ai:RPL-USD": "2026-09-01T09:43:16Z",
+      "control:BTC-USD": "2026-09-01T09:43:16Z",
+      "control:ETH-USD": "2026-09-01T09:43:16Z",
+      "control:YFI-USD": "2026-09-01T09:43:16Z"
+    },
+    "tradesToday": {
+      "engine": 3,
+      "reversion": 3,
+      "mia-ai": 3,
+      "control": 3
+    },
+    "day": "2026-09-01"
+  },
+  "equityOpen": {
+    "engine": 2500.0,
+    "reversion": 2500.0,
+    "mia-ai": 2500.0,
+    "control": 2500.0
+  },
+  "pendingBySleeve": {}
+}
