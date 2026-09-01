@@ -24,6 +24,11 @@
 // portfolio exists, and the combined figure is shown as an explicit sum of two named books
 // rather than one blended number that hides which money is whose.
 
+import {
+    armDesk, disarmDesk, hasToken, setToken, clearToken, verifyToken,
+    TOKEN_SCOPE_HELP,
+} from '../portfolio/mia-arm.js';
+
 const SLICE_URL = 'model/bot/timeline.json';
 
 // How many timeline entries to draw before "Show more". The slice ships 200; rendering all
@@ -54,7 +59,11 @@ let slice = null;
 let shown = PAGE;
 let loadState = 'idle';      // idle | loading | ready | error | absent
 let loadError = '';
-let practiceUSD = null;      // pushed in by portfolio-panel.js; see setPracticeTotalUSD
+let practiceUSD = null;      // total, for the combined row
+let practiceCashUSD = null;  // CASH only: an allocation can only come out of cash
+let practiceReady = false;   // is a practice portfolio loaded at all
+let busy = '';               // non-empty while a start/stop round trip is in flight
+let uiError = '';            // last actionable failure, shown inline rather than as a toast
 
 export function initMiaDesk() {
     const host = document.getElementById('mia-desk');
@@ -69,9 +78,16 @@ export function initMiaDesk() {
  *  Pushed in rather than imported, because the desk drawing the practice portfolio's live
  *  total would mean importing portfolio-panel while portfolio-panel imports this module.
  *  One-directional data flow avoids a circular import for the sake of one number. */
-export function setPracticeTotalUSD(usd) {
+export function setPracticeTotalUSD(usd, cashUSD, instantiated) {
     practiceUSD = Number.isFinite(usd) ? usd : null;
-    patchCombined();
+    practiceCashUSD = Number.isFinite(cashUSD) ? cashUSD : null;
+    const wasReady = practiceReady;
+    practiceReady = !!instantiated;
+    // A full re-render only when readiness FLIPS. The Start panel's copy depends on whether
+    // a portfolio exists, but this is called on every price tick, and re-rendering there
+    // would blow away whatever the user was typing into the amount field.
+    if (wasReady !== practiceReady) render();
+    else patchCombined();
 }
 
 async function load() {
@@ -121,6 +137,73 @@ function onClick(e) {
     }
     if (e.target.closest('#desk-retry')) {
         load();
+        return;
+    }
+    if (e.target.closest('#desk-save-token')) { onSaveToken(); return; }
+    if (e.target.closest('#desk-forget-token')) {
+        clearToken();
+        uiError = '';
+        render();
+        return;
+    }
+    if (e.target.closest('#desk-start')) { onStart(); return; }
+    if (e.target.closest('#desk-stop')) { onStop(); }
+}
+
+async function onSaveToken() {
+    const input = document.getElementById('desk-token');
+    uiError = '';
+    try {
+        setToken(input ? input.value : '');
+        // Verify immediately rather than letting a bad token surface later as a confusing
+        // failure in the middle of arming, when the user is watching for money to move.
+        await verifyToken();
+    } catch (err) {
+        clearToken();
+        uiError = err.message;
+    }
+    render();
+}
+
+async function onStart() {
+    const input = document.getElementById('desk-amount');
+    const amount = Number(input ? input.value : NaN);
+    uiError = '';
+    if (!Number.isFinite(amount) || amount <= 0) {
+        uiError = 'Enter an amount.';
+        render();
+        return;
+    }
+    if (practiceCashUSD != null && amount > practiceCashUSD + 1e-6) {
+        uiError = `You only have ${money(practiceCashUSD)} in cash.`;
+        render();
+        return;
+    }
+    try {
+        await armDesk(amount, stage => { busy = stage; render(); });
+        busy = '';
+        await load();      // pick up the freshly committed state
+    } catch (err) {
+        busy = '';
+        uiError = err.message;
+        render();
+    }
+}
+
+async function onStop() {
+    if (!confirm('Stop Mia trading? Her open positions stay as they are and her money stays '
+        + 'in her book. You can start her again later.')) return;
+    uiError = '';
+    try {
+        busy = 'stopping';
+        render();
+        await disarmDesk(stage => { busy = stage === 'dispatching' ? 'stopping' : stage; render(); });
+        busy = '';
+        await load();
+    } catch (err) {
+        busy = '';
+        uiError = err.message;
+        render();
     }
 }
 
@@ -145,6 +228,15 @@ function render() {
                 in on her next run. Nothing is wrong with your portfolio.</p>
                 <button class="portfolio-action-btn" id="desk-retry" type="button">Try again</button>
             </div>`);
+        return;
+    }
+
+    // NOT STARTED is the default state and the only one that can spend money, so it comes
+    // before everything else. The desk self-seeded $25,000 and executed 11 fills the first
+    // time this shipped, purely because the cron existed. Allocating capital is Roshan's
+    // decision; the UI's job is to ask, not to assume.
+    if (!(slice.config || {}).armed) {
+        host.innerHTML = shell(startPanel(slice.config || {}));
         return;
     }
 
@@ -192,7 +284,92 @@ function render() {
         ${combinedRow(t)}
         ${leaderboard()}
         ${timeline()}
+
+        <div class="desk-footer">
+            ${busy
+                ? `<p class="desk-start-busy"><span class="desk-spinner" aria-hidden="true"></span>
+                     ${escapeHtml(BUSY_COPY[busy] || 'Working…')}</p>`
+                : `<button class="desk-linkbtn danger" id="desk-stop" type="button">Stop auto-trading</button>`}
+            ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
+        </div>
     `);
+}
+
+// ── not started ───────────────────────────────────────────────────────────────
+
+const BUSY_COPY = {
+    dispatching: 'Asking GitHub to start her…',
+    running: 'Her start job is running (about a minute)…',
+    confirming: 'Confirming the allocation before touching your cash…',
+    stopping: 'Stopping her…',
+};
+
+function startPanel(cfg) {
+    const min = num(cfg.minAllocationUSD) || 400;
+    const cash = practiceCashUSD;
+    // Pre-fill with the suggested figure, but never more than the cash actually available:
+    // offering a default the user cannot afford makes the first click an error.
+    const suggested = Math.min(num(cfg.suggestedUSD) || 5000, cash != null ? cash : Infinity);
+    const canAfford = cash != null && cash >= min;
+
+    if (busy) {
+        return `<div class="desk-start">
+            <p class="desk-start-busy"><span class="desk-spinner" aria-hidden="true"></span>
+               ${escapeHtml(BUSY_COPY[busy] || 'Working…')}</p>
+            <p class="desk-msg-sub">Nothing leaves your portfolio until GitHub confirms she
+               started with the exact amount you asked for.</p>
+        </div>`;
+    }
+
+    // The token step comes first because without it the Start button cannot do anything.
+    if (!hasToken()) {
+        return `<div class="desk-start">
+            <p class="desk-start-lead">Mia is not trading.</p>
+            <p class="desk-msg-sub">She runs in GitHub Actions so she keeps working with this
+               tab closed. To let this page start her, paste a GitHub token once. It is saved
+               in this browser only.</p>
+            <ol class="desk-token-steps">
+                <li><a href="${TOKEN_SCOPE_HELP.url}" target="_blank" rel="noopener">Create a
+                    fine-grained token</a> with exactly:</li>
+            </ol>
+            <ul class="desk-token-scope">
+                ${TOKEN_SCOPE_HELP.lines.map(l => `<li>${escapeHtml(l)}</li>`).join('')}
+            </ul>
+            <label class="desk-field">
+                <span>Token</span>
+                <input type="password" id="desk-token" autocomplete="off" spellcheck="false"
+                       placeholder="github_pat_..." />
+            </label>
+            <button class="desk-cta" id="desk-save-token" type="button">Save token</button>
+            ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
+            <p class="desk-fineprint">Scoped to this one repository, so the worst case if it
+               leaks is someone running this paper-trading workflow. It cannot read your other
+               repositories or push code.</p>
+        </div>`;
+    }
+
+    return `<div class="desk-start">
+        <p class="desk-start-lead">Mia is not trading.</p>
+        <p class="desk-msg-sub">Choose how much of your practice portfolio to hand her. She
+           splits it across four competing strategies and trades it on a schedule. The money
+           moves out of your cash, so your combined total does not change.</p>
+        <label class="desk-field">
+            <span>Amount to allocate</span>
+            <input type="number" id="desk-amount" inputmode="decimal" step="any"
+                   min="${min}" value="${canAfford ? suggested.toFixed(0) : ''}"
+                   ${canAfford ? '' : 'disabled'} />
+        </label>
+        <p class="desk-avail">
+            ${cash == null
+                ? 'No practice portfolio loaded yet. Load one above first, then come back.'
+                : `Available cash <strong>${money(cash)}</strong> &middot; minimum ${money(min)}`}
+        </p>
+        <button class="desk-cta" id="desk-start" type="button" ${canAfford ? '' : 'disabled'}>
+            Start auto-trading
+        </button>
+        ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
+        <button class="desk-linkbtn" id="desk-forget-token" type="button">Remove saved token</button>
+    </div>`;
 }
 
 function shell(inner) {

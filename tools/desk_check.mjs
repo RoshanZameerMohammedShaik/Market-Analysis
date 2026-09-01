@@ -83,8 +83,77 @@ for (const theme of THEMES) {
     // Open the Portfolio panel, where the desk lives.
     await page.waitForSelector('#portfolio-launcher', { timeout: 30000 });
     await page.click('#portfolio-launcher');
-    await page.waitForSelector('#mia-desk .desk-hero', { timeout: 30000 });
+    // Either state is valid: the desk shows a Start panel until it is armed, and the hero
+    // only after. Waiting on .desk-hero alone made the whole harness time out the moment the
+    // desk was correctly disarmed.
+    await page.waitForSelector('#mia-desk .desk-hero, #mia-desk .desk-start',
+                               { timeout: 30000 });
     await page.waitForTimeout(400);   // let the slide-in settle before capturing
+
+    const armed = await page.$('#mia-desk .desk-hero') !== null;
+    if (!armed) {
+        console.log(`
+=== ${theme} (NOT STARTED) ===`);
+        const d = await page.evaluate(() => ({
+            lead: document.querySelector('.desk-start-lead')?.textContent.trim() || '',
+            hasTokenStep: !!document.getElementById('desk-token'),
+            hasAmount: !!document.getElementById('desk-amount'),
+            scope: [...document.querySelectorAll('.desk-token-scope li')]
+                .map(e => e.textContent.trim()),
+            text: document.getElementById('mia-desk')?.innerText || '',
+            badge: document.querySelector('.desk-badge')?.textContent.trim(),
+        }));
+        console.log(`  lead        ${d.lead}`);
+        console.log(`  token step  ${d.hasTokenStep}   amount field ${d.hasAmount}`);
+        if (d.scope.length) console.log(`  scope       ${d.scope.join(' | ')}`);
+
+        if (firstRun) {
+            check('disarmed desk says it is not trading', /not trading/i.test(d.lead), d.lead);
+            check('PAPER badge still shown', d.badge === 'PAPER', String(d.badge));
+            // No token saved in a fresh context, so the token step must come first:
+            // a Start button that cannot reach GitHub is a dead control.
+            check('asks for a token before offering Start', d.hasTokenStep && !d.hasAmount,
+                  `token=${d.hasTokenStep} amount=${d.hasAmount}`);
+            check('spells out the exact token scope', d.scope.length === 3, JSON.stringify(d.scope));
+            check('scope is repository-limited',
+                  d.scope.some(l => /this repository only/i.test(l)), JSON.stringify(d.scope));
+            check('scope asks for fine-grained, not a classic token',
+                  d.scope.some(l => /fine-grained/i.test(l)), JSON.stringify(d.scope));
+            check('scope does not request write access to code',
+                  !d.scope.some(l => /contents:\s*read and write/i.test(l)), JSON.stringify(d.scope));
+            const lineWith = (re) => (d.text.split(/\r?\n/).find(l => re.test(l)) || '');
+            check('no NaN in the disarmed panel', !/NaN|undefined/.test(d.text),
+                  lineWith(/NaN|undefined/));
+            // The old $25,000 default is the thing that must never appear again: it was a
+            // config value that opened a book on its own.
+            check('does not claim a balance it has not got', !/\$25,000/.test(d.text),
+                  lineWith(/\$25,000/));
+
+            // Saving a junk token must fail CLOSED: rejected, cleared, and the Start button
+            // still not offered. A token that verifies lazily would surface as a confusing
+            // failure mid-arm, while the user watches for money to move.
+            await page.fill('#desk-token', 'not-a-real-token-but-long-enough-to-pass-shape');
+            await page.click('#desk-save-token');
+            await page.waitForTimeout(2500);
+            const after = await page.evaluate(() => ({
+                err: document.querySelector('.desk-err')?.textContent.trim() || '',
+                stillToken: !!document.getElementById('desk-token'),
+                leaked: (document.getElementById('mia-desk')?.innerText || '')
+                    .includes('not-a-real-token'),
+            }));
+            check('a bad token is rejected', /401|token|rejected|expired/i.test(after.err), after.err);
+            check('a bad token is not kept', after.stillToken, 'token step vanished');
+            check('the token value is never echoed into the UI', !after.leaked, 'token echoed');
+            console.log(`  rejection   ${after.err}`);
+            firstRun = false;
+        }
+
+        const el0 = await page.$('#portfolio-panel');
+        await el0.screenshot({ path: join(OUT, `desk-${theme}-notstarted.png`) });
+        console.log(`  shot        desk-${theme}-notstarted.png`);
+        await ctx.close();
+        continue;
+    }
 
     console.log(`\n=== ${theme} ===`);
 

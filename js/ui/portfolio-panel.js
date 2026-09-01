@@ -86,10 +86,14 @@ export function initPortfolioPanel() {
  *  no portfolio, so the desk can say "not loaded" instead of implying a real $0.00. */
 function pushPracticeTotal() {
     if (!isInstantiated()) {
-        setPracticeTotalUSD(null);
+        setPracticeTotalUSD(null, null, false);
         return;
     }
-    setPracticeTotalUSD(getPortfolio().cashUSD + computeHoldingsUSD());
+    const p = getPortfolio();
+    // CASH is sent separately from the total because an allocation to Mia can only come out
+    // of cash. Sizing the Start dialog off the total would offer an amount that includes
+    // open positions and cannot actually be handed over.
+    setPracticeTotalUSD(p.cashUSD + computeHoldingsUSD(), p.cashUSD, true);
 }
 
 function ensurePanelMounted() {
@@ -357,7 +361,7 @@ function updateTotals() {
     }
     // Keep the desk's "Combined" line honest on every tick. It patches two cells rather
     // than re-rendering, so an expanded timeline entry stays expanded.
-    setPracticeTotalUSD(totalUSD);
+    setPracticeTotalUSD(totalUSD, p.cashUSD, true);
 }
 
 // ── click handlers ────────────────────────────────────────────────────

@@ -222,10 +222,74 @@ export function heldSymbols() {
 
 // Total cumulative deposits in USD — for return-pct calculations that
 // account for added funds, not just initial deposit.
+//
+// ALLOCATE_MIA / RECLAIM_MIA belong in this sum, and getting that wrong is not cosmetic.
+// Handing $5,000 to Mia's desk reduces cashUSD, so if the deposited BASIS did not fall by
+// the same amount the practice portfolio would report a $5,000 loss it never took. They
+// carry a signed amountUSD (negative when money leaves for the desk), which is why they can
+// share one reduce with the deposits.
+const BASIS_TYPES = new Set(['INSTANTIATE', 'ADD_FUNDS', 'ALLOCATE_MIA', 'RECLAIM_MIA']);
+
 export function totalDepositedUSD() {
     return getPortfolio().history
-        .filter(h => h.type === 'INSTANTIATE' || h.type === 'ADD_FUNDS')
+        .filter(h => BASIS_TYPES.has(h.type))
         .reduce((s, h) => s + (h.amountUSD || 0), 0);
+}
+
+// ── Mia 2.0 allocation ───────────────────────────────────────────────────────
+//
+// Money handed to the auto-trading desk LEAVES this book. The two ledgers then sum to one
+// pot: practice cash falls by the allocation, Mia's seed rises by it, and the combined
+// figure is unchanged. The alternative -- giving Mia a fresh $5,000 while leaving practice
+// cash alone -- would invent money, and a desk whose whole purpose is showing what its
+// decisions are worth cannot start by fabricating its own capital.
+//
+// Only ever called AFTER GitHub confirms the desk actually armed with this exact amount.
+// Deducting on click and trusting the dispatch would lose the money outright whenever the
+// workflow failed. See js/portfolio/mia-arm.js.
+
+/** How much has been handed to Mia's desk and not yet reclaimed. */
+export function miaAllocatedUSD() {
+    return getPortfolio().history
+        .filter(h => h.type === 'ALLOCATE_MIA' || h.type === 'RECLAIM_MIA')
+        .reduce((s, h) => s - (h.amountUSD || 0), 0);
+}
+
+/** Move cash out of the practice book and into Mia's desk. */
+export function allocateToMia({ amountUSD, note }) {
+    if (!isInstantiated()) throw new Error('Load a practice portfolio first.');
+    const usd = Number(amountUSD);
+    if (!Number.isFinite(usd) || usd <= 0) throw new Error('Invalid amount.');
+    // 1e-6 tolerance matches recordBuy's, so float dust cannot block an exact-balance
+    // allocation.
+    if (usd > portfolio.cashUSD + 1e-6) {
+        throw new Error(`Only $${portfolio.cashUSD.toFixed(2)} cash available.`);
+    }
+    portfolio.cashUSD -= usd;
+    portfolio.history.push({
+        type: 'ALLOCATE_MIA',
+        // NEGATIVE: this reduces the deposited basis as well as the cash, so the practice
+        // P/L is untouched by the transfer.
+        amountUSD: -usd,
+        note: note || null,
+        ts: new Date().toISOString(),
+    });
+    save();
+    return { cashRemainingUSD: portfolio.cashUSD, allocatedUSD: miaAllocatedUSD() };
+}
+
+/** Take cash back out of Mia's desk. The caller must have already reduced her book. */
+export function reclaimFromMia({ amountUSD, note }) {
+    if (!isInstantiated()) throw new Error('Portfolio not instantiated.');
+    const usd = Number(amountUSD);
+    if (!Number.isFinite(usd) || usd <= 0) throw new Error('Invalid amount.');
+    portfolio.cashUSD += usd;
+    portfolio.history.push({
+        type: 'RECLAIM_MIA', amountUSD: usd, note: note || null,
+        ts: new Date().toISOString(),
+    });
+    save();
+    return { cashRemainingUSD: portfolio.cashUSD, allocatedUSD: miaAllocatedUSD() };
 }
 
 // Snapshot for export. Same shape as in storage; safe to share / re-import
