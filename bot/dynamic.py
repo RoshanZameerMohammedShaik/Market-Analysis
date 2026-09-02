@@ -51,7 +51,18 @@ import math
 # conventional factor-portfolio slice. They are not fitted to returns and must never be,
 # because that is precisely the leakage this module exists to avoid.
 ENTRY_PCTILE = 0.90      # act on the top decile of whatever the sleeve ranks on
-EXIT_PCTILE = 0.50       # let go once it falls out of the better half
+# EXIT at the 30th percentile, not the 50th.
+#
+# Exiting at the median was a hair-trigger, and the live desk showed exactly why: scores span
+# only about 21 points, so 9 of 41 names sat within a single point of the median. A sub-1-point
+# move flipped ~22% of the universe across the exit line. AVAX was sold at 53.5 against a
+# median of 53.5; RPL, ILV and CAKE were each sold on a ONE-point AI margin, CAKE for -$11.19.
+#
+# Entry at p90 and exit at p50 looks like a hold band but is not much of one when the
+# distribution is that dense. p30 widens it so a position is released on a real deterioration
+# rather than on drift, which matters when a round trip costs ~0.9% in crypto: an exit
+# triggered by noise pays that twice for nothing.
+EXIT_PCTILE = 0.30
 OVERSOLD_PCTILE = 0.10   # reversion buys the most beaten-down decile
 RECOVERED_PCTILE = 0.70  # and releases once it has climbed back through this rank
 
@@ -60,6 +71,12 @@ RECOVERED_PCTILE = 0.70  # and releases once it has climbed back through this ra
 # (score 50 = neutral by the engine's own definition), which is a definition rather than a
 # tuned constant.
 MIN_FOR_RANKING = 12
+
+# Below this, a reported daily true range is not believable and the ATR exit path refuses to
+# set a level from it. 0.30% is just under the cheapest realistic equity round trip and well
+# under crypto's, so nothing this quiet can produce a stop that is not inside its own
+# execution cost. See atr_exit_levels.
+MIN_CREDIBLE_ATR_PCT = 0.30
 NEUTRAL_SCORE = 50.0
 
 
@@ -215,7 +232,21 @@ def atr_exit_levels(cand, avg_cost):
     atr = (cand.get('indicators') or {}).get('atrPct')
     if not isinstance(atr, (int, float)) or not (atr > 0) or not (avg_cost > 0):
         return None, None, {'reason': 'no ATR either'}
-    atr = min(float(atr), 25.0) / 100.0   # cap: a broken ATR must not set a 300% target
+    # FLOOR as well as cap. The cap was there; the floor was missing, and the floor is what
+    # actually bit: GOAT-USD reported atrPct 0.02, so a 1x stop sat 0.02% below cost and
+    # fired on the first tick. It was stopped out TWICE for a combined -$4.17 of pure churn
+    # on a name that had moved -0.35%.
+    #
+    # An 0.02% daily true range is not a real measurement, it is a stale or thin series. And
+    # a stop tighter than the round trip is self-defeating by construction: crypto pays about
+    # 0.9% to get in and out, so any stop inside that guarantees a loss on noise alone. The
+    # floor is therefore tied to the ACTUAL cost of the round trip rather than to a taste
+    # about volatility.
+    atr = float(atr)
+    if atr < MIN_CREDIBLE_ATR_PCT:
+        return None, None, {'reason': f'atrPct {atr:.4f} is not a credible daily range',
+                            'atrPct': round(atr, 4)}
+    atr = min(atr, 25.0) / 100.0   # cap: a broken ATR must not set a 300% target
     return (avg_cost * (1 + 2.0 * atr), avg_cost * (1 - 1.0 * atr),
             {'source': 'atr', 'atrPct': round(atr * 100, 3),
              'tpMovePct': round(200.0 * atr, 3), 'slMovePct': round(-100.0 * atr, 3)})

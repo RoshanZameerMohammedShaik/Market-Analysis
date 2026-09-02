@@ -180,7 +180,7 @@ jobs:
 
           END=$(( $(date +%s) + 17400 ))   # 4h50m
           MIN_CYCLE=90                     # floor between cycle STARTS, seconds
-          cycles=0; commits=0
+          cycles=0; commits=0; last_pub_hour=""
 
           # Existence checked BEFORE the redirect: `wc -l < missing 2>/dev/null` still
           # prints "No such file or directory", because the shell reports the failed
@@ -206,7 +206,29 @@ jobs:
               git add -A model/bot/ || true
               if ! git diff --cached --quiet; then
                 # Publish on a fill: this is real news and worth a deploy.
-                git commit -q -m "chore(bot): $(( after - before )) fill(s) [skip actions]"
+                # PAGES BUILD BUDGET. This line used to be an unconditional
+                # "[skip actions]", which lets Cloudflare Pages build -- so EVERY fill
+                # triggered a deploy. 35 fills in a day produced 25 Pages builds against a
+                # 500/month free allowance (~16/day) shared with the Live ledger, and the
+                # limit-reached emails followed. The budget logic existed in the end-of-job
+                # commit step and I failed to carry it into this loop when I rewrote the
+                # hourly one-shot as a long-running job.
+                #
+                #   [skip actions]  GitHub skips, Pages BUILDS   -> publish
+                #   [skip ci]       both skip                    -> commit only
+                #
+                # State is committed either way, so nothing is ever lost by not publishing;
+                # only the live site waits. Publishing at 01/07/13/19 UTC caps the desk at
+                # 4 builds a day no matter how much she trades, and the once-per-hour guard
+                # stops several fills in the same hour each asking for their own build.
+                hour=$(date -u +%-H)
+                if [ $(( (hour + 5) % 6 )) -eq 0 ] && [ "$hour" != "$last_pub_hour" ]; then
+                  token="[skip actions]"; last_pub_hour="$hour"
+                  echo "Publish window ${hour}:00 UTC: Pages will build."
+                else
+                  token="[skip ci]"
+                fi
+                git commit -q -m "chore(bot): $(( after - before )) fill(s) $token"
                 for a in 1 2 3; do
                   if git push -q; then commits=$(( commits + 1 )); break; fi
                   git fetch -q origin main && git rebase -q origin/main || {

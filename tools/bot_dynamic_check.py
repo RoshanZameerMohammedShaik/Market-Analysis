@@ -128,6 +128,33 @@ ck('the ratio is not called an edge',
    str(is_tradeable(rich, round_trip_cost_pct)[2]))
 
 print()
+print('=== a stop must never be tighter than its own round trip ===')
+# GOAT-USD reported atrPct 0.02, so a 1x ATR stop sat 0.02% below cost and fired on the first
+# tick. It was stopped out TWICE for a combined -$4.17 on a name that had moved -0.35%. A stop
+# inside the execution cost guarantees a loss on noise alone.
+from bot.dynamic import MIN_CREDIBLE_ATR_PCT, EXIT_PCTILE  # noqa: E402
+hair = {'price': 5.0963, 'indicators': {'atrPct': 0.02}}
+tp_h, sl_h, ev_h = exit_levels(hair, 5.0963)
+ck('an implausible ATR sets no level at all', tp_h is None and sl_h is None, str(ev_h))
+ck('and it says why', 'credible' in str(ev_h.get('reason', '')), str(ev_h))
+ck('the floor is at least a realistic round trip', MIN_CREDIBLE_ATR_PCT >= 0.2,
+   str(MIN_CREDIBLE_ATR_PCT))
+real = {'price': 100, 'indicators': {'atrPct': 5.58}}
+tp_r, sl_r, ev_r = exit_levels(real, 100.0)
+ck('a credible ATR still produces levels', tp_r is not None and sl_r is not None)
+ck('and the stop is wider than any plausible round trip', (100.0 - sl_r) / 100.0 > 0.01,
+   f'stop {sl_r:.2f} is {(100.0 - sl_r):.2f}% below cost')
+
+print('')
+print('=== the exit line is not the median ===')
+# Scores span ~21 points and 9 of 41 names sat within 1 point of the median, so a sub-1-point
+# move flipped ~22% of the universe across a p50 exit. AVAX was sold at 53.5 against a median
+# of 53.5; CAKE was sold on a one-point AI margin for -$11.19.
+ck('exiting is stricter than the median', EXIT_PCTILE < 0.5, str(EXIT_PCTILE))
+ck('but not so strict it never releases', EXIT_PCTILE >= 0.2, str(EXIT_PCTILE))
+ck('there is a real hold band between entry and exit', ENTRY_PCTILE - EXIT_PCTILE >= 0.4,
+   f'entry {ENTRY_PCTILE} exit {EXIT_PCTILE}')
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):
