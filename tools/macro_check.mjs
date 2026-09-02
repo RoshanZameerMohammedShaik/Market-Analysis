@@ -123,4 +123,10 @@ console.log(`${FAIL.length ? 'MACRO CHECK FAIL' : 'MACRO CHECK PASS'}: `
 if (FAIL.length && process.env.GITHUB_ACTIONS) {
     console.log(`::error title=macro_check::${FAIL.slice(0, 6).join('; ')}`);
 }
-process.exit(FAIL.length ? 1 : 0);
+// process.exitCode, NOT process.exit(). Calling process.exit() while a keep-alive fetch
+// socket is still open crashes libuv on Windows:
+//     Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\winsync.c, line 76
+// The 28 assertions had all passed and the harness still reported a nonzero exit, which is
+// the worst kind of test failure: one that says "broken" about working code. Setting the
+// code and letting Node drain its handles exits cleanly on every platform.
+process.exitCode = FAIL.length ? 1 : 0;
