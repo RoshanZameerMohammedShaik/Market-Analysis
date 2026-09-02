@@ -1,19 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-02T00:01:19Z",
-  "runs": 377,
+  "updatedAt": "2026-09-02T00:02:44Z",
+  "runs": 378,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 8625.689987,
-    "cashUSD": 3807.148104,
-    "holdingsUSD": 4818.541883,
-    "realizedUSD": -35.919862,
-    "unrealizedUSD": -1338.390151,
-    "feesUSD": 81.707442,
-    "pnlUSD": -1374.310013,
-    "pnlPct": -13.7431,
-    "trades": 33
+    "equityUSD": 9922.56276,
+    "cashUSD": 3664.062283,
+    "unsettledCashUSD": 1597.637862,
+    "holdingsUSD": 4660.862615,
+    "realizedUSD": -37.995655,
+    "unrealizedUSD": -39.441584,
+    "feesUSD": 84.76811,
+    "pnlUSD": -77.43724,
+    "pnlPct": -0.7744,
+    "trades": 35
   },
   "sleeves": {
     "engine": {
@@ -71,7 +72,7 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 1420.247223,
+      "cashUSD": 1277.161401,
       "positions": {
         "MOVR-USD": {
           "units": 260.79812069164376,
@@ -103,20 +104,20 @@
             }
           ]
         },
-        "GOAT-USD": {
-          "units": 58.39159514749646,
+        "ATOM-USD": {
+          "units": 96.57883871180493,
           "lots": [
             {
-              "units": 58.39159514749646,
-              "costUSD": 297.57978775030597,
-              "openedAt": "2026-09-02T00:01:19Z"
+              "units": 96.57883871180493,
+              "costUSD": 142.36788505182005,
+              "openedAt": "2026-09-02T00:02:44Z"
             }
           ]
         }
       },
-      "realizedUSD": -2.092676,
-      "feesUSD": 17.345729,
-      "trades": 6
+      "realizedUSD": -4.168469,
+      "feesUSD": 20.406396,
+      "trades": 8
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -255,6 +256,10 @@
       {
         "amountUSD": 287.614583,
         "settlesOn": "2026-09-03"
+      },
+      {
+        "amountUSD": 295.503995,
+        "settlesOn": "2026-09-03"
       }
     ],
     "debitUSD": 0.0,
@@ -262,12 +267,14 @@
     "dayTrades": [
       "2026-09-01",
       "2026-09-01",
-      "2026-09-01"
+      "2026-09-01",
+      "2026-09-02"
     ],
     "openedToday": {
       "2026-09-02": {
         "GOAT-USD": 58.39159514749646,
-        "NEAR-USD": 58.34854706300123
+        "NEAR-USD": 58.34854706300123,
+        "ATOM-USD": 96.57883871180493
       }
     },
     "lastAccrual": "2026-09-02",
@@ -291,12 +298,12 @@
       "engine:DASH-USD": "2026-09-01T10:00:54Z",
       "mia-ai:CVX-USD": "2026-09-01T10:02:40Z",
       "engine:METIS-USD": "2026-09-01T10:30:55Z",
-      "reversion:GOAT-USD": "2026-09-02T00:01:19Z",
-      "mia-ai:NEAR-USD": "2026-09-02T00:01:19Z"
+      "mia-ai:NEAR-USD": "2026-09-02T00:01:19Z",
+      "reversion:ATOM-USD": "2026-09-02T00:02:44Z"
     },
     "tradesToday": {
       "engine": 3,
-      "reversion": 1,
+      "reversion": 3,
       "mia-ai": 3
     },
     "day": "2026-09-02"
@@ -309,6 +316,7 @@
   },
   "pendingBySleeve": {
     "engine": 716.9526376129747,
-    "mia-ai": 585.18123015275
+    "mia-ai": 585.18123015275,
+    "reversion": 295.5039945123865
   }
 }
