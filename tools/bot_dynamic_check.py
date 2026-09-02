@@ -208,6 +208,42 @@ ck('a sub-dollar altcoin is refused', _rt(0.77, 'MOVR-USD') > _r['maxRoundTripCo
 ck('a sub-penny name is refused', _rt(0.0085, 'BEAM-USD') > _r['maxRoundTripCostPct'],
    f"BEAM {_rt(0.0085, 'BEAM-USD'):.2f}%")
 
+print('=== never sell at a loss, and the cap that makes it safe ===')
+import datetime as _dt  # noqa: E402
+from bot.portfolio import Sleeve as _Sleeve  # noqa: E402
+from bot.broker import BrokerAccount as _Broker  # noqa: E402
+from bot.strategies import Intent as _Intent  # noqa: E402
+from bot.config import load_config as _load  # noqa: E402
+import bot.run as _R  # noqa: E402
+_cfg2 = _load()
+ck('neverSellAtLoss is on by default', _cfg2.get('neverSellAtLoss') is True)
+_s = _Sleeve('engine', 'The Engine', cash_usd=1000.0)
+_s.buy('BTC-USD', 500.0, 100.0)
+_br = _Broker.from_dict({'accountType': 'cash', 'plan': 'ibkr-pro-tiered',
+                         'benchmarkRatePct': 4.33})
+_snap = {'candidates': {'BTC-USD': {'indicators': {'atrPct': 2.0}}},
+         'breadth': 50, 'breadthHistory': []}
+_today = _dt.date.today()
+def _try(px):
+    it = _Intent('SELL', 'BTC-USD', 'signal decayed', {'rule': 'engine-exit'}, conviction=0.7)
+    return _R.approve(it, _s, _br, _cfg2, {'BTC-USD': px}, {'openedAt': {}}, _today, 0, _snap)
+_down_ok, _, _down_why = _try(95.0)
+_up_ok, _, _ = _try(112.0)
+ck('a losing sale is REFUSED', _down_ok is False, _down_why)
+ck('the refusal names the loss it avoided', 'realises' in _down_why, _down_why)
+ck('a profitable sale is allowed', _up_ok is True)
+# Exiting exactly AT cost still loses the exit-side spread, so it must be refused too.
+_flat_ok, _, _ = _try(100.1)
+ck('selling at break-even before costs is refused', _flat_ok is False)
+# THE PAIRING. The rule is only safe because the cost cap removes names that go to zero:
+# LUNC -100%, FTT -99.7%, MOVR -99.8%, BEAM -99.0%, ILV -99.8%, GOAT -98.5%, none recovered.
+# If the cap ever admits them again, never-selling becomes ruinous.
+_cap = _cfg2['risk']['maxRoundTripCostPct']
+for _sym, _px in (('MOVR-USD', 0.77), ('BEAM-USD', 0.0085), ('ILV-USD', 3.01)):
+    ck(f'{_sym} (collapsed 98-100%, never recovered) stays excluded',
+       _rt(_px, _sym) > _cap, f'{_rt(_px, _sym):.2f}% vs cap {_cap}%')
+ck('the pairing holds: a tight cap guards the no-loss rule', _cap <= 0.35, str(_cap))
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):

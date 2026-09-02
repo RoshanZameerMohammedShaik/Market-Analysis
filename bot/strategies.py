@@ -164,7 +164,7 @@ class Strategy:
                          targetUSD=round(tp, 6), movePct=round(move, 3),
                          rule='take-profit'),
                     conviction=0.9))
-            elif px <= sl:
+            elif px <= sl and not self.cfg.get('neverSellAtLoss', True):
                 out.append(Intent(
                     'SELL', sym,
                     f'Stop loss: down {move:.2f}% from ${avg:,.4f}, through the '

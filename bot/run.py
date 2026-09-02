@@ -349,6 +349,39 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     if intent.action == 'SELL':
         if sleeve.units(sym) <= 0:
             return False, 0.0, 'no position to sell'
+
+        # NEVER SELL AT A LOSS. Roshan's rule, and the measurements back it for the universe
+        # this desk is now restricted to.
+        #
+        # SPY over 20 years: buy at any point and hold until you are up after costs, and
+        # 99.8% of entries recover, median wait 2 trading days. Individual crypto majors --
+        # BTC, ETH, BCH, XMR, ZEC, MKR, BNB, AAVE -- recover 97.8% of the time, median 1-2
+        # days. Selling into a dip is very often just paying the toll to lock in noise.
+        #
+        # THE FAILURE CASE, AND WHY IT NO LONGER APPLIES. Refusing to sell is catastrophic in
+        # a name that never comes back: LUNC -100%, FTT -99.7%, MOVR -99.8%, BEAM -99.0%,
+        # ILV -99.8%, GOAT -98.5%, none of which recovered. This desk HELD MOVR, BEAM, ILV
+        # and GOAT. What makes the rule safe is the maxRoundTripCostPct cap added alongside
+        # it: every one of those names is excluded by it (MOVR 6.10%, BEAM 25.10%, ILV 1.85%,
+        # LUNC and FTT in the junk tier). The cap removes the instruments that go to zero;
+        # on what remains, holding through a drawdown is the winning move. The two rules only
+        # work together, so weakening the cost cap re-arms this one.
+        #
+        # Enforced HERE rather than in each strategy so no exit path can bypass it: signal
+        # decay, take-profit, reversion release and the AI's own change of mind all land here.
+        if cfg.get('neverSellAtLoss', True):
+            units_held = sleeve.units(sym)
+            basis = sleeve.cost_basis_usd(sym)
+            if units_held > 0 and basis > 0:
+                avg = basis / units_held
+                exit_cost = (round_trip_cost_pct(px, sym) or 0.0) / 2.0   # one side only
+                net_px = px * (1.0 - exit_cost / 100.0)
+                if net_px <= avg:
+                    loss_pct = (net_px / avg - 1.0) * 100.0
+                    return False, 0.0, (f'holding: selling now realises {loss_pct:+.2f}% '
+                                        f'(net ${net_px:.6g} vs ${avg:.6g} cost). This desk '
+                                        f'does not sell at a loss.')
+
         held_since = state_meta.get('openedAt', {}).get(f'{sleeve.id}:{sym}')
         # STOP-LOSS may always fire: it is a risk control, not an opinion. TAKE-PROFIT no
         # longer bypasses the hold, because taking a small profit early is exactly the churn

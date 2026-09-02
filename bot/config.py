@@ -182,6 +182,16 @@ DEFAULTS = {
         'temperature': 0.2,              # low: we want consistency, not creativity
     },
 
+    # NEVER book a loss. A position is held until it is above its cost basis net of the exit
+    # cost. Measured: 99.8% of SPY entries over 20 years recover (median 2 trading days), and
+    # 97.8% of entries in the crypto majors this desk is allowed to trade.
+    #
+    # SAFE ONLY BECAUSE OF maxRoundTripCostPct. In names that never come back the rule is
+    # ruinous: LUNC -100%, FTT -99.7%, MOVR -99.8%, BEAM -99.0%, ILV -99.8%, GOAT -98.5%.
+    # The cost cap excludes every one of them. Raise the cap and this rule becomes dangerous
+    # again -- they are a pair, not two independent settings.
+    'neverSellAtLoss': True,
+
     'enabled': True,
     'notes': 'Paper money. No broker connection exists and none is planned.',
 }
