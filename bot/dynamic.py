@@ -369,3 +369,36 @@ def is_tradeable(row, round_trip_cost_pct_fn):
     # measured one thing, labelled as though it measured another.
     return True, 'ok', {'expectedMovePct': round(move, 4), 'roundTripPct': round(cost, 4),
                         'moveToCostRatio': round(move / cost, 3)}
+
+
+# ── expected value: the honest "only trade when profitable" gate ─────────────
+
+def expected_value_pct(p_up, move_pct, cost_pct):
+    """Expected NET return of a long, in percent, after the round trip.
+
+    p_up      directional probability in [0,1] (engine score/100 or the AI probability)
+    move_pct  the expected magnitude of the move, from the calibrated band (one side)
+    cost_pct  the round-trip cost for this symbol, spread + slippage + commission
+
+    Model: a long captures the up-move with probability p_up and eats the down-move
+    otherwise, and the band width is roughly symmetric, so the expected gross directional
+    return is (2*p_up - 1) * move_pct. Subtract the toll to get the net.
+
+    THE HONEST LIMIT, stated in code because it governs everything: p_up is only as good as
+    the engine is calibrated, and over 996,541 graded predictions this engine sat at 51.5%
+    against a 51.8% base rate -- essentially 0.5. At p_up = 0.5 the directional term is ZERO
+    and every trade nets negative by exactly the cost. So an honest EV gate will refuse
+    almost everything at the measured skill, which is not a bug: it is the same conclusion
+    the whole project keeps reaching, and the reason the buy-and-hold control exists. If a
+    lot of trades clear this gate, the FIRST suspicion should be that p_up is overstated,
+    not that free money was found.
+
+    Returns None when any input is unusable, so the caller can fall back rather than treat a
+    missing probability as an opinion.
+    """
+    for x in (p_up, move_pct, cost_pct):
+        if not isinstance(x, (int, float)) or not math.isfinite(x):
+            return None
+    p = max(0.0, min(1.0, float(p_up)))
+    directional = (2.0 * p - 1.0) * float(move_pct)
+    return directional - float(cost_pct)

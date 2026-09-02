@@ -17,7 +17,9 @@
     "maxTradesPerDay": 8,
     "minHoldMinutes": 90,
     "dailyLossHaltPct": 6.0,
-    "cashFloorPct": 5.0
+    "cashFloorPct": 5.0,
+    "minEdgePct": 0.0,
+    "minEdgeMultiple": 1.5
   },
   "cadence": {
     "runsPerDay": 12,

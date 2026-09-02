@@ -155,6 +155,28 @@ ck('but not so strict it never releases', EXIT_PCTILE >= 0.2, str(EXIT_PCTILE))
 ck('there is a real hold band between entry and exit', ENTRY_PCTILE - EXIT_PCTILE >= 0.4,
    f'entry {ENTRY_PCTILE} exit {EXIT_PCTILE}')
 
+print('=== only trade when the expected value clears the toll ===')
+from bot.dynamic import expected_value_pct  # noqa: E402
+# At a coin flip, EV is negative by exactly the cost -- there is no free lunch in trading a
+# 50/50 signal, which is the whole reason the desk was bleeding commission.
+ck('a coin flip nets negative by the cost',
+   abs(expected_value_pct(0.5, 3.0, 0.9) + 0.9) < 1e-9, str(expected_value_pct(0.5, 3.0, 0.9)))
+# The engine's MEASURED skill (51.5%) still does not clear a 0.9% round trip.
+ck('measured skill 0.515 is still net-negative', expected_value_pct(0.515, 3.0, 0.9) < 0,
+   str(expected_value_pct(0.515, 3.0, 0.9)))
+# It takes a genuinely strong, correctly-sized edge to go positive.
+ck('a strong edge on a big enough move clears it', expected_value_pct(0.65, 3.0, 0.9) > 0)
+ck('a strong edge on too small a move does NOT', expected_value_pct(0.65, 1.0, 0.9) < 0)
+# A high-cost name needs an implausible move -- this is what refuses the alts.
+ck('a 6% round trip demands a large move', expected_value_pct(0.60, 3.0, 6.1) < 0,
+   str(expected_value_pct(0.60, 3.0, 6.1)))
+ck('a cheap major with a real edge passes', expected_value_pct(0.60, 3.0, 0.3) > 0)
+# Missing inputs must not be read as an opinion.
+ck('a missing probability yields None, not a trade', expected_value_pct(None, 3.0, 0.9) is None)
+ck('a missing move yields None', expected_value_pct(0.6, None, 0.9) is None)
+ck('EV is symmetric around p=0.5',
+   abs(expected_value_pct(0.7, 4.0, 0) + expected_value_pct(0.3, 4.0, 0)) < 1e-9)
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):

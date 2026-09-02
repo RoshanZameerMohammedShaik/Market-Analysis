@@ -56,8 +56,8 @@ from bot.portfolio import MIN_TRADE_USD, BotAccount, Sleeve, utc_now_iso  # noqa
 from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
 import bot.strategies as strategies                                    # noqa: E402
 from bot.learn import learn, load_learned                              # noqa: E402
-from bot.dynamic import (CrossSection, exposure_scale, is_tradeable,  # noqa: E402
-                         risk_parity_size_usd)
+from bot.dynamic import (CrossSection, exposure_scale, expected_move_pct,  # noqa: E402
+                         expected_value_pct, is_tradeable, risk_parity_size_usd)
 from trading_costs import round_trip_cost_pct                          # noqa: E402
 import ledger_store                                                    # noqa: E402
 
@@ -362,6 +362,47 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
         return False, 0.0, (f'{left}m to close: too late to open a position that cannot '
                             f'be managed until the next session')
 
+    # ONLY TRADE WHEN THE SYSTEM EXPECTS A PROFIT AFTER COSTS.
+    #
+    # Roshan asked for this directly. The honest form is expected value: capture (2*p_up-1)
+    # of the expected move and subtract the toll that is known exactly. The direction comes
+    # from whatever the sleeve actually used -- the AI probability, or the engine score as a
+    # 0-1 bullish reading -- and the move comes from the calibrated band.
+    #
+    # This is where the desk's losses were coming from: 35 fills, $85 of commission, and a
+    # per-trade edge the research put at +0.06% to +0.16% against a ~0.9% crypto round trip.
+    # The gate refuses any BUY whose expected net is below minEdgePct, so a trade has to
+    # clear its own toll with room to spare before real money moves.
+    #
+    # The control sleeve is EXEMPT: it buys once and holds as the benchmark, and gating it
+    # would stop it being the thing every other sleeve is measured against. A strategy with
+    # no probability to offer (reversion is RSI-based) falls back to requiring the expected
+    # move to beat the cost by minEdgeMultiple -- necessary, not as strong, and labelled so.
+    cand = ((snapshot or {}).get('candidates') or {}).get(sym) or {}
+    min_edge_pct = float(risk.get('minEdgePct', 0.0))
+    min_mult = float(risk.get('minEdgeMultiple', 1.5))
+    if sleeve.id != 'control':
+        move = expected_move_pct(cand)
+        cost = round_trip_cost_pct(px, sym)
+        ev = intent.evidence or {}
+        p_up = ev.get('aiProbability')
+        if p_up is None and isinstance(ev.get('score'), (int, float)):
+            p_up = ev['score'] / 100.0
+        exp_val = expected_value_pct(p_up, move, cost)
+        if exp_val is not None:
+            intent.evidence['expectedValuePct'] = round(exp_val, 4)
+            intent.evidence['pUp'] = round(float(p_up), 4)
+            if exp_val < min_edge_pct:
+                return False, 0.0, (f'expected value {exp_val:+.2f}% after a {cost:.2f}% round trip '
+                                    f'(p_up {p_up:.2f}, move {move:.2f}%) is below the '
+                                    f'{min_edge_pct:.2f}% bar -- not worth the toll')
+        elif move is not None and cost is not None:
+            # No calibrated probability: fall back to a volatility-vs-cost margin.
+            intent.evidence['moveToCostRatio'] = round(move / cost, 3) if cost else None
+            if move < cost * min_mult:
+                return False, 0.0, (f'expected move {move:.2f}% is under {min_mult:g}x the '
+                                    f'{cost:.2f}% round trip -- no margin for a profit')
+
     equity = sleeve.equity_usd(prices)
 
     # SIZE BY RISK, NOT BY NOTIONAL.
@@ -373,7 +414,6 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     #
     # maxPositionPct stays as a hard CAP. It is a rail, not a signal: it bounds how wrong any
     # single position can be, and a rail that moves with conditions is not a rail.
-    cand = ((snapshot or {}).get('candidates') or {}).get(sym) or {}
     sigma_pct = (cand.get('indicators') or {}).get('atrPct')
     parity = risk_parity_size_usd(equity, risk['maxPositions'], sigma_pct,
                                   risk['maxPositionPct'])

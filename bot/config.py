@@ -114,6 +114,16 @@ DEFAULTS = {
 
     # ── risk ─────────────────────────────────────────────────────────────────
     'risk': {
+        # Only open a position whose expected value is positive AFTER the round-trip cost.
+        # minEdgePct is the net-return bar in percent; 0.0 means "must at least pay for its
+        # own toll". minEdgeMultiple is the weaker fallback for strategies with no calibrated
+        # probability (reversion): the expected MOVE must beat cost by this multiple. Raising
+        # minEdgePct makes the desk trade less and more selectively; at the engine's measured
+        # ~0.5 skill it will refuse most candidates, which is the correct response to a
+        # near-zero edge, not a malfunction.
+        'minEdgePct': 0.0,
+        'minEdgeMultiple': 1.5,
+
         'maxPositionPct': 12.0,          # of sleeve equity, per name
         'maxPositions': 8,
         'minTradeUSD': 100.0,            # above bot/portfolio MIN_TRADE_USD dust floor
