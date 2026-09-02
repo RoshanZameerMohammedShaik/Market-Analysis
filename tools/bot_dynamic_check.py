@@ -177,6 +177,37 @@ ck('a missing move yields None', expected_value_pct(0.6, None, 0.9) is None)
 ck('EV is symmetric around p=0.5',
    abs(expected_value_pct(0.7, 4.0, 0) + expected_value_pct(0.3, 4.0, 0)) < 1e-9)
 
+print('=== the rails come from a 12-year replay, not from taste ===')
+import json as _json  # noqa: E402
+_cfg = _json.load(open(os.path.join(REPO, 'model', 'bot', 'config.json'), encoding='utf-8'))
+_r = _cfg['risk']
+# 12y non-overlapping SPY replay, net of a 0.14% round trip:
+#   1d  -0.083%  t -4.15  win 45.6%  -18.9% annualised
+#  20d  +0.976%  t  3.08  win 66.0%  +13.0% annualised
+#  60d  +3.166%  t  3.96  win 72.0%  +14.0% annualised
+# A sub-daily hold is the one setting guaranteed to lose, so it must not come back.
+ck('the minimum hold is measured in DAYS, not minutes', 'minHoldDays' in _r)
+ck('the old 90-minute hold is gone', 'minHoldMinutes' not in _r)
+ck('the hold is long enough to clear the toll', _r.get('minHoldDays', 0) >= 10,
+   str(_r.get('minHoldDays')))
+# Cost tier decides the SIGN. Measured across 70k ledger rows, only <0.20% is ever positive
+# and every dearer tier gets WORSE with time.
+ck('an execution-cost cap exists', 'maxRoundTripCostPct' in _r)
+ck('the cap admits only the cheapest tier', _r['maxRoundTripCostPct'] <= 0.35,
+   str(_r['maxRoundTripCostPct']))
+ck('churn is capped hard', _r.get('maxTradesPerDay', 99) <= 4,
+   str(_r.get('maxTradesPerDay')))
+# Sanity: the cap must actually admit real instruments, or the desk simply never trades.
+from trading_costs import round_trip_cost_pct as _rt  # noqa: E402
+ck('a megacap equity is admitted', _rt(230, None) <= _r['maxRoundTripCostPct'],
+   f'AAPL-like {_rt(230, None):.2f}%')
+ck('BTC is admitted', _rt(77000, 'BTC-USD') <= _r['maxRoundTripCostPct'],
+   f"BTC {_rt(77000, 'BTC-USD'):.2f}%")
+ck('a sub-dollar altcoin is refused', _rt(0.77, 'MOVR-USD') > _r['maxRoundTripCostPct'],
+   f"MOVR {_rt(0.77, 'MOVR-USD'):.2f}%")
+ck('a sub-penny name is refused', _rt(0.0085, 'BEAM-USD') > _r['maxRoundTripCostPct'],
+   f"BEAM {_rt(0.0085, 'BEAM-USD'):.2f}%")
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):

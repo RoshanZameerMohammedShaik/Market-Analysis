@@ -139,6 +139,21 @@ def candidate_universe(cfg, held, live_markets):
         if not ok:
             skipped[why] = skipped.get(why, 0) + 1
             continue
+        # HARD EXECUTION-COST CAP. Measured, not chosen: net return after one round trip,
+        # by cost tier, across 70k ledger rows --
+        #     <0.20% cost:  1d -0.14   5d +0.11   10d +0.52   20d +1.72
+        #     0.2-0.5%:     1d -0.44   5d -0.63   10d -0.72   20d -1.20
+        #     0.5-1.5%:     1d -0.97   5d -1.53   10d -1.80   20d -2.91
+        #     >4%:          1d -9.65   5d -9.84   10d -10.34  20d -13.90
+        # The cheapest tier is the ONLY one that turns positive, and every other tier gets
+        # WORSE with holding period because no holding period outruns a 10% toll. Cost tier
+        # decides the sign; time only amplifies whatever sign you started with.
+        cost_pct = round_trip_cost_pct(r.get('entry'), sym)
+        cap = float(cfg['risk'].get('maxRoundTripCostPct', 0.25))
+        if cost_pct is None or cost_pct > cap:
+            k = f'round trip {cost_pct:.2f}% over the {cap:.2f}% cap' if cost_pct else 'no cost'
+            skipped[k] = skipped.get(k, 0) + 1
+            continue
         px = r.get('entry')
         score = r.get('weightedScore')
         if score is None:
@@ -335,14 +350,24 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
         if sleeve.units(sym) <= 0:
             return False, 0.0, 'no position to sell'
         held_since = state_meta.get('openedAt', {}).get(f'{sleeve.id}:{sym}')
-        if held_since and intent.evidence.get('rule') not in ('stop-loss', 'take-profit'):
+        # STOP-LOSS may always fire: it is a risk control, not an opinion. TAKE-PROFIT no
+        # longer bypasses the hold, because taking a small profit early is exactly the churn
+        # that made 1-day holds lose 18.9% annualised while 60-day holds made 14.0%. A
+        # winner has to be allowed to keep working.
+        if held_since and intent.evidence.get('rule') not in ('stop-loss',):
             try:
                 age = (datetime.datetime.now(datetime.timezone.utc)
                        - datetime.datetime.fromisoformat(held_since.replace('Z', '+00:00'))
                        ).total_seconds() / 60
-                if age < risk['minHoldMinutes']:
-                    return False, 0.0 , (f'min hold: {age:.0f}m of '
-                                         f'{risk["minHoldMinutes"]}m elapsed')
+                # DAYS, not minutes. The 90-minute hold was the single most expensive
+                # setting in the desk: a 12-year non-overlapping replay of SPY nets
+                # -0.083% per 1-day trade (t -4.15, -18.9% annualised) and +0.976% per
+                # 20-day trade (t 3.08, +13.0% annualised). Same asset, same signal; the
+                # entire difference is how often the toll is paid.
+                min_minutes = float(risk.get('minHoldDays', 20)) * 24 * 60
+                if age < min_minutes:
+                    return False, 0.0, (f'min hold: {age / 1440:.1f} of '
+                                        f'{risk.get("minHoldDays", 20)} days elapsed')
             except Exception:
                 pass
         ok, why = broker.check_sell(sym, today, sleeve.equity_usd(prices))
@@ -361,6 +386,16 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     if left is not None and left < NO_NEW_ENTRIES_WITHIN_MIN:
         return False, 0.0, (f'{left}m to close: too late to open a position that cannot '
                             f'be managed until the next session')
+
+    # EXECUTION-COST CAP, enforced again HERE and not only when picking the universe.
+    # Held positions are deliberately exempt from the universe screen so she can always SELL
+    # what she owns, which means expensive legacy names still reach this function. Without
+    # this check a BUY could top one of them up at a 6% round trip.
+    rt_cost = round_trip_cost_pct(px, sym)
+    cost_cap = float(risk.get('maxRoundTripCostPct', 0.25))
+    if rt_cost is None or rt_cost > cost_cap:
+        return False, 0.0, (f'round trip {rt_cost:.2f}% exceeds the {cost_cap:.2f}% cap; only the cheapest '
+                            f'execution tier is net-positive at any holding period')
 
     # ONLY TRADE WHEN THE SYSTEM EXPECTS A PROFIT AFTER COSTS.
     #

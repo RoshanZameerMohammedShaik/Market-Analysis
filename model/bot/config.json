@@ -13,13 +13,14 @@
     "maxPositionPct": 12.0,
     "maxPositions": 8,
     "minTradeUSD": 100.0,
-    "maxTradesPerRun": 3,
-    "maxTradesPerDay": 8,
-    "minHoldMinutes": 90,
+    "maxTradesPerRun": 1,
+    "maxTradesPerDay": 2,
     "dailyLossHaltPct": 6.0,
     "cashFloorPct": 5.0,
     "minEdgePct": 0.0,
-    "minEdgeMultiple": 1.5
+    "minEdgeMultiple": 1.5,
+    "maxRoundTripCostPct": 0.25,
+    "minHoldDays": 20
   },
   "cadence": {
     "runsPerDay": 12,
@@ -32,7 +33,7 @@
     "temperature": 0.2
   },
   "enabled": true,
-  "notes": "Paper money. No broker connection exists and none is planned. Entry/exit thresholds are NOT configured here: they are computed per run from the cross-section (bot/dynamic.py). Only risk RAILS are settings.",
+  "notes": "Paper money. No broker connection exists and none is planned. Thresholds are computed per run (bot/dynamic.py), not configured here; only risk RAILS are settings. The hold and cost rails come from a 12-year non-overlapping replay: at 1-day holds SPY nets -18.9% annualised after costs, at 60-day holds +14.0%. Cost tier decides the sign, holding period amplifies it.",
   "armed": true,
   "allocationUSD": 10000.0,
   "armedAt": "2026-09-01T02:41:36Z"

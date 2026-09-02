@@ -129,7 +129,16 @@ DEFAULTS = {
         'minTradeUSD': 100.0,            # above bot/portfolio MIN_TRADE_USD dust floor
         'maxTradesPerRun': 3,
         'maxTradesPerDay': 8,
-        'minHoldMinutes': 90,
+        # DAYS. A 12-year non-overlapping SPY replay: a 1-day hold nets -0.083% per trade
+        # after costs (t -4.15, -18.9% annualised) while a 20-day hold nets +0.976%
+        # (t 3.08, +13.0%) and a 60-day hold +3.166% (t 3.96, +14.0%). Win rate climbs
+        # monotonically from 45.6% to 81.8% purely by holding longer. The old 90-MINUTE
+        # hold was the most expensive setting in this file.
+        'minHoldDays': 20,
+        # Only the cheapest execution tier is net-positive at any horizon. Measured across
+        # 70k ledger rows: <0.20% cost turns positive by 5 days and reaches +1.72% at 20,
+        # while every dearer tier gets WORSE with time. Admits megacaps, BTC and ETH.
+        'maxRoundTripCostPct': 0.25,
         'dailyLossHaltPct': 6.0,
         'cashFloorPct': 5.0,             # never deploy the last of the cash
     },
@@ -237,7 +246,8 @@ def validate(cfg):
     clamp('risk.maxPositions', 1, 50)
     clamp('risk.maxTradesPerRun', 1, 20)
     clamp('risk.maxTradesPerDay', 1, 100)
-    clamp('risk.minHoldMinutes', 0, 10_080)
+    clamp('risk.minHoldDays', 0, 365)
+    clamp('risk.maxRoundTripCostPct', 0.01, 10.0)
     clamp('risk.dailyLossHaltPct', 0.5, 50.0)
     clamp('risk.cashFloorPct', 0.0, 90.0)
     # No signals.* clamps. Those thresholds are computed per run, not configured, and the
