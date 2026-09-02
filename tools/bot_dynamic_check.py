@@ -244,6 +244,37 @@ for _sym, _px in (('MOVR-USD', 0.77), ('BEAM-USD', 0.0085), ('ILV-USD', 3.01)):
        _rt(_px, _sym) > _cap, f'{_rt(_px, _sym):.2f}% vs cap {_cap}%')
 ck('the pairing holds: a tight cap guards the no-loss rule', _cap <= 0.35, str(_cap))
 
+print('=== a universe too thin to rank must not become the LOOSEST setting ===')
+# Every entry rule is a rank. Below MIN_FOR_RANKING the percentiles are meaningless and cut()
+# falls back to NEUTRAL_SCORE 50, which is far looser than a top decile -- so the thinnest
+# universe would otherwise be the least selective part of the desk. After the 0.25% cost cap,
+# crypto-only hours leave 10 tradeable names against a threshold of 12, so this fires nightly.
+def _snap(n):
+    c = {f'T{i}': {'symbol': f'T{i}', 'score': 60 + i, 'price': 200.0,
+                   'indicators': {'rsi': 40 + i, 'atrPct': 2.0},
+                   'ai': {'probability': 0.6}} for i in range(n)}
+    c['BTC-USD'] = {'symbol': 'BTC-USD', 'score': 70, 'price': 200.0,
+                    'indicators': {'rsi': 45, 'atrPct': 2.0}, 'ai': {'probability': 0.7},
+                    'band': {'calibrated': True, 'day1': {'low': 190, 'high': 215}}}
+    return {'candidates': c, 'cross': CrossSection(c),
+            'prices': {k: 200.0 for k in c}, 'breadth': 60, 'breadthHistory': []}
+_sv = _Sleeve('engine', 'The Engine', cash_usd=2000.0)
+_sv.buy('BTC-USD', 500.0, 100.0)
+_thin, _rich = _snap(3), _snap(30)
+ck('a 4-name universe is not rankable', _thin['cross'].rankable is False)
+ck('a 31-name universe is rankable', _rich['cross'].rankable is True)
+def _buy(sn):
+    it = _Intent('BUY', 'T0', 'top decile', {'rule': 'engine-entry', 'score': 66}, conviction=0.9)
+    return _R.approve(it, _sv, _br, _cfg2, sn['prices'], {'openedAt': {}}, _today, 0, sn)
+def _sell(sn):
+    it = _Intent('SELL', 'BTC-USD', 'take profit', {'rule': 'take-profit'}, conviction=0.9)
+    return _R.approve(it, _sv, _br, _cfg2, {'BTC-USD': 130.0}, {'openedAt': {}}, _today, 0, sn)
+ck('a thin universe refuses new ENTRIES', _buy(_thin)[0] is False, _buy(_thin)[2])
+ck('and says why', 'too few to rank' in _buy(_thin)[2], _buy(_thin)[2])
+# Exits must never be blocked by thinness, or a winner could be trapped overnight.
+ck('a thin universe still allows a PROFITABLE exit', _sell(_thin)[0] is True, _sell(_thin)[2])
+ck('a rankable universe allows entries again', _buy(_rich)[0] is True, _buy(_rich)[2])
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):

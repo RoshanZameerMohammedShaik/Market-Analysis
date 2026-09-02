@@ -420,6 +420,24 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
         return False, 0.0, (f'{left}m to close: too late to open a position that cannot '
                             f'be managed until the next session')
 
+    # NO NEW ENTRIES WHEN THE CROSS-SECTION IS TOO THIN TO RANK.
+    #
+    # Every entry rule is a RANK: top decile of score, most-oversold decile of RSI, top decile
+    # of AI probability. Below MIN_FOR_RANKING names those percentiles are meaningless, so
+    # cut() falls back to absolute defaults -- and the fallback for score is NEUTRAL_SCORE 50,
+    # which is far LOOSER than a top decile. Left alone, the thinnest universe would have been
+    # the least selective part of the desk, which is exactly backwards.
+    #
+    # It is not hypothetical: after the 0.25% cost cap, crypto-only hours leave 10 tradeable
+    # names against a threshold of 12, while market hours leave 603. So this fires overnight,
+    # every night. Abstaining is the honest response -- if we cannot tell whether a name is in
+    # the top decile, we do not know it is worth buying. SELLS are unaffected, so a winner can
+    # always be taken.
+    cross = (snapshot or {}).get('cross')
+    if cross is not None and not cross.rankable:
+        return False, 0.0, (f'only {cross.n} tradeable names this run, too few to rank; '
+                            f'no new entries until the cross-section is meaningful')
+
     # EXECUTION-COST CAP, enforced again HERE and not only when picking the universe.
     # Held positions are deliberately exempt from the universe screen so she can always SELL
     # what she owns, which means expensive legacy names still reach this function. Without
