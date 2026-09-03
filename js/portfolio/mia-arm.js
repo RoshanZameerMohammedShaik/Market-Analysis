@@ -230,7 +230,7 @@ async function awaitRun(dispatchedAt, onStatus = () => {}) {
  *
  * onProgress(stage, detail) drives the UI: 'dispatching' | 'running' | 'confirming' | 'done'.
  */
-export async function armDesk(amountUSD, onProgress = () => {}) {
+export async function armDesk(amountUSD, positions, onProgress = () => {}) {
     const usd = Number(amountUSD);
     if (!Number.isFinite(usd) || usd <= 0) throw new Error('Enter an amount.');
 
@@ -246,7 +246,11 @@ export async function armDesk(amountUSD, onProgress = () => {}) {
     onProgress('dispatching');
     // Sent as a string: workflow_dispatch inputs are strings, and 5000 would otherwise be
     // rejected as the wrong type.
-    const at = await dispatch({ mode: 'arm', allocationUSD: String(usd) });
+    // Sent as strings: workflow_dispatch inputs are always strings and a number is rejected
+    // as the wrong type.
+    const n = Math.max(1, Math.floor(Number(positions) || 3));
+    const at = await dispatch({ mode: 'arm', allocationUSD: String(usd),
+                                positions: String(n) });
 
     onProgress('running');
     const run = await awaitRun(at, s => onProgress(s));

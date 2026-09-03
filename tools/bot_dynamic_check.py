@@ -275,6 +275,51 @@ ck('and says why', 'too few to rank' in _buy(_thin)[2], _buy(_thin)[2])
 ck('a thin universe still allows a PROFITABLE exit', _sell(_thin)[0] is True, _sell(_thin)[2])
 ck('a rankable universe allows entries again', _buy(_rich)[0] is True, _buy(_rich)[2])
 
+print('=== the user chooses HOW MANY stocks, and N alone bounds the book ===')
+import copy as _copy  # noqa: E402
+def _mksnap(n=30):
+    c = {f'T{i}': {'symbol': f'T{i}', 'score': 60 + i, 'price': 200.0,
+                   'indicators': {'rsi': 40 + i, 'atrPct': 2.0},
+                   'ai': {'probability': 0.75},
+                   'band': {'calibrated': True, 'day1': {'low': 190, 'high': 215}},
+                   'forecastBand': {'days': [{'day': 1, 'widthPct': 6.0}]}} for i in range(n)}
+    return {'candidates': c, 'cross': CrossSection(c),
+            'prices': {k: 200.0 for k in c}, 'breadth': 60, 'breadthHistory': []}
+def _fill_to_limit(N):
+    cfg = _copy.deepcopy(_cfg2)
+    cfg['risk']['maxPositions'] = N
+    cfg['risk']['maxPositionPct'] = round((100 - cfg['risk']['cashFloorPct']) / N, 4)
+    cfg['risk']['maxTradesPerDay'] = 99
+    cfg['risk']['maxTradesPerRun'] = 99
+    sl = _Sleeve('engine', 'E', cash_usd=2500.0)
+    sn = _mksnap()
+    blocked = 0
+    for i in range(N + 3):
+        sym = f'T{29 - i}'
+        it = _Intent('BUY', sym, 'top decile',
+                     {'rule': 'engine-entry', 'score': 85, 'aiProbability': 0.75},
+                     conviction=0.95)
+        ok, size, why = _R.approve(it, sl, _br, cfg, sn['prices'], {'openedAt': {}},
+                                   _today, 0, sn)
+        if ok:
+            sl.buy(sym, size, 200.0)
+        elif 'max positions' in why:
+            blocked += 1
+    deployed = sum(l['costUSD'] for p in sl.positions.values() for l in p['lots'])
+    return len(sl.positions), deployed, blocked
+for _N in (1, 2, 3, 5):
+    _held, _dep, _blk = _fill_to_limit(_N)
+    ck(f'N={_N}: holds exactly {_N}', _held == _N, f'held {_held}')
+    # 'No limit how much, as long as it stays inside the allocation': N=1 must be able to
+    # commit the whole slice, which the old fixed 12% cap made impossible.
+    ck(f'N={_N}: deploys ~95% of the slice', abs(_dep / 2500.0 - 0.95) < 0.01,
+       f'${_dep:,.2f} of $2,500')
+    ck(f'N={_N}: further buys are refused', _blk >= 3, f'{_blk} blocked')
+# The cap must scale with N, or one setting silently contradicts the other.
+ck('a single position may take nearly the whole slice at N=1',
+   round((100 - 5) / 1, 4) > 90.0)
+ck('and only a quarter at N=4', abs(round((100 - 5) / 4, 4) - 23.75) < 1e-9)
+
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
 if FAIL and os.environ.get('GITHUB_ACTIONS'):

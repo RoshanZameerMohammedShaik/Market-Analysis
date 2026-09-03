@@ -70,6 +70,10 @@ on:
         description: 'For mode=arm only: how much of your portfolio to hand the desk, in USD'
         required: false
         default: ''
+      positions:
+        description: 'For mode=arm only: how many stocks she may hold at once, per strategy (1 = one name at a time)'
+        required: false
+        default: '3'
 
 # Mia gets her OWN group rather than sharing 'live-ledger'.
 #
@@ -153,7 +157,12 @@ jobs:
             echo "::error title=No allocation::mode=arm needs allocationUSD. Re-run and enter how much of your portfolio the desk should trade."
             exit 1
           fi
-          python -m bot.run --arm "$alloc"
+          pos="${{ github.event.inputs.positions }}"
+          if [ -n "$pos" ]; then
+            python -m bot.run --arm "$alloc" --positions "$pos"
+          else
+            python -m bot.run --arm "$alloc"
+          fi
 
       - name: Disarm the desk
         if: steps.mode.outputs.mode == 'disarm'

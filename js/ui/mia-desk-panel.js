@@ -146,6 +146,12 @@ function onClick(e) {
         render();
         return;
     }
+    const chip = e.target.closest('.desk-chip-btn[data-pos]');
+    if (chip) {
+        const inp = document.getElementById('desk-positions');
+        if (inp) { inp.value = chip.dataset.pos; describePositions(); }
+        return;
+    }
     if (e.target.closest('#desk-start')) { onStart(); return; }
     if (e.target.closest('#desk-stop')) { onStop(); return; }
     if (e.target.closest('#desk-reset')) { onReset(); }
@@ -181,7 +187,9 @@ async function onStart() {
         return;
     }
     try {
-        await armDesk(amount, stage => { busy = stage; render(); });
+        const posInput = document.getElementById('desk-positions');
+        const positions = Math.max(1, Math.floor(Number(posInput && posInput.value) || 3));
+        await armDesk(amount, positions, stage => { busy = stage; render(); });
         busy = '';
         await load();      // pick up the freshly committed state
     } catch (err) {
@@ -289,6 +297,12 @@ function render() {
     if (!(slice.config || {}).armed) {
         host.innerHTML = shell(startPanel(slice.config || {}),
                                deskControls(slice.config || {}));
+        // Bind AFTER the innerHTML write, or the listeners attach to detached nodes.
+        const posEl = document.getElementById('desk-positions');
+        const amtEl = document.getElementById('desk-amount');
+        if (posEl) posEl.addEventListener('input', describePositions);
+        if (amtEl) amtEl.addEventListener('input', describePositions);
+        describePositions();
         return;
     }
 
@@ -426,6 +440,16 @@ function startPanel(cfg) {
                    min="${min}" value="${canAfford ? suggested.toFixed(0) : ''}"
                    ${canAfford ? '' : 'disabled'} />
         </label>
+        <label class="desk-field">
+            <span>How many stocks at a time</span>
+            <span class="desk-picker" id="desk-pos-picker">
+                ${[1, 2, 3, 5].map(n => `<button type="button" class="desk-chip-btn"
+                    data-pos="${n}">${n}</button>`).join('')}
+                <input type="number" id="desk-positions" min="1" max="20" step="1"
+                       value="3" aria-label="Number of stocks" />
+            </span>
+        </label>
+        <p class="desk-avail" id="desk-pos-hint"></p>
         <p class="desk-avail">
             ${cash == null
                 ? 'No practice portfolio loaded yet. Load one above first, then come back.'
@@ -446,6 +470,28 @@ function startPanel(cfg) {
  * A control that acts on the thing you are worried about should not be the last thing you
  * can reach.
  */
+/** Say what N MEANS in money, live, as the user types.
+ *
+ * "3 stocks" is abstract; "up to $3,166 in each" is a decision. The per-position cap is
+ * derived as (100 - cashFloor)/N, so N=1 can commit the whole slice to one name -- which is
+ * the point of the setting and the opposite of the fixed 12% cap it replaced.
+ */
+function describePositions() {
+    const hint = document.getElementById('desk-pos-hint');
+    if (!hint) return;
+    const n = Math.max(1, Math.floor(
+        Number((document.getElementById('desk-positions') || {}).value) || 3));
+    const amt = Number((document.getElementById('desk-amount') || {}).value);
+    const perSleeve = Number.isFinite(amt) && amt > 0 ? amt / 4 : null;
+    const capPct = 95 / n;
+    const per = perSleeve != null ? perSleeve * capPct / 100 : null;
+    hint.innerHTML = n === 1
+        ? `One name at a time. She cannot buy another until she sells it`
+          + `${per != null ? `, and may put up to <strong>${money(per)}</strong> into it` : ''}.`
+        : `Up to ${n} names at once`
+          + `${per != null ? `, at most <strong>${money(per)}</strong> in each` : ''}.`;
+}
+
 function shell(inner, controls = '') {
     return `
         <div class="desk-head">

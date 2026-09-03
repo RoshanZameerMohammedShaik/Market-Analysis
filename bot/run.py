@@ -213,7 +213,7 @@ def breadth_history(limit=60):
 MIN_ALLOCATION_USD = 400.0
 
 
-def set_armed(armed, allocation_usd):
+def set_armed(armed, allocation_usd, positions=None):
     """Persist the arm state into model/bot/config.json.
 
     Written to the CONFIG rather than to state.json because it is a user decision, not
@@ -226,6 +226,19 @@ def set_armed(armed, allocation_usd):
     cfg['armed'] = bool(armed)
     cfg['allocationUSD'] = round(float(allocation_usd), 2) if allocation_usd else None
     cfg['armedAt'] = utc_now_iso() if armed else None
+    if positions:
+        n = max(1, int(positions))
+        cfg.setdefault('risk', {})['maxPositions'] = n
+        # THE SIZE CAP IS DERIVED FROM N, not left at a fixed 12%.
+        #
+        # Roshan's requirement was explicit: there is no limit on how much goes into a name
+        # so long as the total stays inside the allocation. A hardcoded maxPositionPct of 12
+        # flatly contradicts that at N=1 -- it would hold one stock with 12% of the money and
+        # sit on 88% cash. Deriving the cap as (100 - cashFloor)/N means N=1 can commit the
+        # whole slice to one name, N=2 half each, N=4 a quarter each, and the total is bounded
+        # by construction rather than by a second setting that can disagree with this one.
+        floor = float(cfg.get('risk', {}).get('cashFloorPct', 5.0))
+        cfg['risk']['maxPositionPct'] = round((100.0 - floor) / n, 4)
     tmp = CONFIG_PATH + '.tmp'
     with open(tmp, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=2, allow_nan=False)
@@ -552,6 +565,8 @@ def main():
     ap.add_argument('--arm', type=float, metavar='USD',
                     help='START the desk with this allocation, in USD. Until this is run '
                          'the desk does nothing at all.')
+    ap.add_argument('--positions', type=int, default=None, metavar='N',
+                    help='how many stocks she may hold at once, per strategy. With N=1 she holds one name and cannot buy another until it is sold.')
     ap.add_argument('--disarm', action='store_true',
                     help='stop the desk trading. Keeps positions and history.')
     args = ap.parse_args()
@@ -600,7 +615,7 @@ def main():
             log('refusing to arm: the desk already has an account. Use --reset first if you '
                 'really want to start over, which permanently discards the trade history.')
             sys.exit(1)
-        set_armed(True, amount)
+        set_armed(True, amount, args.positions)
         log(f'ARMED with ${amount:,.2f}. The desk will begin trading on its next scheduled '
             f'run.')
         return
