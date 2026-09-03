@@ -113,6 +113,11 @@ for (const theme of THEMES) {
             lead: document.querySelector('.desk-start-lead')?.textContent.trim() || '',
             text: document.getElementById('mia-desk')?.innerText || '',
             canStop: !!document.getElementById('desk-stop'),
+            canReset: !!document.getElementById('desk-reset'),
+            stopTop: (document.querySelector('.desk-actions')?.getBoundingClientRect().top) ?? null,
+            contentTop: (document.querySelector('.desk-start-lead, .desk-hero')?.getBoundingClientRect().top) ?? null,
+            resetDanger: !!document.querySelector('#desk-reset.danger')
+                && !document.querySelector('#desk-stop.danger'),
         }));
         console.log(`  lead        ${d.lead}`);
         if (firstRun) {
@@ -120,6 +125,15 @@ for (const theme of THEMES) {
             check('explains that the book opens on the next run',
                   /next scheduled run/i.test(d.text));
             check('offers a way to stop', d.canStop);
+            check('offers a way to clear the data', d.canReset);
+            // POSITION, not just presence. These lived in a footer under the leaderboard and
+            // the entire timeline, so stopping an actively-trading desk meant scrolling past
+            // everything it had done to reach the button.
+            check('the controls sit ABOVE the desk content',
+                  d.stopTop !== null && d.contentTop !== null && d.stopTop < d.contentTop,
+                  `stop at ${d.stopTop}, content at ${d.contentTop}`);
+            check('reset is styled as the destructive one', d.resetDanger,
+                  'reset should carry the danger class, stop should not');
             check('shows no n/a placeholders in this state', !/n\/a/.test(d.text),
                   firstLineMatching(d.text, /n\/a/));
             check('no NaN or undefined', !/NaN|undefined/.test(d.text));

@@ -32,7 +32,7 @@
 //     exact amount requested. Debiting on click and hoping would destroy the money whenever
 //     the workflow failed.
 
-import { allocateToMia, miaAllocatedUSD } from './state.js';
+import { allocateToMia, miaAllocatedUSD, reclaimFromMia } from './state.js';
 
 const OWNER = 'RoshanZameerMohammedShaik';
 const REPO = 'Market-Analysis';
@@ -289,4 +289,57 @@ export async function disarmDesk(onProgress = () => {}) {
     if (after.armed) throw new Error('The job succeeded but the desk still reports running.');
     onProgress('done');
     return { ...after, allocatedUSD: miaAllocatedUSD(), runUrl: run.url };
+}
+
+
+/**
+ * Wipe the desk and hand the money back.
+ *
+ * DESTRUCTIVE and deliberately so: it deletes state, every fill, every run row and the
+ * learner's conclusions. That record is the entire point of the desk, and it is the only
+ * copy -- a market open cannot be replayed -- so the caller must confirm first.
+ *
+ * `equityUSD` is what comes back to the practice portfolio, and it is the desk's CURRENT
+ * equity rather than the original allocation. Returning the allocation would invent or
+ * destroy money depending on which way the book had moved; returning equity conserves it.
+ * Open positions are treated as liquidated at their last marks, which is a simplification
+ * that only holds because this is paper money and the user asked for it explicitly.
+ *
+ * The reclaim happens only AFTER GitHub confirms the wipe, same ordering as armDesk: if the
+ * workflow fails, the desk is untouched and so is the portfolio.
+ */
+export async function resetDesk(equityUSD, onProgress = () => {}) {
+    onProgress('dispatching');
+    const at = await dispatch({ mode: 'reset' });
+    onProgress('running');
+    const run = await awaitRun(at);
+    if (run.conclusion !== 'success') {
+        throw new Error(`The reset job ${run.conclusion === 'timeout'
+            ? 'is taking longer than expected' : `failed (${run.conclusion})`}. `
+            + `Nothing was changed. See ${run.url}`);
+    }
+    onProgress('confirming');
+    const after = await fetchDeskState();
+    // --reset disarms as part of the wipe, so a desk still reporting armed means it did not
+    // actually run and the money must NOT be moved.
+    if (after.armed) {
+        throw new Error('The reset job succeeded but the desk still reports as running. '
+            + 'Nothing was taken or returned.');
+    }
+    let returned = 0;
+    const owed = Number(equityUSD);
+    if (Number.isFinite(owed) && owed > 0) {
+        try {
+            reclaimFromMia({ amountUSD: owed, note: 'Returned from Mia 2.0 on reset' });
+            returned = owed;
+        } catch (err) {
+            // The wipe already happened, so surface this rather than swallowing it: the two
+            // books are now out of step and the user needs to know by how much.
+            throw new Error(`The desk was reset, but returning ${owed.toFixed(2)} to your `
+                + `portfolio failed: ${err.message}`);
+        }
+    }
+    onProgress('done');
+    return { ...after, returnedUSD: returned, allocatedUSD: miaAllocatedUSD(),
+             runUrl: run.url };
 }

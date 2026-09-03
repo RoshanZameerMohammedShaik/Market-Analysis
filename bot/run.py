@@ -64,6 +64,8 @@ import ledger_store                                                    # noqa: E
 STATE_PATH = os.path.join(BOT_DIR, 'state.json')
 TRADES_PATH = os.path.join(BOT_DIR, 'trades.jsonl')
 RUNS_PATH = os.path.join(BOT_DIR, 'runs.jsonl')
+LEARNED_PATH = os.path.join(BOT_DIR, 'learned.json')
+TIMELINE_PATH = os.path.join(BOT_DIR, 'timeline.json')
 REQ_PATH = os.path.join(BOT_DIR, '_request.json')
 ADV_PATH = os.path.join(BOT_DIR, '_advice.json')
 RECENT_SLICE = os.path.join(REPO, 'model', 'ledger', 'recent.json')
@@ -560,10 +562,25 @@ def main():
     today = started.date()
 
     if args.reset:
-        for p in (STATE_PATH, TRADES_PATH, RUNS_PATH):
-            if os.path.exists(p):
-                os.remove(p)
-        log('account reset: state, trades and runs removed')
+        # A FULL clean slate, and it DISARMS.
+        #
+        # This used to delete only state/trades/runs while leaving armed=true and the
+        # allocation in place, so the very next scheduled run silently opened a fresh book
+        # with the same money. That is not a reset, it is a restart -- and it would have
+        # started trading again without anyone asking. Allocating capital is the user's
+        # decision, so a reset hands the decision back.
+        #
+        # learned.json and timeline.json go too. Leaving the learner's conclusions behind
+        # would have it drawing inferences from round trips whose trades no longer exist,
+        # and a stale timeline.json would leave the panel showing a book that is gone.
+        removed = []
+        for path in (STATE_PATH, TRADES_PATH, RUNS_PATH, LEARNED_PATH, TIMELINE_PATH):
+            if os.path.exists(path):
+                os.remove(path)
+                removed.append(os.path.basename(path))
+        set_armed(False, None)
+        log(f'account reset: removed {", ".join(removed) or "nothing"}; desk DISARMED')
+        log('nothing will trade until a new allocation is set')
         return
 
     if args.disarm:
@@ -632,12 +649,13 @@ def main():
     released = broker.settle_due(today)
     if released:
         log(f'settled ${released:,.2f} of previously unsettled proceeds')
-        # Released cash goes back to the sleeves proportionally to what they are owed.
-        pending = getattr(acct, '_pending_by_sleeve', {}) or {}
-        for sid, amt in pending.items():
-            if sid in acct.sleeves:
-                acct.sleeves[sid].cash_usd += float(amt)
-        acct._pending_by_sleeve = {}
+        # Each sleeve's own unsettled proceeds become spendable. pending_usd lives ON the
+        # sleeve rather than in an account-level dict, so equity_usd has exactly one
+        # definition and cannot disagree with itself depending on which caller asks.
+        for sl in acct.sleeves.values():
+            if sl.pending_usd:
+                sl.cash_usd += sl.pending_usd
+                sl.pending_usd = 0.0
     interest = broker.accrue_interest(today)
     if interest:
         log(f'margin interest accrued: ${interest:,.4f}')
@@ -847,10 +865,10 @@ def execute(acct, sleeve, broker, cfg, intent, size, prices, meta, today):
         if settles:
             # In a cash account the proceeds are NOT spendable yet, so take them back out
             # of the sleeve's cash and remember who is owed them.
+            # Out of SPENDABLE cash and into the sleeve's unsettled bucket. Still owned, so
+            # equity_usd counts it; not spendable, so cash_usd does not.
             sleeve.cash_usd -= fill['notionalUSD']
-            pend = getattr(acct, '_pending_by_sleeve', None) or {}
-            pend[sleeve.id] = float(pend.get(sleeve.id, 0.0)) + fill['notionalUSD']
-            acct._pending_by_sleeve = pend
+            sleeve.pending_usd += fill['notionalUSD']
 
     return {
         'ts': utc_now_iso(),
@@ -939,7 +957,10 @@ def save_state(acct, prices, broker):
     d['brokerSummary'] = broker.describe()
     d['meta'] = getattr(acct, '_meta', {})
     d['equityOpen'] = getattr(acct, '_equity_open', {})
-    d['pendingBySleeve'] = getattr(acct, '_pending_by_sleeve', {})
+    # Derived from the sleeves, which are the source of truth. Kept in the file so an older
+    # state.json can still be read back by the hydration below.
+    d['pendingBySleeve'] = {sid: round(sl.pending_usd, 6)
+                            for sid, sl in acct.sleeves.items() if sl.pending_usd}
     with open(STATE_PATH, 'w', encoding='utf-8') as f:
         json.dump(d, f, indent=2, allow_nan=False)
 
@@ -960,7 +981,13 @@ def _load_with_extras(cls, path=STATE_PATH):
             acct._broker = d.get('broker')
             acct._meta = d.get('meta')
             acct._equity_open = d.get('equityOpen')
-            acct._pending_by_sleeve = d.get('pendingBySleeve')
+            # Backwards compatibility: state written before pending_usd moved onto the
+            # sleeve carries it only in this dict. Hydrate it so an existing book does not
+            # silently lose its unsettled cash on the first run after the upgrade.
+            for sid, amt in (d.get('pendingBySleeve') or {}).items():
+                sl = acct.sleeves.get(sid)
+                if sl is not None and not sl.pending_usd:
+                    sl.pending_usd = float(amt or 0.0)
         except Exception:
             pass
     return acct

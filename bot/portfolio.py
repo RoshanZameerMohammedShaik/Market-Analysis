@@ -63,13 +63,15 @@ class Sleeve:
     """One strategy's book: its cash, its positions, its realized P/L."""
 
     def __init__(self, sleeve_id, name, cash_usd=0.0, positions=None,
-                 realized_usd=0.0, fees_usd=0.0, trades=0, blurb=''):
+                 realized_usd=0.0, fees_usd=0.0, trades=0, blurb='', pending_usd=0.0):
         self.id = sleeve_id
         self.name = name
         self.blurb = blurb
         self.cash_usd = float(cash_usd)
         # positions[symbol] = {'units': float, 'lots': [{'units','costUSD','openedAt'}]}
         self.positions = positions or {}
+        # Sell proceeds awaiting T+1 settlement. NOT spendable, but still owned.
+        self.pending_usd = float(pending_usd or 0.0)
         self.realized_usd = float(realized_usd)
         self.fees_usd = float(fees_usd)
         self.trades = int(trades)
@@ -80,6 +82,7 @@ class Sleeve:
             'id': self.id, 'name': self.name, 'blurb': self.blurb,
             'cashUSD': _round_money(self.cash_usd),
             'positions': self.positions,
+            'pendingUSD': _round_money(self.pending_usd),
             'realizedUSD': _round_money(self.realized_usd),
             'feesUSD': _round_money(self.fees_usd),
             'trades': self.trades,
@@ -89,7 +92,8 @@ class Sleeve:
     def from_dict(cls, d):
         return cls(d['id'], d.get('name', d['id']), d.get('cashUSD', 0.0),
                    d.get('positions') or {}, d.get('realizedUSD', 0.0),
-                   d.get('feesUSD', 0.0), d.get('trades', 0), d.get('blurb', ''))
+                   d.get('feesUSD', 0.0), d.get('trades', 0), d.get('blurb', ''),
+                   d.get('pendingUSD', 0.0))
 
     # ── queries ──────────────────────────────────────────────────────────────
     def units(self, symbol):
@@ -114,7 +118,19 @@ class Sleeve:
         return total
 
     def equity_usd(self, prices):
-        return self.cash_usd + self.holdings_value_usd(prices)
+        """What this sleeve is WORTH: spendable cash + unsettled proceeds + marked holdings.
+
+        pending_usd is included here, in the ONE definition, rather than being added at each
+        call site. It was added at two of them and missed at a third, and the one that was
+        missed was leaderboard() -- so sleeves that had sold something looked catastrophic:
+        Mean Reversion -12.84%, Mia's Own Call -24.17%, The Engine -31.15%, while total
+        equity was -1.24%. Six places ask this question and patching them individually is
+        exactly how the first miss happened.
+
+        cash_usd stays SPENDABLE-only, which is what sizing and the cash floor must use. The
+        two questions are different: "what can I spend" is not "what do I own".
+        """
+        return self.cash_usd + self.pending_usd + self.holdings_value_usd(prices)
 
     # ── mutations ────────────────────────────────────────────────────────────
     def buy(self, symbol, notional_usd, price):
@@ -250,8 +266,7 @@ class BotAccount:
         # -8.73% when the positions were only -0.94% against cost. Nearly the entire
         # reported loss was money the desk still had. Held out of buying power, counted in
         # equity -- those are different questions and conflating them made the P/L a lie.
-        pending = sum(float(v or 0) for v in (getattr(self, '_pending_by_sleeve', None) or {}).values())
-        eq += pending
+        pending = sum(s.pending_usd for s in self.sleeves.values())
         realized = sum(s.realized_usd for s in self.sleeves.values())
         fees = sum(s.fees_usd for s in self.sleeves.values())
         trades = sum(s.trades for s in self.sleeves.values())
@@ -282,8 +297,16 @@ class BotAccount:
         strategy beating its own seed while losing to buy-and-hold has produced
         nothing but beta."""
         rows = []
+        # SAME unsettled-cash correction as totals(). I fixed it there and failed to carry it
+        # here, which made the sleeve comparison -- the entire point of this desk -- wrong in
+        # the most misleading direction: sleeves that had SOLD something looked catastrophic.
+        # The live desk showed Mean Reversion -12.84%, Mia's Own Call -24.17% and The Engine
+        # -31.15% while total equity was only -1.24%, which cannot both be true. $1,597 of
+        # T+1 proceeds was simply missing from the three sleeves that had traded, and a
+        # sleeve is scored against a $2,500 slice, so ~$530 of invisible cash reads as ~21%.
         for s in self.sleeves.values():
             seed = self.seed_usd / max(1, len(self.sleeves))
+            pending = s.pending_usd
             eq = s.equity_usd(prices)
             rows.append({
                 'id': s.id, 'name': s.name, 'blurb': s.blurb,
@@ -295,6 +318,9 @@ class BotAccount:
                 'trades': s.trades,
                 'positions': len(s.positions),
                 'cashUSD': _round_money(s.cash_usd),
+                # Surfaced so a sleeve holding unsettled proceeds is legible rather than
+                # looking like it lost the money.
+                'unsettledCashUSD': _round_money(pending),
             })
         rows.sort(key=lambda r: -r['pnlPct'])
         return rows

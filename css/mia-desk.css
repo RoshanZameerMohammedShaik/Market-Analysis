@@ -803,3 +803,55 @@
     padding-top: 12px;
     border-top: 1px solid var(--border);
 }
+
+/* Stop / Reset, at the TOP
+   --------------------------------------------------------------------------
+   These were in a footer below the leaderboard AND the whole timeline, so stopping a desk
+   that was actively trading meant scrolling past everything it had done to reach the button.
+   A control that acts on the thing you are worried about has to be reachable first. */
+
+.desk-head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+}
+
+.desk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.desk-actions .desk-err { flex: 1 1 100%; margin-top: 2px; }
+.desk-actions .desk-start-busy { margin: 0; }
+
+.desk-btn {
+    flex: 1 1 auto;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-semibold);
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                background var(--dur-fast) var(--ease-out);
+}
+
+.desk-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.desk-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Amber, not red: stopping is reversible and keeps every position and record. */
+.desk-btn.warn { color: var(--yellow); border-color: rgba(var(--yellow-rgb), 0.45); }
+.desk-btn.warn:hover { background: var(--yellow-bg); color: var(--yellow); }
+
+/* Red is reserved for the one control that destroys data irreversibly. */
+.desk-btn.danger { color: var(--red); border-color: rgba(var(--red-rgb), 0.45); }
+.desk-btn.danger:hover { background: var(--red-bg); color: var(--red); }

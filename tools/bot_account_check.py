@@ -223,7 +223,9 @@ check('with nothing pending, equity is just cash',
 check('unsettled is reported even when zero', base.get('unsettledCashUSD') == 0.0,
       str(base.get('unsettledCashUSD')))
 # Park proceeds exactly as execute() does after a sell.
-acct2._pending_by_sleeve = {'a': 600.0, 'b': 400.0}
+# pending_usd lives ON the sleeve now: one definition of equity, so no caller can disagree.
+acct2.sleeves['a'].pending_usd = 600.0
+acct2.sleeves['b'].pending_usd = 400.0
 t2 = acct2.totals({})
 check('equity INCLUDES unsettled proceeds', approx(t2['equityUSD'], 10000.0),
       f"expected 10000.00, got {t2['equityUSD']}")
@@ -237,6 +239,36 @@ check('holdings are not inflated by pending cash',
 check('equity reconciles with its parts',
       approx(t2['equityUSD'], t2['cashUSD'] + t2['unsettledCashUSD'] + t2['holdingsUSD']),
       str(t2))
+
+print('')
+print('=== the LEADERBOARD must not report a phantom loss either ===')
+# This is the instance that got missed. totals() was corrected and leaderboard() was not, so
+# on the live desk sleeves that had SOLD something looked catastrophic: Mean Reversion
+# -12.84%, Mia's Own Call -24.17%, The Engine -31.15%, while total equity was -1.24%. A
+# sleeve is scored against a $2,500 slice, so ~$530 of invisible T+1 cash reads as ~21%.
+# A fixture that ISOLATES the bug: each sleeve starts at its full $5,000 slice and one of
+# them has simply sold $600 of stock. Nothing was lost, so a correct leaderboard must show
+# 0% for both. (The earlier fixture started sleeve 'a' at $4,000, so its -8% was real
+# arithmetic and would have hidden the defect rather than exposing it.)
+_acct3 = BotAccount(seed_usd=10000.0, sleeves={
+    'a': Sleeve('a', 'A', cash_usd=4400.0, pending_usd=600.0),
+    'b': Sleeve('b', 'B', cash_usd=5000.0),
+})
+_lb = _acct3.leaderboard({})
+_by = {r['id']: r for r in _lb}
+ck2 = lambda n, c, d='': check(n, c, d)
+ck2('a sleeve holding unsettled cash is not shown at a loss',
+    abs(_by['a']['pnlPct']) < 1e-6, str(_by['a']))
+ck2('its equity includes the unsettled proceeds',
+    abs(_by['a']['equityUSD'] - 5000.0) < 1e-6, str(_by['a']['equityUSD']))
+ck2('unsettled is surfaced per sleeve',
+    abs(_by['a']['unsettledCashUSD'] - 600.0) < 1e-6, str(_by['a'].get('unsettledCashUSD')))
+ck2('spendable cash stays spendable-only',
+    abs(_by['a']['cashUSD'] - 4400.0) < 1e-6, str(_by['a']['cashUSD']))
+# The whole point of the desk is comparing sleeves, so the sum must reconcile with totals().
+ck2('sleeve equities sum to account equity',
+    abs(sum(r['equityUSD'] for r in _lb) - _acct3.totals({})['equityUSD']) < 1e-6,
+    f"{sum(r['equityUSD'] for r in _lb)} vs {_acct3.totals({})['equityUSD']}")
 
 print(f"\n{'BOT ACCOUNT CHECK PASS' if not FAIL else 'BOT ACCOUNT CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')

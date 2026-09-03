@@ -25,7 +25,7 @@
 // rather than one blended number that hides which money is whose.
 
 import {
-    armDesk, disarmDesk, hasToken, setToken, clearToken, verifyToken,
+    armDesk, disarmDesk, resetDesk, hasToken, setToken, clearToken, verifyToken,
     TOKEN_SCOPE_HELP,
 } from '../portfolio/mia-arm.js';
 
@@ -147,7 +147,8 @@ function onClick(e) {
         return;
     }
     if (e.target.closest('#desk-start')) { onStart(); return; }
-    if (e.target.closest('#desk-stop')) { onStop(); }
+    if (e.target.closest('#desk-stop')) { onStop(); return; }
+    if (e.target.closest('#desk-reset')) { onReset(); }
 }
 
 async function onSaveToken() {
@@ -188,6 +189,56 @@ async function onStart() {
         uiError = err.message;
         render();
     }
+}
+
+async function onReset() {
+    // Spell out exactly what is destroyed. This is the only copy of the record, and a market
+    // open cannot be replayed, so the confirmation names each thing rather than saying
+    // "are you sure".
+    const eq = num((slice && slice.totals) ? slice.totals.equityUSD : 0);
+    const lines = [
+        'Clear and reset the auto-trading data?',
+        '',
+        'This permanently deletes:',
+        `  - every trade (${(slice && slice.counts ? slice.counts.trades : 0)} fills)`,
+        `  - every run record (${(slice && slice.counts ? slice.counts.runs : 0)} runs)`,
+        "  - the account state and all open positions",
+        "  - everything the learner has concluded",
+        '',
+        eq > 0 ? `${money(eq)} returns to your practice portfolio.`
+               : 'Nothing to return.',
+        'The desk stops and will not trade until you allocate again.',
+        '',
+        'This cannot be undone.',
+    ];
+    if (!confirm(lines.join('\n'))) return;
+    uiError = '';
+    try {
+        busy = 'resetting';
+        render();
+        const r = await resetDesk(eq, stage => {
+            busy = stage === 'dispatching' ? 'resetting' : stage;
+            render();
+        });
+        busy = '';
+        // Force a fresh fetch rather than trusting the cached slice: everything it described
+        // is gone.
+        slice = null;
+        shown = PAGE;
+        await load();
+        if (r.returnedUSD > 0) {
+            notifyReset(`Desk cleared. ${money(r.returnedUSD)} returned to your portfolio.`);
+        }
+    } catch (err) {
+        busy = '';
+        uiError = err.message;
+        render();
+    }
+}
+
+function notifyReset(msg) {
+    // Best effort: the desk should not fail a reset because a toast module is unavailable.
+    import('./notify.js').then(m => m.notify(msg, { kind: 'success' })).catch(() => {});
 }
 
 async function onStop() {
@@ -236,7 +287,8 @@ function render() {
     // time this shipped, purely because the cron existed. Allocating capital is Roshan's
     // decision; the UI's job is to ask, not to assume.
     if (!(slice.config || {}).armed) {
-        host.innerHTML = shell(startPanel(slice.config || {}));
+        host.innerHTML = shell(startPanel(slice.config || {}),
+                               deskControls(slice.config || {}));
         return;
     }
 
@@ -255,11 +307,7 @@ function render() {
                 ${cfg.armedAt
                     ? `<p class="desk-msg-sub">Started ${escapeHtml(fmtRelative(cfg.armedAt))}.</p>`
                     : ''}
-                <div class="desk-footer">
-                    <button class="desk-linkbtn danger" id="desk-stop" type="button">Stop auto-trading</button>
-                    ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
-                </div>
-            </div>`);
+            </div>`, deskControls(cfg));
         return;
     }
 
@@ -307,15 +355,7 @@ function render() {
         ${combinedRow(t)}
         ${leaderboard()}
         ${timeline()}
-
-        <div class="desk-footer">
-            ${busy
-                ? `<p class="desk-start-busy"><span class="desk-spinner" aria-hidden="true"></span>
-                     ${escapeHtml(BUSY_COPY[busy] || 'Working…')}</p>`
-                : `<button class="desk-linkbtn danger" id="desk-stop" type="button">Stop auto-trading</button>`}
-            ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
-        </div>
-    `);
+    `, deskControls(slice.config || {}));
 }
 
 // ── not started ───────────────────────────────────────────────────────────────
@@ -325,6 +365,7 @@ const BUSY_COPY = {
     running: 'Her start job is running (about a minute)…',
     confirming: 'Confirming the allocation before touching your cash…',
     stopping: 'Stopping her…',
+    resetting: 'Clearing the desk…',
 };
 
 function startPanel(cfg) {
@@ -395,13 +436,41 @@ function startPanel(cfg) {
     </div>`;
 }
 
-function shell(inner) {
+/** `controls` puts Stop and Reset at the TOP, next to the title.
+ *
+ * They used to live in a footer under the leaderboard and the whole timeline, which meant
+ * stopping a desk that was actively trading required scrolling past everything it had done.
+ * A control that acts on the thing you are worried about should not be the last thing you
+ * can reach.
+ */
+function shell(inner, controls = '') {
     return `
         <div class="desk-head">
             <span class="desk-title">Mia 2.0 <span class="desk-title-sub">Auto-Trading Desk</span></span>
-            <span class="desk-badge" title="Simulated money. No real orders are ever placed.">PAPER</span>
+            <span class="desk-head-right">
+                <span class="desk-badge" title="Simulated money. No real orders are ever placed.">PAPER</span>
+            </span>
         </div>
+        ${controls}
         ${inner}`;
+}
+
+/** The Stop / Reset row. Rendered whenever there is a desk to act on. */
+function deskControls(cfg) {
+    if (busy) {
+        return `<div class="desk-actions"><p class="desk-start-busy">
+            <span class="desk-spinner" aria-hidden="true"></span>
+            ${escapeHtml(BUSY_COPY[busy] || 'Working…')}</p></div>`;
+    }
+    return `<div class="desk-actions">
+        ${cfg.armed
+            ? `<button class="desk-btn warn" id="desk-stop" type="button"
+                       title="Freeze trading. Positions and history are kept.">Stop auto-trading</button>`
+            : ''}
+        <button class="desk-btn danger" id="desk-reset" type="button"
+                title="Delete every trade, run and learned conclusion, and return the money.">Clear &amp; reset data</button>
+        ${uiError ? `<p class="desk-err">${escapeHtml(uiError)}</p>` : ''}
+    </div>`;
 }
 
 /** The two books, named, plus their sum. Never one blended number: it must stay obvious
