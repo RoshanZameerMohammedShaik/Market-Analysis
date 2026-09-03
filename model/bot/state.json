@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-03T00:43:20Z",
-  "runs": 897,
+  "updatedAt": "2026-09-03T02:05:01Z",
+  "runs": 949,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9840.241612,
-    "cashUSD": 4374.200999,
+    "equityUSD": 9863.682088,
+    "cashUSD": 4235.068839,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 5466.040613,
+    "holdingsUSD": 5628.613249,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": -121.762733,
-    "feesUSD": 86.703674,
-    "pnlUSD": -159.758388,
-    "pnlPct": -1.5976,
-    "trades": 38
+    "unrealizedUSD": -98.322257,
+    "feesUSD": 87.192318,
+    "pnlUSD": -136.317912,
+    "pnlPct": -1.3632,
+    "trades": 39
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1098.296939,
+      "cashUSD": 959.164779,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -72,11 +72,21 @@
               "openedAt": "2026-09-03T00:01:20Z"
             }
           ]
+        },
+        "AAVE-USD": {
+          "units": 1.0986886163504204,
+          "lots": [
+            {
+              "units": 1.0986886163504204,
+              "costUSD": 138.7821600137568,
+              "openedAt": "2026-09-03T02:05:01Z"
+            }
+          ]
         }
       },
       "realizedUSD": -19.233322,
-      "feesUSD": 31.717367,
-      "trades": 13
+      "feesUSD": 32.206011,
+      "trades": 14
     },
     "reversion": {
       "id": "reversion",
@@ -279,7 +289,8 @@
       "2026-09-03": {
         "BCH-USD": 1.2001412445835677,
         "ZEC-USD": 0.36307207944863007,
-        "SOL-USD": 2.9491231167808194
+        "SOL-USD": 2.9491231167808194,
+        "AAVE-USD": 1.0986886163504204
       }
     },
     "lastAccrual": "2026-09-03",
@@ -307,10 +318,11 @@
       "reversion:ATOM-USD": "2026-09-02T00:02:44Z",
       "engine:BCH-USD": "2026-09-03T00:01:20Z",
       "mia-ai:ZEC-USD": "2026-09-03T00:01:20Z",
-      "mia-ai:SOL-USD": "2026-09-03T00:02:51Z"
+      "mia-ai:SOL-USD": "2026-09-03T00:02:51Z",
+      "engine:AAVE-USD": "2026-09-03T02:05:01Z"
     },
     "tradesToday": {
-      "engine": 1,
+      "engine": 2,
       "mia-ai": 2
     },
     "day": "2026-09-03"
