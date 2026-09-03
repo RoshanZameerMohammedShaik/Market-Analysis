@@ -186,7 +186,7 @@ async function dispatch(inputs) {
  *  "created at or after the moment we dispatched". The 30s slack absorbs clock skew between
  *  the browser and GitHub, which would otherwise make a real run invisible and report a
  *  false timeout. */
-async function awaitRun(dispatchedAt) {
+async function awaitRun(dispatchedAt, onStatus = () => {}) {
     const deadline = dispatchedAt + CONFIRM_TIMEOUT_MS;
     const floor = new Date(dispatchedAt - 30000).toISOString();
     let seen = null;
@@ -198,8 +198,21 @@ async function awaitRun(dispatchedAt) {
         if (!run) continue;
         seen = run;
         if (run.status === 'completed') {
+            // A run CANCELLED without us asking means GitHub discarded it: only one run can
+            // be pending per concurrency group, so a second click supersedes the first. Say
+            // so rather than reporting a mysterious failure.
+            if (run.conclusion === 'cancelled') {
+                return { conclusion: 'cancelled', url: run.html_url,
+                         note: 'GitHub cancelled it, usually because a newer run of the same '
+                             + 'kind superseded it. Try once and wait.' };
+            }
             return { conclusion: run.conclusion, url: run.html_url };
         }
+        // QUEUED is not RUNNING, and conflating them is why a reset looked like it was
+        // working for hours. A dispatched control action used to share a concurrency group
+        // with the 4h50m trading loop, so it sat pending until that finished. Surfacing the
+        // distinction lets the UI say what is actually happening.
+        onStatus(run.status === 'queued' || run.status === 'pending' ? 'queued' : 'running');
     }
     return {
         conclusion: 'timeout',
@@ -236,7 +249,7 @@ export async function armDesk(amountUSD, onProgress = () => {}) {
     const at = await dispatch({ mode: 'arm', allocationUSD: String(usd) });
 
     onProgress('running');
-    const run = await awaitRun(at);
+    const run = await awaitRun(at, s => onProgress(s));
     if (run.conclusion !== 'success') {
         throw new Error(`The start job ${run.conclusion === 'timeout'
             ? 'is taking longer than expected' : `failed (${run.conclusion})`}. `
@@ -278,7 +291,7 @@ export async function disarmDesk(onProgress = () => {}) {
     onProgress('dispatching');
     const at = await dispatch({ mode: 'disarm' });
     onProgress('running');
-    const run = await awaitRun(at);
+    const run = await awaitRun(at, s => onProgress(s));
     if (run.conclusion !== 'success') {
         throw new Error(`The stop job ${run.conclusion === 'timeout'
             ? 'is taking longer than expected' : `failed (${run.conclusion})`}. `
@@ -312,11 +325,11 @@ export async function resetDesk(equityUSD, onProgress = () => {}) {
     onProgress('dispatching');
     const at = await dispatch({ mode: 'reset' });
     onProgress('running');
-    const run = await awaitRun(at);
+    const run = await awaitRun(at, s => onProgress(s));
     if (run.conclusion !== 'success') {
         throw new Error(`The reset job ${run.conclusion === 'timeout'
-            ? 'is taking longer than expected' : `failed (${run.conclusion})`}. `
-            + `Nothing was changed. See ${run.url}`);
+            ? 'is taking longer than expected' : `did not complete (${run.conclusion})`}. `
+            + `${run.note ? run.note + ' ' : ''}Nothing was changed. See ${run.url}`);
     }
     onProgress('confirming');
     const after = await fetchDeskState();

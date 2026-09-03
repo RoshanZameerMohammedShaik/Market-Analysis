@@ -366,6 +366,9 @@ const BUSY_COPY = {
     confirming: 'Confirming the allocation before touching your cash…',
     stopping: 'Stopping her…',
     resetting: 'Clearing the desk…',
+    // 'queued' is distinct from 'running' on purpose: a control action can sit behind a
+    // long trading job, and a spinner that says "running" for an hour is a lie.
+    queued: 'Queued behind her trading job. It will start shortly…',
 };
 
 function startPanel(cfg) {

@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "accountType": "cash",
-  "commissionPlan": "ibkr-pro-tiered",
+  "commissionPlan": "ibkr-lite",
   "benchmarkRatePct": 4.33,
   "seedUSD": 25000.0,
   "markets": [

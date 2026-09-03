@@ -82,8 +82,19 @@ on:
 # cancel-in-progress: false because a run that has already filled an order must be allowed
 # to commit it. Cancelling mid-flight would leave the account state and the timeline
 # disagreeing about what happened.
+# TRADING runs serialise against each other. CONTROL actions must not queue behind them.
+#
+# One shared group was fine when this was an hourly one-shot. Once the job became a 4h50m
+# loop it broke every control action: a dispatched arm/disarm/reset sat `pending` for hours
+# waiting for the trading job to finish, so the UI showed "her job is running" forever and
+# nothing was cleared. Worse, GitHub keeps only ONE pending run per group, so clicking twice
+# CANCELLED the first attempt -- run #16 was cancelled by #17 for exactly this reason.
+#
+# Splitting on the mode means arm/disarm/reset start immediately. Safety against a reset
+# racing a live trading loop is handled in the loop itself, which re-reads the config every
+# cycle and exits as soon as the desk is no longer armed.
 concurrency:
-  group: mia-desk
+  group: mia-desk-${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.mode != 'trade') && 'control' || 'trade' }}
   cancel-in-progress: false
 
 jobs:
@@ -199,6 +210,18 @@ jobs:
             # transient Yahoo empty response -- must not end a 5-hour job and leave the desk
             # unattended with open positions. The next cycle retries in 90 seconds.
             python -m bot.run || echo "cycle $cycles failed; continuing"
+
+            # STOP if the desk was disarmed or reset while this loop was mid-flight.
+            # Without this the loop would keep going for hours and, worse, keep committing
+            # its own stale model/bot/ state -- rebasing it back on top of the reset and
+            # silently undoing it. bot/run.py re-reads the config every cycle so it already
+            # refuses to TRADE, but the loop also has to stop pushing.
+            git fetch -q origin main 2>/dev/null || true
+            if ! git show origin/main:model/bot/config.json 2>/dev/null \
+                 | grep -q '"armed": true'; then
+              echo "Desk is no longer armed (disarmed or reset elsewhere). Stopping the loop."
+              break
+            fi
 
             after=$(fills_now)
             if [ "$after" != "$before" ]; then

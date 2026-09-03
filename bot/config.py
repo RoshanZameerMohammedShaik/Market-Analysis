@@ -90,8 +90,17 @@ DEFAULTS = {
     # 'cash' is the default because it is the stricter, more honest simulation: no
     # leverage means the P/L cannot be flattered by borrowed money, and settlement
     # limits churn. Switch to 'margin' to see leverage, interest and PDT in action.
-    'accountType': CASH,
-    'commissionPlan': PLAN_PRO_TIERED,   # the pricier realistic option, on purpose
+    'accountType': CASH,
+    # $0 per order. This is not a favour to the backtest -- it is what US retail actually
+    # pays, and has since October 2019. Pro Tiered ($0.0035/share, $0.35 minimum) was the
+    # wrong default for a retail simulation: it charged $17.50 across 41 fills, almost all
+    # of it the $0.35 floor on small orders.
+    #
+    # The SPREAD is untouched and must stay that way. It was $70.64 of the $88.37 total, 80%
+    # of the cost, and it is not a fee that can be waived: a buy lifts the offer and a sell
+    # hits the bid, so it is the price you actually get. Removing it would make every P/L a
+    # number that could not have been captured.
+    'commissionPlan': PLAN_LITE,   # the pricier realistic option, on purpose
     'benchmarkRatePct': 4.33,            # margin interest benchmark; MOVES, update it
 
     # $25,000 clears the $25k Pattern Day Trader threshold, so on a margin account Mia is
