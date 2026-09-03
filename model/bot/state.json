@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-03T00:01:20Z",
-  "runs": 869,
+  "updatedAt": "2026-09-03T00:02:51Z",
+  "runs": 870,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9860.79477,
-    "cashUSD": 4670.88001,
+    "equityUSD": 9863.916319,
+    "cashUSD": 4374.200999,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 5189.91476,
+    "holdingsUSD": 5489.71532,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": -101.209575,
-    "feesUSD": 86.057641,
-    "pnlUSD": -139.20523,
-    "pnlPct": -1.3921,
-    "trades": 37
+    "unrealizedUSD": -98.088026,
+    "feesUSD": 86.703674,
+    "pnlUSD": -136.083681,
+    "pnlPct": -1.3608,
+    "trades": 38
   },
   "sleeves": {
     "engine": {
@@ -133,7 +133,7 @@
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 750.584571,
+      "cashUSD": 453.90556,
       "positions": {
         "MKR-USD": {
           "units": 0.19352913337023944,
@@ -204,11 +204,21 @@
               "openedAt": "2026-09-03T00:01:20Z"
             }
           ]
+        },
+        "SOL-USD": {
+          "units": 2.9491231167808194,
+          "lots": [
+            {
+              "units": 2.9491231167808194,
+              "costUSD": 296.3290114409211,
+              "openedAt": "2026-09-03T00:02:51Z"
+            }
+          ]
         }
       },
       "realizedUSD": -14.593864,
-      "feesUSD": 31.635509,
-      "trades": 13
+      "feesUSD": 32.281542,
+      "trades": 14
     },
     "control": {
       "id": "control",
@@ -268,7 +278,8 @@
     "openedToday": {
       "2026-09-03": {
         "BCH-USD": 1.2001412445835677,
-        "ZEC-USD": 0.36307207944863007
+        "ZEC-USD": 0.36307207944863007,
+        "SOL-USD": 2.9491231167808194
       }
     },
     "lastAccrual": "2026-09-03",
@@ -295,11 +306,12 @@
       "mia-ai:NEAR-USD": "2026-09-02T00:01:19Z",
       "reversion:ATOM-USD": "2026-09-02T00:02:44Z",
       "engine:BCH-USD": "2026-09-03T00:01:20Z",
-      "mia-ai:ZEC-USD": "2026-09-03T00:01:20Z"
+      "mia-ai:ZEC-USD": "2026-09-03T00:01:20Z",
+      "mia-ai:SOL-USD": "2026-09-03T00:02:51Z"
     },
     "tradesToday": {
       "engine": 1,
-      "mia-ai": 1
+      "mia-ai": 2
     },
     "day": "2026-09-03"
   },
