@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-02T14:56:28Z",
-  "runs": 775,
+  "updatedAt": "2026-09-03T00:01:20Z",
+  "runs": 869,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9875.82661,
-    "cashUSD": 3664.062283,
-    "unsettledCashUSD": 1597.637862,
-    "holdingsUSD": 4614.126465,
+    "equityUSD": 9860.79477,
+    "cashUSD": 4670.88001,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 5189.91476,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": -86.177735,
-    "feesUSD": 84.76811,
-    "pnlUSD": -124.17339,
-    "pnlPct": -1.2417,
-    "trades": 35
+    "unrealizedUSD": -101.209575,
+    "feesUSD": 86.057641,
+    "pnlUSD": -139.20523,
+    "pnlPct": -1.3921,
+    "trades": 37
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 675.578445,
+      "cashUSD": 1098.296939,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -62,17 +62,27 @@
               "openedAt": "2026-09-01T10:30:55Z"
             }
           ]
+        },
+        "BCH-USD": {
+          "units": 1.2001412445835677,
+          "lots": [
+            {
+              "units": 1.2001412445835677,
+              "costUSD": 293.8841432151406,
+              "openedAt": "2026-09-03T00:01:20Z"
+            }
+          ]
         }
       },
       "realizedUSD": -19.233322,
-      "feesUSD": 31.073776,
-      "trades": 12
+      "feesUSD": 31.717367,
+      "trades": 13
     },
     "reversion": {
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 1277.161401,
+      "cashUSD": 1572.665396,
       "positions": {
         "MOVR-USD": {
           "units": 260.79812069164376,
@@ -123,7 +133,7 @@
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 461.989333,
+      "cashUSD": 750.584571,
       "positions": {
         "MKR-USD": {
           "units": 0.19352913337023944,
@@ -184,11 +194,21 @@
               "openedAt": "2026-09-02T00:01:19Z"
             }
           ]
+        },
+        "ZEC-USD": {
+          "units": 0.36307207944863007,
+          "lots": [
+            {
+              "units": 0.36307207944863007,
+              "costUSD": 296.23599201053696,
+              "openedAt": "2026-09-03T00:01:20Z"
+            }
+          ]
         }
       },
       "realizedUSD": -14.593864,
-      "feesUSD": 30.989569,
-      "trades": 12
+      "feesUSD": 31.635509,
+      "trades": 13
     },
     "control": {
       "id": "control",
@@ -236,32 +256,7 @@
     "accountType": "cash",
     "plan": "ibkr-pro-tiered",
     "benchmarkRatePct": 4.33,
-    "pending": [
-      {
-        "amountUSD": 196.208362,
-        "settlesOn": "2026-09-03"
-      },
-      {
-        "amountUSD": 296.073602,
-        "settlesOn": "2026-09-03"
-      },
-      {
-        "amountUSD": 224.670674,
-        "settlesOn": "2026-09-03"
-      },
-      {
-        "amountUSD": 297.566647,
-        "settlesOn": "2026-09-03"
-      },
-      {
-        "amountUSD": 287.614583,
-        "settlesOn": "2026-09-03"
-      },
-      {
-        "amountUSD": 295.503995,
-        "settlesOn": "2026-09-03"
-      }
-    ],
+    "pending": [],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
@@ -271,13 +266,12 @@
       "2026-09-02"
     ],
     "openedToday": {
-      "2026-09-02": {
-        "GOAT-USD": 58.39159514749646,
-        "NEAR-USD": 58.34854706300123,
-        "ATOM-USD": 96.57883871180493
+      "2026-09-03": {
+        "BCH-USD": 1.2001412445835677,
+        "ZEC-USD": 0.36307207944863007
       }
     },
-    "lastAccrual": "2026-09-02",
+    "lastAccrual": "2026-09-03",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -299,14 +293,15 @@
       "mia-ai:CVX-USD": "2026-09-01T10:02:40Z",
       "engine:METIS-USD": "2026-09-01T10:30:55Z",
       "mia-ai:NEAR-USD": "2026-09-02T00:01:19Z",
-      "reversion:ATOM-USD": "2026-09-02T00:02:44Z"
+      "reversion:ATOM-USD": "2026-09-02T00:02:44Z",
+      "engine:BCH-USD": "2026-09-03T00:01:20Z",
+      "mia-ai:ZEC-USD": "2026-09-03T00:01:20Z"
     },
     "tradesToday": {
-      "engine": 3,
-      "reversion": 3,
-      "mia-ai": 3
+      "engine": 1,
+      "mia-ai": 1
     },
-    "day": "2026-09-02"
+    "day": "2026-09-03"
   },
   "equityOpen": {
     "engine": 2500.0,
@@ -314,9 +309,5 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {
-    "engine": 716.9526376129747,
-    "mia-ai": 585.18123015275,
-    "reversion": 295.5039945123865
-  }
+  "pendingBySleeve": {}
 }
