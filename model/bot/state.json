@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-03T13:32:21Z",
-  "runs": 1210,
+  "updatedAt": "2026-09-03T13:34:07Z",
+  "runs": 1211,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9963.492972,
-    "cashUSD": 3936.504366,
+    "equityUSD": 9965.440251,
+    "cashUSD": 3637.874376,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 6026.988606,
+    "holdingsUSD": 6327.565876,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": 1.488627,
-    "feesUSD": 87.750922,
-    "pnlUSD": -36.507028,
-    "pnlPct": -0.3651,
-    "trades": 40
+    "unrealizedUSD": 3.435906,
+    "feesUSD": 88.369133,
+    "pnlUSD": -34.559749,
+    "pnlPct": -0.3456,
+    "trades": 41
   },
   "sleeves": {
     "engine": {
@@ -92,7 +92,7 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 1274.100923,
+      "cashUSD": 975.470933,
       "positions": {
         "MOVR-USD": {
           "units": 260.79812069164376,
@@ -143,11 +143,21 @@
               "openedAt": "2026-09-03T13:32:21Z"
             }
           ]
+        },
+        "OSW": {
+          "units": 13.521405621496665,
+          "lots": [
+            {
+              "units": 13.521405621496665,
+              "costUSD": 298.2799904996945,
+              "openedAt": "2026-09-03T13:34:07Z"
+            }
+          ]
         }
       },
       "realizedUSD": -4.168469,
-      "feesUSD": 20.965,
-      "trades": 9
+      "feesUSD": 21.583211,
+      "trades": 10
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -301,7 +311,8 @@
         "ZEC-USD": 0.36307207944863007,
         "SOL-USD": 2.9491231167808194,
         "AAVE-USD": 1.0986886163504204,
-        "TJX": 2.267842692707508
+        "TJX": 2.267842692707508,
+        "OSW": 13.521405621496665
       }
     },
     "lastAccrual": "2026-09-03",
@@ -331,12 +342,13 @@
       "mia-ai:ZEC-USD": "2026-09-03T00:01:20Z",
       "mia-ai:SOL-USD": "2026-09-03T00:02:51Z",
       "engine:AAVE-USD": "2026-09-03T02:05:01Z",
-      "reversion:TJX": "2026-09-03T13:32:21Z"
+      "reversion:TJX": "2026-09-03T13:32:21Z",
+      "reversion:OSW": "2026-09-03T13:34:07Z"
     },
     "tradesToday": {
       "engine": 2,
       "mia-ai": 2,
-      "reversion": 1
+      "reversion": 2
     },
     "day": "2026-09-03"
   },
