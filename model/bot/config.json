@@ -34,8 +34,8 @@
   },
   "enabled": true,
   "notes": "Paper money. No broker connection exists and none is planned. Thresholds are computed per run (bot/dynamic.py), not configured here; only risk RAILS are settings. The hold and cost rails come from a 12-year non-overlapping replay: at 1-day holds SPY nets -18.9% annualised after costs, at 60-day holds +14.0%. Cost tier decides the sign, holding period amplifies it. A position is never sold below its cost basis: measured recovery is 99.8% on SPY over 20 years and 97.8% on the crypto majors the cost cap admits. That rule is only safe BECAUSE of maxRoundTripCostPct, which excludes the names that go to zero (LUNC, FTT, MOVR, BEAM, ILV, GOAT all fell 98-100% and never recovered). Loosening the cost cap re-arms this rule.",
-  "armed": true,
-  "allocationUSD": 10000.0,
-  "armedAt": "2026-09-01T02:41:36Z",
+  "armed": false,
+  "allocationUSD": null,
+  "armedAt": null,
   "neverSellAtLoss": true
 }
