@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-04T01:09:25Z",
-  "runs": 1375,
+  "updatedAt": "2026-09-04T02:12:57Z",
+  "runs": 1376,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10119.807786,
-    "cashUSD": 3334.905677,
+    "equityUSD": 10107.714336,
+    "cashUSD": 3033.385265,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 6784.902109,
+    "holdingsUSD": 7074.329071,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": 157.803441,
-    "feesUSD": 89.021449,
-    "pnlUSD": 119.807786,
-    "pnlPct": 1.1981,
-    "trades": 42
+    "unrealizedUSD": 145.709991,
+    "feesUSD": 89.322668,
+    "pnlUSD": 107.714336,
+    "pnlPct": 1.0771,
+    "trades": 43
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 656.19608,
+      "cashUSD": 354.675668,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -92,12 +92,22 @@
               "openedAt": "2026-09-04T00:00:53Z"
             }
           ]
+        },
+        "YFI-USD": {
+          "units": 0.13123932773899397,
+          "lots": [
+            {
+              "units": 0.13123932773899397,
+              "costUSD": 301.5204118258948,
+              "openedAt": "2026-09-04T02:12:57Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": -19.233322,
-      "feesUSD": 32.858327,
-      "trades": 15
+      "feesUSD": 33.159546,
+      "trades": 16
     },
     "reversion": {
       "id": "reversion",
@@ -321,7 +331,8 @@
     ],
     "openedToday": {
       "2026-09-04": {
-        "BTC-USD": 0.003722806948656848
+        "BTC-USD": 0.003722806948656848,
+        "YFI-USD": 0.13123932773899397
       }
     },
     "lastAccrual": "2026-09-04",
@@ -353,10 +364,11 @@
       "engine:AAVE-USD": "2026-09-03T02:05:01Z",
       "reversion:TJX": "2026-09-03T13:32:21Z",
       "reversion:OSW": "2026-09-03T13:34:07Z",
-      "engine:BTC-USD": "2026-09-04T00:00:53Z"
+      "engine:BTC-USD": "2026-09-04T00:00:53Z",
+      "engine:YFI-USD": "2026-09-04T02:12:57Z"
     },
     "tradesToday": {
-      "engine": 1
+      "engine": 2
     },
     "day": "2026-09-04"
   },
