@@ -124,11 +124,20 @@ jobs:
       # rather than reimplementing it, so the desk needs Node as well as Python. Pinned to
       # the same major the parity harnesses are developed against: a version skew here was
       # already one wasted debugging session on ai_sync_check.
+      # NODE AND PIP ARE ONLY FOR TRADING.
+      #
+      # arm / disarm / reset are a few lines of stdlib Python that rewrite a JSON file and
+      # delete some others. They were paying ~60s of `pip install -r requirements.txt` plus a
+      # Node toolchain install before doing 0.2s of work, which is most of the reason Clear &
+      # reset felt like it was hanging. Skipping both takes a control action from ~90s to ~15s.
       - uses: actions/setup-node@v4
+        if: steps.mode.outputs.mode == 'trade' || steps.mode.outputs.mode == 'dry-run'
         with:
           node-version: '24'
 
-      - run: pip install -r requirements.txt
+      - name: Install Python deps (trading only)
+        if: steps.mode.outputs.mode == 'trade' || steps.mode.outputs.mode == 'dry-run'
+        run: pip install -r requirements.txt
 
       - name: Decide mode
         id: mode
