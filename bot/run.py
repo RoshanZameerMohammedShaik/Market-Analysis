@@ -692,7 +692,27 @@ def main():
         rebalance_sleeves(acct, learned, prices_for_rebalance(acct, cfg), cfg)
 
     held = sorted({s for sl in acct.sleeves.values() for s in sl.positions})
-    universe = candidate_universe(cfg, held, live)
+
+    # SCAN THE UNIVERSE ONLY WHEN A NEW ENTRY IS ACTUALLY POSSIBLE.
+    #
+    # Every sleeve has a daily entry budget (maxTradesPerDay). Once all of them have spent it,
+    # analysing 400 candidates cannot lead to a single action -- the only thing left to do is
+    # watch the positions already open, and there are at most maxPositions of those per sleeve.
+    #
+    # This is the difference between ~400 symbols a cycle and a handful. Each symbol costs
+    # three Yahoo fetches plus a news lookup, and a failed direct fetch falls back to the
+    # Cloudflare Worker, so the full scan was projecting ~12,000 Worker requests a day against
+    # a 10,000 quota. Scanning only when it can act is both cheaper and more honest about what
+    # the cycle is for.
+    meta_today = (getattr(acct, '_meta', None) or {}).get('tradesToday') or {}
+    cap_per_sleeve = int(cfg['risk']['maxTradesPerDay'])
+    budget_left = any(int(meta_today.get(sid, 0)) < cap_per_sleeve for sid in acct.sleeves)
+    if budget_left:
+        universe = candidate_universe(cfg, held, live)
+    else:
+        universe = [s for s in held if market_of(s) in live]
+        log(f'entry budget spent in every sleeve; watching {len(universe)} held position(s) '
+            f'only instead of re-scanning the universe')
     if not universe:
         record_run(cfg, acct, started, live, closed, [], [],
                    note='no candidates in the open markets', dry=args.dry_run)

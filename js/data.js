@@ -120,7 +120,22 @@ export async function fetchWithProxy(url) {
     // Detected by capability rather than by a NODE env var, so it is correct in a browser,
     // in Node, and in a worker without anyone having to remember to set a flag.
     const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
-    const tryDirect = !yahoo && (!isBrowser || !directBlockedHosts.test(urlHost));
+    // OUTSIDE A BROWSER, GO DIRECT. ALWAYS.
+    //
+    // The `!yahoo` term meant every Yahoo request was forced through the Cloudflare Worker,
+    // and that reasoning is browser-only: Yahoo sends no CORS headers, so a browser genuinely
+    // cannot read a direct response. Node has no CORS at all, and a plain server-side fetch to
+    // the chart endpoint returns HTTP 200 with full data -- which is exactly how yfinance works
+    // in Python.
+    //
+    // The cost of getting this wrong was the Worker's request quota. fetchStockMultiTimeframe
+    // makes THREE Yahoo calls per symbol (daily, weekly, hourly), the desk scans ~400 tradeable
+    // names per cycle, and the trading loop runs many cycles per job. That is ~1,200 Worker
+    // requests per cycle from a process that never needed the proxy for even one of them.
+    //
+    // Detected by capability rather than an env var, so it is correct in a browser, in Node and
+    // in a worker without anyone having to remember to set a flag.
+    const tryDirect = !isBrowser || (!yahoo && !directBlockedHosts.test(urlHost));
     if (tryDirect) {
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });

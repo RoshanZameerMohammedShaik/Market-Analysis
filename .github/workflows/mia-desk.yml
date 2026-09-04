@@ -199,7 +199,17 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
           END=$(( $(date +%s) + 17400 ))   # 4h50m
-          MIN_CYCLE=90                     # floor between cycle STARTS, seconds
+          # 15 MINUTES, not 90 seconds.
+          #
+          # 90s was sized for a desk that traded on daily signals with a 90-MINUTE hold. The
+          # rails are now minHoldDays 20 and maxTradesPerDay 2, so a 90-second cycle achieves
+          # nothing it could act on: entries are capped at 2 a day and an exit on a 20-day
+          # hold does not care about 90 seconds versus 15 minutes.
+          #
+          # What it DID achieve was 10x the load. Each cycle re-analyses ~400 tradeable names,
+          # and every name costs Yahoo fetches and (until this commit) Cloudflare Worker
+          # requests. Cutting the cadence 10x cuts all of it 10x for no loss of function.
+          MIN_CYCLE=900                    # floor between cycle STARTS, seconds
           cycles=0; commits=0; last_pub_hour=""
 
           # Existence checked BEFORE the redirect: `wc -l < missing 2>/dev/null` still

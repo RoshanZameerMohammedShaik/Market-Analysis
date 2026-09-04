@@ -77,7 +77,7 @@ function recencyWeight(date) {
     return Math.exp(-ageHours / RECENCY_HALF_LIFE_HOURS);
 }
 
-export async function analyzeNewsSentiment(newsItems) {
+export async function analyzeNewsSentiment(newsItems, opts = {}) {
     if (!newsItems || newsItems.length === 0) {
         // available:false is the load-bearing field. score 50 here means "we have nothing
         // to say", NOT "we looked and it is balanced", and those must not be treated alike:
@@ -96,12 +96,28 @@ export async function analyzeNewsSentiment(newsItems) {
 
     const items = newsItems.slice(0, 8);
 
+    // BULK SCANS DO NOT ENRICH. Headline-only sentiment, no article fetches.
+    //
+    // The enrichment below costs up to ELEVEN Cloudflare Worker requests per symbol: a
+    // source-tier lookup for each of 8 items plus full text for the top 3. That was harmless
+    // while sentiment only ran for one symbol the user was looking at. Once sentiment started
+    // working under Node, the desk began scanning ~400 tradeable names per cycle and this
+    // became ~4,400 Worker requests per cycle, which is what exhausted the quota.
+    //
+    // Headlines alone are what the other 5 items already use, so a bulk scan loses the
+    // full-text nuance on 3 headlines per symbol and keeps the signal. The on-demand path,
+    // where a human is reading one symbol, still enriches.
+    const bulk = opts.bulkScan === true;
+
     // PHASE 2: enrich top-3 most-recent articles with full body text +
     // source-tier classification. The remaining 5 stay headline-only
     // to keep extraction cost bounded (3 × ~200ms = ~600ms added to
     // the per-symbol analysis path; acceptable for on-demand). Each
     // extraction failure silently falls back to that item's headline.
-    const { fetchFullArticle, tierForUrl, tierWeight } = await import('./article-extractor.js');
+    const { fetchFullArticle, tierForUrl, tierWeight } = bulk
+        ? { fetchFullArticle: async () => null, tierForUrl: async () => null,
+            tierWeight: () => 1 }
+        : await import('./article-extractor.js');
     const sortedByRecency = items
         .map((it, idx) => ({ it, idx, when: +(new Date(it.date instanceof Date ? it.date : it.date || 0)) }))
         .sort((a, b) => b.when - a.when);

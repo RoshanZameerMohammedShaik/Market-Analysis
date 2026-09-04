@@ -70,7 +70,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const ai = aiResult.status === 'fulfilled' ? aiResult.value : { score: 50, available: false };
     const news = newsItems.status === 'fulfilled' ? newsItems.value : [];
-    const sentiment = await analyzeNewsSentiment(news);
+    const sentiment = await analyzeNewsSentiment(news, { bulkScan });
     const conditions = marketResult.status === 'fulfilled' ? marketResult.value
         : { score: 50, available: false, reasons: ['Market conditions unavailable'] };
     const macro = macroResult.status === 'fulfilled' ? macroResult.value
