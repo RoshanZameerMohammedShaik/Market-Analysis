@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-03T15:19:39Z",
-  "runs": 1270,
+  "updatedAt": "2026-09-04T00:00:53Z",
+  "runs": 1329,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9944.273726,
-    "cashUSD": 3637.874376,
+    "equityUSD": 10140.712512,
+    "cashUSD": 3334.905677,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 6306.39935,
+    "holdingsUSD": 6805.806835,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": -17.730619,
-    "feesUSD": 88.369133,
-    "pnlUSD": -55.726274,
-    "pnlPct": -0.5573,
-    "trades": 41
+    "unrealizedUSD": 178.708167,
+    "feesUSD": 89.021449,
+    "pnlUSD": 140.712512,
+    "pnlPct": 1.4071,
+    "trades": 42
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 959.164779,
+      "cashUSD": 656.19608,
       "positions": {
         "NEAR-USD": {
           "units": 154.53622744487419,
@@ -82,11 +82,22 @@
               "openedAt": "2026-09-03T02:05:01Z"
             }
           ]
+        },
+        "BTC-USD": {
+          "units": 0.003722806948656848,
+          "lots": [
+            {
+              "units": 0.003722806948656848,
+              "costUSD": 302.61869945566133,
+              "openedAt": "2026-09-04T00:00:53Z"
+            }
+          ]
         }
       },
+      "pendingUSD": 0.0,
       "realizedUSD": -19.233322,
-      "feesUSD": 32.206011,
-      "trades": 14
+      "feesUSD": 32.858327,
+      "trades": 15
     },
     "reversion": {
       "id": "reversion",
@@ -155,6 +166,7 @@
           ]
         }
       },
+      "pendingUSD": 0.0,
       "realizedUSD": -4.168469,
       "feesUSD": 21.583211,
       "trades": 10
@@ -246,6 +258,7 @@
           ]
         }
       },
+      "pendingUSD": 0.0,
       "realizedUSD": -14.593864,
       "feesUSD": 32.281542,
       "trades": 14
@@ -287,6 +300,7 @@
           ]
         }
       },
+      "pendingUSD": 0.0,
       "realizedUSD": 0.0,
       "feesUSD": 2.298369,
       "trades": 3
@@ -306,16 +320,11 @@
       "2026-09-02"
     ],
     "openedToday": {
-      "2026-09-03": {
-        "BCH-USD": 1.2001412445835677,
-        "ZEC-USD": 0.36307207944863007,
-        "SOL-USD": 2.9491231167808194,
-        "AAVE-USD": 1.0986886163504204,
-        "TJX": 2.267842692707508,
-        "OSW": 13.521405621496665
+      "2026-09-04": {
+        "BTC-USD": 0.003722806948656848
       }
     },
-    "lastAccrual": "2026-09-03",
+    "lastAccrual": "2026-09-04",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -343,14 +352,13 @@
       "mia-ai:SOL-USD": "2026-09-03T00:02:51Z",
       "engine:AAVE-USD": "2026-09-03T02:05:01Z",
       "reversion:TJX": "2026-09-03T13:32:21Z",
-      "reversion:OSW": "2026-09-03T13:34:07Z"
+      "reversion:OSW": "2026-09-03T13:34:07Z",
+      "engine:BTC-USD": "2026-09-04T00:00:53Z"
     },
     "tradesToday": {
-      "engine": 2,
-      "mia-ai": 2,
-      "reversion": 2
+      "engine": 1
     },
-    "day": "2026-09-03"
+    "day": "2026-09-04"
   },
   "equityOpen": {
     "engine": 2500.0,
