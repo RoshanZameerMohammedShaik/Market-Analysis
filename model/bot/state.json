@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-01T09:42:41Z",
-  "updatedAt": "2026-09-04T02:54:59Z",
-  "runs": 1404,
+  "updatedAt": "2026-09-04T13:31:54Z",
+  "runs": 1575,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10126.886717,
-    "cashUSD": 3033.385265,
+    "equityUSD": 10054.882877,
+    "cashUSD": 2735.463682,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 7093.501452,
+    "holdingsUSD": 7319.419195,
     "realizedUSD": -37.995655,
-    "unrealizedUSD": 164.882372,
-    "feesUSD": 89.322668,
-    "pnlUSD": 126.886717,
-    "pnlPct": 1.2689,
-    "trades": 43
+    "unrealizedUSD": 92.878532,
+    "feesUSD": 89.590556,
+    "pnlUSD": 54.882877,
+    "pnlPct": 0.5488,
+    "trades": 44
   },
   "sleeves": {
     "engine": {
@@ -113,7 +113,7 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 975.470933,
+      "cashUSD": 677.54935,
       "positions": {
         "MOVR-USD": {
           "units": 260.79812069164376,
@@ -174,12 +174,22 @@
               "openedAt": "2026-09-03T13:34:07Z"
             }
           ]
+        },
+        "TSN": {
+          "units": 5.836346953570252,
+          "lots": [
+            {
+              "units": 5.836346953570252,
+              "costUSD": 297.92158295725176,
+              "openedAt": "2026-09-04T13:31:54Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": -4.168469,
-      "feesUSD": 21.583211,
-      "trades": 10
+      "feesUSD": 21.851099,
+      "trades": 11
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -332,7 +342,8 @@
     "openedToday": {
       "2026-09-04": {
         "BTC-USD": 0.003722806948656848,
-        "YFI-USD": 0.13123932773899397
+        "YFI-USD": 0.13123932773899397,
+        "TSN": 5.836346953570252
       }
     },
     "lastAccrual": "2026-09-04",
@@ -365,10 +376,12 @@
       "reversion:TJX": "2026-09-03T13:32:21Z",
       "reversion:OSW": "2026-09-03T13:34:07Z",
       "engine:BTC-USD": "2026-09-04T00:00:53Z",
-      "engine:YFI-USD": "2026-09-04T02:12:57Z"
+      "engine:YFI-USD": "2026-09-04T02:12:57Z",
+      "reversion:TSN": "2026-09-04T13:31:54Z"
     },
     "tradesToday": {
-      "engine": 2
+      "engine": 2,
+      "reversion": 1
     },
     "day": "2026-09-04"
   },
