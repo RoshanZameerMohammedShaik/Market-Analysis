@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "createdAt": "2026-09-08T18:13:12Z",
+  "updatedAt": "2026-09-08T18:14:44Z",
+  "runs": 1,
+  "seedUSD": 10000.0,
+  "totals": {
+    "equityUSD": 9995.785002,
+    "cashUSD": 5187.5,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 4808.285002,
+    "realizedUSD": 0.0,
+    "unrealizedUSD": -4.214998,
+    "feesUSD": 4.214998,
+    "pnlUSD": -4.214998,
+    "pnlPct": -0.0421,
+    "trades": 4
+  },
+  "sleeves": {
+    "engine": {
+      "id": "engine",
+      "name": "The Engine",
+      "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
+      "cashUSD": 1312.5,
+      "positions": {
+        "CCL": {
+          "units": 50.930766731491346,
+          "lots": [
+            {
+              "units": 50.930766731491346,
+              "costUSD": 1187.5,
+              "openedAt": "2026-09-08T18:14:44Z"
+            }
+          ]
+        }
+      },
+      "pendingUSD": 0.0,
+      "realizedUSD": 0.0,
+      "feesUSD": 1.067789,
+      "trades": 1
+    },
+    "reversion": {
+      "id": "reversion",
+      "name": "Mean Reversion",
+      "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
+      "cashUSD": 1312.5,
+      "positions": {
+        "TJX": {
+          "units": 9.184036308861328,
+          "lots": [
+            {
+              "units": 9.184036308861328,
+              "costUSD": 1187.5,
+              "openedAt": "2026-09-08T18:14:44Z"
+            }
+          ]
+        }
+      },
+      "pendingUSD": 0.0,
+      "realizedUSD": 0.0,
+      "feesUSD": 0.830669,
+      "trades": 1
+    },
+    "mia-ai": {
+      "id": "mia-ai",
+      "name": "Mia's Own Call",
+      "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
+      "cashUSD": 1312.5,
+      "positions": {
+        "MAN": {
+          "units": 20.749076792761297,
+          "lots": [
+            {
+              "units": 20.749076792761297,
+              "costUSD": 1187.5,
+              "openedAt": "2026-09-08T18:14:44Z"
+            }
+          ]
+        }
+      },
+      "pendingUSD": 0.0,
+      "realizedUSD": 0.0,
+      "feesUSD": 1.067789,
+      "trades": 1
+    },
+    "control": {
+      "id": "control",
+      "name": "Buy & Hold (control)",
+      "blurb": "Buys an equal-weight basket once and never trades again. The bar every other sleeve has to clear to have earned anything.",
+      "cashUSD": 1250.0,
+      "positions": {
+        "BTC-USD": {
+          "units": 0.015874910391877554,
+          "lots": [
+            {
+              "units": 0.015874910391877554,
+              "costUSD": 1250.0,
+              "openedAt": "2026-09-08T18:14:44Z"
+            }
+          ]
+        }
+      },
+      "pendingUSD": 0.0,
+      "realizedUSD": 0.0,
+      "feesUSD": 1.248751,
+      "trades": 1
+    }
+  },
+  "broker": {
+    "accountType": "cash",
+    "plan": "ibkr-lite",
+    "benchmarkRatePct": 4.33,
+    "pending": [],
+    "debitUSD": 0.0,
+    "interestUSD": 0.0,
+    "dayTrades": [],
+    "openedToday": {
+      "2026-09-08": {
+        "CCL": 50.930766731491346,
+        "TJX": 9.184036308861328,
+        "MAN": 20.749076792761297,
+        "BTC-USD": 0.015874910391877554
+      }
+    },
+    "lastAccrual": "2026-09-08",
+    "violations": []
+  },
+  "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
+  "meta": {
+    "openedAt": {
+      "engine:CCL": "2026-09-08T18:14:44Z",
+      "reversion:TJX": "2026-09-08T18:14:44Z",
+      "mia-ai:MAN": "2026-09-08T18:14:44Z",
+      "control:BTC-USD": "2026-09-08T18:14:44Z"
+    },
+    "tradesToday": {
+      "engine": 1,
+      "reversion": 1,
+      "mia-ai": 1,
+      "control": 1
+    },
+    "day": "2026-09-08"
+  },
+  "equityOpen": {
+    "engine": 2500.0,
+    "reversion": 2500.0,
+    "mia-ai": 2500.0,
+    "control": 2500.0
+  },
+  "pendingBySleeve": {}
+}
