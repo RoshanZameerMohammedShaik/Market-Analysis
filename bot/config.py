@@ -107,9 +107,17 @@ DEFAULTS = {
     # never day-trade restricted. It also matters for measurement: IBKR's $0.35 per-order
     # minimum is 0.11% each way on a $310 position, so at a $10k seed a real slice of the
     # reported P/L would be commission-minimum friction rather than strategy. At $25k the
-    # positions are ~$780 and total drag falls to about 0.22% per round trip.
-    'seedUSD': 25_000.0,                 # split equally across the sleeves
-
+    # positions are ~$780 and total drag falls to about 0.22% per round trip.
+    # NO seedUSD. There is deliberately no default starting amount anywhere in this file.
+    #
+    # A 'seedUSD': 25_000.0 used to live here, and load_or_create used it whenever it found
+    # no account file. The consequence was that merely landing the cron on main opened a
+    # $25,000 book and executed 11 fills that nobody had asked for. The armed gate now blocks
+    # that, but leaving the number behind left a loaded gun: any future fallback to it
+    # reintroduces the same failure.
+    #
+    # A book can be opened ONLY from allocationUSD, which exists only because a human typed a
+    # number. There is no value to fall back TO.
     # ── universe ─────────────────────────────────────────────────────────────
     # Mia trades a liquid subset, not the full 924-name ledger universe. Costs are the
     # reason: below $5 the round trip is 0.80% and climbing, which no measured edge in
@@ -258,8 +266,7 @@ def validate(cfg):
     if cfg.get('commissionPlan') not in (PLAN_LITE, PLAN_PRO_TIERED, PLAN_PRO_FIXED):
         print(f"[config] unknown commissionPlan; using {PLAN_PRO_TIERED}")
         cfg['commissionPlan'] = PLAN_PRO_TIERED
-
-    clamp('seedUSD', 100.0, 10_000_000.0)
+
     clamp('maxCandidates', 5, 500)
     clamp('risk.maxPositionPct', 1.0, 50.0)
     clamp('risk.maxPositions', 1, 50)

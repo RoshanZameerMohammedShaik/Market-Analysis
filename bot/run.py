@@ -249,11 +249,28 @@ def load_or_create(cfg):
     acct = BotAccount.load(STATE_PATH)
     if acct:
         return acct, False
-    # Seeded from the allocation the USER chose, never from a default in the config file.
-    # cfg['seedUSD'] survives only as the amount the UI pre-fills in the Start dialog; if
-    # it were still the seed, deploying the workflow would open a book on its own, which
-    # is exactly what happened the first time.
-    alloc = float(cfg['allocationUSD'])
+    # A BOOK CAN ONLY BE OPENED FROM A NUMBER A HUMAN TYPED.
+    #
+    # There is no default to fall back to and there must never be one. seedUSD 25_000 used to
+    # live in the config and this function used it whenever no account file existed, so merely
+    # landing the cron on main opened a $25,000 book and executed 11 fills nobody asked for.
+    # That key has been deleted outright rather than left unused, because an unused default is
+    # one careless fallback away from repeating the incident.
+    #
+    # An explicit refusal, not a KeyError: this is the last line of defence before real
+    # positions are created, and it should say why rather than raising something that reads
+    # like a bug.
+    alloc = cfg.get('allocationUSD')
+    # `not isinstance(alloc, bool)` is load-bearing. bool SUBCLASSES int in Python, so a
+    # config carrying "allocationUSD": true satisfied the numeric test, compared greater than
+    # zero, and opened a $1.00 book -- a figure nobody typed, which is the whole failure mode
+    # being guarded against. Caught by tools/no_default_seed_check.py.
+    if isinstance(alloc, bool) or not isinstance(alloc, (int, float)) or alloc <= 0:
+        raise RuntimeError(
+            'refusing to open a book: allocationUSD is '
+            f'{alloc!r}. A starting amount comes only from arming the desk with an explicit '
+            'figure (bot/run.py --arm USD). There is no default seed and there must not be.')
+    alloc = float(alloc)
     defs = sleeve_defs()
     per = alloc / len(defs)
     sleeves = {d['id']: Sleeve(d['id'], d['name'], cash_usd=per, blurb=d['blurb'])

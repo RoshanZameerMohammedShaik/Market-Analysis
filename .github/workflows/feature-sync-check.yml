@@ -199,3 +199,10 @@ jobs:
       # failure mode that matters, and this repo has hit it before.
       - name: Check the learner refuses noise
         run: python tools/bot_learn_check.py
+
+      # The desk once opened a $25,000 book and executed 11 fills purely because the cron
+      # landed on main, seeded from a config default. This asserts the stronger invariant:
+      # there is no value ANYWHERE that a book could be opened from other than a figure a
+      # human typed. An unused default is one careless fallback away from repeating it.
+      - name: Check no default can open a book
+        run: python tools/no_default_seed_check.py

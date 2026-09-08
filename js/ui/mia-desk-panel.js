@@ -388,9 +388,13 @@ const BUSY_COPY = {
 function startPanel(cfg) {
     const min = num(cfg.minAllocationUSD) || 400;
     const cash = practiceCashUSD;
-    // Pre-fill with the suggested figure, but never more than the cash actually available:
-    // offering a default the user cannot afford makes the first click an error.
-    const suggested = Math.min(num(cfg.suggestedUSD) || 5000, cash != null ? cash : Infinity);
+    // NO PRE-FILLED AMOUNT. The field starts empty and the user types a figure.
+    //
+    // It used to pre-fill cfg.suggestedUSD, which was the same 25,000 that once opened a book
+    // nobody asked for. That key is now deleted from the config outright, and offering ANY
+    // default here would put the assumption straight back into the one place it does real
+    // damage: the amount of money being committed. The available-cash line tells the user what
+    // they have; deciding how much of it to risk is theirs.
     const canAfford = cash != null && cash >= min;
 
     if (busy) {
@@ -437,7 +441,8 @@ function startPanel(cfg) {
         <label class="desk-field">
             <span>Amount to allocate</span>
             <input type="number" id="desk-amount" inputmode="decimal" step="any"
-                   min="${min}" value="${canAfford ? suggested.toFixed(0) : ''}"
+                   min="${min}" value=""
+                   placeholder="${canAfford ? 'minimum ' + Math.round(min) : ''}"
                    ${canAfford ? '' : 'disabled'} />
         </label>
         <label class="desk-field">

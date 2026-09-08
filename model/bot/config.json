@@ -3,7 +3,6 @@
   "accountType": "cash",
   "commissionPlan": "ibkr-lite",
   "benchmarkRatePct": 4.33,
-  "seedUSD": 25000.0,
   "markets": [
     "NYSE",
     "CRYPTO"

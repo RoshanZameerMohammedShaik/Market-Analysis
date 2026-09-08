@@ -177,9 +177,10 @@ def main():
             'armed': bool(cfg.get('armed')),
             'armedAt': cfg.get('armedAt'),
             'allocationUSD': cfg.get('allocationUSD'),
-            # What the Start dialog pre-fills. NOT a seed: nothing is opened until the user
-            # picks an amount.
-            'suggestedUSD': cfg.get('seedUSD'),
+            # NO suggested amount. The dialog used to pre-fill cfg['seedUSD'] (25,000), which
+            # meant the number that once opened a book unasked was still being handed to the
+            # UI as a default. The field now starts empty and the user types a figure, so no
+            # amount is ever assumed anywhere in the system.
             'minAllocationUSD': 400.0,
         },
         'equityCurve': curve[-args.runs:],
