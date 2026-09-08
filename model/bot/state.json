@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-09-08T18:14:44Z",
-  "runs": 1,
+  "updatedAt": "2026-09-08T18:29:28Z",
+  "runs": 2,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9995.785002,
-    "cashUSD": 5187.5,
+    "equityUSD": 9995.413813,
+    "cashUSD": 1626.610758,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 4808.285002,
+    "holdingsUSD": 8368.803055,
     "realizedUSD": 0.0,
-    "unrealizedUSD": -4.214998,
-    "feesUSD": 4.214998,
-    "pnlUSD": -4.214998,
-    "pnlPct": -0.0421,
-    "trades": 4
+    "unrealizedUSD": -4.586187,
+    "feesUSD": 7.179817,
+    "pnlUSD": -4.586187,
+    "pnlPct": -0.0459,
+    "trades": 7
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1312.5,
+      "cashUSD": 125.023357,
       "positions": {
         "CCL": {
           "units": 50.930766731491346,
@@ -32,18 +32,28 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
+        },
+        "UPST": {
+          "units": 43.698301087538425,
+          "lots": [
+            {
+              "units": 43.698301087538425,
+              "costUSD": 1187.4766425137423,
+              "openedAt": "2026-09-08T18:29:28Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": 0.0,
-      "feesUSD": 1.067789,
-      "trades": 1
+      "feesUSD": 2.135557,
+      "trades": 2
     },
     "reversion": {
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 1312.5,
+      "cashUSD": 126.485172,
       "positions": {
         "TJX": {
           "units": 9.184036308861328,
@@ -54,18 +64,28 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
+        },
+        "DYN": {
+          "units": 57.41028946698018,
+          "lots": [
+            {
+              "units": 57.41028946698018,
+              "costUSD": 1186.0148281356096,
+              "openedAt": "2026-09-08T18:29:28Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": 0.0,
-      "feesUSD": 0.830669,
-      "trades": 1
+      "feesUSD": 1.897123,
+      "trades": 2
     },
     "mia-ai": {
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 1312.5,
+      "cashUSD": 125.102229,
       "positions": {
         "MAN": {
           "units": 20.749076792761297,
@@ -76,12 +96,22 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
+        },
+        "CIEN": {
+          "units": 3.411146109965513,
+          "lots": [
+            {
+              "units": 3.411146109965513,
+              "costUSD": 1187.3977713735499,
+              "openedAt": "2026-09-08T18:29:28Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": 0.0,
-      "feesUSD": 1.067789,
-      "trades": 1
+      "feesUSD": 1.898386,
+      "trades": 2
     },
     "control": {
       "id": "control",
@@ -119,7 +149,10 @@
         "CCL": 50.930766731491346,
         "TJX": 9.184036308861328,
         "MAN": 20.749076792761297,
-        "BTC-USD": 0.015874910391877554
+        "BTC-USD": 0.015874910391877554,
+        "UPST": 43.698301087538425,
+        "DYN": 57.41028946698018,
+        "CIEN": 3.411146109965513
       }
     },
     "lastAccrual": "2026-09-08",
@@ -131,12 +164,15 @@
       "engine:CCL": "2026-09-08T18:14:44Z",
       "reversion:TJX": "2026-09-08T18:14:44Z",
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
-      "control:BTC-USD": "2026-09-08T18:14:44Z"
+      "control:BTC-USD": "2026-09-08T18:14:44Z",
+      "engine:UPST": "2026-09-08T18:29:28Z",
+      "reversion:DYN": "2026-09-08T18:29:28Z",
+      "mia-ai:CIEN": "2026-09-08T18:29:28Z"
     },
     "tradesToday": {
-      "engine": 1,
-      "reversion": 1,
-      "mia-ai": 1,
+      "engine": 2,
+      "reversion": 2,
+      "mia-ai": 2,
       "control": 1
     },
     "day": "2026-09-08"
