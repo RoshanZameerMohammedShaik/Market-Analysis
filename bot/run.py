@@ -368,7 +368,7 @@ def rebalance_sleeves(acct, learned, prices, cfg):
 
 # ── risk + broker gate ───────────────────────────────────────────────────────
 def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today,
-            snapshot=None):
+            snapshot=None, all_sleeves=None):
     """(approved, size_usd, reason). Reason is recorded either way, because a refused
     intent is part of the audit trail Roshan asked for: seeing that a strategy WANTED to
     buy and the account said no is as informative as the fill."""
@@ -441,8 +441,19 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
         return True, sleeve.units(sym), 'approved'
 
     # ── BUY ──
-    if len(sleeve.positions) >= risk['maxPositions'] and sym not in sleeve.positions:
-        return False, 0.0, f'at max positions ({risk["maxPositions"]})'
+    # DESK-WIDE position cap, counting DISTINCT SYMBOLS across every sleeve.
+    #
+    # This was per-sleeve, and that was simply wrong. Roshan asked for a total: "if I give
+    # number 2 to trade it means the total number of stocks that can be traded at any given
+    # point of time SHOULD NOT Exceed 2". Per-sleeve gave 4 x 2 = 7 distinct names held on a
+    # maxPositions of 2.
+    #
+    # Distinct SYMBOLS, not position records: two sleeves holding CCL is one stock of exposure,
+    # and the cap is about how many names the desk is in.
+    held_symbols = {s for sl in (all_sleeves or {}).values() for s in sl.positions}
+    if sym not in held_symbols and len(held_symbols) >= risk['maxPositions']:
+        return False, 0.0, (f'desk already holds {len(held_symbols)} of {risk["maxPositions"]} '
+                            f'allowed stocks ({", ".join(sorted(held_symbols))})')
     if traded_today >= risk['maxTradesPerDay']:
         return False, 0.0, f'daily trade cap ({risk["maxTradesPerDay"]}) reached'
 
@@ -805,6 +816,19 @@ def main():
     equity_open = getattr(acct, '_equity_open', None) or {}
 
     fills, refusals = [], []
+
+    # TWO PASSES, because the N slots must go to the BEST candidates and not to whichever
+    # strategy happened to be iterated first.
+    #
+    # This used to approve and execute inside a per-sleeve loop, which was wrong twice over:
+    # the position cap counted per sleeve (4 x 2 = 7 names held on a maxPositions of 2), and
+    # even with a desk-wide cap the earliest sleeve would have taken every slot regardless of
+    # how good its pick was. Roshan asked for the total not to exceed N AND for those N to be
+    # the best available.
+    #
+    # PASS 1 gathers every strategy's intents. PASS 2 orders them globally and fills slots
+    # from the top.
+    proposals = []
     for sid, sleeve in acct.sleeves.items():
         st = strat.get(sid)
         if st is None:
@@ -827,31 +851,63 @@ def main():
             continue
         equity_open.setdefault(sid, equity)
 
-        intents = st.decide(snapshot, sleeve)
-        # Exits first, then highest conviction: if the per-run cap binds, closing risk
-        # should always outrank opening it.
-        intents.sort(key=lambda i: (0 if i.action == 'SELL' else 1, -i.conviction))
-        done = 0
-        for it in intents:
-            if done >= cfg['risk']['maxTradesPerRun']:
-                refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
-                                 'reason': f'per-run cap ({cfg["risk"]["maxTradesPerRun"]}) '
-                                           f'reached', 'why': it.why})
-                continue
-            traded_today = int(meta['tradesToday'].get(sid, 0))
-            ok, size, why = approve(it, sleeve, broker, cfg, prices, meta, today,
-                                    traded_today, snapshot)
-            if not ok:
-                refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
-                                 'reason': why, 'why': it.why,
-                                 'evidence': it.evidence})
-                continue
-            f = execute(acct, sleeve, broker, cfg, it, size, prices, meta, today)
-            if f:
-                fills.append(f)
-                done += 1
-                meta['tradesToday'][sid] = traded_today + 1
+        # THE BENCHMARK DOES NOT CONSUME SLOTS.
+        #
+        # Buy & Hold exists to answer "did any of this beat doing nothing". While it held real
+        # positions it competed for the desk-wide cap, so at maxPositions=2 the benchmark could
+        # take one or both and the actual strategies would be left trading one stock or none.
+        # A yardstick that consumes the thing it measures is not a yardstick.
+        #
+        # It keeps whatever it already holds -- those positions are real and their P/L is real
+        # -- but it proposes nothing new, so every free slot goes to a strategy pick. Its
+        # existing holdings still count toward the cap, which is why a reset is the clean way
+        # to move to a pure N-stock book.
+        if sid == 'control':
+            continue
 
+        for it in st.decide(snapshot, sleeve):
+            proposals.append((sid, sleeve, it))
+
+    # GLOBAL ORDER.
+    #   1. SELLs before BUYs: closing risk always outranks opening it.
+    #   2. BUYs by the candidate's rank in THIS run's cross-section of engine scores.
+    #
+    # Score rank is the ordering used because it is the only one measured to work: across
+    # 61,790 resolved rows the top score decile averaged +1.09% the next day against +0.01%
+    # for the bottom, monotone through the upper half. The engine's own confidence field is
+    # NOT used and must not be -- it is inversely calibrated, with the 65-69 bucket hitting
+    # 45.4% against 52.0% for 50-54.
+    #
+    # One measure for every strategy, so a slot goes to the best name on the desk rather than
+    # to the best name inside whichever sleeve ran first.
+    def _quality(item):
+        _sid, _sl, it = item
+        if it.action == 'SELL':
+            return (0, -it.conviction)
+        r = cross.rank_of('score', (fresh.get(it.symbol) or {}).get('score'))
+        return (1, -(r if isinstance(r, (int, float)) else it.conviction))
+    proposals.sort(key=_quality)
+
+    done = 0
+    for sid, sleeve, it in proposals:
+        if done >= cfg['risk']['maxTradesPerRun']:
+            refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
+                             'reason': f'per-run cap ({cfg["risk"]["maxTradesPerRun"]}) '
+                                       f'reached', 'why': it.why})
+            continue
+        traded_today = int(meta['tradesToday'].get(sid, 0))
+        ok, size, why = approve(it, sleeve, broker, cfg, prices, meta, today,
+                                traded_today, snapshot, acct.sleeves)
+        if not ok:
+            refusals.append({'sleeve': sid, 'symbol': it.symbol, 'action': it.action,
+                             'reason': why, 'why': it.why,
+                             'evidence': it.evidence})
+            continue
+        f = execute(acct, sleeve, broker, cfg, it, size, prices, meta, today)
+        if f:
+            fills.append(f)
+            done += 1
+            meta['tradesToday'][sid] = traded_today + 1
     acct.runs += 1
     acct._meta, acct._equity_open, acct._broker = meta, equity_open, broker.to_dict()
     log(f'{len(fills)} fill(s), {len(refusals)} refusal(s)')
