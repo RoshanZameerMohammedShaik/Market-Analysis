@@ -299,11 +299,14 @@ def _fill_to_limit(N):
         it = _Intent('BUY', sym, 'top decile',
                      {'rule': 'engine-entry', 'score': 85, 'aiProbability': 0.75},
                      conviction=0.95)
+        # all_sleeves is REQUIRED now: the cap counts distinct symbols across the whole desk,
+        # not per sleeve, so approve() has to be shown every book. Omitting it made the cap
+        # see an empty set and never bind -- which is how these four assertions went red.
         ok, size, why = _R.approve(it, sl, _br, cfg, sn['prices'], {'openedAt': {}},
-                                   _today, 0, sn)
+                                   _today, 0, sn, {'engine': sl})
         if ok:
             sl.buy(sym, size, 200.0)
-        elif 'max positions' in why:
+        elif 'desk already holds' in why:
             blocked += 1
     deployed = sum(l['costUSD'] for p in sl.positions.values() for l in p['lots'])
     return len(sl.positions), deployed, blocked
@@ -319,6 +322,41 @@ for _N in (1, 2, 3, 5):
 ck('a single position may take nearly the whole slice at N=1',
    round((100 - 5) / 1, 4) > 90.0)
 ck('and only a quarter at N=4', abs(round((100 - 5) / 4, 4) - 23.75) < 1e-9)
+
+print('=== N is the TOTAL across every sleeve, not per sleeve ===')
+# The reported bug: maxPositions=2 and the desk held SEVEN distinct names -- two in each of
+# three strategies plus one in the benchmark -- because the cap counted per sleeve.
+_cfgN = _copy.deepcopy(_cfg2)
+_cfgN['risk']['maxPositions'] = 2
+_cfgN['risk']['maxPositionPct'] = 47.5
+_cfgN['risk']['maxTradesPerDay'] = 99
+_cfgN['risk']['maxTradesPerRun'] = 99
+_snN = _mksnap(20)
+_desk = {n: _Sleeve(n, n, cash_usd=2500.0)
+         for n in ('engine', 'reversion', 'mia-ai', 'control')}
+for _name in ('engine', 'reversion', 'mia-ai', 'control'):
+    for _i in range(3):
+        _sym = f'T{19 - _i}'
+        _it = _Intent('BUY', _sym, 'x',
+                      {'rule': 'engine-entry', 'score': 85, 'aiProbability': 0.75},
+                      conviction=0.95)
+        _ok, _sz, _why = _R.approve(_it, _desk[_name], _br, _cfgN, _snN['prices'],
+                                    {'openedAt': {}}, _today, 0, _snN, _desk)
+        if _ok:
+            _desk[_name].buy(_sym, _sz, 200.0)
+_heldN = {s for sl in _desk.values() for s in sl.positions}
+ck('four sleeves at maxPositions=2 hold 2 names TOTAL', len(_heldN) == 2,
+   f'{len(_heldN)} held: {sorted(_heldN)}')
+# Two sleeves in the same name is one stock of exposure, so the cap counts SYMBOLS.
+ck('the same symbol across sleeves counts once',
+   sum(len(sl.positions) for sl in _desk.values()) > len(_heldN),
+   'expected sleeves to share names')
+_it3 = _Intent('BUY', 'T5', 'x', {'rule': 'engine-entry', 'score': 85, 'aiProbability': 0.75},
+               conviction=0.95)
+_ok3, _, _why3 = _R.approve(_it3, _desk['engine'], _br, _cfgN, _snN['prices'],
+                            {'openedAt': {}}, _today, 0, _snN, _desk)
+ck('a third distinct name is refused', _ok3 is False, _why3)
+ck('and the refusal names the desk-wide count', 'desk already holds' in _why3, _why3)
 
 print(f"{'BOT DYNAMIC CHECK PASS' if not FAIL else 'BOT DYNAMIC CHECK FAIL'}: "
       f'{len(PASS)} passed, {len(FAIL)} failed')
