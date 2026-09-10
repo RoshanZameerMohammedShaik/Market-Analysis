@@ -15,10 +15,30 @@
 // reloads within the day and auto-expire when the date rolls over.
 
 import { readTodayLock } from '../ledger-reader.js';
+import { sessionAnchorFromCandles, minutesAfterOpen, isAtOpen } from './market-session.js';
 
 const LS_KEY = 'ma-daily-locks-v1';
 
-function todayIso() { return new Date().toISOString().slice(0, 10); }
+// WHY THE KEY IS THE SESSION DATE, NOT THE UTC DATE
+// -------------------------------------------------
+// This used to key and expire locks on `new Date().toISOString().slice(0,10)`, the
+// UTC calendar date. That is the wrong clock for every market on earth: it rolls
+// over at 00:00 UTC, which is 8pm in New York (mid-session-gap), 5:30am in Mumbai
+// (pre-open) and 9am in Tokyo (exactly at the open, by luck). So a NYSE lock
+// silently expired in the middle of the evening and a fresh one was taken against
+// whatever price was showing.
+//
+// Roshan's requirement is that the lock resets at the MARKET's open, which differs
+// per region. The session anchor (ui/market-session.js) reads that open straight
+// off the daily bar, so keying on anchor.sessionDate makes the lock roll over
+// exactly when the market opens, per market, with holidays and DST handled by the
+// data rather than by a calendar we would have to maintain.
+//
+// When no anchor is available (an intraday-only series, a failed fetch) we fall
+// back to the UTC date. That keeps the old behaviour for the one case where we
+// genuinely cannot know the session, instead of refusing to lock at all.
+function fallbackDate() { return new Date().toISOString().slice(0, 10); }
+function sessionKeyOf(anchor) { return anchor?.sessionDate || fallbackDate(); }
 
 function loadAll() {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {}; }
@@ -28,12 +48,16 @@ function saveAll(map) {
     try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch (_) {}
 }
 
-// Prune locks from previous days so the store doesn't grow unbounded.
+// Drop locks that don't belong to the symbol's CURRENT session so the store
+// doesn't grow unbounded. Each symbol carries its own session date now (NYSE and
+// Tokyo roll over hours apart), so a single global "today" can't decide this --
+// pruning only ever removes records older than the newest session seen for that
+// symbol, plus anything older than two calendar days as a hard backstop.
 function prune(map) {
-    const today = todayIso();
+    const cutoff = new Date(Date.now() - 2 * 86400_000).toISOString().slice(0, 10);
     let changed = false;
     for (const k of Object.keys(map)) {
-        if (map[k]?.date !== today) { delete map[k]; changed = true; }
+        if (!map[k]?.date || map[k].date < cutoff) { delete map[k]; changed = true; }
     }
     if (changed) saveAll(map);
     return map;
@@ -41,32 +65,61 @@ function prune(map) {
 
 function keyFor(symbol) { return String(symbol || '').toUpperCase(); }
 
-// Return today's locked call for a symbol, or null. Auto-prunes stale days.
-export function getLockedCall(symbol) {
+// Return the locked call for a symbol's current session, or null.
+// `anchor` decides which session that is; without one we fall back to UTC date.
+export function getLockedCall(symbol, anchor = null) {
     if (!symbol) return null;
     const map = prune(loadAll());
     const rec = map[keyFor(symbol)];
-    return rec && rec.date === todayIso() ? rec : null;
+    return rec && rec.date === sessionKeyOf(anchor) ? rec : null;
 }
 
-// Lock today's call for a symbol the FIRST time it's computed today. If a
-// lock already exists for today, this is a no-op (the call holds). Stores
-// only the decision-relevant fields. Returns the locked record (existing
-// or newly created).
-export function lockCall(symbol, prediction) {
+// Lock the call for a symbol the FIRST time it's computed in the current SESSION.
+// If a lock already exists for that session this is a no-op (the call holds).
+//
+// The record keeps two timestamps on purpose, because they answer different
+// questions and collapsing them into one is what produced the "locked 11:58 AM
+// when you opened it" complaint:
+//
+//   openedAt -- when this market's session opened. The baseline everyone shares.
+//   calledAt -- when this browser actually computed the call. Ours alone.
+//
+// `entry` is the session's OPENING price when we know it, not the price at the
+// moment of the visit, so the percentage moves the card reports are measured from
+// the same place for every viewer. The predicted band is re-centred onto that open
+// price, preserving the engine's predicted MOVE (its width) while moving its
+// anchor -- a band centred on the 11:58 price but labelled against the open entry
+// would make computeStatus compare two different baselines.
+export function lockCall(symbol, prediction, anchor = null) {
     if (!symbol || !prediction || !prediction.signal) return null;
     const map = prune(loadAll());
     const k = keyFor(symbol);
-    if (map[k] && map[k].date === todayIso()) return map[k];   // already locked today
+    const sessionDate = sessionKeyOf(anchor);
+    if (map[k] && map[k].date === sessionDate) return map[k];   // already locked this session
+
     const t = prediction.priceTargets || {};
+    const visitPrice = Number.isFinite(t.currentPrice) ? t.currentPrice : null;
+    const openPrice = Number.isFinite(anchor?.openPrice) ? anchor.openPrice : null;
+    const entry = openPrice ?? visitPrice;
+
+    // Shift = how far to slide the band so it sits on the open instead of the
+    // visit price. Zero when we have no open price (nothing to re-centre onto).
+    const shift = (openPrice != null && visitPrice != null) ? (openPrice - visitPrice) : 0;
+    const slide = (v) => (Number.isFinite(v) ? +(v + shift).toFixed(6) : null);
+
     map[k] = {
-        date: todayIso(),
-        lockedAt: new Date().toISOString(),
+        date: sessionDate,
+        // lockedAt is what the UI displays as the baseline moment. It is the
+        // session open when we know it, which is the whole point of the fix.
+        lockedAt: anchor?.openedAt || new Date().toISOString(),
+        openedAt: anchor?.openedAt || null,
+        calledAt: new Date().toISOString(),
+        openAnchored: openPrice != null,
         signal: prediction.signal,
         confidence: prediction.confidence,
-        entry: t.currentPrice ?? null,
-        predictedHigh: t.predictedHigh ?? null,
-        predictedLow: t.predictedLow ?? null,
+        entry,
+        predictedHigh: slide(t.predictedHigh),
+        predictedLow: slide(t.predictedLow),
         currency: prediction.currency || 'USD',
     };
     saveAll(map);
@@ -94,19 +147,45 @@ export function lockCall(symbol, prediction) {
 // record shape from both paths, plus `source` ∈ 'ledger' | 'local'.
 export async function getEffectiveLock(symbol, livePrediction) {
     if (!symbol) return null;
+    // The session anchor comes from the daily bar the engine already fetched, so
+    // this costs nothing. It decides which session we are in (and therefore when
+    // the lock resets) and supplies the open price both paths measure from.
+    const anchor = livePrediction?.sessionAnchor
+        || sessionAnchorFromCandles(livePrediction?.candles)
+        || null;
     try {
-        const led = await readTodayLock(symbol);
+        const led = await readTodayLock(symbol, anchor);
         if (led) {
             // Ledger has no currency column; inherit it from the live view so
             // the card formats the locked prices in the symbol's native unit.
             led.currency = (livePrediction && livePrediction.currency) || led.currency || 'USD';
+            // Attach the anchor and how late the cron actually was. The row's own
+            // predictedAt stays untouched -- it is the truth about when the call
+            // was made, and overwriting it with the open would be a fresh lie
+            // (the row's entry and features are both from the moment it ran, so
+            // claiming the open as its timestamp would misdescribe the baseline).
+            // The UI uses lateMinutes to say which of the two it is looking at.
+            led.openedAt = anchor?.openedAt || null;
+            led.openPrice = Number.isFinite(anchor?.openPrice) ? anchor.openPrice : null;
+            led.lateMinutes = minutesAfterOpen(led.lockedAt, anchor);
+            led.atOpen = isAtOpen(led.lockedAt, anchor);
             return led;
         }
-    } catch (_) { /* fall through to local visit-lock */ }
-    // Fallback: visit-time local lock (the legacy behavior), tagged as such.
-    if (livePrediction && livePrediction.signal) lockCall(symbol, livePrediction);
-    const local = getLockedCall(symbol);
+    } catch (_) { /* fall through to the local session lock */ }
+    // Fallback: this browser's own first call of the session. Now anchored to the
+    // session open price and timestamp rather than the moment of the page visit.
+    if (livePrediction && livePrediction.signal) lockCall(symbol, livePrediction, anchor);
+    const local = getLockedCall(symbol, anchor);
     if (local && !local.source) local.source = 'local';
+    if (local) {
+        local.openPrice = Number.isFinite(anchor?.openPrice) ? anchor.openPrice : null;
+        // A local lock is open-anchored in its BASELINE (entry + timestamp) but the
+        // signal itself was computed whenever this browser first looked. atOpen
+        // describes the baseline; the UI must not present the call as the engine's
+        // pre-session commitment, which is what `source: 'local'` is for.
+        local.atOpen = !!local.openAnchored;
+        local.lateMinutes = minutesAfterOpen(local.calledAt, anchor);
+    }
     return local;
 }
 

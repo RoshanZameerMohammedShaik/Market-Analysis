@@ -57,9 +57,75 @@ const TTL_MS = 6 * 60 * 60 * 1000;
 
 const _cache = new Map();   // id -> { ts, rows }
 
+// FRED IS UNREACHABLE FROM A BROWSER. THE SLICE IS THE BROWSER'S PATH.
+// --------------------------------------------------------------------
+// fred.stlouisfed.org sends no Access-Control-Allow-Origin, so a browser can never fetch
+// it directly, and the fallbacks do not save it either: our own Worker allowlists only the
+// two Yahoo hosts (workers/yahoo-proxy: ALLOWED_HOSTS), and the public CORS proxies fail on
+// it too. Measured in a real browser on 2026-09-10, this module returned
+// `{score: 50, available: false, components: {yieldCurve: null, tenYear: null, vix: null,
+// unemployment: null}}` -- every component dead. It worked perfectly in Node, which is why
+// tools/macro_check.mjs passed 28/28 the whole time and never noticed.
+//
+// That is the same defect class as the dead sentiment source: an ensemble input that
+// silently returns a constant contributes nothing to a cross-sectional ranking, and the
+// engine reports a confident number anyway.
+//
+// The fix is a published slice. Node CAN read FRED, so the cron writes model/macro.json and
+// the browser reads it from its OWN origin: no CORS, no proxy, and no Worker requests
+// against the 10k/day quota that has already been exhausted once.
+//
+// The slice deliberately carries the RAW SERIES ROWS, not a precomputed score, so the
+// browser runs this file's own scoreSeries/getMacroScore over them. One engine, one code
+// path. Publishing a finished score would put the same computation in two places, which is
+// exactly how the ledger ended up with two disagreeing engines for one prediction.
+const MACRO_SLICE_URL = './model/macro.json';
+const isBrowserEnv = typeof window !== 'undefined';
+let _slicePromise = null;
+
+async function loadMacroSlice() {
+    if (_slicePromise) return _slicePromise;
+    _slicePromise = (async () => {
+        try {
+            const res = await fetch(MACRO_SLICE_URL, { cache: 'no-cache' });
+            if (!res.ok) return null;
+            // A missing file does NOT 404 on a host with SPA fallback -- Cloudflare Pages
+            // answers 200 with index.html, and JSON.parse then fails on "<!DOCTYPE html>".
+            // Content-type is the only reliable tell. This exact trap hid the undeployed
+            // recent.json for weeks.
+            const ctype = res.headers.get('content-type') || '';
+            if (!ctype.includes('json')) {
+                console.warn(`[macro] ${MACRO_SLICE_URL} served ${ctype || 'an unknown type'}, not JSON`);
+                return null;
+            }
+            const json = await res.json();
+            return json && json.series ? json : null;
+        } catch (_) {
+            return null;
+        }
+    })();
+    return _slicePromise;
+}
+
 async function fetchSeries(id) {
     const hit = _cache.get(id);
     if (hit && Date.now() - hit.ts < TTL_MS) return hit.rows;
+
+    // Capability, not configuration: the browser reads the slice because it CANNOT read
+    // FRED; Node reads FRED because it can, and because Node is what WRITES the slice.
+    // Detected the same way data.js decides whether to skip the proxy.
+    if (isBrowserEnv) {
+        const slice = await loadMacroSlice();
+        const rows = slice?.series?.[id];
+        if (Array.isArray(rows) && rows.length) {
+            _cache.set(id, { ts: Date.now(), rows });
+            return rows;
+        }
+        // Slice missing or stale-deployed. Fall through and try the network anyway: it will
+        // almost certainly fail on CORS, but if the slice is simply not deployed yet then a
+        // working proxy is better than abstaining, and abstaining is what we do on failure.
+    }
+
     try {
         const res = await fetchWithProxy(`${FRED_CSV}${encodeURIComponent(id)}`);
         const text = await res.text();
@@ -71,6 +137,17 @@ async function fetchSeries(id) {
         // better than abstaining because one fetch failed.
         return hit ? hit.rows : [];
     }
+}
+
+/** Fetch a series straight from FRED, bypassing the slice. Used by the slice WRITER. */
+export async function fetchSeriesDirect(id) {
+    const res = await fetchWithProxy(`${FRED_CSV}${encodeURIComponent(id)}`);
+    return parseFredCsv(await res.text());
+}
+
+/** The series the slice must carry, so the writer and the scorer cannot drift apart. */
+export function macroSeriesIds() {
+    return Object.values(SERIES).map(s => s.id);
 }
 
 /** FRED CSV is `DATE,VALUE` with '.' for missing observations. */

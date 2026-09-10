@@ -501,7 +501,7 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
 // drifting with the live recompute. Date match is UTC (the cron writes UTC
 // dates via utcnow(), and todayIso() below is UTC) so the two agree on which
 // trading day "today" is.
-export async function readTodayLock(symbol) {
+export async function readTodayLock(symbol, anchor = null) {
     if (!symbol) return null;
     // Recent slice FIRST. This is the hot path on every symbol open, and it must
     // not depend on an 85 MB download completing. Only fall back to the full
@@ -509,13 +509,50 @@ export async function readTodayLock(symbol) {
     let rows = await loadRecentRows();
     if (!rows) rows = await loadLedger();
     if (!rows || !rows.length) return null;
-    const today = new Date().toISOString().slice(0, 10);   // UTC — matches the cron
     const keys = ledgerKeyCandidates(symbol);
-    // Scan newest→oldest for today's row for this symbol (one per day expected).
+
     let row = null;
-    for (let i = rows.length - 1; i >= 0; i--) {
-        const r = rows[i];
-        if (r.date === today && keys.has(String(r.symbol).toUpperCase())) { row = r; break; }
+
+    // MATCH BY PROXIMITY TO THE SESSION OPEN, NOT BY DATE STRING.
+    //
+    // The old code matched `r.date === todayUTC`. That silently breaks on every
+    // market whose session open falls on a different UTC date than the cron run:
+    //
+    //   * ASX opens 23:00 UTC during Australian DST and 00:00 UTC outside it, so
+    //     the session date and the run date disagree for half the year.
+    //   * TYO's 00:05 UTC cron is minutes either side of the UTC midnight rollover.
+    //
+    // Both would return null and drop the user onto the visit-time fallback for
+    // reasons that have nothing to do with whether a call exists. Matching on how
+    // close the row's predictedAt is to this session's open handles date skew,
+    // pre-open snapshots (negative delta) and late crons (positive) with one rule.
+    //
+    // The window is +/-12h: wide enough for a badly delayed cron -- GitHub pushed
+    // the 13:35Z NYSE cron to 17:08Z on 2026-09-10 -- and narrow enough that the
+    // adjacent session's row, ~24h away, can never be mistaken for this one.
+    if (anchor && Number.isFinite(anchor.openedAtMs)) {
+        const WINDOW_MS = 12 * 3600 * 1000;
+        let bestDelta = Infinity;
+        for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            if (!keys.has(String(r.symbol).toUpperCase())) continue;
+            const t = Date.parse(r.predictedAt || `${r.date}T00:00:00Z`);
+            if (!Number.isFinite(t)) continue;
+            const delta = t - anchor.openedAtMs;
+            if (delta < -WINDOW_MS || delta > WINDOW_MS) continue;
+            if (Math.abs(delta) < bestDelta) { bestDelta = Math.abs(delta); row = r; }
+        }
+    }
+
+    // No anchor (intraday-only series, failed fetch) or nothing in the window:
+    // fall back to the original UTC date match so this never regresses to "no
+    // lock at all" in cases that used to work.
+    if (!row) {
+        const today = new Date().toISOString().slice(0, 10);
+        for (let i = rows.length - 1; i >= 0; i--) {
+            const r = rows[i];
+            if (r.date === today && keys.has(String(r.symbol).toUpperCase())) { row = r; break; }
+        }
     }
     if (!row || !Number.isFinite(row.entry) || !row.signal) return null;
 

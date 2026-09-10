@@ -85,6 +85,13 @@ jobs:
           python-version: '3.11'
           cache: pip
 
+      # Node is needed for tools/write_macro_slice.mjs, which republishes the FRED series the
+      # browser cannot fetch itself. Pinned rather than relying on whatever the runner image
+      # ships, so the macro slice does not start failing on an image bump.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - run: pip install -r requirements.txt
 
       - name: Decide task
@@ -236,6 +243,25 @@ jobs:
         if: always()
         run: python tools/write_recent_slice.py --days 3
 
+      # The browser CANNOT read FRED: fred.stlouisfed.org sends no CORS header, our Worker
+      # allowlists only the two Yahoo hosts, and the public CORS proxies fail on it as well.
+      # Measured in Chromium on 2026-09-10, js/macro.js returned available:false with all four
+      # components null -- one of the engine's four ensemble sources was contributing nothing
+      # in the app, while tools/macro_check.mjs passed 28/28 because it runs in Node, where
+      # there is no CORS to trip over.
+      #
+      # Node can read FRED, so Node publishes the observations and the browser reads them from
+      # its own origin. Also worth noting: this costs ZERO Cloudflare Worker requests, which
+      # matters on a 10k/day quota that has already been exhausted once.
+      #
+      # continue-on-error: a FRED outage must never fail a run that has ledger rows to commit.
+      # The writer refuses to overwrite a good slice with an empty one, so the previous day's
+      # readings survive, and macro moves slowly enough that they are still useful.
+      - name: Publish FRED macro series for the browser
+        if: always()
+        continue-on-error: true
+        run: node tools/write_macro_slice.mjs
+
       # always() so a failing leg of a multi-region run doesn't discard the
       # rows the successful legs already wrote to disk. The job still reports
       # red (the failed step decides the conclusion). We just stop throwing
@@ -284,6 +310,11 @@ jobs:
           fi
           if [ -f model/live_calibration.json ]; then
             git add -f model/live_calibration.json
+          fi
+          # The browser's only route to the macro series. Unstaged, it would be rebuilt every
+          # run and published never, leaving the `market` source dead in the app.
+          if [ -f model/macro.json ]; then
+            git add -f model/macro.json
           fi
           if git diff --cached --quiet; then
             echo 'No staged changes to commit.'
@@ -403,6 +434,12 @@ jobs:
             git add -fA model/ledger/ || true
             if [ -f model/live_calibration.json ]; then
               git add -f model/live_calibration.json
+            fi
+            # Same staging as the happy path. The two lists drifting apart is its own bug:
+            # a file only staged on the non-recovery path is published only when nothing
+            # goes wrong, which is exactly when nobody notices it is missing.
+            if [ -f model/macro.json ]; then
+              git add -f model/macro.json
             fi
             if git diff --cached --quiet; then
               echo 'After re-run, nothing new to commit (idempotent path won).'

@@ -22,6 +22,7 @@ import { loadPatterns, encodePattern, patternAdjustment } from './pattern-lookup
 import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
 import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
+import { sessionAnchorFromCandles } from './ui/market-session.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
@@ -723,6 +724,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         newsOverall: sentiment.overall,
         newsSummary: sentiment.reasons[0] || 'No news data',
         marketConditions: market,
+        // When this symbol's session opened, and at what price. Derived from the
+        // daily bar we already fetched, so it costs no request and is identical
+        // for every viewer. The daily lock anchors to this instead of to the page
+        // visit or to whenever the cron happened to run. See ui/market-session.js.
+        sessionAnchor: sessionAnchorFromCandles(multiData?.daily?.candles),
         method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + tier-aware LSTM + recency+tier+vol calibrated',
         trendRegime,
         // meta carries why the engine abstained (read by the signal card's

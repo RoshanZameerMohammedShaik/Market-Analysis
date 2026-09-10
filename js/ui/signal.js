@@ -279,9 +279,42 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             // the engine had committed at the open when it had not, which is how a
             // $309.61 call on DY read as an open lock at 11:18 AM.
             const fromLedger = locked.source === 'ledger';
-            const lockLabel = fromLedger
-                ? `today's call · locked ${lockedTime}`
-                : `locked ${lockedTime} when you opened it`;
+            // How late was the call relative to this market's actual open? The
+            // tooltip used to assert "locked at this market's open" for every
+            // ledger row regardless. On 2026-09-10 GitHub delayed the 13:35Z NYSE
+            // cron until 17:08Z, so the row was stamped 17:10Z -- 3h40m after the
+            // 13:30Z open -- and the UI presented it as a pre-session commitment.
+            // A late call is still useful; describing it as something it is not is
+            // the part that has to stop.
+            const lateMin = Number.isFinite(locked.lateMinutes) ? locked.lateMinutes : null;
+            const openTime = (() => {
+                try {
+                    return locked.openedAt
+                        ? new Date(locked.openedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                        : null;
+                } catch (_) { return null; }
+            })();
+            const lateText = (lateMin != null && lateMin > 20)
+                ? (lateMin >= 120
+                    ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m after the open`
+                    : `${lateMin} min after the open`)
+                : null;
+            let lockLabel;
+            if (fromLedger) {
+                lockLabel = locked.atOpen && openTime
+                    ? `today's call · locked at the ${openTime} open`
+                    : lateText
+                        ? `today's call · locked ${lockedTime} (${lateText})`
+                        : `today's call · locked ${lockedTime}`;
+            } else {
+                // A local lock is open-anchored in its BASELINE (entry price and
+                // timestamp both come from the session's opening bar) but the call
+                // itself was computed when this browser first looked. Both facts
+                // get said, because either one alone misleads.
+                lockLabel = locked.openAnchored && openTime
+                    ? `your call · ${openTime} open baseline`
+                    : `locked ${lockedTime} when you opened it`;
+            }
             // WHY it fell back matters, and this used to assert the wrong reason.
             //
             // It said "not in the daily cron universe" unconditionally, which is only one of
@@ -292,15 +325,29 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             // universe. Blaming the data's coverage for a deployment fault sends the reader
             // looking in exactly the wrong place.
             const sliceProblem = fromLedger ? null : recentSliceProblem();
-            const lockTitle = fromLedger
-                ? 'Locked by the engine at this market’s open, before the session — the same baseline for everyone.'
-                : sliceProblem
-                    ? `No market-open lock could be loaded: ${sliceProblem}. This baseline is `
-                      + 'the price when you opened the symbol, which is not the same claim as '
-                      + 'a commitment made before the session.'
-                    : 'Not in the daily cron universe, so there is no market-open row for it. '
-                      + 'This baseline was taken when you first opened the symbol today, so it '
-                      + 'differs from what someone opening it at another time would see.';
+            let lockTitle;
+            if (fromLedger && locked.atOpen) {
+                lockTitle = 'Locked by the engine at this market’s open — the same baseline for everyone.';
+            } else if (fromLedger) {
+                lockTitle = `The engine committed this call ${lateText || 'after the open'}, not at it. `
+                    + 'GitHub Actions queues scheduled jobs and can delay them by hours, so the '
+                    + 'baseline is the price at that later moment rather than the opening price. '
+                    + 'Still one shared call for the session, just not a pre-session one.';
+            } else if (locked.openAnchored) {
+                lockTitle = `The engine has no committed row for this session${sliceProblem ? ` (${sliceProblem})` : ''}, `
+                    + 'so this call was computed when you opened the symbol. Its baseline is this '
+                    + 'session’s OPENING price, which is the same for everyone, but the call itself '
+                    + 'reflects the moment you looked — someone opening it later could see a '
+                    + 'different one.';
+            } else if (sliceProblem) {
+                lockTitle = `No market-open lock could be loaded: ${sliceProblem}. This baseline is `
+                    + 'the price when you opened the symbol, which is not the same claim as '
+                    + 'a commitment made before the session.';
+            } else {
+                lockTitle = 'Not in the daily cron universe, so there is no market-open row for it. '
+                    + 'This baseline was taken when you first opened the symbol today, so it '
+                    + 'differs from what someone opening it at another time would see.';
+            }
             statusHTML = `
                 <div class="call-status ${st.tone}" title="Live status of today's locked call">
                     <div class="call-status-row">

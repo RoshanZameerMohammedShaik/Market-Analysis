@@ -31,6 +31,20 @@ on:
       - 'model/lstm_weights.json'
       - 'model/xgb_trees.json'
       - 'tools/skill_report.py'
+      # The daily lock + the browser's ensemble sources. Without these the new jobs are
+      # registered but never triggered, which is the same as not having them: a path filter
+      # that omits the file under test makes the check unreachable.
+      - 'js/ui/daily-lock.js'
+      - 'js/ui/market-session.js'
+      - 'js/ui/signal.js'
+      - 'js/ledger-reader.js'
+      - 'tools/session_lock_check.mjs'
+      - 'js/macro.js'
+      - 'js/confidence.js'
+      - 'tools/macro_check.mjs'
+      - 'tools/browser_sources_check.mjs'
+      - 'tools/write_macro_slice.mjs'
+      - 'model/macro.json'
   push:
     branches: [main]
     paths:
@@ -62,6 +76,20 @@ on:
       - 'model/lstm_weights.json'
       - 'model/xgb_trees.json'
       - 'tools/skill_report.py'
+      # The daily lock + the browser's ensemble sources. Without these the new jobs are
+      # registered but never triggered, which is the same as not having them: a path filter
+      # that omits the file under test makes the check unreachable.
+      - 'js/ui/daily-lock.js'
+      - 'js/ui/market-session.js'
+      - 'js/ui/signal.js'
+      - 'js/ledger-reader.js'
+      - 'tools/session_lock_check.mjs'
+      - 'js/macro.js'
+      - 'js/confidence.js'
+      - 'tools/macro_check.mjs'
+      - 'tools/browser_sources_check.mjs'
+      - 'tools/write_macro_slice.mjs'
+      - 'model/macro.json'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -166,6 +194,40 @@ jobs:
       # and then deleted.
       - name: Check macro regime and per-symbol beta
         run: node tools/macro_check.mjs
+
+      # The daily lock must anchor to each MARKET's open, not to the page visit. Roshan
+      # reported "locked 11:58 AM when you opened it" twice, and the first time I blamed the
+      # Cloudflare deployment -- wrong, and it cost a week. The real causes were a lock keyed
+      # on the UTC calendar date (which rolls over at 8pm New York time, not at any market's
+      # open) and a ledger row matched by date string (which cannot match ASX for half the
+      # year). Fully offline: the anchor is derived from candles, so nothing here depends on
+      # Yahoo being up.
+      - name: Check the daily lock anchors to the market open
+        run: node tools/session_lock_check.mjs
+
+  # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
+  # none of them can see the most likely way a browser-side data source dies.
+  #
+  # That is not hypothetical. js/macro.js scored 28/28 in tools/macro_check.mjs while
+  # returning available:false with all four components null in Chromium, because
+  # fred.stlouisfed.org sends no Access-Control-Allow-Origin and neither our Worker (which
+  # allowlists two Yahoo hosts) nor the public CORS proxies could reach it. One of the
+  # engine's four ensemble sources contributed nothing in the app the user actually opens,
+  # and the engine kept printing a confident number.
+  #
+  # The macro half of this check is deterministic: it reads the committed model/macro.json off
+  # a local static server, so a failure here is always our bug and never someone's downtime.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - name: Check every ensemble source is alive in a browser
+        run: node tools/browser_sources_check.mjs
 
   # Mia 2.0's desk. These three existed but were registered in NO workflow, so 88 account
   # and broker assertions had never once run in CI -- they only ever passed because I ran
