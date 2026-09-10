@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { recentSliceProblem } from '../ledger-reader.js';
 import { fmtPriceTag, fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
@@ -281,11 +282,25 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             const lockLabel = fromLedger
                 ? `today's call · locked ${lockedTime}`
                 : `locked ${lockedTime} when you opened it`;
+            // WHY it fell back matters, and this used to assert the wrong reason.
+            //
+            // It said "not in the daily cron universe" unconditionally, which is only one of
+            // two causes and usually the wrong one. The other is that the market-open slice
+            // did not LOAD -- and that happened for weeks: Cloudflare Pages answered
+            // recent.json with HTTP 200 and index.html because the file was never deployed,
+            // so every symbol fell back and every symbol was told it was outside the
+            // universe. Blaming the data's coverage for a deployment fault sends the reader
+            // looking in exactly the wrong place.
+            const sliceProblem = fromLedger ? null : recentSliceProblem();
             const lockTitle = fromLedger
                 ? 'Locked by the engine at this market’s open, before the session — the same baseline for everyone.'
-                : 'Not in the daily cron universe, so there is no market-open row for it. '
-                  + 'This baseline was taken when you first opened the symbol today, so it '
-                  + 'differs from what someone opening it at another time would see.';
+                : sliceProblem
+                    ? `No market-open lock could be loaded: ${sliceProblem}. This baseline is `
+                      + 'the price when you opened the symbol, which is not the same claim as '
+                      + 'a commitment made before the session.'
+                    : 'Not in the daily cron universe, so there is no market-open row for it. '
+                      + 'This baseline was taken when you first opened the symbol today, so it '
+                      + 'differs from what someone opening it at another time would see.';
             statusHTML = `
                 <div class="call-status ${st.tone}" title="Live status of today's locked call">
                     <div class="call-status-row">

@@ -143,6 +143,12 @@ async function scopeToCurrentEngine(rows) {
 let _recentCache = null;
 let _recentCacheTs = 0;
 
+// Why the last recent.json load failed, for the UI to show instead of a fake lock time.
+let _recentReason = null;
+
+/** Human-readable reason the market-open lock is unavailable, or null when it loaded. */
+export function recentSliceProblem() { return _recentReason; }
+
 export async function loadRecentRows() {
     if (_recentCache && Date.now() - _recentCacheTs < LEDGER_CACHE_MS) {
         return _recentCache;
@@ -150,13 +156,32 @@ export async function loadRecentRows() {
     try {
         const res = await fetch('./model/ledger/recent.json', { cache: 'no-cache' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // CONTENT-TYPE, not res.ok. Cloudflare Pages answers a MISSING file with HTTP 200
+        // and the contents of index.html, so res.ok proves nothing at all.
+        //
+        // This is not hypothetical: the live site was serving text/html for this exact URL
+        // while recent.json was current on GitHub, because Pages had stopped deploying. The
+        // JSON parse then threw, the catch below swallowed it, and the daily lock silently
+        // fell back to page-VISIT time -- which the UI displayed as "locked 11:58 AM" as
+        // though it were a real market-open lock. A silent fallback that looks authoritative
+        // is worse than a visible failure.
+        const ctype = res.headers.get('content-type') || '';
+        if (!ctype.includes('json')) {
+            _recentReason = `the market-open slice is not deployed (served ${ctype ||
+                'an unknown type'} instead of JSON), so today's lock is falling back to the 
+                time you opened the page`.replace(/\s+/g, ' ');
+            console.warn('[ledger] recent.json:', _recentReason);
+            throw new Error('not json');
+        }
         const j = await res.json();
         const rows = Array.isArray(j?.rows) ? j.rows : [];
         if (!rows.length) throw new Error('empty slice');
         _recentCache = rows;
         _recentCacheTs = Date.now();
+        _recentReason = null;
         return _recentCache;
-    } catch (_) {
+    } catch (e) {
+        if (!_recentReason) _recentReason = `market-open data unavailable (${e.message})`;
         // Deliberately do NOT cache the failure. Caching [] for the TTL is what
         // made the old path stick to the visit-time fallback for minutes at a
         // time after one bad fetch.
