@@ -609,6 +609,25 @@ export async function readTodayLock(symbol, anchor = null) {
     };
 }
 
+/**
+ * Raw ledger rows for one symbol, off the RECENT SLICE only.
+ *
+ * Deliberately does NOT fall back to loadLedger(). readLedgerHistory does, and that pulls the
+ * whole month shard -- tens of MB. This is called while rendering the signal card, so it must
+ * stay on the ~cached slice: a few days of rows is exactly what the band history needs, and
+ * returning fewer rows is far better than stalling the panel on a huge download.
+ *
+ * Returns rows UNMODIFIED so the caller can read forecastBand / priceTargets / entry as the
+ * cron wrote them.
+ */
+export async function readSymbolRowsFromSlice(symbol) {
+    if (!symbol) return [];
+    const rows = await loadRecentRows();
+    if (!rows || !rows.length) return [];
+    const keys = ledgerKeyCandidates(symbol);
+    return rows.filter(r => keys.has(String(r.symbol).toUpperCase()));
+}
+
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {

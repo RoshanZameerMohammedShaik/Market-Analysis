@@ -1,5 +1,6 @@
 import { state } from './state.js';
-import { recentSliceProblem } from '../ledger-reader.js';
+import { recentSliceProblem, readSymbolRowsFromSlice } from '../ledger-reader.js';
+import { buildBandHistory } from './band-history.js';
 import { fmtPriceTag, fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
@@ -402,8 +403,24 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // both are about price levels; the band is the calibrated, direction-free one.
     let bandHTML = '';
     try {
+        // Score the band against the sessions that have already happened. Uses the daily bars
+        // the engine already fetched (so the actual highs and lows are free) and prefers the
+        // band the cron actually LOCKED for a date when the recent slice carries it, falling
+        // back to a no-lookahead replay for older sessions. A forecast with no visible track
+        // record asks to be trusted; one shown next to "held on 5 of 7" asks to be judged.
+        let bandHistory = null;
+        try {
+            const lockedRows = await readSymbolRowsFromSlice(state.currentSymbol);
+            bandHistory = buildBandHistory({
+                candles: prediction?.dailyCandles || null,
+                lockedRows,
+                sessions: 7,
+                cryptoMode: state.mode === 'crypto',
+            });
+        } catch (_) { bandHistory = null; }
         bandHTML = renderForecastBand(view.forecastBand, {
             currency: cur, currentPrice: view.priceTargets?.currentPrice ?? null,
+            history: bandHistory,
         });
     } catch (_) { bandHTML = ''; }
     // Per-symbol confidence-trend placeholder — filled async after paint

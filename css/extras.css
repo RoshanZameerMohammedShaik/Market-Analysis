@@ -393,6 +393,84 @@ html[data-dev="1"] body { padding-top: 22px; }
     .fb-table td { font-size: 0.8rem; }
 }
 
+/* ── Scored past sessions ──────────────────────────────────────────────────────
+   The backward-looking half of the forecast panel: what the band promised each
+   session versus what price actually did. Tokens only, no literal colours, so it
+   inherits all six themes. See js/ui/band-history.js for the scoring rules. */
+.fb-history {
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.fb-score {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.02em;
+    padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+    color: var(--text-secondary);
+}
+.fb-score.is-good {
+    background: color-mix(in srgb, var(--green) 16%, transparent);
+    color: var(--green);
+}
+.fb-score.is-under {
+    background: color-mix(in srgb, var(--yellow) 18%, transparent);
+    color: var(--yellow);
+}
+/* The predicted figure leads; the actual sits under it in a lighter weight, so a
+   glance down the column reads as promise-then-outcome without a second table. */
+.fb-actual {
+    display: block; font-size: 0.72rem; font-weight: 400;
+    color: var(--text-muted); opacity: 0.9;
+}
+.fb-table-past td.fb-low, .fb-table-past td.fb-high { opacity: 1; }
+.fb-th-sub {
+    display: block; font-size: 0.62rem; font-weight: 400;
+    color: var(--text-muted); text-transform: none; letter-spacing: 0;
+}
+.fb-tick, .fb-cross {
+    font-size: 0.72rem; font-weight: 600;
+}
+.fb-tick  { color: var(--green); }
+.fb-cross { color: var(--red); }
+.fb-fill {
+    display: block; font-size: 0.66rem; color: var(--text-muted);
+}
+/* Provenance. 'locked' was a real commitment; 'modelled' is a replay. Visually
+   distinct because conflating them would overstate the record. */
+.fb-src {
+    margin-left: 6px; font-size: 0.6rem; font-weight: 600;
+    padding: 1px 5px; border-radius: 4px; vertical-align: middle;
+    text-transform: uppercase; letter-spacing: 0.03em;
+}
+.fb-src-locked {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--accent);
+}
+.fb-src-model {
+    background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+    color: var(--text-muted);
+}
+.fb-table-past tr.fb-missed td.fb-day { color: var(--text-secondary); }
+/* Long form on desktop, compact on a phone. Toggled here rather than in JS because the
+   panel is rendered as a string and cannot react to a resize. */
+.fb-d-short { display: none; }
+@media (max-width: 560px) {
+    /* The Result column is the POINT of this table, so unlike the forward table it must
+       survive on a phone. The provenance chip and the weekday name are what get dropped:
+       at 400px "PREDICTED LOW" and "PREDICTED HIGH" collided with no gap between them, and
+       every date wrapped onto two lines. */
+    .fb-table-past th.fb-span, .fb-table-past td.fb-span { display: table-cell; }
+    .fb-src { display: none; }
+    .fb-d-long { display: none; }
+    .fb-d-short { display: inline; }
+    .fb-table-past th, .fb-table-past td { padding-left: 6px; }
+    .fb-table-past th { font-size: 0.6rem; letter-spacing: 0; }
+    .fb-table-past td.fb-day { white-space: nowrap; font-size: 0.76rem; }
+    .fb-table-past td.fb-low, .fb-table-past td.fb-high { font-size: 0.8rem; }
+    .fb-actual { font-size: 0.66rem; }
+    .fb-tick, .fb-cross { font-size: 0.68rem; white-space: nowrap; }
+    .fb-fill { font-size: 0.6rem; white-space: nowrap; }
+}
+
 /* Badge marking a range as calibrated rather than heuristic. */
 .pt-cal-badge {
     margin-left: 8px; font-size: 0.66rem; font-weight: 600;

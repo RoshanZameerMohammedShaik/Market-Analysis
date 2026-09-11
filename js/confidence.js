@@ -729,6 +729,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         // for every viewer. The daily lock anchors to this instead of to the page
         // visit or to whenever the cron happened to run. See ui/market-session.js.
         sessionAnchor: sessionAnchorFromCandles(multiData?.daily?.candles),
+        // The daily bars, by reference (no copy, no serialisation cost). The forecast panel
+        // scores the last 7 sessions against the band that applied to each, and it needs the
+        // actual highs and lows to do that. Passing the series is cheaper than re-fetching it
+        // in the UI layer, and guarantees the panel scores the SAME bars the engine used.
+        dailyCandles: multiData?.daily?.candles || null,
         method: 'multi-source + macro/sector/rotation/earnings/history/calendar/gap/spike/peers/derivs/options/squeeze/tf/vwap/volprofile/crossasset/pattern/penny/finra/insider/social + tier-aware LSTM + recency+tier+vol calibrated',
         trendRegime,
         // meta carries why the engine abstained (read by the signal card's

@@ -45,6 +45,10 @@ on:
       - 'tools/browser_sources_check.mjs'
       - 'tools/write_macro_slice.mjs'
       - 'model/macro.json'
+      - 'js/ui/band-history.js'
+      - 'js/ui/forecast-band-panel.js'
+      - 'js/forecast-band.js'
+      - 'tools/band_history_check.mjs'
   push:
     branches: [main]
     paths:
@@ -90,6 +94,10 @@ on:
       - 'tools/browser_sources_check.mjs'
       - 'tools/write_macro_slice.mjs'
       - 'model/macro.json'
+      - 'js/ui/band-history.js'
+      - 'js/ui/forecast-band-panel.js'
+      - 'js/forecast-band.js'
+      - 'tools/band_history_check.mjs'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -204,6 +212,14 @@ jobs:
       # Yahoo being up.
       - name: Check the daily lock anchors to the market open
         run: node tools/session_lock_check.mjs
+
+      # The scored past-sessions table prints an accuracy claim about our OWN forecast next to
+      # prices, so its failure modes are all quiet: a replay that peeks at the session it is
+      # scoring, counting the in-progress session as a hold, or presenting a reconstruction as
+      # a promise the cron actually made. The load-bearing assertion widens ONLY the scored
+      # session's range and requires the predicted band not to move.
+      - name: Check the band history scores without lookahead
+        run: node tools/band_history_check.mjs
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

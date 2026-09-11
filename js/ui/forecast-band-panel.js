@@ -11,6 +11,8 @@
 // Replaces the multi-horizon block, which reused ONE direction for every horizon
 // and scaled magnitude by a hand-picked confidence multiplier.
 
+import { describeBandHistory } from './band-history.js';
+
 const CUR = { USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥',
               HKD: 'HK$', AUD: 'A$' };
 
@@ -31,12 +33,78 @@ function dayLabel(iso, idx) {
     } catch (_) { return iso; }
 }
 
+// Two labels, one shown at a time by a media query. Doing this in CSS rather than by
+// measuring the viewport in JS means it stays correct through a rotation or a resize without
+// a re-render, and the panel is built as a string so it cannot respond to resize anyway.
+function pastLabel(iso) {
+    try {
+        const d = new Date(iso + 'T00:00:00Z');
+        const long = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+        const short = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+        return `<span class="fb-d-long">${long}</span><span class="fb-d-short">${short}</span>`;
+    } catch (_) { return iso; }
+}
+
+/**
+ * The scored past sessions: what the band promised, what price actually did, and whether
+ * both edges held.
+ *
+ * Kept in the same panel as the forward table on purpose. A forecast shown without its
+ * track record invites the reader to trust it; shown next to "held on 5 of 7", it invites
+ * them to judge it. The band's own claim is that BOTH edges hold, so that is what the Met
+ * column scores -- a day that blew through the high but held the low is a miss, not a half.
+ */
+function renderHistory(hist, currency) {
+    if (!hist || !hist.rows?.length) return '';
+
+    const rows = hist.rows.slice().reverse().map(r => {
+        const tone = r.met ? 'fb-met' : 'fb-missed';
+        const mark = r.met
+            ? '<span class="fb-tick" title="Both the high and the low stayed inside the predicted range.">held</span>'
+            : `<span class="fb-cross" title="Price left the predicted range through the ${r.brokeSide === 'both' ? 'high and the low' : r.brokeSide}, by ${r.missPct}% of the day's anchor price.">broke ${r.brokeSide}</span>`;
+        // 'locked' = the band the cron actually committed that day. 'modelled' = replayed with
+        // today's calibration from bars available before that session. Never blurred: one is
+        // a promise that was made, the other is a reconstruction of what it would have been.
+        const src = r.source === 'locked'
+            ? '<span class="fb-src fb-src-locked" title="The band the engine committed for this date, read from the ledger.">locked</span>'
+            : '<span class="fb-src fb-src-model" title="Replayed with the current calibration using only bars from before this session, anchored on its open. No lookahead, but it is a reconstruction, not a promise that was made at the time.">modelled</span>';
+        return `
+            <tr class="fb-row ${tone}">
+                <td class="fb-day">${pastLabel(r.date)} ${src}</td>
+                <td class="fb-low">${money(r.predLow, currency)}<span class="fb-actual">${money(r.actualLow, currency)}</span></td>
+                <td class="fb-high">${money(r.predHigh, currency)}<span class="fb-actual">${money(r.actualHigh, currency)}</span></td>
+                <td class="fb-span">${mark}${Number.isFinite(r.fillPct) ? `<span class="fb-fill" title="How much of the predicted range price actually travelled. A band that never breaks but is only 20% filled is too wide to be useful.">${r.fillPct}% used</span>` : ''}</td>
+            </tr>`;
+    }).join('');
+
+    const good = hist.claimedPct != null && hist.coveragePct >= hist.claimedPct;
+    return `
+        <div class="fb-history">
+            <div class="fb-head">
+                <span class="fb-title">How the last ${hist.scored} sessions actually went</span>
+                <span class="fb-score ${good ? 'is-good' : 'is-under'}">${hist.metCount}/${hist.scored} held · ${hist.coveragePct}%</span>
+            </div>
+            <table class="fb-table fb-table-past">
+                <thead>
+                    <tr>
+                        <th class="fb-day">Session</th>
+                        <th class="fb-low"><span class="fb-d-long">Predicted low</span><span class="fb-d-short">Low</span> <span class="fb-th-sub">actual</span></th>
+                        <th class="fb-high"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">High</span> <span class="fb-th-sub">actual</span></th>
+                        <th class="fb-span">Result</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+            <div class="fb-caveat">${describeBandHistory(hist)}</div>
+        </div>`;
+}
+
 /**
  * @param {Object} band  the `forecastBand` object from computeFullConfidence
- * @param {Object} opts  { currency, currentPrice }
+ * @param {Object} opts  { currency, currentPrice, history }
  * @returns {string} HTML, or '' when there is nothing trustworthy to show
  */
-export function renderForecastBand(band, { currency = 'USD', currentPrice = null } = {}) {
+export function renderForecastBand(band, { currency = 'USD', currentPrice = null, history = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
 
     // Refuse to print a confidence we cannot stand behind. An uncalibrated band
@@ -94,5 +162,6 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
                     set, it holds far less often.
                 </div>
             </div>
+            ${renderHistory(history, currency)}
         </div>`;
 }
