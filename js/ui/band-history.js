@@ -46,6 +46,20 @@ const MIN_BARS_FOR_REPLAY = 38;
 function pct(a, b) { return b > 0 ? (a / b) * 100 : null; }
 
 /**
+ * What fraction of a predicted move actually happened, as a percentage.
+ *
+ * Floored at 0 rather than allowed to go negative: a session whose high never got above the
+ * anchor delivered none of the predicted upside, and "-40%" would read as though it moved
+ * backwards along an axis that only has one direction. Returns null when the predicted move
+ * is zero or negative, which would make the ratio meaningless rather than merely extreme.
+ */
+function reachOf(actualMove, predictedMove) {
+    if (!Number.isFinite(actualMove) || !Number.isFinite(predictedMove)) return null;
+    if (!(predictedMove > 0)) return null;
+    return +Math.max(0, (actualMove / predictedMove) * 100).toFixed(0);
+}
+
+/**
  * Score the last N completed sessions against the band that applied to each.
  *
  * @param {Object} opts
@@ -83,6 +97,17 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
                 anchor: Number.isFinite(r.entry) ? r.entry : null,
                 confidence: r.forecastBand.confidence ?? null,
                 calibrated: r.forecastBand.calibrated === true,
+                // WHEN the band was set, which the reach figures depend on completely.
+                //
+                // A locked band is anchored on the price at the moment the cron ran, and GitHub
+                // delays those crons -- the 13:35Z NYSE run landed at 17:08Z on 2026-09-10, so
+                // that band was anchored at 323.55, 3h40m into a session that opened at 316.79.
+                // The day's LOW (316.51) had therefore already happened before the band existed,
+                // and scoring it as "71% of the predicted downside delivered" credits a forecast
+                // that was never made. Daily bars cannot tell us the range AFTER the band was
+                // set, so the honest move is to carry the lateness and let the UI say so rather
+                // than print a number that quietly means something different per row.
+                predictedAt: r.predictedAt || null,
             });
         }
     }
@@ -141,6 +166,33 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
                 lowHeld ? 0 : (pred.low - bar.low) / pred.anchor * 100,
                 highHeld ? 0 : (bar.high - pred.high) / pred.anchor * 100,
             ).toFixed(2),
+            // HOW MUCH OF THE PREDICTED MOVE ACTUALLY HAPPENED, per direction.
+            //
+            // Measured from the anchor, because the predicted high is a DISTANCE above it, not
+            // an absolute target: on Sep 10 AAPL anchored at 316.79 with a predicted high of
+            // 333.75, so the forecast upside was 16.96 and price delivered 9.95 -- 59%.
+            // Dividing the raw prices instead (326.74 / 333.75 = 98%) would report near-perfect
+            // accuracy for any expensive stock that barely moved, because the shared anchor
+            // dominates the ratio. That is the same mistake as judging a forecast by the price
+            // level rather than the move.
+            //
+            // Deliberately UNCAPPED here. 140% and 100% are different facts -- one blew through
+            // the edge, the other touched it -- and the display can clamp the bar while the
+            // data keeps the distinction. Clamping at source would erase it permanently.
+            //
+            // Note this asks a DIFFERENT question from `met`. Reaching the predicted high is
+            // what a trader's sell limit needed, and simultaneously the point at which the
+            // band's containment claim fails. So reachHighPct >= 100 always means highHeld is
+            // false. Both are reported rather than picking one.
+            reachHighPct: reachOf(bar.high - pred.anchor, pred.high - pred.anchor),
+            reachLowPct: reachOf(pred.anchor - bar.low, pred.anchor - pred.low),
+            // Minutes between this session's open and the moment the band was set. 0 for a
+            // replayed row (open-anchored by construction). When this is large the reach figures
+            // include movement that predates the forecast, so the UI marks the row instead of
+            // presenting a number that is not comparable with the others.
+            bandSetLateMin: pred.predictedAt
+                ? Math.max(0, Math.round((Date.parse(pred.predictedAt) - bar.time * 1000) / 60000))
+                : 0,
             calibrated: pred.calibrated,
         });
     }

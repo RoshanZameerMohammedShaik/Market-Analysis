@@ -46,6 +46,55 @@ function pastLabel(iso) {
 }
 
 /**
+ * One direction's "how much of the predicted move happened" bar.
+ *
+ * The bar is CLAMPED at 100% while the printed number is not. A day that reached 140% of the
+ * predicted upside and one that reached exactly 100% look the same as bars -- both full -- so
+ * the figure has to carry the difference, and the full bar gets a distinct treatment to show
+ * the edge was passed rather than merely touched.
+ *
+ * 100% is genuinely ambiguous and the tooltip says so: it is the moment a sell limit at the
+ * predicted high would have filled, and the moment the band's containment claim failed. Which
+ * of those matters depends on whether you were trading the level or trusting the range.
+ */
+function reachBar(dir, reachPct, edge, anchor, currency, held, lateMin = 0) {
+    if (!Number.isFinite(reachPct)) {
+        return `<span class="fbh-bar-row"><span class="fbh-arrow">${dir === 'up' ? '↑' : '↓'}</span><span class="fbh-pct">—</span></span>`;
+    }
+    const hit = reachPct >= 100;
+    const w = Math.min(100, reachPct);
+    const moved = Number.isFinite(edge) && Number.isFinite(anchor)
+        ? Math.abs(edge - anchor) : null;
+    const label = dir === 'up' ? 'upside' : 'downside';
+    const edgeName = dir === 'up' ? 'high' : 'low';
+    // The containment bound is INCLUSIVE, so exactly touching the edge is 100% reach and still
+    // a hold. Only PASSING it breaks the band. Saying "the claim failed" at exactly 100% would
+    // be wrong, and this tooltip is the one place a reader goes to resolve the ambiguity.
+    const outcome = !hit ? ''
+        : held === false
+            ? ` It PASSED the predicted ${edgeName}: an order at that level would have filled, and the band's containment claim failed on this side.`
+            : ` It reached the predicted ${edgeName} exactly: an order at that level would have filled, and the band still held (the bound is inclusive).`;
+    // When the band was set hours into the session, the day's high/low may PREDATE it, so the
+    // reach figure includes movement the forecast never forecast. Daily bars cannot separate
+    // before-from-after, so the honest thing is to say so on the number itself.
+    const lateNote = lateMin > 20
+        ? ` NOTE: this band was set ${lateMin >= 120 ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m` : `${lateMin} min`} after the open, anchored at ${money(anchor, currency)} rather than the opening price. Part of this session's range happened before the band existed, so treat this figure as indicative only.`
+        : '';
+    const title = [
+        `Price delivered ${reachPct}% of the predicted ${label}`,
+        moved != null ? ` (the band expected ${money(moved, currency)} of movement from ${money(anchor, currency)}).` : '.',
+        outcome,
+        lateNote,
+    ].join('');
+    return `
+        <span class="fbh-bar-row${lateMin > 20 ? ' is-late' : ''}" title="${title}">
+            <span class="fbh-arrow fbh-${dir}">${dir === 'up' ? '↑' : '↓'}</span>
+            <span class="fbh-track"><span class="fbh-fill fbh-fill-${dir}${hit ? ' is-hit' : ''}" style="width:${w}%"></span></span>
+            <span class="fbh-pct${hit ? ' is-hit' : ''}">${reachPct}%</span>
+        </span>`;
+}
+
+/**
  * The scored past sessions: what the band promised, what price actually did, and whether
  * both edges held.
  *
@@ -58,15 +107,19 @@ function renderHistory(hist, currency) {
     if (!hist || !hist.rows?.length) return '';
 
     const rows = hist.rows.slice().reverse().map(r => {
+        // The held/broke verdict no longer has its own column -- Roshan replaced Result and
+        // Range used with the reach bars. It is not lost: the row tint carries it, the actual
+        // figure that breached is marked, and a reach of 100% or more IS the breach on that
+        // side. One fact, three consistent signals, no redundant column.
         const tone = r.met ? 'fb-met' : 'fb-missed';
-        const mark = r.met
-            ? '<span class="fb-tick" title="Both the high and the low stayed inside the predicted range.">held</span>'
-            : `<span class="fb-cross" title="Price left the predicted range through the ${r.brokeSide === 'both' ? 'high and the low' : r.brokeSide}, by ${r.missPct}% of the day's anchor price.">broke ${r.brokeSide}</span>`;
         // 'locked' = the band the cron actually committed that day. 'modelled' = replayed with
         // today's calibration from bars available before that session. Never blurred: one is
         // a promise that was made, the other is a reconstruction of what it would have been.
+        const lateM = Number.isFinite(r.bandSetLateMin) ? r.bandSetLateMin : 0;
+        const lateTxt = lateM >= 120 ? `${Math.floor(lateM / 60)}h${String(lateM % 60).padStart(2, '0')}m`
+            : `${lateM} min`;
         const src = r.source === 'locked'
-            ? '<span class="fb-src fb-src-locked" title="The band the engine committed for this date, read from the ledger.">locked</span>'
+            ? `<span class="fb-src fb-src-locked${lateM > 20 ? ' is-late' : ''}" title="The band the engine committed for this date, read from the ledger.${lateM > 20 ? ` It was set ${lateTxt} after the open, so part of this session's range predates it and the reach figures are indicative only.` : ''}">locked${lateM > 20 ? ` +${lateTxt}` : ''}</span>`
             : '<span class="fb-src fb-src-model" title="Replayed with the current calibration using only bars from before this session, anchored on its open. No lookahead, but it is a reconstruction, not a promise that was made at the time.">modelled</span>';
         // Now that predicted and actual sit in separate columns, the reader has to compare two
         // numbers across a gap instead of reading a stacked pair. Marking the actual figure
@@ -85,8 +138,10 @@ function renderHistory(hist, currency) {
                 <td class="fbh-alow ${lowCls}" title="${lowTitle}">${money(r.actualLow, currency)}</td>
                 <td class="fbh-phigh">${money(r.predHigh, currency)}</td>
                 <td class="fbh-ahigh ${highCls}" title="${highTitle}">${money(r.actualHigh, currency)}</td>
-                <td class="fbh-res">${mark}</td>
-                <td class="fbh-used" title="How much of the predicted range price actually travelled. A band that never breaks but is only 20% filled is too wide to be useful.">${Number.isFinite(r.fillPct) ? `${r.fillPct}%` : '—'}</td>
+                <td class="fbh-reach">
+                    ${reachBar('up', r.reachHighPct, r.predHigh, r.anchor, currency, r.highHeld, r.bandSetLateMin)}
+                    ${reachBar('down', r.reachLowPct, r.predLow, r.anchor, currency, r.lowHeld, r.bandSetLateMin)}
+                </td>
             </tr>`;
     }).join('');
 
@@ -101,19 +156,18 @@ function renderHistory(hist, currency) {
             <table class="fb-table fb-table-past">
                 <thead>
                     <tr>
-                        <th class="fbh-day">Session</th>
+                        <th class="fbh-day">Day</th>
                         <th class="fbh-plow"><span class="fb-d-long">Predicted low</span><span class="fb-d-short">Pred low</span></th>
                         <th class="fbh-alow"><span class="fb-d-long">Actual low</span><span class="fb-d-short">Act low</span></th>
                         <th class="fbh-phigh"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">Pred high</span></th>
                         <th class="fbh-ahigh"><span class="fb-d-long">Actual high</span><span class="fb-d-short">Act high</span></th>
-                        <th class="fbh-res">Result</th>
-                        <th class="fbh-used"><span class="fb-d-long">Range used</span><span class="fb-d-short">Used</span></th>
+                        <th class="fbh-reach"><span class="fb-d-long">How much of the move was reached</span><span class="fb-d-short">Reached</span></th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
             </div>
-            <div class="fb-scroll-hint">Scroll sideways for Result and Range used →</div>
+            <div class="fb-scroll-hint">Scroll sideways for the rest →</div>
             <div class="fb-caveat">${describeBandHistory(hist)}</div>
         </div>`;
 }

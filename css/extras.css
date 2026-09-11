@@ -453,10 +453,10 @@ html[data-dev="1"] body { padding-top: 22px; }
 .fb-table-past th.fbh-day, .fb-table-past td.fbh-day { text-align: left; }
 .fb-table-past th.fbh-plow, .fb-table-past th.fbh-alow,
 .fb-table-past th.fbh-phigh, .fb-table-past th.fbh-ahigh,
-.fb-table-past th.fbh-res, .fb-table-past th.fbh-used { text-align: right; }
+.fb-table-past th.fbh-reach { text-align: left; }
 .fb-table-past td.fbh-plow, .fb-table-past td.fbh-alow,
 .fb-table-past td.fbh-phigh, .fb-table-past td.fbh-ahigh,
-.fb-table-past td.fbh-res, .fb-table-past td.fbh-used { text-align: right; }
+.fb-table-past td.fbh-reach { text-align: left; }
 .fb-table-past td.fbh-day { color: var(--text-secondary); font-size: 0.82rem; }
 /* The PREDICTED figures keep the low/high colour language of the forward table. */
 .fb-table-past td.fbh-plow  { color: var(--red); opacity: 0.85; }
@@ -465,11 +465,71 @@ html[data-dev="1"] body { padding-top: 22px; }
    the number that failed rather than having to compare across the gap. */
 .fb-table-past td.fb-act-ok    { color: var(--text-secondary); }
 .fb-table-past td.fb-act-broke { color: var(--red); font-weight: 700; }
-.fb-table-past td.fbh-used { color: var(--text-muted); font-size: 0.78rem; }
-/* A separator before Result so the four price columns read as one group. */
-.fb-table-past th.fbh-res, .fb-table-past td.fbh-res {
+
+/* A separator before the reach bars so the four price columns read as one group. */
+.fb-table-past th.fbh-reach, .fb-table-past td.fbh-reach {
     border-left: 1px solid var(--border);
-    padding-left: 10px;
+    padding-left: 12px;
+}
+
+/* ── Reach bars ───────────────────────────────────────────────────────────────
+   Two per row: how much of the predicted UPSIDE and DOWNSIDE price actually
+   delivered, measured from the anchor the band was built on. Two bars rather than
+   one number because a single figure cannot carry both directions, and collapsing
+   them would hide which side the day actually tested. */
+.fbh-bar-row {
+    display: flex; align-items: center; gap: 6px;
+    line-height: 1.5;
+}
+.fbh-arrow { font-size: 0.7rem; width: 9px; flex: none; }
+.fbh-arrow.fbh-up   { color: var(--green); }
+.fbh-arrow.fbh-down { color: var(--red); }
+.fbh-track {
+    position: relative; flex: 1 1 auto; min-width: 46px; max-width: 110px;
+    height: 6px; border-radius: 3px;
+    background: color-mix(in srgb, var(--text-muted) 20%, transparent);
+    overflow: hidden;
+}
+.fbh-fill {
+    display: block; height: 100%; border-radius: 3px;
+    transition: width 0.35s ease;
+}
+.fbh-fill-up   { background: var(--green); }
+.fbh-fill-down { background: var(--red); }
+/* 100% and 140% are both a full bar, so a full bar has to LOOK different from a
+   merely long one: the edge was reached or passed, which is the trader's fill and
+   the band's failure at the same moment. */
+.fbh-fill.is-hit {
+    background: var(--accent);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.fbh-pct {
+    flex: none; min-width: 34px; text-align: right;
+    font-size: 0.7rem; color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+.fbh-pct.is-hit { color: var(--accent); font-weight: 700; }
+/* A band set hours into the session is measured against an anchor that is not the open, so its
+   reach figures include movement that predates the forecast. Dashed, not hidden: the number is
+   still the honest arithmetic for that band, it just is not comparable with the open-anchored
+   rows, and a reader comparing a column of percentages deserves to see which ones differ. */
+.fbh-bar-row.is-late .fbh-track {
+    outline: 1px dashed color-mix(in srgb, var(--yellow) 55%, transparent);
+    outline-offset: 1px;
+}
+.fbh-bar-row.is-late .fbh-pct { font-style: italic; }
+.fb-src-locked.is-late {
+    background: color-mix(in srgb, var(--yellow) 18%, transparent);
+    color: var(--yellow);
+}
+
+@media (max-width: 360px) {
+    /* Measured: the table fits exactly at 400px (304px wide in a 304px viewport) but overflows
+       at 320px (294 vs 224). So the hint appears only where a scroll genuinely exists. */
+    .fb-scroll-hint {
+        display: block; margin-top: 6px;
+        font-size: 0.64rem; color: var(--text-muted); text-align: right;
+    }
 }
 
 /* Hidden on desktop, where nothing is off-screen. Shown on a phone because a table that
@@ -483,16 +543,28 @@ html[data-dev="1"] body { padding-top: 22px; }
     /* Everything stays; the wrapper scrolls. Only the provenance chip and the weekday name
        are dropped, because neither is a measurement. */
     .fb-src { display: none; }
-    .fb-scroll-hint {
-        display: block; margin-top: 6px;
-        font-size: 0.66rem; color: var(--text-muted); text-align: right;
-    }
+
     .fb-d-long { display: none; }
     .fb-d-short { display: inline; }
-    .fb-table-past th, .fb-table-past td { padding-left: 8px; font-size: 0.76rem; }
-    .fb-table-past th { font-size: 0.58rem; letter-spacing: 0; }
-    .fb-table-past td.fbh-day { font-size: 0.74rem; }
-    .fb-table-past td.fbh-used { font-size: 0.7rem; }
+    /* Measured, not guessed: at 400px the table was 333px against a 304px viewport, so the
+       reach column sat 29px off-screen. Trimming the horizontal padding and the price font
+       recovers ~30px and the whole table fits with no scroll at all. */
+    .fb-table-past th, .fb-table-past td { padding-left: 4px; padding-right: 0; font-size: 0.7rem; }
+    .fb-table-past th { font-size: 0.55rem; letter-spacing: 0; }
+    .fb-table-past td.fbh-day { font-size: 0.7rem; }
+    /* Drop the bar TRACK, keep the numbers. At 400px the four price columns pushed the reach
+       cell entirely off-screen, which put the most important column behind a horizontal scroll
+       nobody would perform. The track is decoration; the percentage is the measurement, and
+       "↑31% ↓71%" fits where a 46px-minimum bar plus its label does not. */
+    .fbh-track { display: none; }
+    .fbh-bar-row { gap: 3px; }
+    .fbh-pct { min-width: 28px; font-size: 0.68rem; }
+    /* The dashed track carried the "band set late" warning, so move it onto the number. */
+    .fbh-bar-row.is-late .fbh-pct {
+        font-style: italic;
+        border-bottom: 1px dashed color-mix(in srgb, var(--yellow) 60%, transparent);
+    }
+    .fb-table-past th.fbh-reach, .fb-table-past td.fbh-reach { padding-left: 6px; }
 }
 
 
