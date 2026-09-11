@@ -68,12 +68,25 @@ function renderHistory(hist, currency) {
         const src = r.source === 'locked'
             ? '<span class="fb-src fb-src-locked" title="The band the engine committed for this date, read from the ledger.">locked</span>'
             : '<span class="fb-src fb-src-model" title="Replayed with the current calibration using only bars from before this session, anchored on its open. No lookahead, but it is a reconstruction, not a promise that was made at the time.">modelled</span>';
+        // Now that predicted and actual sit in separate columns, the reader has to compare two
+        // numbers across a gap instead of reading a stacked pair. Marking the actual figure
+        // when IT is the one that breached its edge does that comparison for them, so the eye
+        // lands on the number that broke rather than having to work out which side failed.
+        const lowCls = r.lowHeld ? 'fb-act-ok' : 'fb-act-broke';
+        const highCls = r.highHeld ? 'fb-act-ok' : 'fb-act-broke';
+        const lowTitle = r.lowHeld ? 'Held above the predicted low.'
+            : `Broke BELOW the predicted low by ${r.missPct}% of the day's anchor price.`;
+        const highTitle = r.highHeld ? 'Held below the predicted high.'
+            : `Broke ABOVE the predicted high by ${r.missPct}% of the day's anchor price.`;
         return `
             <tr class="fb-row ${tone}">
-                <td class="fb-day">${pastLabel(r.date)} ${src}</td>
-                <td class="fb-low">${money(r.predLow, currency)}<span class="fb-actual">${money(r.actualLow, currency)}</span></td>
-                <td class="fb-high">${money(r.predHigh, currency)}<span class="fb-actual">${money(r.actualHigh, currency)}</span></td>
-                <td class="fb-span">${mark}${Number.isFinite(r.fillPct) ? `<span class="fb-fill" title="How much of the predicted range price actually travelled. A band that never breaks but is only 20% filled is too wide to be useful.">${r.fillPct}% used</span>` : ''}</td>
+                <td class="fbh-day">${pastLabel(r.date)} ${src}</td>
+                <td class="fbh-plow">${money(r.predLow, currency)}</td>
+                <td class="fbh-alow ${lowCls}" title="${lowTitle}">${money(r.actualLow, currency)}</td>
+                <td class="fbh-phigh">${money(r.predHigh, currency)}</td>
+                <td class="fbh-ahigh ${highCls}" title="${highTitle}">${money(r.actualHigh, currency)}</td>
+                <td class="fbh-res">${mark}</td>
+                <td class="fbh-used" title="How much of the predicted range price actually travelled. A band that never breaks but is only 20% filled is too wide to be useful.">${Number.isFinite(r.fillPct) ? `${r.fillPct}%` : '—'}</td>
             </tr>`;
     }).join('');
 
@@ -84,17 +97,23 @@ function renderHistory(hist, currency) {
                 <span class="fb-title">How the last ${hist.scored} sessions actually went</span>
                 <span class="fb-score ${good ? 'is-good' : 'is-under'}">${hist.metCount}/${hist.scored} held · ${hist.coveragePct}%</span>
             </div>
+            <div class="fb-scroll">
             <table class="fb-table fb-table-past">
                 <thead>
                     <tr>
-                        <th class="fb-day">Session</th>
-                        <th class="fb-low"><span class="fb-d-long">Predicted low</span><span class="fb-d-short">Low</span> <span class="fb-th-sub">actual</span></th>
-                        <th class="fb-high"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">High</span> <span class="fb-th-sub">actual</span></th>
-                        <th class="fb-span">Result</th>
+                        <th class="fbh-day">Session</th>
+                        <th class="fbh-plow"><span class="fb-d-long">Predicted low</span><span class="fb-d-short">Pred low</span></th>
+                        <th class="fbh-alow"><span class="fb-d-long">Actual low</span><span class="fb-d-short">Act low</span></th>
+                        <th class="fbh-phigh"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">Pred high</span></th>
+                        <th class="fbh-ahigh"><span class="fb-d-long">Actual high</span><span class="fb-d-short">Act high</span></th>
+                        <th class="fbh-res">Result</th>
+                        <th class="fbh-used"><span class="fb-d-long">Range used</span><span class="fb-d-short">Used</span></th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
+            </div>
+            <div class="fb-scroll-hint">Scroll sideways for Result and Range used →</div>
             <div class="fb-caveat">${describeBandHistory(hist)}</div>
         </div>`;
 }

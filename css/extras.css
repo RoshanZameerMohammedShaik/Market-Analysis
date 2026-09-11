@@ -415,25 +415,15 @@ html[data-dev="1"] body { padding-top: 22px; }
     background: color-mix(in srgb, var(--yellow) 18%, transparent);
     color: var(--yellow);
 }
-/* The predicted figure leads; the actual sits under it in a lighter weight, so a
-   glance down the column reads as promise-then-outcome without a second table. */
-.fb-actual {
-    display: block; font-size: 0.72rem; font-weight: 400;
-    color: var(--text-muted); opacity: 0.9;
-}
-.fb-table-past td.fb-low, .fb-table-past td.fb-high { opacity: 1; }
-.fb-th-sub {
-    display: block; font-size: 0.62rem; font-weight: 400;
-    color: var(--text-muted); text-transform: none; letter-spacing: 0;
-}
+/* .fb-actual, .fb-th-sub and .fb-fill lived here to style a predicted figure with its actual
+   stacked underneath and the fill percentage under the result. Every value now has its own
+   column, so all three are gone rather than left behind: dead CSS outlives the markup that
+   explained it and the next reader cannot tell whether it is load-bearing. */
 .fb-tick, .fb-cross {
     font-size: 0.72rem; font-weight: 600;
 }
 .fb-tick  { color: var(--green); }
 .fb-cross { color: var(--red); }
-.fb-fill {
-    display: block; font-size: 0.66rem; color: var(--text-muted);
-}
 /* Provenance. 'locked' was a real commitment; 'modelled' is a replay. Visually
    distinct because conflating them would overstate the record. */
 .fb-src {
@@ -453,23 +443,58 @@ html[data-dev="1"] body { padding-top: 22px; }
 /* Long form on desktop, compact on a phone. Toggled here rather than in JS because the
    panel is rendered as a string and cannot react to a resize. */
 .fb-d-short { display: none; }
+
+/* SEVEN columns: predicted and actual are separate for both edges, plus result and fill.
+   Roshan asked for every value in its own column rather than stacked pairs, so nothing is
+   dropped on a phone -- the table scrolls sideways instead. Hiding columns would silently
+   remove the comparison the table exists to make. */
+.fb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.fb-table-past th, .fb-table-past td { white-space: nowrap; }
+.fb-table-past th.fbh-day, .fb-table-past td.fbh-day { text-align: left; }
+.fb-table-past th.fbh-plow, .fb-table-past th.fbh-alow,
+.fb-table-past th.fbh-phigh, .fb-table-past th.fbh-ahigh,
+.fb-table-past th.fbh-res, .fb-table-past th.fbh-used { text-align: right; }
+.fb-table-past td.fbh-plow, .fb-table-past td.fbh-alow,
+.fb-table-past td.fbh-phigh, .fb-table-past td.fbh-ahigh,
+.fb-table-past td.fbh-res, .fb-table-past td.fbh-used { text-align: right; }
+.fb-table-past td.fbh-day { color: var(--text-secondary); font-size: 0.82rem; }
+/* The PREDICTED figures keep the low/high colour language of the forward table. */
+.fb-table-past td.fbh-plow  { color: var(--red); opacity: 0.85; }
+.fb-table-past td.fbh-phigh { color: var(--green); opacity: 0.85; }
+/* The ACTUAL figures are neutral when they held and red when they broke, so the eye lands on
+   the number that failed rather than having to compare across the gap. */
+.fb-table-past td.fb-act-ok    { color: var(--text-secondary); }
+.fb-table-past td.fb-act-broke { color: var(--red); font-weight: 700; }
+.fb-table-past td.fbh-used { color: var(--text-muted); font-size: 0.78rem; }
+/* A separator before Result so the four price columns read as one group. */
+.fb-table-past th.fbh-res, .fb-table-past td.fbh-res {
+    border-left: 1px solid var(--border);
+    padding-left: 10px;
+}
+
+/* Hidden on desktop, where nothing is off-screen. Shown on a phone because a table that
+   scrolls with no affordance is a table whose last two columns do not exist as far as the
+   reader is concerned -- and Result is the column the whole section is for. Stated in words
+   rather than an edge-fade gradient, which is easy to miss and harder to keep legible across
+   six themes. */
+.fb-scroll-hint { display: none; }
+
 @media (max-width: 560px) {
-    /* The Result column is the POINT of this table, so unlike the forward table it must
-       survive on a phone. The provenance chip and the weekday name are what get dropped:
-       at 400px "PREDICTED LOW" and "PREDICTED HIGH" collided with no gap between them, and
-       every date wrapped onto two lines. */
-    .fb-table-past th.fb-span, .fb-table-past td.fb-span { display: table-cell; }
+    /* Everything stays; the wrapper scrolls. Only the provenance chip and the weekday name
+       are dropped, because neither is a measurement. */
     .fb-src { display: none; }
+    .fb-scroll-hint {
+        display: block; margin-top: 6px;
+        font-size: 0.66rem; color: var(--text-muted); text-align: right;
+    }
     .fb-d-long { display: none; }
     .fb-d-short { display: inline; }
-    .fb-table-past th, .fb-table-past td { padding-left: 6px; }
-    .fb-table-past th { font-size: 0.6rem; letter-spacing: 0; }
-    .fb-table-past td.fb-day { white-space: nowrap; font-size: 0.76rem; }
-    .fb-table-past td.fb-low, .fb-table-past td.fb-high { font-size: 0.8rem; }
-    .fb-actual { font-size: 0.66rem; }
-    .fb-tick, .fb-cross { font-size: 0.68rem; white-space: nowrap; }
-    .fb-fill { font-size: 0.6rem; white-space: nowrap; }
+    .fb-table-past th, .fb-table-past td { padding-left: 8px; font-size: 0.76rem; }
+    .fb-table-past th { font-size: 0.58rem; letter-spacing: 0; }
+    .fb-table-past td.fbh-day { font-size: 0.74rem; }
+    .fb-table-past td.fbh-used { font-size: 0.7rem; }
 }
+
 
 /* Badge marking a range as calibrated rather than heuristic. */
 .pt-cal-badge {
