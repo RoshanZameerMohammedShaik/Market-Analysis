@@ -11,7 +11,7 @@
 // Replaces the multi-horizon block, which reused ONE direction for every horizon
 // and scaled magnitude by a hand-picked confidence multiplier.
 
-import { describeBandHistory } from './band-history.js';
+import { describeBandHistory, HIT_LABELS, HIT_LABELS_SHORT } from './band-history.js';
 
 const CUR = { USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥',
               HKD: 'HK$', AUD: 'A$' };
@@ -57,40 +57,46 @@ function pastLabel(iso) {
  * predicted high would have filled, and the moment the band's containment claim failed. Which
  * of those matters depends on whether you were trading the level or trusting the range.
  */
-function reachBar(dir, reachPct, edge, anchor, currency, held, lateMin = 0) {
-    if (!Number.isFinite(reachPct)) {
-        return `<span class="fbh-bar-row"><span class="fbh-arrow">${dir === 'up' ? '↑' : '↓'}</span><span class="fbh-pct">—</span></span>`;
+function reachBar(dir, reachPct, tier, edge, sessionStart, currency, lateMin = 0) {
+    const arrow = dir === 'up' ? '↑' : '↓';
+    const label = HIT_LABELS[tier] || '—';
+    // Long form on desktop, short on a phone, chosen by CSS for the same reason the dates are:
+    // the panel is a string and cannot react to a resize.
+    const labelHtml = `<span class="fb-d-long">${label}</span>`
+        + `<span class="fb-d-short">${HIT_LABELS_SHORT[tier] || '—'}</span>`;
+    if (!Number.isFinite(reachPct) && tier === 'none') {
+        return `<span class="fbh-bar-row"><span class="fbh-arrow fbh-${dir}">${arrow}</span>`
+            + `<span class="fbh-tier fbh-tier-none">${labelHtml}</span></span>`;
     }
-    const hit = reachPct >= 100;
-    const w = Math.min(100, reachPct);
-    const moved = Number.isFinite(edge) && Number.isFinite(anchor)
-        ? Math.abs(edge - anchor) : null;
-    const label = dir === 'up' ? 'upside' : 'downside';
-    const edgeName = dir === 'up' ? 'high' : 'low';
-    // The containment bound is INCLUSIVE, so exactly touching the edge is 100% reach and still
-    // a hold. Only PASSING it breaks the band. Saying "the claim failed" at exactly 100% would
-    // be wrong, and this tooltip is the one place a reader goes to resolve the ambiguity.
-    const outcome = !hit ? ''
-        : held === false
-            ? ` It PASSED the predicted ${edgeName}: an order at that level would have filled, and the band's containment claim failed on this side.`
-            : ` It reached the predicted ${edgeName} exactly: an order at that level would have filled, and the band still held (the bound is inclusive).`;
-    // When the band was set hours into the session, the day's high/low may PREDATE it, so the
-    // reach figure includes movement the forecast never forecast. Daily bars cannot separate
-    // before-from-after, so the honest thing is to say so on the number itself.
+    // Strong Hit means price met or passed the predicted edge. The bar is therefore full, and
+    // the printed figure keeps going past 100 so "touched it" and "blew through it" stay
+    // distinguishable -- 105% and 140% are different days.
+    const strong = tier === 'strong';
+    const w = Number.isFinite(reachPct) ? Math.min(100, reachPct) : (strong ? 100 : 0);
+    const shown = Number.isFinite(reachPct) ? `${reachPct}%` : '';
+    const predMove = Number.isFinite(edge) && Number.isFinite(sessionStart)
+        ? Math.abs(edge - sessionStart) : null;
+    const side = dir === 'up' ? 'high' : 'low';
+    const dirWord = dir === 'up' ? 'upside' : 'downside';
+    // When the band was set hours into the session its EDGES came from a mid-session anchor, so
+    // they are not the levels an open-anchored band would have drawn. The reach figure is still
+    // measured from session start like every other row, but the target it is measured against
+    // is skewed, and that is worth saying on the number itself.
     const lateNote = lateMin > 20
-        ? ` NOTE: this band was set ${lateMin >= 120 ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m` : `${lateMin} min`} after the open, anchored at ${money(anchor, currency)} rather than the opening price. Part of this session's range happened before the band existed, so treat this figure as indicative only.`
+        ? ` NOTE: this band was set ${lateMin >= 120 ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m` : `${lateMin} min`} after the open, so its predicted ${side} was drawn from a mid-session price rather than the opening one. The reach is measured from session start as usual, but the target itself is skewed.`
         : '';
     const title = [
-        `Price delivered ${reachPct}% of the predicted ${label}`,
-        moved != null ? ` (the band expected ${money(moved, currency)} of movement from ${money(anchor, currency)}).` : '.',
-        outcome,
+        `${label}: price covered ${Number.isFinite(reachPct) ? `${reachPct}%` : 'an unmeasurable share'} of the predicted ${dirWord}`,
+        predMove != null ? ` (session start ${money(sessionStart, currency)} to predicted ${side} ${money(edge, currency)} is ${money(predMove, currency)} of movement).` : '.',
+        strong ? ` Price met or passed the predicted ${side}, so an order resting there would have filled.` : '',
         lateNote,
     ].join('');
     return `
         <span class="fbh-bar-row${lateMin > 20 ? ' is-late' : ''}" title="${title}">
-            <span class="fbh-arrow fbh-${dir}">${dir === 'up' ? '↑' : '↓'}</span>
-            <span class="fbh-track"><span class="fbh-fill fbh-fill-${dir}${hit ? ' is-hit' : ''}" style="width:${w}%"></span></span>
-            <span class="fbh-pct${hit ? ' is-hit' : ''}">${reachPct}%</span>
+            <span class="fbh-arrow fbh-${dir}">${arrow}</span>
+            <span class="fbh-track"><span class="fbh-fill fbh-fill-${dir}${strong ? ' is-hit' : ''}" style="width:${w}%"></span></span>
+            <span class="fbh-pct${strong ? ' is-hit' : ''}">${shown}</span>
+            <span class="fbh-tier fbh-tier-${tier} fbh-tier-${dir}">${labelHtml}</span>
         </span>`;
 }
 
@@ -139,8 +145,8 @@ function renderHistory(hist, currency) {
                 <td class="fbh-phigh">${money(r.predHigh, currency)}</td>
                 <td class="fbh-ahigh ${highCls}" title="${highTitle}">${money(r.actualHigh, currency)}</td>
                 <td class="fbh-reach">
-                    ${reachBar('up', r.reachHighPct, r.predHigh, r.anchor, currency, r.highHeld, r.bandSetLateMin)}
-                    ${reachBar('down', r.reachLowPct, r.predLow, r.anchor, currency, r.lowHeld, r.bandSetLateMin)}
+                    ${reachBar('up', r.reachHighPct, r.hitHigh, r.predHigh, r.sessionStart, currency, r.bandSetLateMin)}
+                    ${reachBar('down', r.reachLowPct, r.hitLow, r.predLow, r.sessionStart, currency, r.bandSetLateMin)}
                 </td>
             </tr>`;
     }).join('');
@@ -161,7 +167,7 @@ function renderHistory(hist, currency) {
                         <th class="fbh-alow"><span class="fb-d-long">Actual low</span><span class="fb-d-short">Act low</span></th>
                         <th class="fbh-phigh"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">Pred high</span></th>
                         <th class="fbh-ahigh"><span class="fb-d-long">Actual high</span><span class="fb-d-short">Act high</span></th>
-                        <th class="fbh-reach"><span class="fb-d-long">How much of the move was reached</span><span class="fb-d-short">Reached</span></th>
+                        <th class="fbh-reach">Hit Reach</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>

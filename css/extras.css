@@ -508,7 +508,27 @@ html[data-dev="1"] body { padding-top: 22px; }
     font-size: 0.7rem; color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
-.fbh-pct.is-hit { color: var(--accent); font-weight: 700; }
+.fbh-pct.is-hit { font-weight: 700; }
+/* TIER LABELS. Roshan's rule: the high side reads green, the low side red, regardless of tier.
+   The colour says WHICH EDGE was tested; the weight and opacity say how convincingly. Keeping
+   the hue tied to the direction rather than to good-versus-bad matters because neither direction
+   is inherently good -- a Strong Hit on the low is a filled buy limit or a broken band depending
+   entirely on what you were doing. */
+.fbh-tier {
+    flex: none; min-width: 66px;
+    font-size: 0.66rem; font-weight: 600; letter-spacing: 0.01em;
+}
+.fbh-tier-up   { color: var(--green); }
+.fbh-tier-down { color: var(--red); }
+.fbh-tier-strong { font-weight: 800; }
+.fbh-tier-hit     { opacity: 0.95; }
+.fbh-tier-partial { opacity: 0.72; font-weight: 500; }
+/* No Move is not a weak hit, it is the absence of one, so it drops the direction colour
+   entirely rather than showing a faint green or red that implies something happened. */
+.fbh-tier-none {
+    color: var(--text-muted) !important;
+    opacity: 0.8; font-weight: 500; font-style: italic;
+}
 /* A band set hours into the session is measured against an anchor that is not the open, so its
    reach figures include movement that predates the forecast. Dashed, not hidden: the number is
    still the honest arithmetic for that band, it just is not comparable with the open-anchored
@@ -556,9 +576,15 @@ html[data-dev="1"] body { padding-top: 22px; }
        cell entirely off-screen, which put the most important column behind a horizontal scroll
        nobody would perform. The track is decoration; the percentage is the measurement, and
        "↑31% ↓71%" fits where a 46px-minimum bar plus its label does not. */
+    /* Two lines per direction instead of one wide one. With the tier labels added the table
+       came to 363px against a 304px viewport, and squeezing them out horizontally would have
+       cost the percentage or the arrow. Vertical space on a scrolling page is free; horizontal
+       is not, and a column the reader has to swipe to reach is a column they will not read. */
     .fbh-track { display: none; }
-    .fbh-bar-row { gap: 3px; }
-    .fbh-pct { min-width: 28px; font-size: 0.68rem; }
+    .fbh-bar-row { display: block; gap: 0; }
+    .fbh-arrow { display: inline; }
+    .fbh-pct { display: inline; min-width: 0; font-size: 0.68rem; margin-left: 2px; }
+    .fbh-tier { display: block; min-width: 0; font-size: 0.6rem; margin-left: 11px; }
     /* The dashed track carried the "band set late" warning, so move it onto the number. */
     .fbh-bar-row.is-late .fbh-pct {
         font-style: italic;

@@ -200,6 +200,80 @@ check('every row carries both reach figures',
       h.rows.every(r => Number.isFinite(r.reachHighPct) && Number.isFinite(r.reachLowPct)));
 
 console.log();
+console.log('=== SESSION START anchors both sides, for locked rows too ===');
+// Roshan's worked example, verbatim: a stock opens at 100, the band predicts 110 / 90. A spike
+// to 109 covered 9 of the 10 predicted upside -> 90%. A dip to 91 covered 9 of the 10 predicted
+// downside -> 90%. One formula, both directions.
+{
+    const base = series(60);
+    const i = base.length - 2;
+    const date = new Date(base[i].time * 1000).toISOString().slice(0, 10);
+    const shaped = base.map((b, k) => (k === i
+        ? { ...b, open: 100, high: 109, low: 91, close: 105 } : b));
+    // A locked row fixes the predicted edges at exactly 110 / 90. Its `entry` is deliberately
+    // set to 123 -- a nonsense mid-session anchor -- to prove the reach ignores it and uses the
+    // session open. Before this change that entry produced completely different percentages.
+    const locked = [{
+        symbol: 'X', date, entry: 123,
+        predictedAt: `${date}T18:00:00Z`,
+        forecastBand: { confidence: 80, calibrated: true, days: [{ day: 1, low: 90, high: 110 }] },
+    }];
+    const hh = buildBandHistory({ candles: shaped, lockedRows: locked, sessions: 1 });
+    const row = hh.rows[0];
+    check('sessionStart is the session OPEN', row.sessionStart === 100, String(row.sessionStart));
+    check('a spike to 109 against a predicted 110 reads 90%',
+          row.reachHighPct === 90, String(row.reachHighPct));
+    check('a dip to 91 against a predicted 90 reads 90%',
+          row.reachLowPct === 90, String(row.reachLowPct));
+    check('the row is still sourced from the LOCKED band', row.source === 'locked', row.source);
+    check('the locked row’s mid-session entry does NOT anchor the reach',
+          row.reachHighPct !== 0 && row.sessionStart !== 123,
+          `sessionStart=${row.sessionStart} reachHigh=${row.reachHighPct}`);
+    check('both sides are Hit at 90% (>=50, edge not reached)',
+          row.hitHigh === 'hit' && row.hitLow === 'hit',
+          `${row.hitHigh}/${row.hitLow}`);
+}
+
+console.log();
+console.log('=== hit tiers ===');
+{
+    const base = series(60);
+    const i = base.length - 2;
+    const date = new Date(base[i].time * 1000).toISOString().slice(0, 10);
+    const lock = (low, high) => ([{
+        symbol: 'X', date, entry: 100,
+        forecastBand: { confidence: 80, calibrated: true, days: [{ day: 1, low, high }] },
+    }]);
+    const at = (high, low) => {
+        const c = base.map((b, k) => (k === i ? { ...b, open: 100, high, low, close: 100 } : b));
+        return buildBandHistory({ candles: c, lockedRows: lock(90, 110), sessions: 1 }).rows[0];
+    };
+    check('actual high EXACTLY the predicted high -> Strong Hit', at(110, 100).hitHigh === 'strong', at(110, 100).hitHigh);
+    check('actual high ABOVE the predicted high -> Strong Hit', at(115, 100).hitHigh === 'strong', at(115, 100).hitHigh);
+    check('reach 50% -> Hit (the boundary is inclusive)', at(105, 100).hitHigh === 'hit', `${at(105, 100).reachHighPct}% -> ${at(105, 100).hitHigh}`);
+    check('reach just under 50% -> Partial Hit', at(104.9, 100).hitHigh === 'partial', `${at(104.9, 100).reachHighPct}% -> ${at(104.9, 100).hitHigh}`);
+    check('never traded above session start -> No Move', at(100, 95).hitHigh === 'none', at(100, 95).hitHigh);
+    // The low side mirrors it exactly.
+    check('actual low EXACTLY the predicted low -> Strong Hit', at(100, 90).hitLow === 'strong', at(100, 90).hitLow);
+    check('actual low BELOW the predicted low -> Strong Hit', at(100, 85).hitLow === 'strong', at(100, 85).hitLow);
+    check('low reach 50% -> Hit', at(100, 95).hitLow === 'hit', `${at(100, 95).reachLowPct}% -> ${at(100, 95).hitLow}`);
+    check('low reach under 50% -> Partial Hit', at(100, 96).hitLow === 'partial', `${at(100, 96).reachLowPct}% -> ${at(100, 96).hitLow}`);
+    check('never traded below session start -> No Move', at(105, 100).hitLow === 'none', at(100, 100).hitLow);
+
+    // A late band can put its predicted edge on the WRONG side of the open: if the day opened at
+    // 100 but a mid-session band predicted a high of 98, the ratio is undefined. Strong Hit is a
+    // direct comparison, so it must still work -- price at 105 clearly passed 98.
+    const weird = base.map((b, k) => (k === i ? { ...b, open: 100, high: 105, low: 99, close: 100 } : b));
+    const wrow = buildBandHistory({ candles: weird, lockedRows: lock(102, 98), sessions: 1 }).rows[0];
+    check('an edge on the wrong side of the open still resolves as Strong Hit',
+          wrow.hitHigh === 'strong' && wrow.hitLow === 'strong',
+          `${wrow.hitHigh}/${wrow.hitLow} reach=${wrow.reachHighPct}/${wrow.reachLowPct}`);
+    check('and the undefined ratio reports null rather than a fabricated number',
+          wrow.reachHighPct === null && wrow.reachLowPct === null,
+          `${wrow.reachHighPct}/${wrow.reachLowPct}`);
+}
+
+console.log();
 console.log('=== locked ledger rows override the replay, and are labelled ===');
 const dTarget = before.date;
 const locked = buildBandHistory({

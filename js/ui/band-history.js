@@ -59,6 +59,44 @@ function reachOf(actualMove, predictedMove) {
     return +Math.max(0, (actualMove / predictedMove) * 100).toFixed(0);
 }
 
+// The midpoint of the predicted move. Not a tuned threshold -- half the distance is the one
+// cut that needs no justification, which matters because every fitted constant in this project
+// has eventually turned out to be fitted to noise.
+const HIT_PCT = 50;
+
+/**
+ * Which tier did this side land in?
+ *
+ * `reachedEdge` is passed separately and deliberately: Strong Hit is the DIRECT comparison
+ * (actual high >= predicted high) and must not depend on the anchor arithmetic. A band whose
+ * predicted edge sits on the wrong side of session start makes the reach ratio undefined, but
+ * "did price get to the predicted level" is still perfectly well defined, so the top tier keeps
+ * working when the percentage cannot.
+ */
+export function hitTier(reachPct, reachedEdge) {
+    if (reachedEdge === true) return 'strong';
+    if (!Number.isFinite(reachPct) || reachPct <= 0) return 'none';
+    if (reachPct >= HIT_PCT) return 'hit';
+    return 'partial';
+}
+
+export const HIT_LABELS = {
+    strong: 'Strong Hit',
+    hit: 'Hit',
+    partial: 'Partial Hit',
+    none: 'No Move',
+};
+
+// Narrow-screen forms. "Partial Hit" alone is wider than a whole price column at 400px, and
+// the tier is the one thing in this table that survives being abbreviated -- the colour already
+// says which edge, so the word only has to carry the degree.
+export const HIT_LABELS_SHORT = {
+    strong: 'Strong',
+    hit: 'Hit',
+    partial: 'Partial',
+    none: '—',
+};
+
 /**
  * Score the last N completed sessions against the band that applied to each.
  *
@@ -184,8 +222,25 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
             // what a trader's sell limit needed, and simultaneously the point at which the
             // band's containment claim fails. So reachHighPct >= 100 always means highHeld is
             // false. Both are reported rather than picking one.
-            reachHighPct: reachOf(bar.high - pred.anchor, pred.high - pred.anchor),
-            reachLowPct: reachOf(pred.anchor - bar.low, pred.anchor - pred.low),
+            // SESSION START is the reference for both sides, always -- the price the stock opened
+            // the day at. Roshan's framing: "the price with which a stock starts its session will
+            // be considered as Session Start". Predicted high 110 from a start of 100 means 10 of
+            // predicted upside; a spike to 109 covered 9 of it, so 90%.
+            //
+            // This REPLACES using each band's own anchor. A locked band is centred on the price
+            // when the cron ran, so on 2026-09-10 it was anchored at 323.55 in a session that
+            // opened at 316.79, and the same day scored 71% downside off that anchor versus 9%
+            // off the open. Two rows in one column meaning two different things is not a
+            // comparison. Session start is the one reference every row shares, and it is the one
+            // a trader actually measures a day against.
+            sessionStart: bar.open,
+            reachHighPct: reachOf(bar.high - bar.open, pred.high - bar.open),
+            reachLowPct: reachOf(bar.open - bar.low, bar.open - pred.low),
+            // Tiers. Strong Hit is the direct edge comparison and needs no anchor, so it survives
+            // the case where a late band puts its predicted edge on the wrong side of the open
+            // and the ratio becomes undefined.
+            hitHigh: hitTier(reachOf(bar.high - bar.open, pred.high - bar.open), bar.high >= pred.high),
+            hitLow: hitTier(reachOf(bar.open - bar.low, bar.open - pred.low), bar.low <= pred.low),
             // Minutes between this session's open and the moment the band was set. 0 for a
             // replayed row (open-anchored by construction). When this is large the reach figures
             // include movement that predates the forecast, so the UI marks the row instead of
