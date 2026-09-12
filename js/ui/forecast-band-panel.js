@@ -131,6 +131,11 @@ function renderHistory(hist, currency) {
         // numbers across a gap instead of reading a stacked pair. Marking the actual figure
         // when IT is the one that breached its edge does that comparison for them, so the eye
         // lands on the number that broke rather than having to work out which side failed.
+        // Session start again, inside the Day cell. On a phone the table cannot carry a seventh
+        // column, but this is the figure every percentage is measured from, so it has to stay
+        // visible somewhere -- and "the day, and where it opened" belongs together anyway. One
+        // of the two copies is always hidden by a media query; neither is ever both.
+        const startInline = `<span class="fbh-start-inline">${money(r.sessionStart, currency)}</span>`;
         const lowCls = r.lowHeld ? 'fb-act-ok' : 'fb-act-broke';
         const highCls = r.highHeld ? 'fb-act-ok' : 'fb-act-broke';
         const lowTitle = r.lowHeld ? 'Held above the predicted low.'
@@ -139,7 +144,8 @@ function renderHistory(hist, currency) {
             : `Broke ABOVE the predicted high by ${r.missPct}% of the day's anchor price.`;
         return `
             <tr class="fb-row ${tone}">
-                <td class="fbh-day">${pastLabel(r.date)} ${src}</td>
+                <td class="fbh-day">${pastLabel(r.date)} ${src}${startInline}</td>
+                <td class="fbh-start" title="The price this stock opened the session at. Every percentage in the Hit Reach column is measured from here: the predicted high and low are distances either side of it, so without this figure none of them can be checked by hand.">${money(r.sessionStart, currency)}</td>
                 <td class="fbh-plow">${money(r.predLow, currency)}</td>
                 <td class="fbh-alow ${lowCls}" title="${lowTitle}">${money(r.actualLow, currency)}</td>
                 <td class="fbh-phigh">${money(r.predHigh, currency)}</td>
@@ -163,6 +169,7 @@ function renderHistory(hist, currency) {
                 <thead>
                     <tr>
                         <th class="fbh-day">Day</th>
+                        <th class="fbh-start"><span class="fb-d-long">Session start</span><span class="fb-d-short">Start</span></th>
                         <th class="fbh-plow"><span class="fb-d-long">Predicted low</span><span class="fb-d-short">Pred low</span></th>
                         <th class="fbh-alow"><span class="fb-d-long">Actual low</span><span class="fb-d-short">Act low</span></th>
                         <th class="fbh-phigh"><span class="fb-d-long">Predicted high</span><span class="fb-d-short">Pred high</span></th>

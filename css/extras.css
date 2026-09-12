@@ -451,6 +451,21 @@ html[data-dev="1"] body { padding-top: 22px; }
 .fb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .fb-table-past th, .fb-table-past td { white-space: nowrap; }
 .fb-table-past th.fbh-day, .fb-table-past td.fbh-day { text-align: left; }
+.fb-table-past th.fbh-start, .fb-table-past td.fbh-start { text-align: right; }
+/* The reference price, not a prediction and not an outcome, so it takes neither the red/green
+   of the predicted edges nor the emphasis of a breach. Plain and legible: its job is to let the
+   arithmetic be checked by hand. */
+.fb-table-past td.fbh-start {
+    color: var(--text-primary); font-weight: 600;
+}
+/* Padding and the divider go on BOTH the header and the cell. Applying them only to td left the
+   headers reading "SESSION STARTPREDICTED LOW" with no gap at all -- a th is not styled by a td
+   rule, and the header row is where a collision is least forgivable. */
+.fb-table-past th.fbh-start, .fb-table-past td.fbh-start {
+    border-right: 1px solid var(--border);
+    padding-right: 12px;
+}
+.fbh-start-inline { display: none; }
 .fb-table-past th.fbh-plow, .fb-table-past th.fbh-alow,
 .fb-table-past th.fbh-phigh, .fb-table-past th.fbh-ahigh,
 .fb-table-past th.fbh-reach { text-align: left; }
@@ -543,6 +558,19 @@ html[data-dev="1"] body { padding-top: 22px; }
     color: var(--yellow);
 }
 
+@media (max-width: 470px) {
+    /* Drop the seventh column and show the same figure under the day instead. The column costs
+       ~58px: at 400px the table is already exactly as wide as the viewport, but by 520px there is
+       room to spare, so this is scoped tighter than the 560px block the rest of the compact
+       styling uses. The value is too important to push off-screen and too important to omit, so
+       it moves rather than disappears. */
+    .fb-table-past th.fbh-start, .fb-table-past td.fbh-start { display: none; }
+    .fbh-start-inline {
+        display: block; font-size: 0.66rem; font-weight: 600;
+        color: var(--text-secondary);
+    }
+}
+
 @media (max-width: 360px) {
     /* Measured: the table fits exactly at 400px (304px wide in a 304px viewport) but overflows
        at 320px (294 vs 224). So the hint appears only where a scroll genuinely exists. */
@@ -559,7 +587,22 @@ html[data-dev="1"] body { padding-top: 22px; }
    six themes. */
 .fb-scroll-hint { display: none; }
 
-@media (max-width: 560px) {
+/* TABLET BAND, 691-900px. Measured: at 768px the table wanted 821px against 676px of available
+   width, because above the 560px breakpoint it takes the full desktop labels ("Session start",
+   "Predicted low", "Strong Hit") without the room for them. Short labels alone close the gap --
+   no need to stack the tiers or drop a column here. This width was simply never measured before;
+   the previous passes checked 320/400/560/1180 and jumped straight over every tablet. */
+@media (min-width: 691px) and (max-width: 900px) {
+    .fb-d-long { display: none; }
+    .fb-d-short { display: inline; }
+    .fb-table-past th, .fb-table-past td { padding-left: 6px; font-size: 0.74rem; }
+    .fb-table-past th { font-size: 0.58rem; letter-spacing: 0; }
+    .fbh-track { min-width: 30px; max-width: 60px; }
+    .fbh-tier { min-width: 48px; font-size: 0.62rem; }
+    .fbh-src, .fb-src { font-size: 0.55rem; }
+}
+
+@media (max-width: 690px) {
     /* Everything stays; the wrapper scrolls. Only the provenance chip and the weekday name
        are dropped, because neither is a measurement. */
     .fb-src { display: none; }
