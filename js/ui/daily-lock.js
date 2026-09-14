@@ -90,6 +90,32 @@ export function getLockedCall(symbol, anchor = null) {
 // price, preserving the engine's predicted MOVE (its width) while moving its
 // anchor -- a band centred on the 11:58 price but labelled against the open entry
 // would make computeStatus compare two different baselines.
+/**
+ * Move a whole forecast band onto a different anchor price.
+ *
+ * EXACT, not an approximation. forecastBands computes every edge as
+ * `price * Math.exp(±z·sigma·√h)`, so the anchor is a pure multiplier: scaling it scales both
+ * edges of every horizon by the same factor. widthPct is a ratio of the two, so it does not
+ * change at all.
+ *
+ * This exists because the lock re-anchored priceTargets onto the session open while leaving the
+ * 7-session table on the live price, so the app showed TWO different expected highs for the same
+ * day -- INTC read $101.70 in one block and $104.05 in the other. One user-visible number has to
+ * come from one anchor.
+ */
+function rescaleBand(band, scale) {
+    if (!band || !Array.isArray(band.days) || !(scale > 0)) return null;
+    if (Math.abs(scale - 1) < 1e-12) return band;
+    return {
+        ...band,
+        days: band.days.map(d => ({
+            ...d,
+            low: Number.isFinite(d.low) ? +(d.low * scale).toFixed(6) : d.low,
+            high: Number.isFinite(d.high) ? +(d.high * scale).toFixed(6) : d.high,
+        })),
+    };
+}
+
 export function lockCall(symbol, prediction, anchor = null) {
     if (!symbol || !prediction || !prediction.signal) return null;
     const map = prune(loadAll());
@@ -102,10 +128,21 @@ export function lockCall(symbol, prediction, anchor = null) {
     const openPrice = Number.isFinite(anchor?.openPrice) ? anchor.openPrice : null;
     const entry = openPrice ?? visitPrice;
 
-    // Shift = how far to slide the band so it sits on the open instead of the
-    // visit price. Zero when we have no open price (nothing to re-centre onto).
-    const shift = (openPrice != null && visitPrice != null) ? (openPrice - visitPrice) : 0;
-    const slide = (v) => (Number.isFinite(v) ? +(v + shift).toFixed(6) : null);
+    // MULTIPLICATIVE, not additive. forecastBands builds every edge as
+    // `price * Math.exp(±z·sigma·√h)`, so moving the anchor scales the edges -- it does not
+    // translate them. An additive shift of (open - visit) put the headline high at 101.69 while
+    // the same band rescaled to 101.55, a 14-cent disagreement between two numbers that are
+    // supposed to be the same one. My own test caught it.
+    const scale = (openPrice != null && visitPrice > 0) ? (openPrice / visitPrice) : 1;
+    const slide = (v) => (Number.isFinite(v) ? +(v * scale).toFixed(6) : null);
+    const lockedBand = rescaleBand(prediction.forecastBand, scale);
+    // The headline high/low are READ OFF the band whenever there is one, rather than derived in
+    // parallel from priceTargets. Two independent derivations of one displayed value is the whole
+    // defect being fixed here, so the second derivation is only a fallback for the case where no
+    // calibrated band exists at all.
+    const bandDay1 = lockedBand?.days?.[0] || null;
+    const headHigh = Number.isFinite(bandDay1?.high) ? bandDay1.high : slide(t.predictedHigh);
+    const headLow = Number.isFinite(bandDay1?.low) ? bandDay1.low : slide(t.predictedLow);
 
     map[k] = {
         date: sessionDate,
@@ -118,8 +155,14 @@ export function lockCall(symbol, prediction, anchor = null) {
         signal: prediction.signal,
         confidence: prediction.confidence,
         entry,
-        predictedHigh: slide(t.predictedHigh),
-        predictedLow: slide(t.predictedLow),
+        predictedHigh: headHigh,
+        predictedLow: headLow,
+        // The WHOLE 7-session band, moved onto the same anchor as the headline targets and then
+        // frozen. Stored rather than recomputed on each render for the reason the lock exists at
+        // all: sigma is measured over the last 30 bars including today's in-progress one, so a
+        // recomputed band drifts every few minutes and the "expected high" the user was shown at
+        // 9am is not the one they see at 2pm.
+        forecastBand: lockedBand,
         currency: prediction.currency || 'USD',
     };
     saveAll(map);

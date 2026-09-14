@@ -71,6 +71,13 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             signal: locked.signal,
             confidence: locked.confidence,
             priceTargets: pinnedTargets,
+            // ONE band feeds both the headline Expected High/Low and the 7-session table. This
+            // used to pin only priceTargets, leaving the table to render the live-anchored band,
+            // so INTC showed an expected high of $101.70 in one block and $104.05 in the other --
+            // same symbol, same day, same stated 80% confidence. The locked band is the one that
+            // holds all day, so it wins in both places; falling back to the live band only when
+            // the lock carries none (a legacy record predating this).
+            forecastBand: locked.forecastBand || prediction.forecastBand,
         };
     }
 

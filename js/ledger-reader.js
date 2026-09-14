@@ -605,6 +605,12 @@ export async function readTodayLock(symbol, anchor = null) {
         predictedHigh,
         predictedLow,
         priceTargets,
+        // The 7-session band the cron committed for this date. Returned so the forward table and
+        // the headline targets can be drawn from ONE band: without it signal.js pinned the
+        // targets to the locked values and left the table on a freshly computed live-anchored
+        // band, and the card showed two different expected highs for the same day.
+        forecastBand: row.forecastBand && Array.isArray(row.forecastBand.days)
+            ? row.forecastBand : null,
         region: row.region || null,
     };
 }
