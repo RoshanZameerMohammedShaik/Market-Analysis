@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T23:55:43Z",
+  "generatedAt": "2026-09-14T00:00:26Z",
   "engineVersion": "2026.06.06-mr-rebalance",
   "skippedOldEngineRows": 4050,
   "skippedOldEngineResolved": 20153,
@@ -12,7 +12,7 @@
           "actual": 49.7
         },
         "55-60": {
-          "n": 5164,
+          "n": 5165,
           "predicted": 57.0,
           "actual": 49.7
         },
@@ -70,7 +70,7 @@
     "3": {
       "BUY": {
         "50-55": {
-          "n": 8035,
+          "n": 8036,
           "predicted": 51.8,
           "actual": 48.7
         },
@@ -328,7 +328,7 @@
         "actual": 51.7
       },
       "55-60": {
-        "n": 8792,
+        "n": 8793,
         "predicted": 57.1,
         "actual": 50.3
       },
@@ -492,7 +492,7 @@
         "actual": 47.4
       },
       "50-55": {
-        "n": 45431,
+        "n": 45432,
         "predicted": 51.8,
         "actual": 50.9
       },
@@ -508,6 +508,6 @@
       }
     }
   },
-  "totalRowsConsidered": 79928,
-  "totalResolvedHorizons": 135729
+  "totalRowsConsidered": 80098,
+  "totalResolvedHorizons": 135731
 }
