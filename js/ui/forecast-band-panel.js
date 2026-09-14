@@ -13,16 +13,31 @@
 
 import { describeBandHistory, HIT_LABELS, HIT_LABELS_SHORT } from './band-history.js';
 
-const CUR = { USD: '$', EUR: '€', GBP: '£', INR: '₹', JPY: '¥',
-              HKD: 'HK$', AUD: 'A$' };
+// CURRENCY GOES THROUGH THE SAME PATH AS EVERY OTHER PRICE IN THE APP.
+//
+// This module used to carry its own `money()` helper: a hardcoded symbol table and
+// toLocaleString, with no FX conversion at all. The price-target cards above it use
+// fmtPriceTag, which converts to the user's display currency. So for every non-US listing the
+// panel printed the SAME quantity twice in two different currencies. Measured across a symbol
+// sweep on 2026-09-14:
+//
+//   7203.T    headline 20.16   table 3115.95   ratio 154.6  = JPY/USD
+//   0700.HK   headline 56.35   table  440.98   ratio   7.8  = HKD/USD
+//   SAP.DE    headline 222.74  table  190.82   ratio   1.17 = EUR->USD
+//   RELIANCE  headline 13.36   table 1283.04   ratio  96.0  = INR/USD
+//
+// Roshan found the disagreement on INTC, where both blocks happen to be USD so the cause was an
+// anchor mismatch. Fixing that one symbol and checking three more US large caps proved nothing
+// about the universe -- his words, "it has to be dynamically working for all other symbols that
+// exist." The sweep is what found this.
+//
+// Two helpers, and the distinction matters: fmtPriceTag returns MARKUP (a span carrying data-usd
+// and data-src, so the value re-renders when the user toggles currency) and therefore cannot go
+// inside a title="" attribute. fmtPrice returns plain text for exactly that case.
+import { fmtPriceTag, fmtPrice } from './format.js';
 
-function money(v, cur) {
-    if (!Number.isFinite(v)) return '—';
-    const sym = CUR[cur] || '';
-    // Sub-dollar names need more precision or every row reads the same.
-    const dp = Math.abs(v) < 1 ? 4 : 2;
-    return sym + v.toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp });
-}
+const money = (v, cur) => fmtPriceTag(v, { srcCurrency: cur });
+const moneyText = (v, cur) => fmtPrice(v, { srcCurrency: cur });
 
 function dayLabel(iso, idx) {
     if (idx === 0) return 'Today';
@@ -83,11 +98,11 @@ function reachBar(dir, reachPct, tier, edge, sessionStart, currency, lateMin = 0
     // measured from session start like every other row, but the target it is measured against
     // is skewed, and that is worth saying on the number itself.
     const lateNote = lateMin > 20
-        ? ` NOTE: this band was set ${lateMin >= 120 ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m` : `${lateMin} min`} after the open, so its predicted ${side} was drawn from a mid-session price rather than the opening one. The reach is measured from session start as usual, but the target itself is skewed.`
+        ? ` NOTE: this band was set ${lateMin >= 120 ? `${Math.floor(lateMin / 60)}h${String(lateMin % 60).padStart(2, '0')}m` : `${lateMin} min`} after the open, so its predicted ${side} was drawn from a mid-session price (${moneyText(sessionStart, currency)} was the open) rather than the opening one. The reach is measured from session start as usual, but the target itself is skewed.`
         : '';
     const title = [
         `${label}: price covered ${Number.isFinite(reachPct) ? `${reachPct}%` : 'an unmeasurable share'} of the predicted ${dirWord}`,
-        predMove != null ? ` (session start ${money(sessionStart, currency)} to predicted ${side} ${money(edge, currency)} is ${money(predMove, currency)} of movement).` : '.',
+        predMove != null ? ` (session start ${moneyText(sessionStart, currency)} to predicted ${side} ${moneyText(edge, currency)} is ${moneyText(predMove, currency)} of movement).` : '.',
         strong ? ` Price met or passed the predicted ${side}, so an order resting there would have filled.` : '',
         lateNote,
     ].join('');

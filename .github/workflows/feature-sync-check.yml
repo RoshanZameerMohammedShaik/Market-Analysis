@@ -49,6 +49,9 @@ on:
       - 'js/ui/forecast-band-panel.js'
       - 'js/forecast-band.js'
       - 'tools/band_history_check.mjs'
+      - 'tools/band_agreement_check.mjs'
+      - 'js/currency.js'
+      - 'js/ui/format.js'
   push:
     branches: [main]
     paths:
@@ -98,6 +101,9 @@ on:
       - 'js/ui/forecast-band-panel.js'
       - 'js/forecast-band.js'
       - 'tools/band_history_check.mjs'
+      - 'tools/band_agreement_check.mjs'
+      - 'js/currency.js'
+      - 'js/ui/format.js'
 
 # Why this exists: js/ai-model.js and shared_features.py both compute the
 # 8-feature vector that feeds the LSTM. If they ever drift (the vol_ratio
@@ -244,6 +250,20 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Check every ensemble source is alive in a browser
         run: node tools/browser_sources_check.mjs
+
+      # ONE displayed quantity must come from ONE anchor, for every symbol shape -- not just the
+      # US large caps that happened to work. Roshan found INTC showing an expected high of $101.70
+      # in the price-targets block and $104.05 in the forecast table; I fixed it and verified three
+      # US names, and he was right that this proved nothing: a sweep then found EVERY non-US symbol
+      # broken (the tables rendered native currency while the cards FX-converted, so 7203.T read
+      # 20.16 against 3115.95) plus a second bug where a ledger row carrying a band but no
+      # priceTargets left the headline unpinned.
+      #
+      # A subset here rather than the full list: each entry covers a distinct code path (calibrated
+      # US, low-priced, Mumbai/London/Tokyo/Hong Kong/Frankfurt sessions) and each symbol costs
+      # ~15s of wall clock. Upstream outages are warnings, not failures.
+      - name: Check the band blocks agree across symbol shapes
+        run: node tools/band_agreement_check.mjs --symbols AAPL,PLUG,RELIANCE.NS,BP.L,7203.T,0700.HK,SAP.DE
 
   # Mia 2.0's desk. These three existed but were registered in NO workflow, so 88 account
   # and broker assertions had never once run in CI -- they only ever passed because I ran

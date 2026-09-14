@@ -66,6 +66,32 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 lowPercent: +(((locked.predictedLow - locked.entry) / locked.entry) * 100).toFixed(2),
             };
         }
+        // FINAL AUTHORITY: when the lock carries a 7-session band, its day-1 edges ARE the
+        // headline Expected High/Low. Without this the two blocks could still split, and did:
+        // the HKEX ledger row for 0700.HK carries a forecastBand but NO priceTargets and no
+        // expectedMove, so neither branch above fired -- locked.predictedHigh was null -- and the
+        // card kept the LIVE band (441.95 HKD) while the table drew the locked one (440.98).
+        // Traced by logging renderSignal's entry and its DOM write: 441.95 in, 440.98 out, one
+        // render, two different objects.
+        //
+        // Applied AFTER the branches above rather than as another branch, so it holds whichever
+        // path produced pinnedTargets. Everything else on the object (ATR, support, resistance)
+        // stays live, because those are explanatory context rather than the committed call.
+        const lockedD1 = locked.forecastBand?.days?.[0];
+        if (pinnedTargets && Number.isFinite(lockedD1?.high) && Number.isFinite(lockedD1?.low)) {
+            const base = Number.isFinite(locked.entry) && locked.entry > 0
+                ? locked.entry
+                : (Number.isFinite(pinnedTargets.currentPrice) ? pinnedTargets.currentPrice : null);
+            pinnedTargets = {
+                ...pinnedTargets,
+                predictedHigh: lockedD1.high,
+                predictedLow: lockedD1.low,
+                highPercent: base ? +(((lockedD1.high - base) / base) * 100).toFixed(2) : pinnedTargets.highPercent,
+                lowPercent: base ? +(((lockedD1.low - base) / base) * 100).toFixed(2) : pinnedTargets.lowPercent,
+                source: 'calibrated-band',
+                bandConfidence: locked.forecastBand.confidence ?? pinnedTargets.bandConfidence,
+            };
+        }
         view = {
             ...prediction,
             signal: locked.signal,
