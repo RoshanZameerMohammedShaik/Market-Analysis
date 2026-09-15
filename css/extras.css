@@ -540,6 +540,16 @@ html[data-dev="1"] body { padding-top: 22px; }
 .fbh-tier-partial { opacity: 0.72; font-weight: 500; }
 /* No Move is not a weak hit, it is the absence of one, so it drops the direction colour
    entirely rather than showing a faint green or red that implies something happened. */
+ /* The baseline label on the price-target cards. Deliberately quiet: it is a reference point,
+   not a prediction, and it exists only to stop the reader pairing a percentage with the wrong
+   price. */
+.pt-from {
+    font-weight: 500; opacity: 0.75; font-size: 0.86em;
+}
+.pt-baseline {
+    color: var(--text-muted); font-weight: 600; cursor: help;
+}
+
 .fbh-tier-none {
     color: var(--text-muted) !important;
     opacity: 0.8; font-weight: 500; font-style: italic;

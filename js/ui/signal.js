@@ -52,6 +52,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             pinnedTargets = {
                 ...locked.priceTargets,
                 currentPrice: prediction.priceTargets?.currentPrice ?? locked.priceTargets.currentPrice,
+                baselinePrice: Number.isFinite(locked.entry) && locked.entry > 0 ? locked.entry : null,
             };
         } else if (pinnedTargets && locked.predictedHigh != null && locked.predictedLow != null && Number.isFinite(locked.entry) && locked.entry > 0) {
             // FALLBACK (legacy ledger row / visit-time lock): pin only the
@@ -64,6 +65,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 predictedLow: locked.predictedLow,
                 highPercent: +(((locked.predictedHigh - locked.entry) / locked.entry) * 100).toFixed(2),
                 lowPercent: +(((locked.predictedLow - locked.entry) / locked.entry) * 100).toFixed(2),
+                baselinePrice: locked.entry,
             };
         }
         // FINAL AUTHORITY: when the lock carries a 7-session band, its day-1 edges ARE the
@@ -90,6 +92,15 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 lowPercent: base ? +(((lockedD1.low - base) / base) * 100).toFixed(2) : pinnedTargets.lowPercent,
                 source: 'calibrated-band',
                 bandConfidence: locked.forecastBand.confidence ?? pinnedTargets.bandConfidence,
+                // THE PRICE THE PERCENTAGES ARE MEASURED FROM, carried explicitly.
+                //
+                // highPercent/lowPercent are computed against the LOCKED entry (the session
+                // open), because that is the baseline the lock exists to hold steady. But the card
+                // displays the LIVE price in the middle cell, so SPCX showed "High $159.51
+                // (+7.45%) / Current $144.18 / Low $138.15 (-6.94%)" where +7.45% is measured from
+                // $148.45, not from the $144.18 sitting between them. Both numbers were right and
+                // the pairing was nonsense. Naming the baseline lets the UI say which is which.
+                baselinePrice: base,
             };
         }
         view = {
@@ -138,6 +149,17 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
 
     let priceTargetHTML = '';
     if (priceTargets) {
+        // Only say "from open" when the baseline genuinely differs from the displayed live price.
+        // On a symbol whose lock anchors at the current price the two coincide and the extra words
+        // would be noise.
+        const _bp = Number(priceTargets.baselinePrice);
+        const _cp = Number(priceTargets.currentPrice);
+        const _differs = Number.isFinite(_bp) && _bp > 0 && Number.isFinite(_cp)
+            && Math.abs(_bp - _cp) / _bp > 0.0005;
+        const pctFrom = _differs ? ' <span class="pt-from">from open</span>' : '';
+        const baselineNote = _differs
+            ? `<span class="pt-baseline" title="The percentages either side are measured from this session's OPENING price, which is the baseline the day's locked call holds all day. The figure above is the live price.">open ${fmtPriceTag(_bp, co)}</span>`
+            : '';
         const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
         const hasProbable = priceTargets.probableHigh != null && priceTargets.probableLow != null;
         const probableStrip = hasProbable
@@ -157,17 +179,17 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                     <div class="price-target-card high">
                         <div class="price-target-label">${priceTargets.source === "calibrated-band" ? "Expected High" : "Possible High"}</div>
                         <div class="price-target-value high">${fmtPriceTag(priceTargets.predictedHigh, co)}</div>
-                        <div class="price-target-pct up">▲ +${priceTargets.highPercent}%</div>
+                        <div class="price-target-pct up">▲ +${priceTargets.highPercent}%${pctFrom}</div>
                     </div>
                     <div class="price-target-card current">
                         <div class="price-target-label">Current Price</div>
                         <div class="price-target-value">${fmtPriceTag(priceTargets.currentPrice, co)}</div>
-                        <div class="price-target-pct">ATR: ${fmtPriceTag(priceTargets.atr, co)}</div>
+                        <div class="price-target-pct">${baselineNote || `ATR: ${fmtPriceTag(priceTargets.atr, co)}`}</div>
                     </div>
                     <div class="price-target-card low">
                         <div class="price-target-label">${priceTargets.source === "calibrated-band" ? "Expected Low" : "Possible Low"}</div>
                         <div class="price-target-value low">${fmtPriceTag(priceTargets.predictedLow, co)}</div>
-                        <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%</div>
+                        <div class="price-target-pct down">▼ ${priceTargets.lowPercent}%${pctFrom}</div>
                     </div>
                 </div>
                 <div class="price-targets-meta">
@@ -287,8 +309,13 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
 
     const trendChip = trendRegime && trendRegime !== 'unknown'
         ? `<span class="trend-chip ${trendRegime}" title="Market regime detected by ADX">${trendRegime}</span>` : '';
+    // PREFIXED, because the two chips sit side by side and their words collide. SPCX rendered
+    // "transitional" (this symbol's own ADX trend state) immediately followed by "transition" (the
+    // market-wide macro regime) with nothing to tell them apart -- it read as one label
+    // accidentally printed twice. They measure different things at different scopes, so the scope
+    // is now on the chip rather than hidden in a tooltip nobody hovers.
     const macroChip = regime && regime !== 'neutral'
-        ? `<span class="trend-chip ${regime === 'risk-on' ? 'trending' : regime === 'risk-off' ? 'ranging' : 'transitional'}" title="Macro regime">${regime}</span>` : '';
+        ? `<span class="trend-chip ${regime === 'risk-on' ? 'trending' : regime === 'risk-off' ? 'ranging' : 'transitional'}" title="Market-wide macro regime, not this symbol's own trend">macro: ${regime}</span>` : '';
 
     const rangeHTML = confidenceRange
         ? `<span class="conf-range" title="Confidence range reflects engine uncertainty">${confidenceRange.lo}–${confidenceRange.hi}%</span>`

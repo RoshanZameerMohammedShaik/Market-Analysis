@@ -56,7 +56,19 @@ function pct(a, b) { return b > 0 ? (a / b) * 100 : null; }
 function reachOf(actualMove, predictedMove) {
     if (!Number.isFinite(actualMove) || !Number.isFinite(predictedMove)) return null;
     if (!(predictedMove > 0)) return null;
-    return +Math.max(0, (actualMove / predictedMove) * 100).toFixed(0);
+    const raw = Math.max(0, (actualMove / predictedMove) * 100);
+    // FLOOR below 100, round above it.
+    //
+    // toFixed(0) rounded 99.636% up to "100%", and the tier beside it read "Hit" because the edge
+    // was NOT actually reached (actual high 152.30 against a predicted 152.34). The card printed
+    // "100% Hit", which contradicts itself: 100% is the definition of Strong Hit. Flooring means
+    // the printed figure can only ever UNDERSTATE how close price got, and reaching 100% on screen
+    // now genuinely means the edge was met.
+    // The epsilon absorbs binary representation error, not a real shortfall: a high placed at
+    // EXACTLY half the predicted move computes as 49.999999999999996, and flooring that to 49
+    // would misreport an exact boundary. 1e-9 on a percentage is 1e-11 relative, far below any
+    // real signal, so it can only fix float noise.
+    return raw >= 100 ? +raw.toFixed(0) : Math.floor(raw + 1e-9);
 }
 
 // The midpoint of the predicted move. Not a tuned threshold -- half the distance is the one

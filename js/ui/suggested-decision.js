@@ -33,6 +33,17 @@ function pct(v) {
     return (a < 10 ? a.toFixed(1) : Math.round(a).toString());
 }
 
+// SIGNED, for anywhere the sign is the whole meaning.
+//
+// pct() deliberately strips the sign because most call sites supply their own ("+" in the BUY
+// branch) or colour the number red. The NEUTRAL sentence did neither, so a downside of -6.94%
+// rendered as "from $138.15 (6.9%)" -- indistinguishable from +6.9% in plain text, on the one
+// branch of this card that has no directional styling at all.
+function pctSigned(v) {
+    if (!Number.isFinite(v)) return '—';
+    return (v < 0 ? '−' : '+') + pct(v);
+}
+
 /**
  * Build the Suggested Decision block.
  * @param {object} view      the render view: { signal, confidence, priceTargets }
@@ -50,7 +61,18 @@ export function renderSuggestedDecision(view, opts = {}) {
     const name = opts.name || '';
     const who = name ? `${ticker} (${name})` : ticker || 'This asset';
 
-    // The stock's OWN usual move (ATR-based, per-symbol, works for crypto too).
+    // The price the quoted percentages are actually measured FROM. highPercent/lowPercent are
+    // computed against the locked session open, so quoting them "around <live price>" paired two
+    // numbers that do not belong together: SPCX read "$138.15 (−6.9%) to $159.51 (+7.5%) around
+    // $144.18" when both percentages were measured from $148.45.
+    const anchorPx = Number.isFinite(pt.baselinePrice) && pt.baselinePrice > 0
+        ? pt.baselinePrice : pt.currentPrice;
+
+    // The stock's own expected one-day move. NOTE the wording downstream says "expected move",
+    // not "typical move": the band header separately shows a daily VOLATILITY figure (rangeSigma,
+    // e.g. "wild · 5.14%/day") and these are different measurements of different things. SPCX
+    // showed 5.14%/day next to "typical move is about ±4.1% a day" with nothing to tell the reader
+    // they were not the same quantity contradicting itself.
     const usualPct = (pt.expectedMove != null && pt.currentPrice)
         ? (pt.expectedMove / pt.currentPrice) * 100
         : null;
@@ -69,16 +91,16 @@ export function renderSuggestedDecision(view, opts = {}) {
     // Decide the state STRICTLY from the engine signal + the two-branch advice.
     let state, sentence, sigOwned, sigNotOwned, toneClass, arrow;
     const usualTail = usualPct != null
-        ? ` ${ticker ? ticker + "'s" : 'Its'} typical move is about ±${pct(usualPct)}% a ${tfWord === 'Today' ? 'day' : 'session'}.`
+        ? ` The move ${ticker ? ticker : 'it'} is expected to make is about ±${pct(usualPct)}% this ${tfWord === 'Today' ? 'day' : 'session'}.`
         : '';
 
     if (signal === 'BUY') {
         state = 'buy'; toneClass = 'sd-up'; arrow = '▲';
-        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num up">BUY</strong> for ${tfWord} — the engine sees upside toward <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (<strong class="sd-num up">+${pct(up)}%</strong>) from ${fmtPriceTag(pt.currentPrice, co)}.${usualTail}`;
+        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num up">BUY</strong> for ${tfWord} — the engine sees upside toward <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (<strong class="sd-num up">+${pct(up)}%</strong>) from ${fmtPriceTag(anchorPx, co)}.${usualTail}`;
         sigOwned = 'HOLD'; sigNotOwned = 'BUY';
     } else if (signal === 'SELL') {
         state = 'sell'; toneClass = 'sd-down'; arrow = '▼';
-        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num down">SELL</strong> for ${tfWord} — the engine sees downside toward <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (<strong class="sd-num down">${pct(down)}%</strong>) from ${fmtPriceTag(pt.currentPrice, co)}.${usualTail}`;
+        sentence = `<strong>${who}</strong> looks like a <strong class="sd-num down">SELL</strong> for ${tfWord} — the engine sees downside toward <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (<strong class="sd-num down">${pctSigned(down)}%</strong>) from ${fmtPriceTag(anchorPx, co)}.${usualTail}`;
         sigOwned = 'SELL'; sigNotOwned = "DON'T BUY";
     } else if (signal === 'NO_TRADE') {
         // Hard event-risk cap (earnings/gap/etc.) — the engine is actively
@@ -90,7 +112,7 @@ export function renderSuggestedDecision(view, opts = {}) {
         // NEUTRAL — genuinely no directional edge. Describe the range honestly
         // (it can swing either way) but DO NOT pick a side.
         state = 'no-edge'; toneClass = 'sd-flat'; arrow = '◆';
-        sentence = `<strong>${who}</strong> has <strong class="sd-num">no clear edge</strong> for ${tfWord} — the engine could see it anywhere from <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (${pct(down)}%) to <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (+${pct(up)}%) around ${fmtPriceTag(pt.currentPrice, co)}, with no convincing lean either way.${usualTail}`;
+        sentence = `<strong>${who}</strong> has <strong class="sd-num">no clear edge</strong> for ${tfWord} — the engine could see it anywhere from <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (${pctSigned(down)}%) to <strong>${fmtPriceTag(pt.predictedHigh, co)}</strong> (${pctSigned(up)}%) around ${fmtPriceTag(anchorPx, co)}, with no convincing lean either way.${usualTail}`;
         sigOwned = 'HOLD'; sigNotOwned = "DON'T BUY";
     }
 

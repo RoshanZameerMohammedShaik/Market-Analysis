@@ -186,6 +186,32 @@ console.log('=== reach %: how much of the predicted MOVE happened, per direction
           h8.rows[0].reachHighPct === 140, String(h8.rows[0].reachHighPct));
     check('and that session is a miss', h8.rows[0].met === false && h8.rows[0].highHeld === false);
 
+    // THE DISPLAYED FIGURE AND THE TIER MUST NEVER CONTRADICT EACH OTHER.
+    // SPCX printed "100% Hit" on 2026-09-03: session start 141.36, predicted high 152.34, actual
+    // high 152.30. The raw reach is 99.636%, toFixed(0) rounded it to 100, and the tier was
+    // correctly Hit because the edge was not reached -- so the card claimed 100% and Hit at once.
+    // Only a genuine Strong Hit may ever show 100.
+    const nearMiss = base.map((b, k) => (k === i
+        ? { ...b, open: 141.36, high: 152.30, low: 141.36, close: 150 } : b));
+    const hNear = buildBandHistory({
+        candles: nearMiss, sessions: 1,
+        lockedRows: [{ symbol: 'X', date: new Date(base[i].time * 1000).toISOString().slice(0, 10),
+                       entry: 141.36,
+                       forecastBand: { confidence: 80, calibrated: true,
+                                       days: [{ day: 1, low: 130.0, high: 152.34 }] } }],
+    }).rows[0];
+    check('a 99.6% near-miss displays 99, never 100', hNear.reachHighPct === 99, String(hNear.reachHighPct));
+    check('and its tier is Hit, consistent with the figure', hNear.hitHigh === 'hit', hNear.hitHigh);
+    check('100 is displayed ONLY when the edge was truly reached',
+          buildBandHistory({
+              candles: base.map((b, k) => (k === i ? { ...b, open: 141.36, high: 152.34, low: 141.36, close: 150 } : b)),
+              sessions: 1,
+              lockedRows: [{ symbol: 'X', date: new Date(base[i].time * 1000).toISOString().slice(0, 10),
+                             entry: 141.36,
+                             forecastBand: { confidence: 80, calibrated: true,
+                                             days: [{ day: 1, low: 130.0, high: 152.34 }] } }],
+          }).rows[0].hitHigh === 'strong');
+
     // A high BELOW the anchor delivered none of the predicted upside. Must floor at 0, not
     // report a negative percentage along an axis that only has one direction.
     const below = base.map((b, k) => (k === i
