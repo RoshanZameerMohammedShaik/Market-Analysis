@@ -543,6 +543,15 @@ html[data-dev="1"] body { padding-top: 22px; }
  /* The baseline label on the price-target cards. Deliberately quiet: it is a reference point,
    not a prediction, and it exists only to stop the reader pairing a percentage with the wrong
    price. */
+/* Which timeframe an evidence line came from. The drivers blend Daily/Weekly/4H, and without this
+   the quoted numbers look like they contradict the Technical Indicators panel (which is Daily). */
+.attribution-tf {
+    margin-left: 5px; padding: 0 4px; border-radius: 3px;
+    font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+    color: var(--text-muted);
+    background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+
 .pt-from {
     font-weight: 500; opacity: 0.75; font-size: 0.86em;
 }

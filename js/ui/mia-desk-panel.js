@@ -35,9 +35,16 @@ const SLICE_URL = 'model/bot/timeline.json';
 // of them into a 420px panel on open is wasted layout for rows nobody scrolls to.
 const PAGE = 12;
 
-// A run older than this means the cron is not running. The schedule is hourly, and Actions
-// routinely delays scheduled runs by 10-30 minutes, so the threshold has to tolerate that
-// without crying wolf. Three hours is two missed slots: late is normal, absent is not.
+// A run older than this means the desk is not cycling.
+//
+// The real schedule is NOT hourly, which both this comment and the on-screen note used to claim.
+// The workflow fires every 5 hours (cron '0 */5 * * *') and then runs an internal loop for up to
+// 320 minutes with a 15-minute floor between cycle starts (MIN_CYCLE=900). So while a job is alive
+// runs land every ~15 min, and the only real gaps are between one job ending and the next cron
+// being picked up -- which Actions delays by hours under load, as it has been doing all week.
+//
+// Three hours still fits: it is far longer than a 15-minute cycle, and long enough not to cry wolf
+// during a normal hand-off between jobs.
 const STALE_AFTER_MIN = 180;
 
 // How far ahead of buy-and-hold a sleeve must be, in percentage points, before it gets the
@@ -362,9 +369,11 @@ function render() {
                    ${stale ? '<strong>&middot; overdue</strong>' : ''}`
                 : 'No runs recorded yet'}
         </div>
-        ${stale ? `<p class="desk-note">Her schedule is hourly. A gap this long usually means
-            the scheduled job was delayed or skipped, which GitHub Actions does under load.
-            The timeline below is still accurate for the runs that did happen.</p>` : ''}
+        ${stale ? `<p class="desk-note">She cycles about every 15 minutes while a job is running,
+            and a new job is scheduled every 5 hours. A gap this long means the next scheduled job
+            has not been picked up yet &mdash; GitHub Actions delays queued runs under load, by
+            hours in recent days. The timeline below is still accurate for the runs that did
+            happen.</p>` : ''}
 
         ${combinedRow(t)}
         ${leaderboard()}

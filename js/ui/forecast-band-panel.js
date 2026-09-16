@@ -12,6 +12,7 @@
 // and scaled magnitude by a hand-picked confidence multiplier.
 
 import { describeBandHistory, HIT_LABELS, HIT_LABELS_SHORT } from './band-history.js';
+import { forwardDates } from '../forecast-band.js';
 
 // CURRENCY GOES THROUGH THE SAME PATH AS EVERY OTHER PRICE IN THE APP.
 //
@@ -39,13 +40,27 @@ import { fmtPriceTag, fmtPrice } from './format.js';
 const money = (v, cur) => fmtPriceTag(v, { srcCurrency: cur });
 const moneyText = (v, cur) => fmtPrice(v, { srcCurrency: cur });
 
-function dayLabel(iso, idx) {
-    if (idx === 0) return 'Today';
-    if (idx === 1) return 'Tomorrow';
-    try {
-        const d = new Date(iso + 'T00:00:00Z');
-        return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
-    } catch (_) { return iso; }
+// DERIVED, never read off the band.
+//
+// This used to format `d.date` from the band object. The cron does not store per-day dates on the
+// rows it writes -- only {day, low, high, widthPct} -- so the moment the locked band started
+// feeding this table, rows 3 through 7 rendered "Invalid Date": `new Date(undefined + 'T00:00:00Z')`
+// is an Invalid Date, and only rows 0 and 1 survived because "Today" and "Tomorrow" are hardcoded.
+//
+// Computing the labels from now also fixes the case a stored date could never handle: a locked
+// band from an earlier session would carry that session's dates and mislabel every row.
+function dayLabels(n, cryptoMode) {
+    const out = ['Today', 'Tomorrow'];
+    let dates = [];
+    try { dates = forwardDates(n, { cryptoMode }); } catch (_) { dates = []; }
+    for (let i = 2; i < n; i++) {
+        // forwardDates[0] is the NEXT session, i.e. our "Tomorrow" row, so row i maps to index i-1.
+        const d = dates[i - 1];
+        out.push(d instanceof Date && !Number.isNaN(d.getTime())
+            ? d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+            : `Session +${i}`);
+    }
+    return out.slice(0, n);
 }
 
 // Two labels, one shown at a time by a media query. Doing this in CSS rather than by
@@ -214,12 +229,13 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
     // display 76% accuracy on a coin flip.
     const calibrated = band.calibrated === true;
 
+    const labels = dayLabels(band.days.length, band.mode === 'crypto' || band.cryptoMode === true);
     const rows = band.days.map((d, i) => {
         const spanPct = currentPrice > 0
             ? ((d.high - d.low) / currentPrice * 100) : null;
         return `
             <tr class="fb-row">
-                <td class="fb-day">${dayLabel(d.date, i)}</td>
+                <td class="fb-day">${labels[i]}</td>
                 <td class="fb-low">${money(d.low, currency)}</td>
                 <td class="fb-high">${money(d.high, currency)}</td>
                 <td class="fb-span">${spanPct != null ? `±${(spanPct / 2).toFixed(1)}%` : '—'}</td>

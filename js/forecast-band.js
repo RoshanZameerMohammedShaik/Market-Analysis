@@ -135,7 +135,16 @@ function tierFor(sigma, tierEdges) {
  *  crypto trades every day. Holidays are not modelled, so a label can be one
  *  session optimistic around a market holiday. Labels only: the forecast itself
  *  is indexed by session count, not by date. */
-function forwardDates(n, { cryptoMode = false, from = null } = {}) {
+/**
+ * The next n trading dates. EXPORTED so the panel can label its rows without inventing a second
+ * implementation, and without depending on a date stored inside a band object.
+ *
+ * Storing dates on the band is wrong twice over: the cron strips them from the rows it writes (to
+ * save bytes across ~1,500 symbols a day), and a stored date would be STALE anyway when a locked
+ * band from an earlier session is displayed. The labels describe when the horizons fall relative
+ * to NOW, so they have to be computed now.
+ */
+export function forwardDates(n, { cryptoMode = false, from = null } = {}) {
     const out = [];
     const d = from ? new Date(from) : new Date();
     while (out.length < n) {

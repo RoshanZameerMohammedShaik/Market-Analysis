@@ -658,9 +658,21 @@ function renderAttribution(attribution) {
         const dirClass = a.direction === 'bullish' ? 'positive' : a.direction === 'bearish' ? 'negative' : 'neutral';
         const arrow = a.direction === 'bullish' ? '▲' : a.direction === 'bearish' ? '▼' : '◆';
         const widthPct = Math.round((Math.abs(a.netContribution) / maxAbs) * 100);
-        // Pull a short evidence line from the most-weighted timeframe source.
-        const heaviest = a.sources.slice().sort((s1, s2) => Math.abs(s2.raw) - Math.abs(s1.raw))[0];
-        const evidence = heaviest?.reason || '';
+        // The evidence line must AGREE with the arrow, and must say which timeframe it came from.
+        //
+        // The arrow is the NET contribution across Daily/Weekly/4H; the evidence was the single
+        // heaviest source regardless of sign. So INTC rendered "▲ Moving Avg Cross / Short MA below
+        // long MA — bearish trend": net bullish, evidence bearish, in one row. The same gap made
+        // the drivers quote "ADX 29.0" and "+12.9% over 5 periods" while the Technical Indicators
+        // panel below showed ADX 13.9 and Mom 5p +0.73% -- both correct, from different timeframes,
+        // with nothing on screen saying so.
+        const net = a.netContribution;
+        const agreeing = a.sources.filter(s => (net > 0 ? s.raw > 0 : net < 0 ? s.raw < 0 : true));
+        const pool = agreeing.length ? agreeing : a.sources;
+        const heaviest = pool.slice().sort((s1, s2) => Math.abs(s2.raw) - Math.abs(s1.raw))[0];
+        const evidence = heaviest?.reason
+            ? `${heaviest.reason}${heaviest.timeframe ? ` <span class="attribution-tf">${heaviest.timeframe}</span>` : ''}`
+            : '';
         return `
             <div class="attribution-row ${dirClass}">
                 <span class="attribution-arrow ${dirClass}">${arrow}</span>

@@ -152,6 +152,14 @@ async function readSymbol(page, sym) {
             tableLow: num(tds[1]),
             tableHigh: num(tds[2]),
             lockLabel: document.querySelector('.call-status-locked')?.innerText.trim() || null,
+            // Every forward row's day label, so a broken date cannot ship silently again.
+            fwdDayLabels: [...document.querySelectorAll(
+                '.fb-table:not(.fb-table-past) tbody tr td.fb-day')].map(t => t.innerText.trim()),
+            // Arrow vs evidence direction on the drivers: they must never contradict.
+            drivers: [...document.querySelectorAll('.attribution-row')].map(r => ({
+                arrow: r.querySelector('.attribution-arrow')?.innerText.trim() || '',
+                ev: (r.querySelector('.attribution-evidence')?.innerText || '').trim(),
+            })),
         };
     });
 }
@@ -173,6 +181,30 @@ for (const sym of SYMBOLS) {
 
     const hasHead = Number.isFinite(r.headHigh) && Number.isFinite(r.headLow);
     const hasTable = Number.isFinite(r.tableHigh) && Number.isFinite(r.tableLow);
+
+    // "Invalid Date" shipped for five of seven rows the moment the LOCKED band began feeding this
+    // table: the cron strips per-day dates from the rows it writes, and the panel was formatting
+    // that missing field. Rows 0 and 1 hid it because "Today" and "Tomorrow" are hardcoded.
+    const badDates = (r.fwdDayLabels || []).filter(d => /invalid/i.test(d));
+    if (badDates.length) {
+        bad(`${sym}: ${badDates.length} forward row(s) render an unusable date label`,
+            JSON.stringify(r.fwdDayLabels));
+    } else if ((r.fwdDayLabels || []).length) {
+        ok(`${sym}: forward day labels all valid`);
+    }
+    // The arrow is the NET contribution across timeframes; the evidence line used to be the single
+    // heaviest source regardless of sign, so INTC rendered a bullish arrow above the words
+    // "bearish trend". Text that names a direction must match the arrow beside it.
+    for (const d of (r.drivers || [])) {
+        const saysBull = /bullish|upward|above long/i.test(d.ev);
+        const saysBear = /bearish|downward|below long/i.test(d.ev);
+        if (saysBull && saysBear) continue;          // ambiguous phrasing, skip
+        if (d.arrow === '▲' && saysBear) {
+            bad(`${sym}: driver arrow says bullish, evidence says bearish`, d.ev.slice(0, 90));
+        } else if (d.arrow === '▼' && saysBull) {
+            bad(`${sym}: driver arrow says bearish, evidence says bullish`, d.ev.slice(0, 90));
+        }
+    }
 
     if (!hasHead && !hasTable) {
         warn(`${sym}: neither block rendered`, 'likely no data from the upstream API today');
