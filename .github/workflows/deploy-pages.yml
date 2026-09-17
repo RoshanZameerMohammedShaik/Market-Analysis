@@ -144,6 +144,51 @@ jobs:
           test -f dist/index.html || { echo "::error::no dist/index.html"; exit 1; }
           test -f dist/model/ledger/recent.json || echo "::warning::recent.json absent from bundle"
 
+      # SELF-DIAGNOSING, because "wrangler could not authenticate" has two completely different
+      # causes that look identical from the outside, and the run log is not readable without a
+      # GitHub token so I cannot inspect it for you.
+      #
+      #   1. The token lacks Account / Cloudflare Pages / Edit.
+      #   2. CLOUDFLARE_ACCOUNT_ID is not an account id. The Account ID and a Zone ID are BOTH
+      #      32-character hex strings and sit on different dashboard pages, so pasting the zone id
+      #      is the single easiest mistake to make here.
+      #
+      # Cloudflare's own API separates them: /user/tokens/verify says whether the token is valid at
+      # all, and /accounts lists the accounts it can reach. Comparing that list to the configured id
+      # answers which of the two it is, as a fact rather than a guess. Nothing here echoes the
+      # token -- the responses describe it, and account ids are identifiers, not credentials.
+      - name: Diagnose the credentials before using them
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "--- is the token itself valid? ---"
+          v=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+                -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
+          echo "$v" | head -c 600; echo
+          if ! echo "$v" | grep -q '"success":true'; then
+            echo "::error title=token rejected::Cloudflare rejected the API token itself. Create a new one at dash.cloudflare.com > My Profile > API Tokens > Create Custom Token with the single permission Account / Cloudflare Pages / Edit, then replace the CLOUDFLARE_API_TOKEN secret."
+            exit 1
+          fi
+
+          echo "--- which accounts can this token reach? ---"
+          a=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts" \
+                -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
+          ids=$(echo "$a" | grep -o '"id":"[0-9a-f]\{32\}"' | cut -d'"' -f4 | sort -u)
+          if [ -z "$ids" ]; then
+            echo "The token is valid but can see NO accounts."
+            echo "$a" | head -c 600; echo
+            echo "::error title=token has no account scope::The token authenticates but grants no account-level access, so it cannot touch Pages. Recreate it with permission Account / Cloudflare Pages / Edit (an account-scoped permission, not a zone one)."
+            exit 1
+          fi
+          echo "$ids" | while read -r i; do echo "  account visible to token: ${i:0:6}...${i: -4}"; done
+          echo "  CLOUDFLARE_ACCOUNT_ID  : ${ACCOUNT:0:6}...${ACCOUNT: -4}  (len ${#ACCOUNT})"
+          if ! echo "$ids" | grep -qx "$ACCOUNT"; then
+            echo "::error title=account id mismatch::CLOUDFLARE_ACCOUNT_ID is not one of the accounts this token can reach. The likeliest cause is that it holds a ZONE id: both are 32-hex and look alike. The ACCOUNT id is on dash.cloudflare.com right after the domain in the URL, and in the right-hand panel of Workers & Pages. Update the secret to one of the ids listed above."
+            exit 1
+          fi
+          echo "token and account id agree."
+
       # The project name is INFERRED from the hostname (market-ai.pages.dev -> "market-ai"). If that
       # guess is wrong, wrangler fails with an error that does not name the actual problem, and the
       # fix -- setting the CLOUDFLARE_PAGES_PROJECT repo variable -- is not discoverable from it. So
