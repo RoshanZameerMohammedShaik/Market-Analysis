@@ -189,33 +189,50 @@ export async function loadRecentRows() {
     }
 }
 
+// Why the full-history readers are empty, for a panel to show instead of rendering a blank chart.
+let _ledgerReason = null;
+export function ledgerHistoryProblem() { return _ledgerReason; }
+
+/**
+ * THIS RETURNS [] AND HAS DONE SINCE THE LEDGER WAS SHARDED. Read this before using it.
+ *
+ * It fetches `model/ledger/<year>.jsonl`. That file stopped existing when the ledger was split into
+ * monthly shards (2026-05.jsonl ... 2026-09.jsonl) to get under GitHub's 100 MB blob limit, so every
+ * call has fetched a 404, hit the catch, and cached an empty array. Silently, for about two and a
+ * half weeks.
+ *
+ * Five exported readers depend on it and have therefore been rendering nothing:
+ * readSymbolConfidenceTrend, readSymbolSignalMarkers, readEngineEquityCurve, readAccuracyBySetup
+ * and readLedgerHistory. readTodayLock only uses it as a fallback behind recent.json, which is why
+ * the daily lock kept working and this stayed invisible.
+ *
+ * The obvious repair -- point it at the current monthly shard -- is the wrong one. Those shards are
+ * 29 to 40 MB each; the recent.json slice exists precisely because a fetch that size takes ~143s on
+ * a 5 Mbps phone, and they are deliberately excluded from the Cloudflare bundle for being over the
+ * 25 MiB per-file limit. Fetching one would trade a silent failure for a two-minute stall.
+ *
+ * The real fix is a compact history slice: the fields these five readers actually use are 227 bytes
+ * a row against 1,524 for a full row, so 30 days is ~5.3 MB instead of 35 MB, and it can be fetched
+ * lazily only when one of those panels opens. That is a separate piece of work.
+ *
+ * Until then this returns [] as it already did, but it no longer spends a request discovering that,
+ * and ledgerHistoryProblem() reports the reason so a panel can say "history unavailable" rather than
+ * drawing an empty chart that looks like "no signals were ever recorded".
+ */
 export async function loadLedger() {
     if (_ledgerCache && Date.now() - _ledgerCacheTs < LEDGER_CACHE_MS) {
         return _ledgerCache;
     }
     const year = new Date().getUTCFullYear();
-    try {
-        const res = await fetch(`./model/ledger/${year}.jsonl`);
-        if (!res.ok) {
-            _ledgerCache = [];
-            _ledgerCacheTs = Date.now();
-            return _ledgerCache;
-        }
-        const text = await res.text();
-        const rows = [];
-        for (const line of text.split('\n')) {
-            const t = line.trim();
-            if (!t) continue;
-            try { rows.push(JSON.parse(t)); } catch (_) {}
-        }
-        _ledgerCache = rows;
-        _ledgerCacheTs = Date.now();
-        return _ledgerCache;
-    } catch (_) {
-        _ledgerCache = [];
-        _ledgerCacheTs = Date.now();
-        return _ledgerCache;
+    if (!_ledgerReason) {
+        _ledgerReason = `full ledger history is not published in a browser-readable form: `
+            + `model/ledger/${year}.jsonl was replaced by monthly shards that are 29-40 MB each, `
+            + `too large to fetch on a phone. Only the last 3 days (recent.json) are available.`;
+        console.warn('[ledger]', _ledgerReason);
     }
+    _ledgerCache = [];
+    _ledgerCacheTs = Date.now();
+    return _ledgerCache;
 }
 
 // Chronological confidence + outcome trail for ONE symbol, for the
