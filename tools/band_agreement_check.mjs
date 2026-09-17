@@ -41,6 +41,10 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 
 const REPO = resolve(import.meta.dirname, '..');
+// --dist serves the built bundle instead of the repo root. A file I forgot to include
+// shows up here as a broken app, which is the only reliable way to prove the allowlist
+// in tools/build_pages_dist.mjs is complete.
+const ROOT = process.argv.includes('--dist') ? resolve(REPO, 'dist') : REPO;
 const PORT = 8161;
 const args = process.argv.slice(2);
 const flag = (n, d) => {
@@ -77,7 +81,7 @@ if (!LIVE) {
     server = createServer(async (req, res) => {
         try {
             const clean = decodeURIComponent(req.url.split('?')[0]);
-            const path = join(REPO, clean === '/' ? 'index.html' : clean.replace(/^\/+/, ''));
+            const path = join(ROOT, clean === '/' ? 'index.html' : clean.replace(/^\/+/, ''));
             const body = await readFile(path);
             res.writeHead(200, { 'content-type': MIME[extname(path)] || 'application/octet-stream' });
             res.end(body);

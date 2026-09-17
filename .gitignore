@@ -84,3 +84,4 @@ model/bot/_*
 # Actions logs without admin rights.
 /joblog.txt
 /*.tmp.json
+dist/

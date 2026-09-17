@@ -1,0 +1,144 @@
+name: Deploy to Cloudflare Pages
+
+# WHY THIS EXISTS
+# ---------------
+# market-ai.pages.dev had stopped deploying entirely. Every path on it returned the same stale
+# 32,711-byte index.html, which is Cloudflare's SPA fallback answering for files that were never
+# uploaded -- js, css and every model artifact included. That matters more than a mirror going
+# stale, because two things point at that hostname specifically:
+#
+#   * capacitor.config.ts loads https://market-ai.pages.dev on every launch of the Android app,
+#     so the APK has been serving a weeks-old build.
+#   * The Yahoo proxy Worker origin-locks /stock-quote to market-ai.pages.dev (+ localhost).
+#     github.io is NOT in that allowlist, so that endpoint is dead on the GitHub Pages mirror.
+#
+# DIRECT UPLOAD, NOT THE GIT INTEGRATION
+# --------------------------------------
+# Deliberately `wrangler pages deploy` rather than reconnecting Cloudflare's Git build. The Git
+# integration builds on EVERY push, and this repo's crons push constantly -- the ledger writes ~8
+# times a day and the desk loop once committed 25 times in one day, which is what exhausted the
+# free plan's 500 builds/month in the first place. Direct upload puts the trigger under our
+# control, and the triggers below are chosen to stay far under the cap:
+#
+#   push (code paths only)  -- a few a day at most, and a code change must ship immediately
+#   schedule every 6h       -- 4/day, picks up recent.json / macro.json / timeline.json
+#   workflow_dispatch       -- manual
+#
+# That is roughly 120-160 deploys a month against a 500 ceiling, with headroom for a busy day.
+# Data files are NOT push-triggered on purpose: recent.json alone is rewritten 8x/day and would
+# otherwise account for 240 deploys a month on its own.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Code and styling: ship on the next push, because a fix nobody can see is not shipped.
+      - 'index.html'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - '_headers'
+      - 'ui-preview.html'
+      - 'css/**'
+      - 'js/**'
+      - 'dev/**'
+      # Model artifacts that change rarely and change BEHAVIOUR when they do.
+      - 'model/lstm_weights.json'
+      - 'model/lstm_weights_penny.json'
+      - 'model/lstm_weights_intraday.json'
+      - 'model/xgb_trees.json'
+      - 'model/band_calibration.json'
+      - 'model/live_calibration.json'
+      - 'model/backtest_results.json'
+      # The bundler itself, so a change to what ships actually ships.
+      - 'tools/build_pages_dist.mjs'
+      - '.github/workflows/deploy-pages.yml'
+
+  # Picks up the cron-written data (ledger slice, macro series, desk timeline) without letting
+  # every one of those commits trigger its own deploy.
+  schedule:
+    - cron: '0 */6 * * *'
+
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Why this manual deploy
+        required: false
+        default: manual sync
+
+# One deploy at a time. Two concurrent uploads to the same Pages project race over which becomes
+# the live deployment, and the loser silently wins nothing. cancel-in-progress is TRUE here (unlike
+# the ledger cron) because an in-flight deploy of older files has no value once newer ones exist.
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Fails loudly when a required model artifact is absent or a file exceeds Cloudflare's
+      # 25 MiB per-file ceiling, so a broken bundle never reaches the edge. The four ledger
+      # shards (29-40 MB each) are excluded by design; the browser reads the recent.json slice.
+      - name: Build the deployable bundle
+        run: node tools/build_pages_dist.mjs
+
+      - name: Show what is about to ship
+        run: |
+          echo "files: $(find dist -type f | wc -l)"
+          echo "bytes: $(du -sb dist | cut -f1)"
+          test -f dist/index.html || { echo "::error::no dist/index.html"; exit 1; }
+          test -f dist/model/ledger/recent.json || echo "::warning::recent.json absent from bundle"
+
+      # Refuses rather than half-deploys when the credentials are not configured. A green run that
+      # uploaded nothing is worse than a red one, because the site stays stale and nobody looks.
+      - name: Check credentials are present
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then
+            echo "::error title=missing Cloudflare credentials::Add repo secrets CLOUDFLARE_API_TOKEN (Cloudflare Pages:Edit) and CLOUDFLARE_ACCOUNT_ID. Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Overridable so a renamed project does not need a code change.
+          PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'market-ai' }}
+        run: |
+          npx --yes wrangler@4 pages deploy dist \
+            --project-name "$PROJECT" \
+            --branch main \
+            --commit-dirty=true
+
+      # Proves the deploy actually took, by asking for a file that the SPA fallback would answer
+      # for if it had not. Content-type is the tell: a missing file comes back as text/html.
+      - name: Verify the edge is serving real files
+        run: |
+          sleep 20
+          fail=0
+          for f in js/app.js css/style.css model/macro.json model/ledger/recent.json; do
+            ct=$(curl -s -o /dev/null -w '%{content_type}' "https://market-ai.pages.dev/$f" --max-time 40)
+            case "$f" in
+              *.js)   want=javascript ;;
+              *.css)  want=css ;;
+              *.json) want=json ;;
+            esac
+            if echo "$ct" | grep -qi "$want"; then
+              echo "  OK   $f -> $ct"
+            else
+              echo "  FAIL $f -> $ct (expected $want; text/html means the file is not deployed)"
+              fail=1
+            fi
+          done
+          [ $fail -eq 0 ] || { echo "::error::the edge is still answering with the SPA fallback for real files"; exit 1; }
