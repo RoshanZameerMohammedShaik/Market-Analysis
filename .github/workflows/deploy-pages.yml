@@ -73,7 +73,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # SKIP CLEANLY WHEN UNCONFIGURED, DO NOT FAIL.
+  #
+  # The first version failed the run when the secrets were absent, on the reasoning that a green
+  # run which uploaded nothing is worse than a red one. That reasoning was right about silence and
+  # wrong about the mechanism: the schedule fires every 6 hours, so it produced four failure emails
+  # a day for a state that is simply "not set up yet" and needs no action beyond the one already
+  # requested. Failure notifications that arrive on a known, expected condition train you to ignore
+  # the ones that matter.
+  #
+  # So: absent credentials SKIP the deploy with a notice in the run summary, visible in the Actions
+  # tab and silent in your inbox. The moment the secrets exist, the next 6-hourly run picks them up
+  # and deploys with no further intervention. A deploy that is ATTEMPTED and fails still goes red,
+  # which is the case worth an email.
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Are the Cloudflare credentials configured?
+        id: check
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Credentials present; deploying." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Cloudflare Pages deploy skipped"
+              echo
+              echo "\`CLOUDFLARE_API_TOKEN\` and/or \`CLOUDFLARE_ACCOUNT_ID\` are not set, so there is"
+              echo "nothing to authenticate with. This is a setup state, not a failure."
+              echo
+              echo "To enable: **Settings -> Secrets and variables -> Actions**"
+              echo "- \`CLOUDFLARE_API_TOKEN\` - dash.cloudflare.com -> My Profile -> API Tokens,"
+              echo "  permission **Account / Cloudflare Pages / Edit**"
+              echo "- \`CLOUDFLARE_ACCOUNT_ID\` - the id in the dashboard URL after \`/accounts/\`"
+              echo
+              echo "The next scheduled run (every 6h) will deploy automatically once both exist."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=Cloudflare deploy skipped::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set. Not a failure -- see the run summary for the two secrets to add."
+          fi
+
   deploy:
+    needs: preflight
+    if: needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -96,18 +143,6 @@ jobs:
           echo "bytes: $(du -sb dist | cut -f1)"
           test -f dist/index.html || { echo "::error::no dist/index.html"; exit 1; }
           test -f dist/model/ledger/recent.json || echo "::warning::recent.json absent from bundle"
-
-      # Refuses rather than half-deploys when the credentials are not configured. A green run that
-      # uploaded nothing is worse than a red one, because the site stays stale and nobody looks.
-      - name: Check credentials are present
-        env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$TOKEN" ] || [ -z "$ACCOUNT" ]; then
-            echo "::error title=missing Cloudflare credentials::Add repo secrets CLOUDFLARE_API_TOKEN (Cloudflare Pages:Edit) and CLOUDFLARE_ACCOUNT_ID. Settings > Secrets and variables > Actions."
-            exit 1
-          fi
 
       - name: Deploy to Cloudflare Pages
         env:
