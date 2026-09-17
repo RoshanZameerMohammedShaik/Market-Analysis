@@ -162,12 +162,37 @@ jobs:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          # SHAPE CHECK FIRST, because Cloudflare's rejection is a bare "code 1000: Invalid API
+          # Token" that does not say WHY, and the three plausible values are visually similar:
+          #
+          #   API Token      ~40 chars, mixed case with - and _   <- the correct one
+          #   Global API Key  37 chars, lowercase hex             <- different auth scheme entirely;
+          #                                                         needs X-Auth-Key/X-Auth-Email,
+          #                                                         so Bearer always gives code 1000
+          #   Account ID      32 chars, lowercase hex             <- an identifier, not a credential
+          #
+          # The Global API Key sits further down the SAME dashboard page as the token creator, which
+          # makes it the easiest wrong thing to copy. Naming the shape turns an opaque rejection into
+          # an instruction.
+          if printf '%s' "$TOKEN" | grep -qE '^[0-9a-f]{37}$'; then
+            echo "::error title=that is a Global API Key, not an API Token::The secret is 37 lowercase hex characters, which is the shape of Cloudflare's Global API Key. That key uses a different auth scheme (X-Auth-Key + X-Auth-Email) and can never work as a Bearer token. Create an API TOKEN instead: dash.cloudflare.com > My Profile > API Tokens > Create Token > Create Custom Token, permission Account / Cloudflare Pages / Edit. Do not use the API Keys section lower down that page."
+            exit 1
+          fi
+          if printf '%s' "$TOKEN" | grep -qE '^[0-9a-f]{32}$'; then
+            echo "::error title=that looks like an ID, not a token::The secret is 32 lowercase hex characters, which is the shape of a Cloudflare Account ID or Zone ID rather than an API token. CLOUDFLARE_API_TOKEN needs the ~40-character token string from My Profile > API Tokens > Create Custom Token."
+            exit 1
+          fi
+          if [ "${#TOKEN}" -lt 30 ]; then
+            echo "::error title=token looks truncated::CLOUDFLARE_API_TOKEN is only ${#TOKEN} characters; a Cloudflare API token is around 40. It was probably copied incompletely."
+            exit 1
+          fi
+
           echo "--- is the token itself valid? ---"
           v=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
                 -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
           echo "$v" | head -c 600; echo
           if ! echo "$v" | grep -q '"success":true'; then
-            echo "::error title=token rejected::Cloudflare rejected the API token itself. Create a new one at dash.cloudflare.com > My Profile > API Tokens > Create Custom Token with the single permission Account / Cloudflare Pages / Edit, then replace the CLOUDFLARE_API_TOKEN secret."
+            echo "::error title=token rejected::Cloudflare returned code 1000 (Invalid API Token) for a value that is the right shape, so it is wrong rather than mistyped -- most likely revoked, expired, or copied with surrounding whitespace. Create a fresh one at dash.cloudflare.com > My Profile > API Tokens > Create Token > Create Custom Token with the single permission Account / Cloudflare Pages / Edit, and paste it with no leading or trailing spaces."
             exit 1
           fi
 
