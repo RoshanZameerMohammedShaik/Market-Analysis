@@ -144,6 +144,30 @@ jobs:
           test -f dist/index.html || { echo "::error::no dist/index.html"; exit 1; }
           test -f dist/model/ledger/recent.json || echo "::warning::recent.json absent from bundle"
 
+      # The project name is INFERRED from the hostname (market-ai.pages.dev -> "market-ai"). If that
+      # guess is wrong, wrangler fails with an error that does not name the actual problem, and the
+      # fix -- setting the CLOUDFLARE_PAGES_PROJECT repo variable -- is not discoverable from it. So
+      # list the real projects and print them first, which turns a name mismatch into an obvious
+      # diff in the log. It also tells two very different failures apart: a token that cannot list
+      # anything (wrong permission or wrong account id) versus a good token pointed at a name that
+      # does not exist, where the deploy would CREATE a second site nobody is looking at.
+      - name: Confirm the Pages project exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PROJECT: ${{ vars.CLOUDFLARE_PAGES_PROJECT || 'market-ai' }}
+        run: |
+          echo "looking for project: $PROJECT"
+          if ! npx --yes wrangler@4 pages project list > /tmp/projects.txt 2>&1; then
+            echo "::error title=Cloudflare auth failed::wrangler could not list Pages projects. The token most likely lacks the 'Account / Cloudflare Pages / Edit' permission, or CLOUDFLARE_ACCOUNT_ID is wrong."
+            sed -n '1,25p' /tmp/projects.txt
+            exit 1
+          fi
+          cat /tmp/projects.txt
+          if ! grep -qw "$PROJECT" /tmp/projects.txt; then
+            echo "::warning title=project not found::No Pages project named '$PROJECT'. The deploy below will CREATE it. If your real project has a different name, set the repo variable CLOUDFLARE_PAGES_PROJECT to that name (Settings > Secrets and variables > Actions > Variables) so this updates the existing site instead of publishing a second one."
+          fi
+
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
