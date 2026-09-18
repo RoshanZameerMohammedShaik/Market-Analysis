@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-09-17T14:32:15Z",
-  "runs": 440,
+  "updatedAt": "2026-09-18T00:33:20Z",
+  "runs": 460,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9655.918409,
+    "equityUSD": 9962.431835,
     "cashUSD": 1626.610758,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 8029.307651,
+    "holdingsUSD": 8335.821077,
     "realizedUSD": 0.0,
-    "unrealizedUSD": -344.081591,
+    "unrealizedUSD": -37.568165,
     "feesUSD": 7.179817,
-    "pnlUSD": -344.081591,
-    "pnlPct": -3.4408,
+    "pnlUSD": -37.568165,
+    "pnlPct": -0.3757,
     "trades": 7
   },
   "sleeves": {
@@ -145,7 +145,7 @@
     "interestUSD": 0.0,
     "dayTrades": [],
     "openedToday": {},
-    "lastAccrual": "2026-09-17",
+    "lastAccrual": "2026-09-18",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -160,7 +160,7 @@
       "mia-ai:CIEN": "2026-09-08T18:29:28Z"
     },
     "tradesToday": {},
-    "day": "2026-09-17"
+    "day": "2026-09-18"
   },
   "equityOpen": {
     "engine": 2500.0,
