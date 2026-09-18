@@ -219,20 +219,88 @@ export function ledgerHistoryProblem() { return _ledgerReason; }
  * and ledgerHistoryProblem() reports the reason so a panel can say "history unavailable" rather than
  * drawing an empty chart that looks like "no signals were ever recorded".
  */
+/**
+ * Expand one compact history row back to the shape every consumer already expects.
+ *
+ * tools/write_history_slice.py uses single-letter keys because at 22,000 rows the difference
+ * between 'directionMatch' and 'dm' is about a megabyte. Undoing that here means the seven readers
+ * downstream are untouched -- they keep reading row.symbol and horizons['1'].directionMatch, and
+ * never learn the wire format changed.
+ */
+function expandHistoryRow(r) {
+    const out = {
+        symbol: r.s, date: r.d, region: r.g, signal: r.sg,
+        confidence: r.c, entry: r.e, engineVersion: r.v,
+    };
+    if (r.i) {
+        out.indicators = {};
+        if (Number.isFinite(r.i.r)) out.indicators.rsi = r.i.r;
+        if (Number.isFinite(r.i.m)) out.indicators.macd = { histogram: r.i.m };
+        if (Number.isFinite(r.i.b)) out.indicators.bb = { percent_b: r.i.b };
+    }
+    // horizons is always present, even when empty: readers do `(r.horizons || {})['1']` in some
+    // places and `r.horizons['1']` in others, and an absent object throws in the second form.
+    out.horizons = {};
+    for (const [k, h] of Object.entries(r.h || {})) {
+        out.horizons[k] = {
+            // Back to a real boolean. Stored as 0/1 to save bytes, but every consumer tests it for
+            // truth AND for `!= null` to tell "unresolved" from "resolved and wrong" -- so 0 has to
+            // become false, not stay 0, or a wrong call would read as unresolved.
+            directionMatch: h.dm === 1,
+            pctMove: Number.isFinite(h.p) ? h.p : null,
+            capturedPct: Number.isFinite(h.cp) ? h.cp : null,
+        };
+    }
+    return out;
+}
+
+/**
+ * The last 30 days of ledger history, for the readers that need more than recent.json's 3 days.
+ *
+ * WHAT THIS USED TO DO, AND WHY SEVEN FEATURES WERE BLANK
+ * ------------------------------------------------------
+ * It fetched `model/ledger/<year>.jsonl`. That file stopped existing when the ledger was split into
+ * monthly shards to get under GitHub's 100 MB blob limit, so every call 404'd, hit the catch, and
+ * cached an empty array. Silently, for weeks.
+ *
+ * Worse, the same dead fetch was copy-pasted into js/ui/scanner.js and js/ui/watchlist.js, which is
+ * exactly why fixing one of them left two broken. All three now come through here.
+ *
+ * Serving a shard directly was never an option: they are 29-40 MB, recent.json exists precisely
+ * because a fetch that size takes ~143s on a 5 Mbps phone, and they exceed Cloudflare's 25 MiB
+ * per-file limit so they are absent from the deploy bundle. The compact slice is 3.8 MB raw and
+ * ~0.6 MB gzipped for 22,000 rows, fetched only when a panel that needs history opens.
+ */
 export async function loadLedger() {
     if (_ledgerCache && Date.now() - _ledgerCacheTs < LEDGER_CACHE_MS) {
         return _ledgerCache;
     }
-    const year = new Date().getUTCFullYear();
-    if (!_ledgerReason) {
-        _ledgerReason = `full ledger history is not published in a browser-readable form: `
-            + `model/ledger/${year}.jsonl was replaced by monthly shards that are 29-40 MB each, `
-            + `too large to fetch on a phone. Only the last 3 days (recent.json) are available.`;
+    try {
+        const res = await fetch('./model/ledger/history.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        // Content-type, not res.ok: a host with SPA fallback answers 200 with index.html for a
+        // missing file, and JSON.parse then fails on "<!DOCTYPE html>". That trap hid the
+        // undeployed recent.json for weeks.
+        const ctype = res.headers.get('content-type') || '';
+        if (!ctype.includes('json')) throw new Error(`served ${ctype || 'an unknown type'}, not JSON`);
+        const payload = await res.json();
+        const rows = Array.isArray(payload?.rows) ? payload.rows.map(expandHistoryRow) : [];
+        if (!rows.length) throw new Error('slice contained no rows');
+        _ledgerReason = null;
+        _ledgerCache = rows;
+        _ledgerCacheTs = Date.now();
+        return _ledgerCache;
+    } catch (e) {
+        // Report the reason rather than returning a silent []. A blank chart that says nothing is
+        // indistinguishable from "the engine never recorded a signal", which is how this stayed
+        // invisible in the first place.
+        _ledgerReason = `ledger history unavailable: ${e.message}. `
+            + `It is published by tools/write_history_slice.py as model/ledger/history.json.`;
         console.warn('[ledger]', _ledgerReason);
+        _ledgerCache = [];
+        _ledgerCacheTs = Date.now();
+        return _ledgerCache;
     }
-    _ledgerCache = [];
-    _ledgerCacheTs = Date.now();
-    return _ledgerCache;
 }
 
 // Chronological confidence + outcome trail for ONE symbol, for the

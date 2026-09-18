@@ -257,6 +257,21 @@ jobs:
       # continue-on-error: a FRED outage must never fail a run that has ledger rows to commit.
       # The writer refuses to overwrite a good slice with an empty one, so the previous day's
       # readings survive, and macro moves slowly enough that they are still useful.
+      # The 30-day compact history. Without it, seven browser features render nothing: the
+      # confidence trend, chart signal markers, the equity curve, accuracy-by-setup, the ledger
+      # history panel, the scanner's accuracy aggregation and the watchlist's signal column. They
+      # were all blank for weeks because they fetched model/ledger/<year>.jsonl, which stopped
+      # existing when this ledger was sharded monthly. The raw shards cannot serve them: 29-40 MB
+      # each, over Cloudflare's 25 MiB file limit, and ~143s to fetch on a 5 Mbps phone.
+      #
+      # continue-on-error: a failure here must never discard ledger rows this run already wrote.
+      # The writer refuses to overwrite a good slice with an empty one, so the previous day's
+      # history survives and those features degrade to slightly stale rather than blank.
+      - name: Publish compact ledger history for the browser
+        if: always()
+        continue-on-error: true
+        run: python tools/write_history_slice.py --days 30
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -307,6 +322,9 @@ jobs:
           fi
           if [ -f model/ledger/recent.json ]; then
             git add -f model/ledger/recent.json
+          fi
+          if [ -f model/ledger/history.json ]; then
+            git add -f model/ledger/history.json
           fi
           if [ -f model/live_calibration.json ]; then
             git add -f model/live_calibration.json

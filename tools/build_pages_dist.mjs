@@ -76,6 +76,10 @@ const MODEL = [
     'model/xgb_trees.json',
     'model/macro.json',
     'model/ledger/recent.json',
+    // The 30-day compact history. Seven features read it (confidence trend, signal markers, equity
+    // curve, accuracy-by-setup, ledger history, scanner aggregation, watchlist signals) and all of
+    // them were blank before it existed. ~3.8 MB raw / 0.6 MB gzipped, fetched lazily.
+    'model/ledger/history.json',
     'model/bot/timeline.json',
     'model/bot/config.json',
 ];

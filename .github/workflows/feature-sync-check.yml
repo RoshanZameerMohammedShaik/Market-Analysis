@@ -50,6 +50,10 @@ on:
       - 'js/forecast-band.js'
       - 'tools/band_history_check.mjs'
       - 'tools/band_agreement_check.mjs'
+      - 'tools/history_slice_check.mjs'
+      - 'tools/write_history_slice.py'
+      - 'js/ledger-reader.js'
+      - 'model/ledger/history.json'
       - 'js/currency.js'
       - 'js/ui/format.js'
   push:
@@ -102,6 +106,10 @@ on:
       - 'js/forecast-band.js'
       - 'tools/band_history_check.mjs'
       - 'tools/band_agreement_check.mjs'
+      - 'tools/history_slice_check.mjs'
+      - 'tools/write_history_slice.py'
+      - 'js/ledger-reader.js'
+      - 'model/ledger/history.json'
       - 'js/currency.js'
       - 'js/ui/format.js'
 
@@ -262,6 +270,15 @@ jobs:
       # A subset here rather than the full list: each entry covers a distinct code path (calibrated
       # US, low-priced, Mumbai/London/Tokyo/Hong Kong/Frankfurt sessions) and each symbol costs
       # ~15s of wall clock. Upstream outages are warnings, not failures.
+      # Seven features read the ledger history slice, and all seven were silently blank for weeks
+      # because three separate copies of the same fetch asked for model/ledger/<year>.jsonl, a file
+      # that stopped existing when the ledger was sharded monthly. Each one caught the 404 and
+      # returned [], and an empty chart looks exactly like "the engine never recorded a signal". No
+      # offline test could catch it -- the bug WAS the fetch -- so this drives the real page and asks
+      # the real readers for real rows.
+      - name: Check the ledger history slice feeds its seven consumers
+        run: node tools/history_slice_check.mjs
+
       - name: Check the band blocks agree across symbol shapes
         run: node tools/band_agreement_check.mjs --symbols AAPL,PLUG,RELIANCE.NS,BP.L,7203.T,0700.HK,SAP.DE
 

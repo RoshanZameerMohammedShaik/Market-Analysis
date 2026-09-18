@@ -25,6 +25,7 @@ import { analyzeAndCache, peek } from '../analysis-cache.js';
 import { calculateRSI } from '../analysis.js';
 import { fmtPrice } from './format.js';
 import { state } from './state.js';
+import { loadLedger } from '../ledger-reader.js';
 
 let scanState = {
     started: false,
@@ -44,27 +45,12 @@ let expandedSymbol = null;       // currently inline-expanded symbol, or null
 
 // ── Ledger history + accuracy aggregation ────────────────────────────
 
-let cachedHistory = null;
-async function loadLedgerHistory() {
-    if (cachedHistory) return cachedHistory;
-    const year = new Date().getUTCFullYear();
-    try {
-        const res = await fetch(`./model/ledger/${year}.jsonl`);
-        if (!res.ok) { cachedHistory = []; return cachedHistory; }
-        const text = await res.text();
-        const rows = [];
-        for (const line of text.split('\n')) {
-            const t = line.trim();
-            if (!t) continue;
-            try { rows.push(JSON.parse(t)); } catch (_) {}
-        }
-        cachedHistory = rows;
-        return rows;
-    } catch (_) {
-        cachedHistory = [];
-        return [];
-    }
-}
+// Ledger history comes from the SHARED loader in js/ledger-reader.js.
+//
+// This file used to carry its own copy: the same fetch of model/ledger/<year>.jsonl, the same
+// catch, the same silent []. That file stopped existing when the ledger was sharded monthly, and
+// having three copies of the fetch (here, watchlist.js, ledger-reader.js) is precisely why fixing
+// one of them left two broken. One loader, one cache, one place to fix.
 
 function buildHistoryIndex(rows) {
     const out = {};
@@ -299,7 +285,7 @@ async function startScan() {
     const symbols = await buildUniverse(mode);
     scanState.progress = { done: 0, total: symbols.length, errors: 0 };
 
-    const history = await loadLedgerHistory();
+    const history = await loadLedger();
     scanState.historyByKey = buildHistoryIndex(history);
     scanState.allLedgerRows = history;            // kept for window re-aggregation
     scanState.accuracyBySymbol = buildAccuracyIndex(history, computeAccuracyCutoff());

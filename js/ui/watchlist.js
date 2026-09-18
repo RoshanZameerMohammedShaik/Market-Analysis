@@ -24,6 +24,7 @@
 
 import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice, listAlerts } from './price-alerts.js';
 import { notify } from './notify.js';
+import { loadLedger } from '../ledger-reader.js';
 import { isPushConfigured, isPushSupported, enablePush, disablePush, syncAlerts, getActiveSubscription, iosNeedsInstall } from '../push/push-client.js';
 
 const LS_KEY = 'ma-watchlist-v1';
@@ -75,21 +76,9 @@ export function toggleWatch(symbol) {
     return watchlist.has(sym);
 }
 
-async function loadLedger() {
-    const year = new Date().getUTCFullYear();
-    try {
-        const res = await fetch(`./model/ledger/${year}.jsonl?t=${Math.floor(Date.now() / POLL_MS)}`);
-        if (!res.ok) return [];
-        const text = await res.text();
-        const rows = [];
-        for (const line of text.split('\n')) {
-            const t = line.trim();
-            if (!t) continue;
-            try { rows.push(JSON.parse(t)); } catch (_) {}
-        }
-        return rows;
-    } catch (_) { return []; }
-}
+// Ledger history comes from the SHARED loader in js/ledger-reader.js -- see the note in
+// scanner.js. This file's private copy fetched model/ledger/<year>.jsonl, which has not existed
+// since the ledger was sharded monthly, so the per-symbol signal column here was always empty.
 
 function todayIso() { return new Date().toISOString().slice(0, 10); }
 
