@@ -44,6 +44,8 @@ on:
       - 'tools/macro_check.mjs'
       - 'tools/gemini_roster_check.mjs'
       - 'tools/mia_tools_check.mjs'
+      - 'tools/js_syntax_check.mjs'
+      - 'js/mia/ui-bridge.js'
       - 'js/mia/tools.js'
       - 'js/mia/tool-schemas.js'
       - 'package.json'
@@ -115,6 +117,8 @@ on:
       - 'tools/macro_check.mjs'
       - 'tools/gemini_roster_check.mjs'
       - 'tools/mia_tools_check.mjs'
+      - 'tools/js_syntax_check.mjs'
+      - 'js/mia/ui-bridge.js'
       - 'js/mia/tools.js'
       - 'js/mia/tool-schemas.js'
       - 'package.json'
@@ -253,6 +257,14 @@ jobs:
       # reachable, and the one she must NOT reach stays unreachable. She had zero tools for the
       # auto-trading desk that carries her name, so "how is your desk doing" left her guessing at a
       # P&L figure. Arming/resetting stays out on purpose -- that moves money and needs the PAT.
+      # Every tracked AND untracked .js must parse as an ES MODULE. `node --check` on a .js file was
+      # silently parsing as CommonJS before package.json declared "type": "module", so it reported
+      # success on js/mia/tools.js while that file contained an unescaped apostrophe that would have
+      # stopped Mia loading in the browser entirely. The same mistake recurred three times in one
+      # session; a gate is cheaper than vigilance.
+      - name: Check every JS file parses as an ES module
+        run: node tools/js_syntax_check.mjs
+
       - name: Check Mia's tool coverage
         run: node tools/mia_tools_check.mjs
 

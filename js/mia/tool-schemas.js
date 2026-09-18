@@ -450,7 +450,7 @@ export const TOOL_DECLARATIONS = [
         description: 'Scroll to a specific section of the page.',
         parameters: {
             type: T.OBJECT,
-            properties: { section: { type: T.STRING, description: 'chart, signal, accuracy, hotpicks, search' } },
+            properties: { section: { type: T.STRING, description: 'chart, signal, accuracy, hotpicks, scanner, desk, search' } },
             required: ['section'],
         },
     },
@@ -529,6 +529,19 @@ export const TOOL_DECLARATIONS = [
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
+        // The scanner's accuracy WINDOW was reachable and its two actual filters were not, so Mia
+        // could set the time range of a table she could not filter.
+        name: 'filter_scanner',
+        description: 'Filter the Full Ledger scanner table. `text` matches a symbol or region (AAPL, NSE); `signal` narrows to BUY, SELL, NEUTRAL or NO_TRADE. Pass text:"" or signal:"all" to clear. Use for "show me only the sells", "just the Indian rows", "clear the filter". The time window is a separate tool: set_accuracy_window.',
+        parameters: {
+            type: T.OBJECT,
+            properties: {
+                text: { type: T.STRING, description: 'Symbol or region substring. Empty string clears it.' },
+                signal: { type: T.STRING, description: 'all, BUY, SELL, NEUTRAL or NO_TRADE.' },
+            },
+        },
+    },
+    {
         name: 'set_accuracy_window',
         description: 'Set the Full Ledger Prediction-Accuracy time window. Accepts "30 days", "3 months", "1 year", or "all".',
         parameters: { type: T.OBJECT, properties: { window: { type: T.STRING } }, required: ['window'] },
@@ -576,7 +589,7 @@ export const TOOL_DECLARATIONS = [
     // ── New surfaces wired this pass (portfolio mgmt, time-travel, regime).
     {
         name: 'open_portfolio_panel',
-        description: 'Open the practice-trading portfolio panel (holdings, cash, P&L). Separate from the watchlist.',
+        description: 'Open the Portfolio side panel. This is ALSO where the auto-trading desk lives (equity, sleeves, fills, timeline), so open this for "show me your desk" / "show me the trading desk" as well as for the practice portfolio. Pair with get_desk_status to narrate what is on screen.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {

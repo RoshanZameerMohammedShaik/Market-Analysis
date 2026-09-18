@@ -296,11 +296,22 @@ export function controlScrollTo({ section }) {
         hotpicks: 'hotpicks-grid',
         'hot-picks': 'hotpicks-grid',
         search: 'search-input',
+        // The scanner (Full Ledger table) and Mia's own desk were both absent. The desk lives INSIDE
+        // the portfolio panel, so jumping to it only works once that panel is open -- the error below
+        // says so rather than failing with a bare "not on page".
+        scanner: 'scanner-section',
+        ledger: 'scanner-section',
+        desk: 'mia-desk',
     };
-    const id = map[String(section || '').toLowerCase().trim()];
-    if (!id) throw new Error(`unknown section: ${section} (use: chart, signal, accuracy, hotpicks, search)`);
+    const key = String(section || '').toLowerCase().trim();
+    const id = map[key];
+    if (!id) throw new Error(`unknown section: ${section} (use: chart, signal, accuracy, hotpicks, scanner, desk, search)`);
     const el = document.getElementById(id);
-    if (!el) throw new Error(`element #${id} not on page`);
+    if (!el) {
+        throw new Error(id === 'mia-desk'
+            ? "Mia's desk is inside the Portfolio panel — call open_portfolio_panel first, then scroll to it."
+            : `element #${id} not on page`);
+    }
     announce({ text: `Jumping to ${section}…`, target: el });
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     if (id === 'search-input') try { el.focus(); } catch (_) {}
@@ -766,6 +777,55 @@ export function controlCloseFullLedger() {
 // / "1 year" / "all". Mia uses this to scope hit-rate to a specific
 // recency window when the user asks "how accurate has the engine been
 // in the last 30 days?"
+/**
+ * Filter the Full Ledger scanner by symbol/region text and/or signal.
+ *
+ * The scanner's accuracy WINDOW was already reachable (controlSetAccuracyWindow) but its two actual
+ * filters were not, so "show me only the SELL calls" or "just the NSE rows" had no tool. Mia could
+ * set the time window of a table she could not filter.
+ *
+ * Sets the DOM controls and dispatches the events the scanner already listens for ('input' on the
+ * text box, 'change' on the select) rather than re-implementing the filter. That is deliberate: the
+ * scanner reads these elements directly on every refresh, so driving them is the only way to stay in
+ * one code path. Re-deriving the filter here is how this codebase ended up with three copies of one
+ * ledger fetch.
+ */
+export function controlFilterScanner({ text, signal } = {}) {
+    const tEl = document.getElementById('scanner-filter');
+    const sEl = document.getElementById('scanner-signal-filter');
+    if (!tEl && !sEl) throw new Error('Scanner controls are not on the page');
+
+    const applied = {};
+    if (text !== undefined && tEl) {
+        // Empty string is a legitimate value -- it CLEARS the filter, which is what "show me
+        // everything again" has to do. So this checks for undefined, not falsiness.
+        tEl.value = String(text ?? '');
+        tEl.dispatchEvent(new Event('input', { bubbles: true }));
+        applied.text = tEl.value;
+    }
+    if (signal !== undefined && sEl) {
+        const want = String(signal ?? '').trim().toUpperCase();
+        // The select's "all" option carries an empty value, so 'ALL'/'ANY' map onto it.
+        const normalised = ['ALL', 'ANY', ''].includes(want) ? '' : want;
+        const allowed = [...sEl.options].map(o => o.value);
+        if (!allowed.includes(normalised)) {
+            throw new Error(`unknown signal "${signal}". Allowed: all, ${allowed.filter(Boolean).join(', ')}`);
+        }
+        sEl.value = normalised;
+        sEl.dispatchEvent(new Event('change', { bubbles: true }));
+        applied.signal = normalised || 'all';
+    }
+    announce({
+        text: applied.signal && applied.signal !== 'all'
+            ? `Filtering the ledger to ${applied.signal}${applied.text ? ` matching "${applied.text}"` : ''}`
+            : applied.text
+                ? `Filtering the ledger to "${applied.text}"`
+                : 'Cleared the ledger filters',
+        target: document.getElementById('scanner-filter'),
+    });
+    return { ok: true, ...applied };
+}
+
 export function controlSetAccuracyWindow(input) {
     const nEl = document.getElementById('scanner-window-n');
     const uEl = document.getElementById('scanner-window-unit');

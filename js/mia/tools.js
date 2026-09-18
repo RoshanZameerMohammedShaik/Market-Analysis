@@ -15,7 +15,7 @@ import {
     controlToggleCurrency, controlScrollTo, controlPLCalculate,
     controlSetTheme, controlFocusSearch, controlClearMiaChat, controlCopyToClipboard,
     controlOpenResources, controlCloseResources, controlOpenFullLedger, controlCloseFullLedger,
-    controlSetAccuracyWindow,
+    controlSetAccuracyWindow, controlFilterScanner,
     controlAddToWatchlist, controlRemoveFromWatchlist, controlSetPriceAlert,
     controlOpenSectorHeatmap, controlCloseSectorHeatmap,
     controlOpenEarningsCalendar, controlCloseEarningsCalendar,
@@ -624,6 +624,14 @@ const TOOLS = {
         desc: 'close (collapse) the Full Ledger panel. Use when the user says "close the ledger / hide the ledger". Idempotent.',
         args: '{}',
         run: () => controlCloseFullLedger(),
+        kind: 'control',
+    },
+    filter_scanner: {
+        desc: 'filter the Full Ledger scanner table by symbol/region text and/or by signal. '
+            + 'Pass text:"" or signal:"all" to clear. The accuracy WINDOW is a separate tool '
+            + '(set_accuracy_window).',
+        args: '{"text":"NSE","signal":"SELL"}',
+        run: (a = {}) => controlFilterScanner(a),
         kind: 'control',
     },
     set_accuracy_window: {

@@ -98,6 +98,9 @@ const want = {
     'price alerts': ['set_price_alert'],
     'the ledger and accuracy record': ['get_ledger_history', 'get_accuracy_stats', 'get_source_accuracy'],
     'time travel': ['set_time_travel', 'clear_time_travel'],
+    // The scanner's WINDOW was reachable and its FILTERS were not, so Mia could set the time range
+    // of a table she had no way to narrow.
+    'the ledger scanner filters and window': ['filter_scanner', 'set_accuracy_window'],
 };
 for (const [label, names] of Object.entries(want)) {
     const missing = names.filter(n => !declared.includes(n));
