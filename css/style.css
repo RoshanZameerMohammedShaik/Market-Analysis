@@ -162,7 +162,17 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
-    height: 100%;
+    /* min-height, NOT height.
+       `height: 100%` on html AND body pins both to the viewport, which makes BODY the scrolling
+       element instead of the document. Everything still scrolls, but window.scrollY is frozen at 0
+       forever, so anything that reads the window scroll position is silently dead -- GSAP
+       ScrollTrigger defaults to the window scroller, and tooling cannot scroll a tall element into
+       view to paint it (which is why a mobile screenshot of the 4,160px signal card came out black
+       below the first viewport).
+       min-height keeps the full-viewport background this rule was for and lets the document grow
+       with its content, so the document is the scroller again -- the standard behaviour every other
+       part of the platform assumes. */
+    min-height: 100%;
     /* Lock horizontal overflow at the document root. The TradingView
        embed iframe self-sizes to a desktop width on phones, which used
        to force the body wider than the viewport. That made the

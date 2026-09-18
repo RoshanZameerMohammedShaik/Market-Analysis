@@ -52,6 +52,10 @@ on:
       - 'tools/band_agreement_check.mjs'
       - 'tools/history_slice_check.mjs'
       - 'tools/app_sweep_check.mjs'
+      - 'tools/chart_scroll_check.mjs'
+      - 'css/style.css'
+      - 'css/components.css'
+      - 'js/ui/chart.js'
       - 'js/yields.js'
       - 'tools/write_history_slice.py'
       - 'js/ledger-reader.js'
@@ -110,6 +114,10 @@ on:
       - 'tools/band_agreement_check.mjs'
       - 'tools/history_slice_check.mjs'
       - 'tools/app_sweep_check.mjs'
+      - 'tools/chart_scroll_check.mjs'
+      - 'css/style.css'
+      - 'css/components.css'
+      - 'js/ui/chart.js'
       - 'js/yields.js'
       - 'tools/write_history_slice.py'
       - 'js/ledger-reader.js'
@@ -286,6 +294,14 @@ jobs:
       # panel, a card whose headline contradicts its own body. Exits 0 by design: it FINDS candidates
       # to judge, and a sweep that failed the build on a legitimate em-dash placeholder would be
       # switched off within a week. Read its output.
+      # The page must scroll from ANY cursor position. The TradingView embed is a cross-origin
+      # iframe that consumes the wheel to zoom, and it is a 460px slab in the middle of a 5,000px
+      # page -- so scrolling silently stopped wherever the user's cursor happened to rest. Nothing
+      # threw and the page looked fine. Also pins the scroller: css must keep the DOCUMENT scrolling
+      # rather than body, or window.scrollY freezes at 0 and every scroll-position reader dies.
+      - name: Check the page scrolls past the chart
+        run: node tools/chart_scroll_check.mjs
+
       - name: Sweep the whole app for silent breakage
         run: node tools/app_sweep_check.mjs
 

@@ -315,6 +315,19 @@
                     <span class="chart-price" id="chart-price"></span>
                 </div>
                 <div class="chart-container">
+                    <!-- SCROLL SHIELD over the TradingView iframe.
+                         A cross-origin iframe consumes the wheel event, and TradingView uses the
+                         wheel to zoom the chart. The chart is a ~460px slab in the middle of the
+                         page, so a user scrolling down with the cursor over it simply stops moving
+                         — measured: wheeling at the header, either gutter or the bottom edge scrolls
+                         the page 1200px, wheeling over the chart scrolls it 0.
+                         The shield sits above the iframe and absorbs the wheel so the page scrolls
+                         normally. Clicking it hands the chart the pointer (the standard
+                         click-to-activate pattern embedded maps use), and moving the mouse out of
+                         the chart re-arms it. -->
+                    <div class="chart-shield" data-armed="1" aria-hidden="true">
+                        <span class="chart-shield-hint">Click chart to interact</span>
+                    </div>
                     <div id="tradingview-widget"></div>
                 </div>
             </section>

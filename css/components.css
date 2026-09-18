@@ -356,7 +356,57 @@
     box-shadow: var(--shadow-card);
 }
 
-.chart-container { border-radius: var(--radius-lg); overflow: hidden; }
+.chart-container { border-radius: var(--radius-lg); overflow: hidden; position: relative; }
+
+/* ── Chart scroll shield ───────────────────────────────────────────────────────
+   The TradingView embed is a cross-origin iframe, so it consumes the wheel event
+   (it zooms the chart with it). The chart is a 460px slab in the middle of the
+   page, which meant a user scrolling down with the cursor over it just stopped:
+   measured on the live site, a 1200px wheel at the header or either gutter moved
+   the page 1200px, and the same wheel over the chart moved it 0.
+
+   The shield covers the iframe and absorbs the wheel so the page scrolls. Click
+   to hand the chart the pointer, mouse-out to re-arm -- the same click-to-activate
+   pattern embedded maps use, for exactly the same reason. */
+.chart-shield {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    cursor: pointer;
+    /* Transparent: the chart must be fully readable through it. Only pointer
+       events are intercepted, nothing visual changes. */
+    background: transparent;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 12px;
+}
+/* Disarmed = the user clicked, so the chart owns the pointer until they leave. */
+.chart-shield[data-armed="0"] {
+    pointer-events: none;
+}
+.chart-shield-hint {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: var(--text-secondary);
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.18s ease;
+    pointer-events: none;
+}
+/* Only surfaced on hover: a permanent label over a chart is clutter, but a user
+   whose scroll just stopped needs to know why, and that is exactly when their
+   cursor is over it. */
+.chart-container:hover .chart-shield[data-armed="1"] .chart-shield-hint { opacity: 1; }
+.chart-shield[data-armed="0"] .chart-shield-hint { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+    .chart-shield-hint { transition: none; }
+}
 
 /* Chart section previously reserved ~470px of empty black before a symbol was
    chosen, which made the first screen look broken. Let it size to its content

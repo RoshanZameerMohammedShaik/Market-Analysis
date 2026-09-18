@@ -88,11 +88,50 @@ function isNonUsTicker(yahooSymbol) {
     return /\.[A-Z]{1,3}$/.test(String(yahooSymbol || ''));
 }
 
+/**
+ * Arm the chart scroll shield.
+ *
+ * The TradingView embed is a cross-origin iframe, so it swallows the wheel event and uses it to zoom
+ * the chart. That is reasonable behaviour for a chart and terrible behaviour for a 460px slab sitting
+ * in the middle of a 5,400px page: measured on the live site, a 1200px wheel over the header or
+ * either gutter scrolled the page 1200px, and the same wheel over the chart scrolled it 0. The page
+ * simply stopped moving wherever the user happened to rest their cursor.
+ *
+ * The shield (index.html, .chart-shield) covers the iframe and absorbs the wheel so scrolling works.
+ * A click hands the pointer to the chart so it stays fully usable; moving the mouse out of the chart
+ * re-arms the shield, so the next scroll past it works again without the user having to think about
+ * it. Same click-to-activate pattern embedded maps use, for the same reason.
+ *
+ * Idempotent: called on every chart load, and repeated calls must not stack listeners.
+ */
+function initChartShield() {
+    const wrap = document.querySelector('.chart-container');
+    const shield = wrap?.querySelector('.chart-shield');
+    if (!wrap || !shield || shield.dataset.wired === '1') return;
+    shield.dataset.wired = '1';
+
+    shield.addEventListener('click', () => {
+        shield.dataset.armed = '0';
+    });
+    // Re-arm on leaving the chart entirely. Listening on the WRAPPER, not the shield: once the
+    // shield is disarmed it has pointer-events: none, so its own mouseleave would never fire again
+    // and the shield would stay off for the rest of the session.
+    wrap.addEventListener('mouseleave', () => {
+        shield.dataset.armed = '1';
+    });
+    // Keyboard users never trigger mouseleave, and a shield that only re-arms on pointer movement
+    // would strand them. Escape re-arms explicitly.
+    wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') shield.dataset.armed = '1';
+    });
+}
+
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
     // A real chart is about to replace the placeholder — stop the hero
     // particle field so its canvas + rAF loop are released.
     stopHeroParticles();
+    initChartShield();
     const container = document.getElementById('tradingview-widget');
     const chartHeader = document.getElementById('chart-header');
 
