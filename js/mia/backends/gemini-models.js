@@ -37,34 +37,57 @@
 // ~3000+ RPD/day across the rotation before any single model
 // exhausts. Models that 404 get auto-marked cooling for 1h by the
 // chain walker and quietly skipped.
+// Ordering below is QUALITY-first WITHIN each tier, with one correction learned from Roshan's
+// 2026-09-18 dashboard: the good models have a 20 RPD ceiling and the Lite models have 500.
+//
+//     Gemini 3.8 Flash       23 / 20 RPD    OVER
+//     Gemini 3.7 Flash       22 / 20 RPD    OVER
+//     Gemini 3.6 Flash       21 / 20 RPD    OVER
+//     Gemini 3 Flash         21 / 20 RPD    OVER
+//     Gemini 3.5 Flash       20 / 20 RPD    AT LIMIT
+//     Gemini 2.5 Flash       20 / 20 RPD    AT LIMIT
+//     Gemini 3.5 Flash Lite  21 / 500 RPD   headroom
+//     Gemini 3.1 Flash Lite   6 / 500 RPD   headroom
+//     Gemma 4 26B            14 / 14.4K RPD headroom
+//
+// So on any normal day every reasoning-tier model is exhausted by the twentieth question, and the
+// only thing keeping Mia answering is the Lite/Gemma tail. `rpd` below is recorded for exactly that
+// reason -- not to gate requests (the cooldown map still learns the truth reactively from 429s) but
+// so a model with 25x the quota is not buried behind six that are already spent. See the note on
+// DAILY vs PER-MINUTE cooldowns in tier-cooldown.js, which is what stops those six from being
+// retried every half hour for the rest of the day.
 export const GEMINI_MODELS = [
     // ── Newest / highest-quality reasoning ────────────────────────
+    // 3.8 is the current head of the line as of 2026-09-18. 3.6 and 3.7 were live on the dashboard
+    // and simply missing from this list, so two whole models' worth of daily quota was going unused.
+    { id: 'gemini-3.8-flash',                tier: 'reasoning', label: 'Gemini 3.8 Flash',      rpd: 20 },
+    { id: 'gemini-3.7-flash',                tier: 'reasoning', label: 'Gemini 3.7 Flash',      rpd: 20 },
+    { id: 'gemini-3.6-flash',                tier: 'reasoning', label: 'Gemini 3.6 Flash',      rpd: 20 },
     { id: 'gemini-pro-latest',               tier: 'reasoning', label: 'Gemini Pro (latest)' },
-    { id: 'gemini-3.5-flash',                tier: 'reasoning', label: 'Gemini 3.5 Flash' },
-    { id: 'gemini-3-flash',                  tier: 'reasoning', label: 'Gemini 3 Flash' },
+    { id: 'gemini-3.5-flash',                tier: 'reasoning', label: 'Gemini 3.5 Flash',      rpd: 20 },
+    { id: 'gemini-3-flash',                  tier: 'reasoning', label: 'Gemini 3 Flash',        rpd: 20 },
     { id: 'gemini-2.5-pro',                  tier: 'reasoning', label: 'Gemini 2.5 Pro' },
-    { id: 'gemini-2.5-flash',                tier: 'reasoning', label: 'Gemini 2.5 Flash' },
+    { id: 'gemini-2.5-flash',                tier: 'reasoning', label: 'Gemini 2.5 Flash',      rpd: 20 },
     { id: 'gemini-2.0-flash',                tier: 'reasoning', label: 'Gemini 2.0 Flash' },
 
     // ── Fast / lightweight (preferred for prose / quick chat) ─────
+    // The 500-RPD Lites lead this tier deliberately. They are the models that actually answer once
+    // the reasoning tier is spent, which on a 20-RPD ceiling is most of the day.
+    { id: 'gemini-3.5-flash-lite',           tier: 'fast',      label: 'Gemini 3.5 Flash-Lite', rpd: 500 },
+    { id: 'gemini-3.1-flash-lite',           tier: 'fast',      label: 'Gemini 3.1 Flash-Lite', rpd: 500 },
     { id: 'gemini-flash-latest',             tier: 'fast',      label: 'Gemini Flash (latest)' },
-    { id: 'gemini-3.1-flash-lite',           tier: 'fast',      label: 'Gemini 3.1 Flash-Lite' }, // 500 RPD!
-    { id: 'gemini-2.5-flash-lite',           tier: 'fast',      label: 'Gemini 2.5 Flash-Lite' },
-    { id: 'gemini-2.0-flash-lite',           tier: 'fast',      label: 'Gemini 2.0 Flash-Lite' },
     { id: 'gemini-flash-lite-latest',        tier: 'fast',      label: 'Gemini Flash-Lite (latest)' },
+    { id: 'gemini-2.5-flash-lite',           tier: 'fast',      label: 'Gemini 2.5 Flash-Lite', rpd: 20 },
+    { id: 'gemini-2.0-flash-lite',           tier: 'fast',      label: 'Gemini 2.0 Flash-Lite' },
     { id: 'gemini-1.5-flash-8b',             tier: 'fast',      label: 'Gemini 1.5 Flash-8B' },
 
-    // ── Gemma open-weight models — 1500 RPD EACH ─────────────────
-    // Tier them as 'fast' since they're sized like Flash-class. Quality
-    // is roughly Gemini 3 Flash per arena.ai. The 1500 RPD ceiling is
-    // ~50× larger than 2.5 Flash, so these effectively become the
-    // primary fallback when Gemini's tighter buckets exhaust.
-    // (Dashboard labels: 'Gemma 4 26B' / 'Gemma 4 31B'. Actual API IDs
-    //  may use the -it instruction-tuned suffix or the 'latest' alias —
-    //  unknown which form is currently live, so we try both forms and
-    //  let 404 auto-skip the dead one.)
-    { id: 'gemma-4-26b-it',                  tier: 'fast',      label: 'Gemma 4 26B' },
-    { id: 'gemma-4-31b-it',                  tier: 'fast',      label: 'Gemma 4 31B' },
+    // ── Gemma open-weight models — 14.4K RPD EACH ────────────────
+    // Tier them as 'fast' since they're sized like Flash-class. The dashboard shows 14,400 RPD,
+    // which is ~720x a Flash model's ceiling, so these are the real floor under the whole chain.
+    // (Dashboard labels are 'Gemma 4 26B' / 'Gemma 4 31B'. The API ID form is unconfirmed, so both
+    //  the -it instruction-tuned suffix and the bare name are tried and 404 auto-skips the dead one.)
+    { id: 'gemma-4-26b-it',                  tier: 'fast',      label: 'Gemma 4 26B',           rpd: 14400 },
+    { id: 'gemma-4-31b-it',                  tier: 'fast',      label: 'Gemma 4 31B',           rpd: 14400 },
     { id: 'gemma-3-27b-it',                  tier: 'fast',      label: 'Gemma 3 27B' },
     { id: 'gemma-2-27b-it',                  tier: 'fast',      label: 'Gemma 2 27B' },
 ];

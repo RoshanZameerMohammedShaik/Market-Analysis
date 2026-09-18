@@ -154,20 +154,39 @@ async function postOnce({ model, system, messages, key, signal }) {
         // ("23s"). The JSON form is what their quota API actually uses, so
         // we prefer that.
         let retryAfter = parseFloat(res.headers.get('retry-after')) || null;
+        let quotaScope = 'minute';
+        let parsedBody = null;
         try {
             const parsed = JSON.parse(respBody);
+            parsedBody = parsed;
             const details = parsed?.error?.details || [];
             for (const d of details) {
                 if (d.retryDelay) {
                     const m = String(d.retryDelay).match(/^([\d.]+)\s*s/);
                     if (m) retryAfter = parseFloat(m[1]);
                 }
+                // IS THIS THE DAILY CAP OR JUST THE PER-MINUTE ONE?
+                //
+                // The two need completely different handling -- an RPM 429 clears in seconds, an RPD
+                // 429 does not clear until midnight Pacific -- and a bare 429 does not say which.
+                // Google's QuotaFailure details do: the quotaId reads like
+                // "GenerateRequestsPerDayPerProjectPerModel-FreeTier" versus the PerMinute variant.
+                // Checking the violations AND the message text, because the shape of these payloads
+                // has changed before and the message is the more stable of the two.
+                for (const v of (d.violations || [])) {
+                    const idp = `${v.quotaId || ''} ${v.quotaMetric || ''}`;
+                    if (/per\s*day|PerDay/i.test(idp)) quotaScope = 'day';
+                }
+            }
+            if (/per\s*day|daily\s+quota|requests per day/i.test(parsedBody?.error?.message || '')) {
+                quotaScope = 'day';
             }
         } catch (_) { /* body wasn't JSON */ }
 
         const err = new Error(parseGeminiError(res.status, respBody, retryAfter));
         err.status = res.status;
         err.retryAfterSec = retryAfter;
+        err.quotaScope = quotaScope;
         throw err;
     }
     return res;
@@ -215,7 +234,7 @@ export async function* stream({ system, messages, key, signal, tier = 'default',
                 // Terminal 429 → record this tier as cooling so future
                 // calls skip it and try the alternate tier directly.
                 if (err?.status === 429) {
-                    markCooling(model, err.retryAfterSec);
+                    markCooling(model, err.retryAfterSec, err.quotaScope);
                     err.tierCooling = true;
                     err.coolingModel = model;
                 }

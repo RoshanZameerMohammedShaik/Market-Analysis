@@ -42,6 +42,11 @@ on:
       - 'js/macro.js'
       - 'js/confidence.js'
       - 'tools/macro_check.mjs'
+      - 'tools/gemini_roster_check.mjs'
+      - 'js/mia/backends/gemini-models.js'
+      - 'js/mia/backends/tier-cooldown.js'
+      - 'js/mia/backends/api-gemini.js'
+      - 'js/mia/voice-live.js'
       - 'tools/browser_sources_check.mjs'
       - 'tools/write_macro_slice.mjs'
       - 'model/macro.json'
@@ -104,6 +109,11 @@ on:
       - 'js/macro.js'
       - 'js/confidence.js'
       - 'tools/macro_check.mjs'
+      - 'tools/gemini_roster_check.mjs'
+      - 'js/mia/backends/gemini-models.js'
+      - 'js/mia/backends/tier-cooldown.js'
+      - 'js/mia/backends/api-gemini.js'
+      - 'js/mia/voice-live.js'
       - 'tools/browser_sources_check.mjs'
       - 'tools/write_macro_slice.mjs'
       - 'model/macro.json'
@@ -226,6 +236,14 @@ jobs:
       # ranking at all. Network assertions here are tolerant: FRED being unreachable is an
       # outage, not a defect, and a check that fails on someone else's downtime gets ignored
       # and then deleted.
+      # The Gemini roster, the quota-scope cooldown and the Live chain. Offline: it asserts ordering
+      # and cooldown arithmetic, not network access. The load-bearing ones are that the 500-RPD Lites
+      # lead the fast tier (every 20-RPD model is spent by the twentieth question of the day, so the
+      # Lites are what actually answers) and that a DAILY 429 parks a model until the counters reset
+      # instead of being retried every 30 minutes until midnight.
+      - name: Check the Gemini model roster and quota cooldowns
+        run: node tools/gemini_roster_check.mjs
+
       - name: Check macro regime and per-symbol beta
         run: node tools/macro_check.mjs
 

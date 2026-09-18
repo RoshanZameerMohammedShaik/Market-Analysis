@@ -23,17 +23,66 @@
 // chunks to an AudioContext queue. Browser security: getUserMedia
 // requires HTTPS, which GitHub Pages provides by default.
 
-// Live API model IDs. Verified against Google's get-started-websocket
-// example (ai.google.dev/gemini-api/docs/live-api/get-started-websocket).
-// The dashboard's display labels ("Gemini 2.5 Flash Native Audio Dialog")
-// are NOT the API IDs — Google uses '...-live-preview' suffixed IDs in
-// the actual API. We try the newer 3.1 first; if the user's account
-// doesn't have access, the 2.5 fallback usually does.
+// Live API model IDs. The dashboard's display labels ("Gemini 2.5 Flash Native Audio Dialog") are
+// NOT the API IDs — Google uses '...-live-preview' suffixed IDs in the actual API.
+//
+// Live API models, newest first. The chain tries each in order and moves on when one is not
+// available to this account, so an ID that does not exist costs one failed handshake and is skipped.
+//
+// From Roshan's 2026-09-18 dashboard, the Live API tier is the opposite of the text tier: RPM and
+// RPD are BOTH Unlimited, only TPM is capped (65K for the 3.x Live models, 1M for 2.5 Native Audio).
+// That matters for how Mia should be used -- voice has effectively no request ceiling, while text
+// chat runs out after twenty questions on the good models. Voice is the cheap path, not the
+// expensive one.
+//
+// 'Gemini 3.8 Live Extended Thinking' is listed as its own model with its own quota, so it is worth
+// trying ahead of plain 3.8: same unlimited RPD, better reasoning for tool-heavy asks.
+//
+// HONEST CAVEAT on the IDs below: the dashboard shows display LABELS, not API IDs, and Google has
+// never published a 3.8 Live ID. The three 3.8 entries are the plausible forms following the
+// established '-live-preview' convention from 3.1. Whichever is real connects; the others fail the
+// handshake once and are skipped, exactly as the Gemma IDs in gemini-models.js are handled. If a
+// future dashboard or doc confirms the real ID, prune the losers.
 const LIVE_MODELS = {
-    'flash-live':   'gemini-3.1-flash-live-preview',
-    'flash-25':     'gemini-2.5-flash-preview-native-audio-dialog',
-    'flash-20':     'gemini-2.0-flash-live-001',
+    'flash-38-thinking':  'gemini-3.8-flash-live-extended-thinking-preview',
+    'flash-38':           'gemini-3.8-flash-live-preview',
+    'flash-38-alt':       'gemini-3.8-live-preview',
+    'flash-live':         'gemini-3.1-flash-live-preview',
+    'flash-25':           'gemini-2.5-flash-preview-native-audio-dialog',
+    'flash-20':           'gemini-2.0-flash-live-001',
 };
+
+
+// REMEMBER WHICH LIVE MODEL ACTUALLY WORKED.
+//
+// The chain discovers access by attempting a connection, which is the right approach -- Google does
+// not expose "can this key use this preview model" any other way. But it was rediscovered from
+// scratch on every session, and nothing was persisted. That was survivable while the newest entry
+// was the one that worked; it stops being survivable the moment unverified IDs lead the list, because
+// every voice call would then pay a failed WebSocket handshake for each one before connecting.
+//
+// So: cache the winner, try it first, and re-probe from the top once a day so a model Google enables
+// later is actually picked up instead of being permanently shadowed by the cached answer.
+const LIVE_PICK_KEY = 'mia-live-model-pick';
+const REPROBE_AFTER_MS = 24 * 60 * 60 * 1000;
+
+function readLivePick() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(LIVE_PICK_KEY) || 'null');
+        if (!raw || typeof raw.model !== 'string') return null;
+        if (Date.now() - (raw.ts || 0) > REPROBE_AFTER_MS) return null;   // stale: re-probe the top
+        // A cached pick that is no longer in the catalog (renamed, retired) must not pin the chain.
+        if (!Object.values(LIVE_MODELS).includes(raw.model)) return null;
+        return raw.model;
+    } catch (_) { return null; }
+}
+
+function writeLivePick(model) {
+    try { localStorage.setItem(LIVE_PICK_KEY, JSON.stringify({ model, ts: Date.now() })); } catch (_) {}
+}
+
+/** Exposed so the voice panel can show which model is live, and for tests. */
+export function currentLivePick() { return readLivePick(); }
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
@@ -189,7 +238,7 @@ const RECONNECT_WINDOW_MS = 5 * 60 * 1000;
 export async function openLiveSession(opts = {}) {
     const {
         apiKey,
-        model = LIVE_MODELS['flash-live'],
+        model = null,   // null = use the remembered pick, else walk the catalog newest-first
         systemPrompt = '',
         voiceName = DEFAULT_VOICE,
         onTextOut = null,
@@ -209,9 +258,11 @@ export async function openLiveSession(opts = {}) {
     // for preview models — flash-live (3.1) may 1008 for some, while
     // flash-25 native-audio works. We discover which one works by
     // attempting the connection rather than asking ahead of time.
-    const modelChain = model
-        ? [model, ...Object.values(LIVE_MODELS).filter(m => m !== model)]
-        : Object.values(LIVE_MODELS);
+    // Order: an explicit caller override, then whatever worked last time, then the full catalog
+    // newest-first. De-duplicated so a remembered pick is not attempted twice.
+    const remembered = readLivePick();
+    const preferred = [model, remembered].filter(Boolean);
+    const modelChain = [...new Set([...preferred, ...Object.values(LIVE_MODELS)])];
 
     // Mutable state shared by every WebSocket the wrapper opens. Only
     // `userClosed` is set by the caller's close(); everything else is
@@ -502,6 +553,7 @@ export async function openLiveSession(opts = {}) {
             const ws = await openOnce(candidateModel);
             state.currentWs = ws;
             state.successfulModel = candidateModel;
+            writeLivePick(candidateModel);
             console.log('[mia/live] Connected on model:', candidateModel);
             break;
         } catch (e) {

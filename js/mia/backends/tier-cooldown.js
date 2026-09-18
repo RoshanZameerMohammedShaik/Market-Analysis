@@ -40,19 +40,70 @@ function writeMap(map) {
     try { localStorage.setItem(LS_KEY, JSON.stringify(map)); } catch (_) {}
 }
 
-// Record that `model` is now cooling. retryAfterSec is the server's hint
-// (in seconds) when present; otherwise we use the default. Returns the
-// computed reset timestamp so callers can log / display it.
-export function markCooling(model, retryAfterSec) {
-    const cooldownMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
-        ? Math.min(retryAfterSec * 1000, MAX_HINT_MS)
-        : DEFAULT_COOLDOWN_MS;
+// Milliseconds until the free tier's DAILY counters roll over.
+//
+// AI Studio free-tier RPD resets at midnight Pacific, not UTC and not on a rolling 24h window from
+// first use. Computed through Intl rather than a fixed offset so it stays correct across the DST
+// transition -- America/Los_Angeles is UTC-8 in winter and UTC-7 in summer, and hardcoding either
+// would be wrong for half the year.
+function msUntilDailyReset(now = new Date()) {
+    try {
+        const fmt = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/Los_Angeles', hour12: false,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+        });
+        const p = {};
+        for (const part of fmt.formatToParts(now)) p[part.type] = part.value;
+        const h = p.hour === '24' ? 0 : Number(p.hour);
+        const elapsed = (h * 3600 + Number(p.minute) * 60 + Number(p.second)) * 1000;
+        const remaining = 86400_000 - elapsed;
+        // A tiny buffer past midnight: asking at the exact boundary tends to return one more 429.
+        return Math.max(60_000, remaining + 60_000);
+    } catch (_) {
+        // No Intl timezone support: fall back to a conservative hour rather than parking for a day.
+        return 60 * 60 * 1000;
+    }
+}
+
+// Record that `model` is now cooling.
+//
+// `scope` distinguishes the two completely different things a 429 can mean, which this used to
+// conflate:
+//
+//   'minute' (default) -- RPM hit. Clears in seconds. Retrying soon is correct.
+//   'day'              -- RPD exhausted. Will not clear until midnight Pacific. Retrying is
+//                         guaranteed to fail and costs a round-trip every time.
+//
+// Every 429 used to be capped at MAX_HINT_MS (30 minutes), so a model whose DAILY quota was spent
+// got retried every half hour until midnight. With the 2026-09-18 dashboard showing six
+// reasoning-tier models at or over their 20 RPD ceiling, that was six wasted round-trips before
+// every single answer, all day, for the rest of the day. Now a daily 429 parks the model until the
+// counters actually roll over and the chain walks straight past it to the 500-RPD Lites.
+export function markCooling(model, retryAfterSec, scope = 'minute') {
+    let cooldownMs;
+    if (scope === 'day') {
+        // Honour a server hint only if it is LONGER than our computed reset -- Google sometimes
+        // returns a short retryDelay alongside a daily violation, and trusting it reintroduces the
+        // retry storm this exists to stop.
+        const hinted = Number.isFinite(retryAfterSec) && retryAfterSec > 0 ? retryAfterSec * 1000 : 0;
+        cooldownMs = Math.max(msUntilDailyReset(), hinted);
+    } else {
+        cooldownMs = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+            ? Math.min(retryAfterSec * 1000, MAX_HINT_MS)
+            : DEFAULT_COOLDOWN_MS;
+    }
     const resetAt = Date.now() + cooldownMs;
     const map = readMap();
-    map[model] = { resetAt };
+    map[model] = { resetAt, scope };
     writeMap(map);
     document.dispatchEvent(new CustomEvent('ma:gemini-tier-cooldown-changed'));
     return resetAt;
+}
+
+// Exported for the quota panel and for tests: is this model down for the day, or just a minute?
+export function coolingScope(model) {
+    return readMap()[model]?.scope || null;
 }
 
 // Returns the ms remaining until `model` is healthy again, or 0 if it's
