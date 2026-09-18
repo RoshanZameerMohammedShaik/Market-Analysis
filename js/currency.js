@@ -19,6 +19,7 @@
 // when Frankfurter is down (rare).
 
 import { fetchWithProxy } from './data.js';
+import { decimalsFor } from './price-round.js';
 
 const MODE_KEY = 'ma-currency-mode';
 const RATE_KEY = 'ma-fx-rates-v2';
@@ -183,13 +184,23 @@ export function format(value, opts = {}) {
     const mode = getMode();
     const src = (opts.srcCurrency || 'USD').toUpperCase();
     const r = loadCachedRates();
-    const digits = (n) => opts.digits ?? (Math.abs(n) < 1 ? 4 : 2);
+    // decimalsFor(), not a local 4dp cap.
+    //
+    // The cap collapsed every sub-penny asset to "$0.0000": SHIB, BONK, FLOKI and 48 other live
+    // symbols. js/price-round.js already solves this with a magnitude-aware ladder that switches to
+    // SIGNIFICANT FIGURES below a cent, and it is the ONE browser implementation -- mirrored by
+    // price_round.py with tools/band_sync_check.py failing the build if the two disagree. Adding a
+    // second rule here is how a codebase ends up with two engines for one number.
+    //
+    // Applied to the value being PRINTED, which after conversion may be a different magnitude than
+    // the source: 0.00001 USD is 0.00154 JPY, and those want different precision.
+    const digits = (n) => opts.digits ?? decimalsFor(n);
     const localeFor = (code) => code === 'INR' ? 'en-IN' : 'en-US';
 
     // No conversion path: src == mode.
     if (src === mode) {
         return getCurrencySymbol(mode) + num.toLocaleString(localeFor(mode), {
-            minimumFractionDigits: digits(num),
+            minimumFractionDigits: Math.min(2, digits(num)),
             maximumFractionDigits: digits(num),
         });
     }
@@ -198,14 +209,14 @@ export function format(value, opts = {}) {
         const converted = convert(num, src, mode, r);
         if (Number.isFinite(converted)) {
             return getCurrencySymbol(mode) + converted.toLocaleString(localeFor(mode), {
-                minimumFractionDigits: digits(converted),
+                minimumFractionDigits: Math.min(2, digits(converted)),
                 maximumFractionDigits: digits(converted),
             });
         }
     }
     // Unsupported source currency (rate missing): render in native.
     return getCurrencySymbol(src) + num.toLocaleString('en-US', {
-        minimumFractionDigits: digits(num),
+        minimumFractionDigits: Math.min(2, digits(num)),
         maximumFractionDigits: digits(num),
     });
 }

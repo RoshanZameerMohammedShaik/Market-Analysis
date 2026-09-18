@@ -115,6 +115,18 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             // holds all day, so it wins in both places; falling back to the live band only when
             // the lock carries none (a legacy record predating this).
             forecastBand: locked.forecastBand || prediction.forecastBand,
+            // The bars stay LIVE, and the card SAYS they are live. I first tried pinning them to the
+            // cron's stored breakdown so they would agree with the locked call by construction, and
+            // it broke the whole card: the ledger's breakdown is a lossier shape --
+            // {technical:{score}, ai:{...}, sentiment:null, market:null} with NO weight fields at
+            // all. Rendering it would have printed "(0%)" for every source and null-crashed on the
+            // unavailable ones, which is how "Analysis failed: Cannot read properties of null" got
+            // on screen. Trading one honest inconsistency for a fabricated weight and a broken card
+            // is not a fix.
+            //
+            // So the honest arrangement is: locked decision, live inputs, and a label saying which
+            // is which. See the 'live now' chip on the Confidence Sources heading.
+            breakdownIsLive: true,
         };
     }
 
@@ -198,10 +210,13 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             </div>`;
     }
 
-    const insightSummary = generateHumanInsight(prediction, sentiment);
+    // `view`, not `prediction`. This took the LIVE signal while the headline showed the LOCKED one,
+    // so a locked SELL was captioned "No clear direction. Indicators are conflicting" — the branch
+    // was correct, it was just describing a different call from the one on screen.
+    const insightSummary = generateHumanInsight(view, sentiment);
     const newsHTML = renderNews(newsData, sentiment);
     const pennyDashboardHTML = renderPennyDashboard(prediction);
-    const attributionHTML = renderAttribution(prediction.attribution);
+    const attributionHTML = renderAttribution(view.attribution);
     // Horizon-bands strip removed — the per-symbol Prediction Accuracy
     // column in the Full Ledger already shows past hit rate, and it's
     // per-symbol rather than pooled across the whole universe like the
@@ -272,8 +287,8 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         </div>`;
 
     let breakdownHTML = '';
-    if (prediction.breakdown) {
-        const bd = prediction.breakdown;
+    if (view.breakdown) {
+        const bd = view.breakdown;
         const aiLabel = bd.ai?.modelTier === 'penny' ? 'AI (Penny model)' : 'AI Model';
         const fmtWeight = (w) => Number.isFinite(w) ? (Math.round(w * 10) / 10).toString() : '0';
         const row = (label, score, weight, color) => `
@@ -284,12 +299,27 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             </div>`;
         breakdownHTML = `
             <div class="source-breakdown">
-                <div class="breakdown-title">Confidence Sources</div>
+                <div class="breakdown-title">Confidence Sources${
+                    // When the bars are LIVE beside a locked call they can genuinely disagree with
+                    // it — the call was committed earlier and the inputs have moved since. Saying so
+                    // is the only honest option: silently showing bullish bars under a locked SELL
+                    // reads as the card contradicting itself, and quietly hiding them would throw
+                    // away real information. A ledger-locked card takes the cron's own breakdown and
+                    // never shows this.
+                    locked && view.breakdownIsLive
+                        ? ` <span class="breakdown-live" title="The call above was locked earlier today and holds. These source scores are recomputed live, so they can drift away from it as the inputs move. They explain the CURRENT state, not the locked decision.">live now</span>`
+                        : ''
+                }</div>
                 <div class="breakdown-bars">
-                    ${bd.ai.available ? row(aiLabel, bd.ai.score, bd.ai.weight, 'var(--accent)') : ''}
-                    ${row('Technicals', bd.technical.score, bd.technical.weight, 'var(--green)')}
-                    ${row('Sentiment', bd.sentiment.score, bd.sentiment.weight, 'var(--yellow)')}
-                    ${row('Market', bd.market.score, bd.market.weight, '#a371f7')}
+                    ${/* Optional-chained on purpose. These were bare bd.x.score reads, and one null
+                          source took down the ENTIRE signal card with "Cannot read properties of
+                          null (reading 'score')" — the user saw "Analysis failed", not a missing
+                          bar. A source that cannot be read should cost its own row and nothing
+                          more. */''}
+                    ${bd.ai?.available && Number.isFinite(bd.ai?.score) ? row(aiLabel, bd.ai.score, bd.ai.weight, 'var(--accent)') : ''}
+                    ${Number.isFinite(bd.technical?.score) ? row('Technicals', bd.technical.score, bd.technical.weight, 'var(--green)') : ''}
+                    ${Number.isFinite(bd.sentiment?.score) ? row('Sentiment', bd.sentiment.score, bd.sentiment.weight, 'var(--yellow)') : ''}
+                    ${Number.isFinite(bd.market?.score) ? row('Market', bd.market.score, bd.market.weight, '#a371f7') : ''}
                 </div>
             </div>`;
     }

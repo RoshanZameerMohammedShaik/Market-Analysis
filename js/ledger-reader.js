@@ -696,6 +696,11 @@ export async function readTodayLock(symbol, anchor = null) {
         // band, and the card showed two different expected highs for the same day.
         forecastBand: row.forecastBand && Array.isArray(row.forecastBand.days)
             ? row.forecastBand : null,
+        // The per-source scores the cron committed WITH this call. Returned for the same reason the
+        // band is: without it the card pinned a locked SELL headline above LIVE source bars that had
+        // since turned bullish, and the two openly contradicted each other on screen.
+        breakdown: row.breakdown && typeof row.breakdown === 'object' ? row.breakdown : null,
+        weightedScore: Number.isFinite(row.weightedScore) ? row.weightedScore : null,
         region: row.region || null,
     };
 }

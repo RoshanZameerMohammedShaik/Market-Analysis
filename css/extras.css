@@ -552,6 +552,17 @@ html[data-dev="1"] body { padding-top: 22px; }
     background: color-mix(in srgb, var(--text-muted) 14%, transparent);
 }
 
+/* "live now" beside Confidence Sources: the bars are recomputed while the call above them is held
+   from earlier, so they can legitimately disagree. Quiet but present — the alternative was a card
+   that looked like it was arguing with itself. */
+.breakdown-live {
+    margin-left: 8px; padding: 1px 6px; border-radius: 999px;
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 16%, transparent);
+    cursor: help;
+}
+
 .pt-from {
     font-weight: 500; opacity: 0.75; font-size: 0.86em;
 }
