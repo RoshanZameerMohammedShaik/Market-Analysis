@@ -37,14 +37,22 @@
 /manifest.webmanifest
   Cache-Control: public, max-age=300, must-revalidate
 
-# Model artifacts (calibration tables, LSTM weights, ledger jsonl)
-# update daily via the cron. 1-hour cache so the page picks up new
-# numbers within the hour without hammering the edge on every visit.
-# Rewritten by every cron run (8x/day). A 1h cache here served a stale slice,
-# which put readTodayLock back on the visit-time fallback for up to an hour.
-# Revalidate every time; it is 237 KB gzipped so a 304 is cheap.
-/model/ledger/recent.json
-  Cache-Control: public, no-cache
-
+# Model artifacts: ONE rule, because Cloudflare Pages applies EVERY matching pattern and
+# concatenates the results.
+#
+# This used to carry a specific `/model/ledger/recent.json -> no-cache` rule AND a general
+# `/model/* -> max-age=3600` rule. Both matched the slice, so the edge actually served:
+#
+#     Cache-Control: public, no-cache, public, max-age=3600, must-revalidate
+#
+# which is self-contradictory. HTTP says no-cache wins, so the behaviour happened to be right, but
+# it was right by accident -- any client that honoured the max-age instead would serve an hour-old
+# slice, which is precisely the failure the no-cache rule was added to prevent (a stale slice put
+# readTodayLock back on the visit-time fallback for up to an hour). A header that depends on
+# precedence resolution to mean the correct thing is a latent bug, not a working config.
+#
+# So: no-cache for everything under /model/. These files are rewritten by the cron up to 8x a day
+# and none of them are content-hashed, so revalidation is the only correct policy. It is cheap --
+# brotli takes the 6.6 MB recent.json to 912 KB, and an unchanged file answers 304 with no body.
 /model/*
-  Cache-Control: public, max-age=3600, must-revalidate
+  Cache-Control: public, no-cache
