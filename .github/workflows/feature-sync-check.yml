@@ -43,6 +43,10 @@ on:
       - 'js/confidence.js'
       - 'tools/macro_check.mjs'
       - 'tools/gemini_roster_check.mjs'
+      - 'tools/mia_tools_check.mjs'
+      - 'js/mia/tools.js'
+      - 'js/mia/tool-schemas.js'
+      - 'package.json'
       - 'js/mia/backends/gemini-models.js'
       - 'js/mia/backends/tier-cooldown.js'
       - 'js/mia/backends/api-gemini.js'
@@ -110,6 +114,10 @@ on:
       - 'js/confidence.js'
       - 'tools/macro_check.mjs'
       - 'tools/gemini_roster_check.mjs'
+      - 'tools/mia_tools_check.mjs'
+      - 'js/mia/tools.js'
+      - 'js/mia/tool-schemas.js'
+      - 'package.json'
       - 'js/mia/backends/gemini-models.js'
       - 'js/mia/backends/tier-cooldown.js'
       - 'js/mia/backends/api-gemini.js'
@@ -241,6 +249,13 @@ jobs:
       # lead the fast tier (every 20-RPD model is spent by the twentieth question of the day, so the
       # Lites are what actually answers) and that a DAILY 429 parks a model until the counters reset
       # instead of being retried every 30 minutes until midnight.
+      # Mia's tool registry: declarations and dispatch must agree, every surface she should reach is
+      # reachable, and the one she must NOT reach stays unreachable. She had zero tools for the
+      # auto-trading desk that carries her name, so "how is your desk doing" left her guessing at a
+      # P&L figure. Arming/resetting stays out on purpose -- that moves money and needs the PAT.
+      - name: Check Mia's tool coverage
+        run: node tools/mia_tools_check.mjs
+
       - name: Check the Gemini model roster and quota cooldowns
         run: node tools/gemini_roster_check.mjs
 

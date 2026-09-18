@@ -289,6 +289,24 @@ export const TOOL_DECLARATIONS = [
         description: 'Simulated practice portfolio: cash + positions + unrealized P&L. Use when the user asks about their holdings or simulator status.',
         parameters: { type: T.OBJECT, properties: {} },
     },
+    // ── Mia 2.0 auto-trading desk (read-only) ───────────────────────
+    // The desk carries Mia's name and she had no way to see it. "How is your desk doing" left her
+    // guessing at a P&L figure, which is the worst thing this app can do. Read-only by design:
+    // arming moves money and needs a PAT the user pastes himself, and the desk has already once
+    // opened a $25,000 book nobody asked for.
+    {
+        name: 'get_desk_status',
+        description: "Mia's own auto-trading desk (PAPER money, runs on a schedule): armed or not, equity, P&L, cash, how many distinct symbols it holds across all strategy sleeves, fills, costs, the per-strategy leaderboard, and when it last ran. This is NOT the user's manual practice portfolio — use get_portfolio for that. Call this for any question about how Mia's own trading is going.",
+        parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        name: 'get_desk_trades',
+        description: "The desk's fill log, newest first: side, symbol, size, which strategy sleeve, the reason recorded at the time, and running realized P&L. Use for 'what has your desk traded', 'why did you buy X', 'show me your trades'.",
+        parameters: {
+            type: T.OBJECT,
+            properties: { limit: { type: T.NUMBER, description: 'How many fills to return (default 12, max 50).' } },
+        },
+    },
 
     // ── Control tools (UI mutations) ────────────────────────────────
     {
@@ -314,7 +332,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'switch_timeframe',
-        description: 'Switch the analysis timeframe.',
+        description: 'Switch the analysis horizon between today and tomorrow, then re-run. Changes the whole signal: the engine scores a different horizon and the calibrated band widens for tomorrow. Use for "what about tomorrow" or "switch to today".',
         parameters: {
             type: T.OBJECT,
             properties: { timeframe: { type: T.STRING, description: 'today or tomorrow' } },
@@ -361,7 +379,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'refresh_hot_picks',
-        description: 'Re-scan the hot picks list.',
+        description: 'Re-scan the market and rebuild the Hot Picks list from scratch. Takes around 30 seconds because it analyses the whole universe, so say it is running rather than waiting silently. Use only when the user explicitly asks for a refresh; get_hot_picks reads the existing list instantly.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
@@ -413,8 +431,19 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'toggle_currency',
-        description: 'Toggle USD ↔ INR display.',
+        description: 'Flip between USD and INR. If the user NAMES a currency (yen, euro, pounds…), use set_currency instead — this only handles those two.',
         parameters: { type: T.OBJECT, properties: {} },
+    },
+    {
+        // The picker offers 18 currencies; Mia could only flip between two of them, so "show me
+        // prices in yen" had no tool that could do it.
+        name: 'set_currency',
+        description: 'Set the display currency to a specific one. Supported: USD, EUR, GBP, JPY, INR, CNY, AUD, CAD, CHF, HKD, SGD, KRW, BRL, MXN, NZD, SEK, NOK, ZAR. Every price on screen re-renders in it.',
+        parameters: {
+            type: T.OBJECT,
+            properties: { code: { type: T.STRING, description: 'Three-letter currency code, e.g. JPY.' } },
+            required: ['code'],
+        },
     },
     {
         name: 'scroll_to',

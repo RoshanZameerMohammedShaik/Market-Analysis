@@ -182,6 +182,14 @@ def main():
             # UI as a default. The field now starts empty and the user types a figure, so no
             # amount is ever assumed anywhere in the system.
             'minAllocationUSD': 400.0,
+            # The desk-wide position cap, surfaced so the UI and Mia can both state it.
+            # Roshan's rule is that the number he gives is the TOTAL stocks held at any time, and the
+            # book currently holds 7 against a cap of 2 because those positions were opened under the
+            # old per-sleeve logic. Mia could not report that at all -- the number was in the config
+            # and not in the slice, so asking her "how many is it allowed to hold" got null.
+            'maxPositions': (cfg.get('risk') or {}).get('maxPositions'),
+            'minHoldDays': (cfg.get('risk') or {}).get('minHoldDays'),
+            'neverSellAtLoss': cfg.get('neverSellAtLoss'),
         },
         'equityCurve': curve[-args.runs:],
         'trades': trades[-args.trades:][::-1],   # newest first: the UI reads top-down

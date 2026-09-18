@@ -97,6 +97,34 @@ export function setPracticeTotalUSD(usd, cashUSD, instantiated) {
     else patchCombined();
 }
 
+/**
+ * Fetch the desk slice for a caller OUTSIDE this panel (Mia's tools).
+ *
+ * Exported rather than copied. Three independent copies of one fetch is exactly how
+ * model/ledger/<year>.jsonl stayed dead in three files for weeks after the ledger was sharded, and
+ * this URL carries the same trap: Cloudflare's SPA fallback answers a MISSING file with HTTP 200 and
+ * the contents of index.html, so res.ok proves nothing and the content type is the only reliable
+ * tell. One loader means one place that knows that.
+ *
+ * Returns { ok, slice, reason } -- never throws, because a tool that throws turns into Mia
+ * apologising instead of Mia saying the desk data is not published yet.
+ */
+export async function readDeskSlice() {
+    try {
+        const bucket = Math.floor(Date.now() / (10 * 60 * 1000));
+        const res = await fetch(`${SLICE_URL}?v=${bucket}`, { cache: 'no-cache' });
+        const ctype = res.headers.get('content-type') || '';
+        if (!res.ok) return { ok: false, slice: null, reason: `HTTP ${res.status}` };
+        if (!ctype.includes('json')) {
+            return { ok: false, slice: null,
+                     reason: `served ${ctype || 'an unknown type'} instead of JSON, so the desk timeline is probably not deployed yet` };
+        }
+        return { ok: true, slice: await res.json(), reason: null };
+    } catch (err) {
+        return { ok: false, slice: null, reason: err.message || String(err) };
+    }
+}
+
 async function load() {
     loadState = 'loading';
     render();

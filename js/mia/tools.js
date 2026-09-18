@@ -37,6 +37,8 @@ import { webSearch } from './web-search.js';
 import { getPortfolio, isInstantiated, totalDepositedUSD } from '../portfolio/state.js';
 import { buy as portfolioBuy, sell as portfolioSell, unrealizedPnL } from '../portfolio/trade.js';
 import { getCurrentPrice } from '../portfolio/pricing.js';
+import { readDeskSlice } from '../ui/mia-desk-panel.js';
+import { SUPPORTED_CURRENCIES, setMode as setCurrencyMode, getMode as getCurrencyMode } from '../currency.js';
 
 const TOOLS = {
     get_app_state: {
@@ -403,6 +405,145 @@ const TOOLS = {
         run: ({ expression, as }) => compute({ expression, as }),
         kind: 'read',
     },
+    // ── Mia 2.0 auto-trading desk ─────────────────────────────────────────────
+    // Mia had NO tools for the desk that carries her name. Asked "how is your desk doing",
+    // she had to either refuse or guess -- and guessing a P&L figure is the single worst thing
+    // this app can do. Read-only on purpose; see the note on the write side below.
+    get_desk_status: {
+        desc: 'Mia 2.0 auto-trading desk (PAPER): whether it is armed, equity, P&L, cash, open '
+            + 'positions across all sleeves, fills, costs paid, the per-strategy leaderboard, and '
+            + 'how long ago it last ran. This is the desk that trades on its own schedule — NOT the '
+            + "user's manual practice portfolio (that is get_portfolio).",
+        args: '{}',
+        run: async () => {
+            const { ok, slice, reason } = await readDeskSlice();
+            if (!ok) return { available: false, reason };
+            const cfg = slice.config || {};
+            const t = slice.totals || {};
+            const sleeves = slice.sleeves || {};
+            // Positions are reported DESK-WIDE over distinct symbols, because the cap the user set
+            // is a desk-wide total. Reporting "2 per sleeve" is what made it look like the limit was
+            // being ignored when it was actually being counted per sleeve.
+            const held = new Set();
+            const bySleeve = {};
+            for (const [sid, sl] of Object.entries(sleeves)) {
+                const pos = Object.keys(sl.positions || {});
+                pos.forEach(p => held.add(p));
+                bySleeve[sid] = { cashUSD: sl.cashUSD, pendingUSD: sl.pendingUSD || 0, positions: pos };
+            }
+            const runs = slice.runs || [];
+            const last = runs[0] || null;
+            const lastRunAgoMin = last?.ts
+                ? Math.round((Date.now() - Date.parse(last.ts)) / 60000) : null;
+            return {
+                available: true,
+                armed: cfg.armed === true,
+                armedAt: cfg.armedAt || null,
+                allocationUSD: cfg.allocationUSD ?? null,
+                maxPositionsConfigured: cfg.maxPositions ?? cfg.risk?.maxPositions ?? null,
+                minHoldDays: cfg.minHoldDays ?? null,
+                neverSellAtLoss: cfg.neverSellAtLoss ?? null,
+                seedUSD: slice.seedUSD ?? null,
+                equityUSD: t.equityUSD ?? null,
+                pnlUSD: t.pnlUSD ?? null,
+                pnlPct: t.pnlPct ?? null,
+                // feesUSD, not costsUSD. Field names here are taken from the actual slice
+                // (tools/write_bot_slice.py), not guessed -- my first pass invented costsUSD,
+                // price, side and kind, and every one of them came back null.
+                costsPaidUSD: t.feesUSD ?? null,
+                realizedUSD: t.realizedUSD ?? null,
+                unrealizedUSD: t.unrealizedUSD ?? null,
+                cashUSD: t.cashUSD ?? null,
+                holdingsUSD: t.holdingsUSD ?? null,
+                // T+1 settlement: proceeds from a sale sit here before they are spendable. Deleting
+                // this from net worth is a bug this desk has already had twice, so Mia can see it.
+                unsettledCashUSD: t.unsettledCashUSD ?? null,
+                fills: slice.counts?.trades ?? null,
+                distinctSymbolsHeld: held.size,
+                symbolsHeld: [...held].sort(),
+                sleeves: bySleeve,
+                leaderboard: slice.leaderboard || null,
+                lastRunAt: last?.ts || null,
+                lastRunAgoMinutes: lastRunAgoMin,
+                openMarketsLastRun: last?.openMarkets || null,
+                generatedAt: slice.generatedAt || null,
+                // Stated so Mia can explain a gap instead of implying the desk is broken. The job
+                // fires every 5 hours and loops every ~15 min while alive, so the real gaps are
+                // hand-offs between jobs, which Actions delays by hours under load.
+                scheduleNote: 'Cycles about every 15 minutes while a job is running; a new job is '
+                    + 'scheduled every 5 hours. Gaps longer than that mean the next scheduled job '
+                    + 'has not been picked up yet.',
+            };
+        },
+    },
+
+    get_desk_trades: {
+        desc: 'The auto-trading desk fill log, newest first: what it bought or sold, which '
+            + 'strategy sleeve did it, why (the reason it recorded at the time), the price, and the '
+            + 'running realized P&L after each fill. Use for "what has Mia traded", "why did she buy '
+            + 'X", "show me her trades".',
+        args: '{ limit?: number (default 12, max 50) }',
+        run: async ({ limit } = {}) => {
+            const { ok, slice, reason } = await readDeskSlice();
+            if (!ok) return { available: false, reason };
+            const n = Math.max(1, Math.min(50, Number(limit) || 12));
+            const all = Array.isArray(slice.trades) ? slice.trades : [];
+            return {
+                available: true,
+                // The FULL count alongside the slice, so Mia says "showing 12 of 7" honestly rather
+                // than implying the desk has only ever done 12 things.
+                totalFills: slice.counts?.trades ?? all.length,
+                returned: Math.min(n, all.length),
+                trades: all.slice(0, n).map(tr => ({
+                    at: tr.ts || null,
+                    action: tr.action || null,
+                    symbol: tr.symbol || null,
+                    units: tr.units ?? null,
+                    fillPriceUSD: tr.fillPriceUSD ?? null,
+                    notionalUSD: tr.notionalUSD ?? null,
+                    sleeve: tr.sleeveName || tr.sleeve || null,
+                    strategy: tr.strategy || null,
+                    conviction: tr.conviction ?? null,
+                    why: tr.why || null,
+                    // The cost breakdown is stored per fill and is the honest answer to "why did a
+                    // winning trade lose money" -- spread is usually the largest of the three.
+                    commissionUSD: tr.commissionUSD ?? null,
+                    spreadCostUSD: tr.spreadCostUSD ?? null,
+                    totalCostUSD: tr.totalCostUSD ?? null,
+                    realizedUSD: tr.realizedUSD ?? null,
+                    cumRealizedUSD: tr.cumRealizedUSD ?? null,
+                })),
+            };
+        },
+    },
+
+    // NOT PROVIDED, DELIBERATELY: arming, allocating, stopping or resetting the desk.
+    //
+    // Arming moves money in the simulation and requires a GitHub PAT the user pastes in the browser.
+    // The desk once opened a $25,000 book from a config default and executed 11 fills that nobody
+    // asked for; Roshan's reaction was "I never initiated it". A model that can be talked into
+    // "go ahead and start trading" reintroduces exactly that failure with a friendlier face. Reading
+    // is safe and useful, so Mia reads. Starting is a human decision with a human credential.
+
+    set_currency: {
+        desc: 'Set the display currency to a specific one (USD, EUR, GBP, JPY, INR, CNY, AUD, CAD, '
+            + 'CHF, HKD, SGD, KRW, BRL, MXN, NZD, SEK, NOK, ZAR). Every price on screen re-renders. '
+            + 'Use when the user names a currency; toggle_currency only flips USD/INR.',
+        args: '{ code: string }',
+        run: async ({ code } = {}) => {
+            const want = String(code || '').trim().toUpperCase();
+            const supported = SUPPORTED_CURRENCIES.map(c => c.code);
+            if (!supported.includes(want)) {
+                // Naming the supported set beats a bare failure: Mia can offer the nearest option
+                // instead of apologising without information.
+                return { ok: false, reason: `${want || '(empty)'} is not supported`, supported };
+            }
+            const before = getCurrencyMode();
+            setCurrencyMode(want);
+            return { ok: true, from: before, to: want, note: 'All displayed prices re-rendered.' };
+        },
+    },
+
     get_portfolio: {
         desc: 'simulated practice portfolio: cash + positions + unrealized P&L per holding + total return since instantiation. Returns null if user has not loaded a portfolio yet.',
         args: '{}',
