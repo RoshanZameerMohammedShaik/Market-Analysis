@@ -27,12 +27,26 @@ import { symbolSector } from './sectors.js';
 let cache = null;
 const TTL_MS = 10 * 60 * 1000;
 
+// Is this value a believable US 10-year Treasury yield, in percent?
+//
+// The band is deliberately wide: 0.3% brackets the 2020 lows and 20% is far above anything since
+// 1981, so it accepts any real market while rejecting BOTH failure modes of a units change -- a
+// value 10x too small (0.5 for a 5% yield) and 10x too large (49.98). A guard that only caught one
+// direction would have let this exact bug through.
+function plausible10Y(v) {
+    return Number.isFinite(v) && v >= 0.3 && v <= 20;
+}
+
 async function fetchYield10Y() {
     if (cache && Date.now() - cache.ts < TTL_MS) return cache.value;
     try {
-        // ^TNX = 10Y Treasury yield index (price IS the yield × 100, e.g.
-        // 4.25% → 42.5). We want raw bps deltas so absolute level scaling
-        // doesn't matter — just the change.
+        // ^TNX = the 10Y Treasury yield index, quoted DIRECTLY IN PERCENT (4.998 = 4.998%).
+        //
+        // This comment used to say "price IS the yield x 100, e.g. 4.25% -> 42.5" and the code below
+        // divided accordingly. Both were wrong as of 2026, and the stale comment is what kept the
+        // bug alive: it read as documentation of a deliberate choice rather than an assumption worth
+        // rechecking. Verified against the live feed, and there is now a range guard so a units
+        // change fails loudly instead of scaling silently.
         // Raw '^TNX' — fetchWithProxy encodes the URL once at the proxy
         // layer. Pre-encoding to %5ETNX would get encoded again to
         // %255ETNX (Yahoo 404). Same bug we fixed in regime.js + market.js.
@@ -43,10 +57,29 @@ async function fetchYield10Y() {
         if (closes.length < 6) return null;
         const cur = closes[closes.length - 1];
         const back5 = closes[closes.length - 6];
-        // ^TNX is yield × 10 (e.g. 42.5 = 4.25%). Convert to actual
-        // percentage-point delta over the last 5 sessions.
-        const ppDelta5d = (cur - back5) / 10;
-        cache = { ts: Date.now(), value: { current: cur / 10, ppDelta5d } };
+        // ^TNX IS ALREADY IN PERCENT. Do not divide.
+        //
+        // This used to divide by 10, on the documented belief that "^TNX is yield x 10 (e.g. 42.5 =
+        // 4.25%)". That was true once -- Yahoo quoted the index that way for years -- and it is not
+        // true now. Measured 2026-09-18, the raw closes are [4.961, 4.996, 5.006, 4.947, 4.998]
+        // against a real 10-year Treasury yield of about 5%.
+        //
+        // The consequence was not a cosmetic display error. RISING_PP/FALLING_PP are +/-0.15pp, so
+        // shrinking every delta tenfold meant the 10Y would have had to move 1.5 percentage points
+        // in five sessions to register as "rising" -- roughly never. This entire source has been
+        // silently contributing adjust: 0 for every symbol, while the method string advertised
+        // "yields" as one of the blended inputs.
+        //
+        // Same shape as the ledger shard that stopped existing: upstream changed its format and the
+        // code kept applying a conversion that had quietly become wrong. Hence the range guard
+        // below, which fails loudly instead of scaling silently.
+        if (!plausible10Y(cur) || !plausible10Y(back5)) {
+            console.warn(`[yields] ^TNX out of plausible range (cur ${cur}, back5 ${back5}); `
+                + 'Yahoo may have changed the units again. Abstaining rather than guessing a scale.');
+            return null;
+        }
+        const ppDelta5d = cur - back5;
+        cache = { ts: Date.now(), value: { current: cur, ppDelta5d } };
         return cache.value;
     } catch (_) { return null; }
 }

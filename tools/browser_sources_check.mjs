@@ -97,6 +97,38 @@ if (macro?.available) {
 }
 
 console.log();
+console.log('=== the 10Y yield source reads a real yield, at the right SCALE ===');
+// This source was silently inert for an unknown length of time. js/yields.js divided ^TNX by 10 on
+// the documented belief that Yahoo quoted it as yield x 10 (42.5 = 4.25%). Yahoo now quotes it
+// directly in percent, so the 10-year Treasury came through as 0.4998% and every 5-day delta was a
+// tenth of its true size. With RISING_PP/FALLING_PP at +/-0.15pp, the 10Y would have needed to move
+// 1.5 percentage points in five sessions to register -- so the source returned adjust: 0 for every
+// symbol while the method string advertised "yields" as a blended input.
+//
+// A value check, not a code check: asserting the scale is right is the only thing that catches an
+// upstream units change, which is what actually happened.
+const yld = await page.evaluate(async () => {
+    const m = await import('/js/yields.js');
+    try { return await m.getYieldAdjustment('AAPL', 'BUY'); } catch (e) { return { error: String(e.message) }; }
+});
+if (yld?.available !== true) {
+    warn('the 10Y yield source is unavailable',
+         `${JSON.stringify(yld).slice(0, 140)} -- upstream outage is plausible, a scale guard rejecting the feed is not`);
+} else {
+    console.log(`     10Y = ${yld.current}%  5d delta = ${yld.ppDelta5d}pp  sector ${yld.sector} (${yld.sectorEtf})`);
+    // Any real US 10-year yield since 1981 sits inside this band. A 10x error in either direction
+    // lands outside it, which is the whole point.
+    check('the 10Y yield is in a plausible range (not 10x off)',
+          yld.current > 0.3 && yld.current < 20,
+          `current = ${yld.current} -- 0.4998 means the /10 is back, 49.98 means it is needed`);
+    check('the 5-day delta is a real percentage-point move',
+          Number.isFinite(yld.ppDelta5d) && Math.abs(yld.ppDelta5d) < 3,
+          `ppDelta5d = ${yld.ppDelta5d}`);
+    check('a sector is mapped, so the adjustment can actually apply',
+          !!yld.sectorEtf, JSON.stringify(yld.sector));
+}
+
+console.log();
 console.log(`=== the full ensemble on ${SYMBOL} ===`);
 await page.fill('#search-input', SYMBOL);
 await page.waitForTimeout(2500);

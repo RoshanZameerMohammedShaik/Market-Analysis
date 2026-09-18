@@ -51,6 +51,8 @@ on:
       - 'tools/band_history_check.mjs'
       - 'tools/band_agreement_check.mjs'
       - 'tools/history_slice_check.mjs'
+      - 'tools/app_sweep_check.mjs'
+      - 'js/yields.js'
       - 'tools/write_history_slice.py'
       - 'js/ledger-reader.js'
       - 'model/ledger/history.json'
@@ -107,6 +109,8 @@ on:
       - 'tools/band_history_check.mjs'
       - 'tools/band_agreement_check.mjs'
       - 'tools/history_slice_check.mjs'
+      - 'tools/app_sweep_check.mjs'
+      - 'js/yields.js'
       - 'tools/write_history_slice.py'
       - 'js/ledger-reader.js'
       - 'model/ledger/history.json'
@@ -276,6 +280,15 @@ jobs:
       # returned [], and an empty chart looks exactly like "the engine never recorded a signal". No
       # offline test could catch it -- the bug WAS the fetch -- so this drives the real page and asks
       # the real readers for real rows.
+      # A broad walk of every surface: symbols across shapes, all four panels, both timeframes, the
+      # currency picker, all six themes. It looks for the specific tells this codebase has produced --
+      # NaN / undefined / Invalid Date / [object Object] in visible text, a same-origin 404, an empty
+      # panel, a card whose headline contradicts its own body. Exits 0 by design: it FINDS candidates
+      # to judge, and a sweep that failed the build on a legitimate em-dash placeholder would be
+      # switched off within a week. Read its output.
+      - name: Sweep the whole app for silent breakage
+        run: node tools/app_sweep_check.mjs
+
       - name: Check the ledger history slice feeds its seven consumers
         run: node tools/history_slice_check.mjs
 
