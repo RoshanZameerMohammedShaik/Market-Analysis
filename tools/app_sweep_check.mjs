@@ -189,29 +189,6 @@ for (const sym of SYMBOLS) {
     }
 }
 
-// ── panels ───────────────────────────────────────────────────────────────────
-console.log('  opening panels…');
-await openPanel('panel:portfolio', '#portfolio-launcher', '#portfolio-panel');
-await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
-await openPanel('panel:pl', '#pl-launcher', '#pl-panel');
-await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
-await openPanel('panel:resources', '#about-btn', '#glossary-rail');
-await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
-await openPanel('panel:mia', '#mia-launcher', '#mia-panel');
-await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
-
-// ── always-on sections ───────────────────────────────────────────────────────
-for (const [surface, sel] of [
-    ['section:hotpicks', '#hotpicks-grid'],
-    ['section:scanner', '#scanner-section'],
-    ['section:chart-header', '#chart-header'],
-    ['section:accuracy-strip', '#accuracy-strip'],
-]) {
-    const present = await page.locator(sel).count();
-    if (!present) { add(surface, 'missing', `${sel} absent`); continue; }
-    await scanText(surface, sel);
-}
-
 // ── currency: picking a different currency must actually convert prices ──────
 //
 // The toggle OPENS A PICKER, it does not cycle. My first version of this check clicked it and
@@ -261,6 +238,29 @@ for (const [surface, sel] of [
             await page.waitForTimeout(1600);
         }
     }
+}
+
+// ── panels ───────────────────────────────────────────────────────────────────
+console.log('  opening panels…');
+await openPanel('panel:portfolio', '#portfolio-launcher', '#portfolio-panel');
+await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
+await openPanel('panel:pl', '#pl-launcher', '#pl-panel');
+await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
+await openPanel('panel:resources', '#about-btn', '#glossary-rail');
+await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
+await openPanel('panel:mia', '#mia-launcher', '#mia-panel');
+await page.keyboard.press('Escape').catch(() => null); await page.waitForTimeout(700);
+
+// ── always-on sections ───────────────────────────────────────────────────────
+for (const [surface, sel] of [
+    ['section:hotpicks', '#hotpicks-grid'],
+    ['section:scanner', '#scanner-section'],
+    ['section:chart-header', '#chart-header'],
+    ['section:accuracy-strip', '#accuracy-strip'],
+]) {
+    const present = await page.locator(sel).count();
+    if (!present) { add(surface, 'missing', `${sel} absent`); continue; }
+    await scanText(surface, sel);
 }
 
 // ── themes ───────────────────────────────────────────────────────────────────
