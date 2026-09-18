@@ -414,10 +414,23 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 candles = sparklineToCandles(coin.sparkline);
                 sparklineData = coin.sparkline;
             } else {
-                const data = await fetchCryptoData(coin.id, 30);
-                candles = data.candles;
-                sparklineData = candles.slice(-30).map(c => c.close);
-                await new Promise(r => setTimeout(r, 500));
+                // SKIP, do not fetch. During a bulk scan a coin without a usable sparkline is not
+                // worth a dedicated CoinGecko call.
+                //
+                // Measured 2026-09-18: the free tier now serves about THREE requests before
+                // returning 429 with Retry-After: 58, and at 6-second spacing only five got through
+                // before it cut off again -- roughly 5/min, not the ~30/min this code was written
+                // against. Worse, a CoinGecko 429 carries no Access-Control-Allow-Origin header, so
+                // the browser reports it as a CORS failure and the calling code cannot even see the
+                // status. The console filled with "blocked by CORS policy" for zcoin, zano, pearl-2,
+                // starknet and pudgy-penguins -- all of them this fallback -- and once the limit was
+                // burned, every OTHER coin that needed a call failed too.
+                //
+                // The bulk /coins/markets call already supplies sparklines for the whole page in ONE
+                // request. A handful of coins lacking one is a fine thing to drop from a 50-coin
+                // scan; spending the entire minute's quota on them so that nothing else can load is
+                // not. Individual coins still fetch normally when the user opens them directly.
+                continue;
             }
             if (!candles || candles.length < 20) continue;
             const multiData = {

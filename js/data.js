@@ -405,7 +405,20 @@ const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 // couple minutes) don't re-hit the network at all. fetchWithProxy still adds
 // the CORS-proxy fallback for the rare case direct fails.
 const _cgGate = { last: 0, chain: Promise.resolve() };
-const CG_MIN_INTERVAL_MS = 650;   // ~1.5 req/s — CoinGecko free tier is strict (~30/min)
+// MEASURED, not assumed. This was 650ms on the belief that the free tier allowed ~30/min. It does
+// not: on 2026-09-18 a burst returned `200 200 200 429 429 429...` with Retry-After: 58, and at
+// 6-second spacing only 5 of 8 got through. The sustainable rate is roughly 5 per minute, so 12s.
+//
+// A CoinGecko 429 also carries NO Access-Control-Allow-Origin header, which means the browser
+// surfaces it as a CORS error and the code below cannot read the status at all -- every failure
+// looks like a network error. That is why the retry had to go (see coingeckoFetch): retrying a
+// rate-limit rejection doubles the doomed traffic and deepens the lockout.
+const CG_MIN_INTERVAL_MS = 12_000;
+// After this many consecutive failures, stop calling entirely for COOLDOWN. Without a readable
+// status there is no way to tell a 429 from a real outage, and in both cases hammering is wrong.
+const CG_FAIL_LIMIT = 2;
+const CG_COOLDOWN_MS = 60_000;   // matches the observed Retry-After: 58
+const _cgBreaker = { fails: 0, until: 0 };
 function coingeckoFetch(url) {
     // Queue this fetch behind the previous one, spacing them by the min
     // interval, so concurrent callers don't burst CoinGecko into a 429.
@@ -413,14 +426,27 @@ function coingeckoFetch(url) {
         const wait = Math.max(0, CG_MIN_INTERVAL_MS - (Date.now() - _cgGate.last));
         if (wait) await new Promise(r => setTimeout(r, wait));
         _cgGate.last = Date.now();
+        if (Date.now() < _cgBreaker.until) {
+            // Fail fast and say why, rather than queue behind a 12s gate to be rejected anyway.
+            throw new Error('CoinGecko is rate-limited; cooling off for '
+                + `${Math.ceil((_cgBreaker.until - Date.now()) / 1000)}s`);
+        }
         try {
-            return await fetchWithProxy(url);
+            const res = await fetchWithProxy(url);
+            _cgBreaker.fails = 0;
+            return res;
         } catch (e) {
-            // One retry after a longer backoff on the most common transient
-            // (429 / proxy hiccup) — recovers most burst failures.
-            await new Promise(r => setTimeout(r, 1200));
-            _cgGate.last = Date.now();
-            return await fetchWithProxy(url);
+            // NO RETRY. A 429 here is invisible (no CORS header on the error response), so a retry
+            // cannot distinguish "transient hiccup" from "you are locked out for the next minute" --
+            // it just spends another request confirming the lockout and extends it.
+            _cgBreaker.fails += 1;
+            if (_cgBreaker.fails >= CG_FAIL_LIMIT) {
+                _cgBreaker.until = Date.now() + CG_COOLDOWN_MS;
+                _cgBreaker.fails = 0;
+                console.warn(`[data] CoinGecko failed ${CG_FAIL_LIMIT}x; pausing calls for `
+                    + `${CG_COOLDOWN_MS / 1000}s. Crypto lists will use cached data until then.`);
+            }
+            throw e;
         }
     });
     // Keep the chain alive even if this link rejects, so one failure doesn't
