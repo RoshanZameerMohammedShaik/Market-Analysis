@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-09-19T06:39:54Z",
-  "runs": 500,
+  "updatedAt": "2026-09-19T16:41:41Z",
+  "runs": 520,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10036.594813,
+    "equityUSD": 10049.436821,
     "cashUSD": 1626.610758,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 8409.984055,
+    "holdingsUSD": 8422.826063,
     "realizedUSD": 0.0,
-    "unrealizedUSD": 36.594813,
+    "unrealizedUSD": 49.436821,
     "feesUSD": 7.179817,
-    "pnlUSD": 36.594813,
-    "pnlPct": 0.3659,
+    "pnlUSD": 49.436821,
+    "pnlPct": 0.4944,
     "trades": 7
   },
   "sleeves": {
