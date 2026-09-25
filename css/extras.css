@@ -314,6 +314,72 @@ html[data-dev="1"] body { padding-top: 22px; }
 .pl-dl { color: var(--text-muted); font-weight: 600; }
 .pl-dv { color: var(--text-primary); font-family: var(--num-font); font-weight: 700; }
 
+/* ── Cost-aware additions: broker, order type, target, cost breakdown ─────────
+   The calculator used to be gross-only. These rows exist because at retail size the costs
+   are a large fraction of a small move (IBKR Pro Tiered takes ~$37 of a $500 gross on 5,000
+   shares), and a P&L that ignores them answers a question nobody trading real size asks. */
+.pl-optional {
+    font-size: 0.64rem; font-weight: 600; text-transform: none; letter-spacing: 0;
+    color: var(--text-muted); opacity: 0.8;
+}
+.pl-field-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; }
+/* Same height for the select and the toggle, so the two labels line up and the controls read as
+   one row. align-items:end had the labels at different heights. */
+.pl-field-row .pl-select, .pl-field-row .pl-seg { height: 38px; box-sizing: border-box; }
+.pl-field-row .pl-seg button { display: flex; align-items: center; }
+.pl-select {
+    width: 100%; min-width: 0;
+    padding: 9px 10px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem; font-weight: 600;
+    cursor: pointer;
+}
+.pl-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.pl-seg {
+    display: inline-flex; padding: 3px; gap: 2px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.pl-seg button {
+    padding: 6px 11px;
+    border: none; border-radius: calc(var(--radius-sm) - 2px);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem; font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.pl-seg button.active {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--text-primary);
+}
+.pl-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pl-detail-sep { padding-top: 8px; border-top: 1px dashed var(--border); }
+/* Costs read as deductions, quietly: they matter, but the headline is the net number. */
+.pl-cost .pl-dl { font-weight: 500; }
+.pl-cost .pl-dv { color: var(--text-secondary); font-weight: 600; }
+/* Live spread on the Current Price card. Quiet by default; turns amber when the spread is a
+   meaningful slice of the expected range, because that is when it changes the trade. */
+.price-target-spread {
+    margin-top: 3px;
+    font-size: 0.7rem; font-weight: 600;
+    font-family: var(--num-font);
+    color: var(--text-muted);
+    cursor: help;
+}
+.price-target-spread.is-wide { color: var(--yellow); }
+
+.pl-note {
+    margin-top: 4px;
+    font-size: 0.72rem; line-height: 1.45;
+    color: var(--text-muted);
+    text-align: left;
+}
+
 .chart-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; position: relative; overflow: hidden; }
 /* Glow div is kept in markup (chart.js still emits it) for backward
    compat, but neutralized — Roshan asked for a single stable colour

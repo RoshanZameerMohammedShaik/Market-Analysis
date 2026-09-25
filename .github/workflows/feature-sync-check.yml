@@ -45,6 +45,11 @@ on:
       - 'tools/gemini_roster_check.mjs'
       - 'tools/mia_tools_check.mjs'
       - 'tools/js_syntax_check.mjs'
+      - 'tools/cost_sync_check.py'
+      - 'js/trading-costs.js'
+      - 'bot/broker.py'
+      - 'trading_costs.py'
+      - 'js/ui/pl.js'
       - 'js/mia/ui-bridge.js'
       - 'js/mia/tools.js'
       - 'js/mia/tool-schemas.js'
@@ -118,6 +123,11 @@ on:
       - 'tools/gemini_roster_check.mjs'
       - 'tools/mia_tools_check.mjs'
       - 'tools/js_syntax_check.mjs'
+      - 'tools/cost_sync_check.py'
+      - 'js/trading-costs.js'
+      - 'bot/broker.py'
+      - 'trading_costs.py'
+      - 'js/ui/pl.js'
       - 'js/mia/ui-bridge.js'
       - 'js/mia/tools.js'
       - 'js/mia/tool-schemas.js'
@@ -241,6 +251,14 @@ jobs:
       # input_size mismatch if the model is ever retrained at 11 features.
       - name: Check AI inference parity (JS vs Python)
         run: python tools/ai_sync_check.py
+
+      # The P&L calculator and the paper desk must charge the SAME costs. bot/broker.py +
+      # trading_costs.py are the desk's model; js/trading-costs.js is the browser's. If they drift,
+      # "what I planned" and "what Mia did" are measured in two different currencies. Also pins the
+      # worked examples (5,400 shares to net $500 on 10.90 -> 11.00 at IBKR Pro Tiered) and the SEC
+      # Section 31 rate, which had been two rate changes out of date.
+      - name: Check trading-cost parity (JS vs Python)
+        run: python tools/cost_sync_check.py
 
       # Macro + beta. The load-bearing assertion is that two symbols with different betas get
       # DIFFERENT market scores from the same market-wide reading -- the `market` source used

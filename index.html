@@ -447,6 +447,27 @@
                     </button></label>
                     <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-currentPrice" placeholder="0.00"></div>
                 </div>
+                <!-- Size by TARGET instead of by amount. Fills in the shares and capital needed to
+                     clear a net profit after every cost, which is the question that actually gets
+                     asked ("how much do I buy to make $500 on a 10-cent move"). Blank = use the
+                     investment amount above. -->
+                <div class="pl-field">
+                    <label for="pl-target">Target net profit <span class="pl-optional">optional</span></label>
+                    <div class="pl-input-wrap"><span class="pl-prefix">$</span><input type="number" id="pl-target" placeholder="blank = use the amount above"></div>
+                </div>
+                <div class="pl-field-row">
+                    <div class="pl-field">
+                        <label for="pl-plan">Broker</label>
+                        <select id="pl-plan" class="pl-select" aria-label="Broker and commission plan"></select>
+                    </div>
+                    <div class="pl-field">
+                        <label>Orders</label>
+                        <div class="pl-seg" id="pl-orderType" role="radiogroup" aria-label="Order type">
+                            <button type="button" role="radio" data-v="limit" aria-checked="true" class="active" title="You fill AT the prices you entered. No spread is paid; the risk is not getting filled.">Limit</button>
+                            <button type="button" role="radio" data-v="market" aria-checked="false" title="You buy at the ask and sell at the bid, plus a market-impact allowance.">Market</button>
+                        </div>
+                    </div>
+                </div>
                 <button class="pl-btn" id="pl-calcBtn">Calculate P&amp;L</button>
                 <div class="pl-error" id="pl-error"></div>
                 <div class="pl-result" id="pl-result">
@@ -456,7 +477,16 @@
                     <div class="pl-result-pct" id="pl-resPct"></div>
                     <div class="pl-result-details">
                         <div class="pl-detail"><span class="pl-dl">Shares</span><span class="pl-dv" id="pl-resShares">—</span></div>
+                        <div class="pl-detail"><span class="pl-dl">Capital</span><span class="pl-dv" id="pl-resCapital">—</span></div>
                         <div class="pl-detail"><span class="pl-dl">Current Value</span><span class="pl-dv" id="pl-resValue">—</span></div>
+                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Gross P&amp;L</span><span class="pl-dv" id="pl-resGross">—</span></div>
+                        <div class="pl-detail pl-cost"><span class="pl-dl">Commission</span><span class="pl-dv" id="pl-resComm">—</span></div>
+                        <div class="pl-detail pl-cost"><span class="pl-dl">SEC + FINRA fees</span><span class="pl-dv" id="pl-resReg">—</span></div>
+                        <div class="pl-detail pl-cost" id="pl-rowSpread"><span class="pl-dl">Spread</span><span class="pl-dv" id="pl-resSpread">—</span></div>
+                        <div class="pl-detail pl-cost" id="pl-rowImpact"><span class="pl-dl">Market impact</span><span class="pl-dv" id="pl-resImpact">—</span></div>
+                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Total costs</span><span class="pl-dv" id="pl-resCosts">—</span></div>
+                        <div class="pl-detail"><span class="pl-dl">Break-even exit</span><span class="pl-dv" id="pl-resBreakEven">—</span></div>
+                        <div class="pl-note" id="pl-resNote"></div>
                     </div>
                 </div>
             </div>

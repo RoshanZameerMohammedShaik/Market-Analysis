@@ -169,7 +169,10 @@ for (const sym of SYMBOLS) {
         return {
             signal: sig,
             saysNoDirection: /No clear direction|market is undecided/i.test(t),
-            saysConflicting: /conflicting/i.test(t),
+            // The SENTENCE, not the word. A bare /conflicting/ matched the legitimate reason line
+            // "[Sector] Technology sector rising (3.7% 5d) — conflicting", which correctly flags a
+            // counter-signal against a SELL. That is a card explaining itself, not contradicting itself.
+            saysConflicting: /Indicators are conflicting/i.test(t),
         };
     });
     if (contra && (contra.signal === 'BUY' || contra.signal === 'SELL')

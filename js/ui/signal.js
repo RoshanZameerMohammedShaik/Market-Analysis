@@ -197,6 +197,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                         <div class="price-target-label">Current Price</div>
                         <div class="price-target-value">${fmtPriceTag(priceTargets.currentPrice, co)}</div>
                         <div class="price-target-pct">${baselineNote || `ATR: ${fmtPriceTag(priceTargets.atr, co)}`}</div>
+                        <div class="price-target-spread" id="pt-live-spread" hidden></div>
                     </div>
                     <div class="price-target-card low">
                         <div class="price-target-label">${priceTargets.source === "calibrated-band" ? "Expected Low" : "Possible Low"}</div>
@@ -579,6 +580,8 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // Fill the confidence-trend chart from the live ledger (async; the
     // block self-removes if there isn't enough resolved history).
     mountConfidenceTrend(section, state.currentSymbol);
+    // Live spread, filled in after paint so it never delays the card.
+    mountLiveSpread(state.currentSymbol, view.priceTargets, cur);
     // Share button → render + share/download a branded prediction PNG.
     // Closure-captures the current prediction so there's no global state.
     const shareBtn = section.querySelector('#share-prediction');
@@ -718,4 +721,51 @@ function renderAttribution(attribution) {
             <div class="attribution-title">Why this signal — top drivers</div>
             ${rows}
         </div>`;
+}
+
+/**
+ * The live bid/ask spread on the Current Price card, from Public's realtime quote.
+ *
+ * Worth a line on the card because at retail size the spread is often the biggest cost of a trade,
+ * and it scales with nothing the engine shows: a penny on 5,000 shares is $50, more than an entire
+ * IBKR Pro round-trip commission. The app had this number all along -- the Worker returns bid and
+ * ask -- and discarded it.
+ *
+ * Shown against today's EXPECTED MOVE as well as in cents, because that ratio is what decides
+ * whether a small-move trade is worth taking at all: a spread that eats a third of the expected move
+ * is a different trade from one that eats 1%.
+ *
+ * Stocks only (Public quotes equities; crypto prices come from a last-trade stream with no book),
+ * and silent on any failure. A missing spread line is fine; a wrong one is not.
+ */
+async function mountLiveSpread(symbol, priceTargets, currency) {
+    if (!symbol || state.mode === 'crypto') return;
+    // USD listings only: Public quotes US equities, and a JPY or INR listing has no quote there.
+    if (String(currency || 'USD').toUpperCase() !== 'USD') return;
+    try {
+        const pricing = await import('../portfolio/pricing.js');
+        // Public only. getCurrentPrice would fall back to sources with no bid/ask (and Stooq is
+        // CORS-blocked in browsers), adding console errors for a number they cannot supply.
+        const q = await pricing.fetchLiveQuote(symbol);
+        // The user may have moved on while the quote was in flight.
+        if (state.currentSymbol !== symbol) return;
+        const el = document.getElementById('pt-live-spread');
+        if (!el || !q || !(q.bid > 0) || !(q.ask >= q.bid)) return;
+        const spread = q.ask - q.bid;
+        const mid = (q.ask + q.bid) / 2;
+        const pct = (spread / mid) * 100;
+        // A spread over 10% of mid is a stale or one-sided book (common outside regular hours), and
+        // printing it as "the spread" would be worse than printing nothing.
+        if (pct > 10) return;
+        const cents = spread < 1 ? `${(spread * 100).toFixed(spread * 100 < 1 ? 2 : 1)}\u00a2` : fmtPrice(spread, { srcCurrency: 'USD' });
+        const em = Number(priceTargets?.expectedMove);
+        const ofMove = Number.isFinite(em) && em > 0 ? (spread / (2 * em)) * 100 : null;
+        el.textContent = `spread ${cents} (${pct < 0.1 ? pct.toFixed(3) : pct.toFixed(2)}%)`
+            + (ofMove != null ? ` \u00b7 ${ofMove < 1 ? ofMove.toFixed(1) : Math.round(ofMove)}% of the expected range` : '');
+        el.title = `Live quote: bid ${fmtPrice(q.bid, { srcCurrency: 'USD' })} / ask ${fmtPrice(q.ask, { srcCurrency: 'USD' })}. `
+            + 'A market order pays this spread once per round trip (buy at the ask, sell at the bid). '
+            + 'Limit orders avoid it but may not fill.';
+        el.classList.toggle('is-wide', ofMove != null && ofMove >= 20);
+        el.hidden = false;
+    } catch (_) { /* no live quote: say nothing rather than guess */ }
 }

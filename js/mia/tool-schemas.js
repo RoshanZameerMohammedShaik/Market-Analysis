@@ -39,7 +39,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_live_price',
-        description: 'Fetch the LIVE current price for a symbol from a fresh data feed (Binance for crypto, Stooq snapshot for stocks). MANDATORY for any "current price" / "live price" / "what is X trading at" question — DO NOT quote a price from get_current_signal or memory; that data is from the last analysis run, not live. Returns { symbol, priceUSD, source, fetchedAt }.',
+        description: 'Fetch the LIVE current price for a symbol from a fresh data feed (Binance for crypto, Stooq snapshot for stocks). MANDATORY for any "current price" / "live price" / "what is X trading at" question — DO NOT quote a price from get_current_signal or memory; that data is from the last analysis run, not live. Returns { symbol, priceUSD, source, delayed, bid, ask, spreadUSD, spreadPct, fetchedAt }. For stocks with a realtime quote, bid/ask/spread are filled in: use them for any spread or trading-cost question.',
         parameters: {
             type: T.OBJECT,
             properties: { symbol: { type: T.STRING, description: 'Ticker symbol (e.g. AAPL, BTCUSDT, HUBC)' } },
@@ -456,15 +456,18 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'pl_calculate',
-        description: 'Open the P&L calculator and run a calculation.',
+        description: 'Open the P&L calculator and run it. Returns NET profit after commission, SEC/FINRA fees and (for market orders) spread + impact, plus the full cost breakdown and break-even exit. Pass targetNetUSD instead of investment to answer "how many shares do I need to make $X" and it returns the shares and capital needed. Read netUSD back to the user, not grossUSD.',
         parameters: {
             type: T.OBJECT,
             properties: {
-                investment: { type: T.NUMBER },
+                investment: { type: T.NUMBER, description: 'Dollars to invest. Omit when sizing by targetNetUSD.' },
                 buyPrice: { type: T.NUMBER },
-                currentPrice: { type: T.NUMBER, description: 'Optional — uses live price if omitted' },
+                currentPrice: { type: T.NUMBER, description: 'Sell / target price. Optional: uses the live price if omitted.' },
+                targetNetUSD: { type: T.NUMBER, description: 'Net profit to aim for; the calculator solves for shares.' },
+                plan: { type: T.STRING, description: 'ibkr-pro-tiered, ibkr-pro-fixed, ibkr-lite, public-wholesale, public-smart or public-lit. Omit to use the saved choice.' },
+                orderType: { type: T.STRING, description: 'limit (fills at your prices, no spread) or market (pays the spread). Omit to use the saved choice.' },
             },
-            required: ['investment', 'buyPrice'],
+            required: ['buyPrice'],
         },
     },
     {

@@ -144,7 +144,18 @@ const PUBLIC_QUOTE_URL = 'https://market-analysis-yahoo-proxy.roshanzameer7866.w
 let _publicQuoteDisabled = false;   // flips true after a 'configured:false' so we stop trying
 async function fetchStockPriceFromPublic(symbol) {
     if (_publicQuoteDisabled) throw new Error('public quote disabled');
-    const res = await fetch(`${PUBLIC_QUOTE_URL}?symbol=${encodeURIComponent(symbol)}`);
+    let res;
+    try {
+        res = await fetch(`${PUBLIC_QUOTE_URL}?symbol=${encodeURIComponent(symbol)}`);
+    } catch (e) {
+        // A THROWN fetch (not an HTTP error) here is almost always CORS: the Worker origin-locks
+        // /stock-quote to the deployed site and one localhost dev port, so any other origin -- the
+        // GitHub Pages mirror, a test server -- is refused before a status is even visible. The origin
+        // cannot change during a session, so stop asking: retrying just logs the same console error on
+        // every symbol open.
+        _publicQuoteDisabled = true;
+        throw e;
+    }
     if (!res.ok) throw new Error(`public ${res.status}`);
     const json = await res.json();
     if (json && json.configured === false) {
@@ -153,7 +164,55 @@ async function fetchStockPriceFromPublic(symbol) {
     }
     const price = json?.price;
     if (!Number.isFinite(price) || price <= 0) throw new Error('public no price');
+    // KEEP the two-sided quote. The Worker has always returned bid and ask, and this function used to
+    // return only the price and drop them -- so the app had the live spread in hand and threw it away,
+    // while its cost model fell back to a price-tier ESTIMATE of the very same number. At retail size
+    // on a small move the spread is the dominant cost (one cent on 5,000 shares is $50, more than the
+    // whole IBKR Pro commission), so it is worth keeping.
+    _lastQuote.set(String(symbol).toUpperCase(), {
+        price,
+        bid: Number.isFinite(json.bid) ? json.bid : null,
+        ask: Number.isFinite(json.ask) ? json.ask : null,
+        lastTimestamp: json.lastTimestamp || null,
+        fetchedAt: Date.now(),
+        source: 'public',
+    });
     return price;
+}
+
+// Last live two-sided quote per symbol, from Public via the Worker. Stocks only: crypto prices come
+// from Binance, which the app reads as a last-trade stream without a book.
+const _lastQuote = new Map();
+const QUOTE_FRESH_MS = 60 * 1000;
+
+/**
+ * A live two-sided quote from Public ONLY, for callers that need the book rather than a price.
+ *
+ * getCurrentPrice() falls back to Stooq and Yahoo when Public is unavailable, which is right for a
+ * price and useless for a spread: neither fallback has a bid or an ask, and Stooq is CORS-blocked in
+ * browsers anyway, so the fallback just added console errors to every symbol open. This asks Public
+ * and returns null on any failure. Stocks only.
+ */
+export async function fetchLiveQuote(symbol) {
+    if (!symbol || isCryptoSymbol(symbol)) return null;
+    const cached = getLastQuote(symbol);
+    if (cached) return cached;
+    try {
+        await fetchStockPriceFromPublic(symbol);
+    } catch (_) {
+        return null;
+    }
+    return getLastQuote(symbol);
+}
+
+/**
+ * The most recent live quote for `symbol`, or null when there is none fresh enough to trust.
+ * A quote older than a minute is not "live" for a spread readout -- the book moves faster than that.
+ */
+export function getLastQuote(symbol) {
+    const q = _lastQuote.get(String(symbol || '').toUpperCase());
+    if (!q || Date.now() - q.fetchedAt > QUOTE_FRESH_MS) return null;
+    return { ...q };
 }
 
 async function fetchStockPriceFromStooq(symbol) {

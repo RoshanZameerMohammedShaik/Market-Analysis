@@ -65,16 +65,42 @@ PLAN_PRO_TIERED = 'ibkr-pro-tiered'
 # IBKR Pro Fixed: $0.005 per share, $1.00 minimum per order, capped at 1% of value.
 PLAN_PRO_FIXED = 'ibkr-pro-fixed'
 
+# Public.com, from its fee schedule dated 2026-09-23. Commission is $0 in regular AND extended
+# hours, but the ROUTE is a choice with a price, and that is the whole story of "free":
+#   Wholesale          $0            -- orders go to wholesalers (market makers)
+#   Smart Order        $0.003/share  -- a mix of single-dealer platforms, ATSs and exchanges
+#   Lit Exchanges Only $0.003/share  -- a major stock exchange
+# So Public's $0 buys the same routing IBKR Lite uses, and the routes comparable to IBKR Pro's cost
+# nearly what IBKR Pro charges ($0.003 vs $0.0035). No minimum or cap is published for the routing
+# fee, so none is modelled.
+PLAN_PUBLIC_WHOLESALE = 'public-wholesale'
+PLAN_PUBLIC_SMART = 'public-smart'
+PLAN_PUBLIC_LIT = 'public-lit'
+
 PLANS = {
-    PLAN_LITE:       {'per_share': 0.0,    'min_order': 0.0,  'max_pct': 0.0},
-    PLAN_PRO_TIERED: {'per_share': 0.0035, 'min_order': 0.35, 'max_pct': 1.0},
-    PLAN_PRO_FIXED:  {'per_share': 0.005,  'min_order': 1.00, 'max_pct': 1.0},
+    PLAN_LITE:             {'per_share': 0.0,    'min_order': 0.0,  'max_pct': 0.0},
+    PLAN_PRO_TIERED:       {'per_share': 0.0035, 'min_order': 0.35, 'max_pct': 1.0},
+    PLAN_PRO_FIXED:        {'per_share': 0.005,  'min_order': 1.00, 'max_pct': 1.0},
+    PLAN_PUBLIC_WHOLESALE: {'per_share': 0.0,    'min_order': 0.0,  'max_pct': 0.0},
+    PLAN_PUBLIC_SMART:     {'per_share': 0.003,  'min_order': 0.0,  'max_pct': 0.0},
+    PLAN_PUBLIC_LIT:       {'per_share': 0.003,  'min_order': 0.0,  'max_pct': 0.0},
 }
 
 # Regulatory pass-throughs. BOTH are charged on SELLS ONLY, which is why a round trip
 # is not symmetric and why a bot that ignores them slightly overstates every exit.
-# SEC Section 31 fee: rate is reset annually. $27.80 per $1,000,000 of sale proceeds.
-SEC_FEE_PCT = 0.00278
+# SEC Section 31 fee: $20.60 per $1,000,000 of sale proceeds, effective 2026-04-04.
+#
+# Source: SEC Section 31 Transaction Fee Rate Advisory for Fiscal Year 2026 (Feb 27, 2026),
+# sec.gov/rules-regulations/fee-rate-advisories/2026-2. It stays in force until 60 days after
+# Congress enacts the FY2027 appropriation, then resets. Public.com's own fee schedule (dated
+# 2026-09-23) passes through the same $20.60.
+#
+# This used to be $27.80, the May-2024 rate, and the comment beside it claimed the schedule was
+# "accurate as of 2026-08". It was not: the rate went to $0.00 on 2025-05-14 and back up to $20.60
+# on 2026-04-04, and neither change was picked up. The error is small per trade (35% too high on a
+# small fee) but it is exactly the kind of stale constant that nobody rechecks once it is written
+# down as fact. The rate changes at least once a year; recheck the advisory when it does.
+SEC_FEE_PCT = 0.00206
 # FINRA Trading Activity Fee: per share sold, capped per order.
 FINRA_TAF_PER_SHARE = 0.000166
 FINRA_TAF_MAX = 8.30

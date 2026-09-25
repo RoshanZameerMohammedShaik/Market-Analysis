@@ -197,10 +197,14 @@ export async function controlToggleCurrency() {
     return { ok: true };
 }
 
-export async function controlPLCalculate({ investment, buyPrice, currentPrice }) {
+export async function controlPLCalculate({ investment, buyPrice, currentPrice, targetNetUSD, plan, orderType }) {
     const inv = Number(investment);
     const buy = Number(buyPrice);
-    if (!Number.isFinite(inv) || inv <= 0) throw new Error('investment must be a positive number');
+    const target = Number(targetNetUSD);
+    const hasTarget = Number.isFinite(target) && target > 0;
+    if (!hasTarget && (!Number.isFinite(inv) || inv <= 0)) {
+        throw new Error('investment must be a positive number (or pass targetNetUSD to size the trade)');
+    }
     if (!Number.isFinite(buy) || buy <= 0) throw new Error('buyPrice must be a positive number');
 
     let cur = Number(currentPrice);
@@ -245,15 +249,32 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice })
     // Type each field in slowly, in order, at a visible speed — so the
     // user literally watches Mia fill the calculator rather than seeing
     // the numbers blink into place. A short toast precedes each field.
-    announce({ text: 'Entering your investment…', target: invEl });
-    await typeIntoInput(invEl, inv.toFixed(2), { perChar: 80 });
-    await sleep(220);
+    // Prices go in through roundPrice, not toFixed(2): toFixed(2) typed SHIB's price as "0.00",
+    // which the calculator then rejects as a zero purchase price.
+    const { roundPrice } = await import('../price-round.js');
+    const tgtEl = document.getElementById('pl-target');
+    if (tgtEl) tgtEl.value = '';
+    if (Number.isFinite(inv) && inv > 0) {
+        announce({ text: 'Entering your investment…', target: invEl });
+        await typeIntoInput(invEl, inv.toFixed(2), { perChar: 80 });
+        await sleep(220);
+    }
     announce({ text: 'Entering the purchase price…', target: buyEl });
-    await typeIntoInput(buyEl, buy.toFixed(2), { perChar: 80 });
+    await typeIntoInput(buyEl, String(roundPrice(buy)), { perChar: 80 });
     await sleep(220);
     announce({ text: usedCurrent ? 'Filling in the live price…' : 'Entering the target price…', target: curEl });
-    await typeIntoInput(curEl, cur.toFixed(2), { perChar: 80 });
-    await sleep(320);
+    await typeIntoInput(curEl, String(roundPrice(cur)), { perChar: 80 });
+    await sleep(220);
+    if (hasTarget && tgtEl) {
+        announce({ text: 'Entering the profit you want to net…', target: tgtEl });
+        await typeIntoInput(tgtEl, target.toFixed(2), { perChar: 80 });
+        await sleep(220);
+    }
+    // Broker / order type: honoured when asked for, and saved, because they describe the user's
+    // account rather than this one calculation.
+    const { setPLPrefs, computePL } = await import('../ui/pl.js');
+    if (plan || orderType) setPLPrefs({ plan, orderType });
+    await sleep(120);
 
     // Visibly press Calculate, then reveal the result — scroll it into
     // view inside the (mid-screen, scrollable) stage card so the user
@@ -270,23 +291,46 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice })
         import('./sound.js').then(m => m.complete()).catch(() => {});
     }, 250);
 
-    const shares = inv / buy;
-    const value = shares * cur;
-    const pl = value - inv;
-    const pct = ((cur - buy) / buy) * 100;
+    // The SAME calculation the panel just ran, not a second derivation. This used to recompute
+    // shares x move (gross) on its own, so once the panel showed a NET figure Mia would have read
+    // out a different number from the one on screen.
+    const r = await computePL({
+        investment: Number.isFinite(inv) && inv > 0 ? inv : null,
+        buyPrice: buy, sellPrice: cur,
+        targetNetUSD: hasTarget ? target : null,
+    });
+    if (!r.ok) return { ok: false, error: r.error };
+    const r2 = (x) => +Number(x).toFixed(2);
     return {
         ok: true,
-        investment: inv,
+        investment: Number.isFinite(inv) && inv > 0 ? inv : null,
         buyPrice: buy,
         currentPrice: cur,
         usedLivePrice: usedCurrent,
         symbol: usedCurrent ? state.currentSymbol : null,
-        shares: +shares.toFixed(4),
-        currentValue: +value.toFixed(2),
-        plDollar: +pl.toFixed(2),
-        plPct: +pct.toFixed(2),
+        plan: r.plan,
+        orderType: r.orderType,
+        shares: r.crypto ? +r.shares.toFixed(6) : Math.round(r.shares),
+        capitalUSD: r2(r.capitalUSD),
+        currentValue: r2(r.capitalUSD + r.grossUSD),
+        grossUSD: r2(r.grossUSD),
+        commissionUSD: r2(r.commissionBuyUSD + r.commissionSellUSD),
+        regulatoryUSD: r2(r.regulatoryUSD),
+        spreadUSD: r2(r.spreadUSD),
+        impactUSD: r2(r.impactUSD),
+        totalCostUSD: r2(r.totalCostUSD),
+        netUSD: r2(r.netUSD),
+        netPct: r2(r.netPct),
+        costShareOfGrossPct: r.costShareOfGrossPct == null ? null : r2(r.costShareOfGrossPct),
+        breakEvenSell: r.breakEvenSell,
+        spreadSource: r.spreadSource,
+        target: r.target,
+        // plDollar / plPct kept for older prompts, and now mean what the panel shows: NET.
+        plDollar: r2(r.netUSD),
+        plPct: r2(r.netPct),
     };
 }
+
 
 export function controlScrollTo({ section }) {
     const map = {

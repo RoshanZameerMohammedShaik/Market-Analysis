@@ -55,7 +55,7 @@ const TOOLS = {
         kind: 'control',
     },
     get_live_price: {
-        desc: 'fetch the LIVE current price for a symbol from a fresh data feed. Crypto = Binance (realtime). Stocks = Public.com (realtime) when available, else Stooq (5-15min delayed). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, delayed, fetchedAt }. READ source FROM THE RESULT — never assume; if delayed:true, say the quote may be a few minutes old.',
+        desc: 'fetch the LIVE current price for a symbol from a fresh data feed. Crypto = Binance (realtime). Stocks = Public.com (realtime) when available, else Stooq (5-15min delayed). ALWAYS call this for any "current price" / "live price" / "what is X trading at" question — never quote a price from a cached signal. Returns { symbol, priceUSD, source, delayed, bid, ask, spreadUSD, spreadPct, fetchedAt } — bid/ask/spread are present for stocks when the realtime Public quote answered, null otherwise; use them for any "what is the spread" question. READ source FROM THE RESULT — never assume; if delayed:true, say the quote may be a few minutes old.',
         args: '{"symbol":"AAPL"}',
         run: async ({ symbol }) => {
             if (!symbol) return { error: 'symbol required' };
@@ -77,11 +77,24 @@ const TOOLS = {
                     source = getLastStockSource(sym) || 'stooq';
                     delayed = isStale(source);
                 }
+                // The live two-sided quote, when Public supplied one. "What's the spread on X" had
+                // no answer before: the Worker returned bid/ask and pricing.js dropped them.
+                let bid = null, ask = null, spreadUSD = null, spreadPct = null;
+                if (!isCrypto) {
+                    const { getLastQuote } = await import('../portfolio/pricing.js');
+                    const q = getLastQuote(sym);
+                    if (q && Number.isFinite(q.bid) && Number.isFinite(q.ask) && q.ask >= q.bid && q.bid > 0) {
+                        bid = q.bid; ask = q.ask;
+                        spreadUSD = +(q.ask - q.bid).toFixed(6);
+                        spreadPct = +(((q.ask - q.bid) / ((q.ask + q.bid) / 2)) * 100).toFixed(4);
+                    }
+                }
                 return {
                     symbol: sym,
                     priceUSD,
                     source,
                     delayed,
+                    bid, ask, spreadUSD, spreadPct,
                     fetchedAt: new Date().toISOString(),
                 };
             } catch (e) {
