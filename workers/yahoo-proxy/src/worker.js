@@ -613,29 +613,38 @@ async function proxyYahoo(targetUrl) {
         return corsJson({ error: `host not allowed: ${parsed.host}` }, 400);
     }
 
-    // Some public endpoints (v7/finance/quote) now require the crumb+cookie
-    // dance. Reuse the cached crumb for those; for the rest, plain UA is fine.
-    const needsCrumb = /\/v7\/finance\/quote/.test(parsed.pathname);
-    let cookie = '';
-    if (needsCrumb) {
-        try {
-            const c = await getCrumb();
-            cookie = c.cookie;
-            // Append crumb if not already present.
-            if (!parsed.searchParams.has('crumb')) {
-                parsed.searchParams.set('crumb', c.crumb);
-            }
-        } catch (e) { /* fall through; some quote calls work without */ }
-    }
-
-    const headers = {
+    // Endpoints behind Yahoo's crumb+cookie wall. This used to match ONLY v7/finance/quote, so
+    // quoteSummary and options were proxied bare and Yahoo answered every one with
+    // 401 {"code":"Unauthorized","description":"Invalid Crumb"}. That silently killed two engine
+    // inputs in the browser: js/earnings.js (quoteSummary?modules=earnings,calendarEvents) returned
+    // null for every symbol, so the pre-earnings cap that stops a directional call on the eve of a
+    // binary event NEVER fired; and js/options-iv.js (v7/finance/options) never produced a reading.
+    // The crumb itself was fine the whole time -- /key-stats sends it on quoteSummary and works.
+    const needsCrumb = /\/v7\/finance\/(quote|options)\b|\/v10\/finance\/quoteSummary\//.test(parsed.pathname);
+    const baseHeaders = {
         'User-Agent': BROWSER_UA,
         'Accept': 'application/json,text/plain,*/*',
         'Accept-Language': 'en-US,en;q=0.5',
     };
-    if (cookie) headers['Cookie'] = cookie;
+    const withCrumb = async () => {
+        const headers = { ...baseHeaders };
+        if (needsCrumb) {
+            try {
+                const c = await getCrumb();
+                if (c.cookie) headers['Cookie'] = c.cookie;
+                parsed.searchParams.set('crumb', c.crumb);
+            } catch (e) { /* fall through; the upstream status will say what happened */ }
+        }
+        return fetch(parsed.toString(), { headers });
+    };
 
-    const upstream = await fetch(parsed.toString(), { headers });
+    let upstream = await withCrumb();
+    // A cached crumb goes stale. Refresh once and retry, the same way /key-stats does -- without
+    // this a single expired crumb would 401 every crumbed call until the cache TTL ran out.
+    if (needsCrumb && (upstream.status === 401 || upstream.status === 403)) {
+        crumbCache = null;
+        upstream = await withCrumb();
+    }
     const text = await upstream.text();
     const cacheControl = upstream.ok
         ? 'public, max-age=60'

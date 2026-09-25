@@ -129,6 +129,29 @@ if (yld?.available !== true) {
 }
 
 console.log();
+console.log('=== earnings and options read through the Yahoo crumb wall ===');
+// Both were silently dead for months. The Worker only attached Yahoo's crumb to v7/finance/quote, so
+// quoteSummary (earnings) and v7/finance/options were proxied bare and every call came back
+// 401 "Invalid Crumb". earnings.js then returned null for EVERY symbol -- which reads exactly like "no
+// earnings coming up", so the pre-earnings cap that stops a directional call on the eve of a binary
+// event never fired and nothing looked wrong. A null here is only acceptable with a stated reason.
+const eo = await page.evaluate(async () => {
+    const out = {};
+    try { out.earnings = await (await import('/js/earnings.js')).getEarningsProximity('AAPL'); }
+    catch (e) { out.earnings = { error: String(e.message) }; }
+    try { out.options = await (await import('/js/options-iv.js')).fetchOptionsPositioning('AAPL'); }
+    catch (e) { out.options = { error: String(e.message) }; }
+    return out;
+});
+// AAPL always has a scheduled report, so a null proximity is a broken source, not a quiet calendar.
+check('earnings proximity resolves for AAPL (not a silent null)',
+      Number.isFinite(eo.earnings?.daysUntil),
+      `${JSON.stringify(eo.earnings)} -- a 401 "Invalid Crumb" means the Worker stopped sending the crumb on quoteSummary`);
+check('options positioning resolves for AAPL',
+      Number.isFinite(eo.options?.pcr),
+      `${JSON.stringify(eo.options)?.slice(0, 120)} -- same crumb wall, on v7/finance/options`);
+
+console.log();
 console.log(`=== the full ensemble on ${SYMBOL} ===`);
 await page.fill('#search-input', SYMBOL);
 await page.waitForTimeout(2500);
