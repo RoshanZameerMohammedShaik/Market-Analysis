@@ -220,7 +220,7 @@ function renderHistory(hist, currency) {
  * @param {Object} opts  { currency, currentPrice, history }
  * @returns {string} HTML, or '' when there is nothing trustworthy to show
  */
-export function renderForecastBand(band, { currency = 'USD', currentPrice = null, history = null } = {}) {
+export function renderForecastBand(band, { currency = 'USD', currentPrice = null, history = null, cryptoMode = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
 
     // Refuse to print a confidence we cannot stand behind. An uncalibrated band
@@ -229,7 +229,11 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
     // display 76% accuracy on a coin flip.
     const calibrated = band.calibrated === true;
 
-    const labels = dayLabels(band.days.length, band.mode === 'crypto' || band.cryptoMode === true);
+    // The caller says whether this is crypto. The band cannot: a band read back from the ledger
+    // carries only {day, low, high, widthPct}, so BTC's table skipped Saturday and Sunday and
+    // labelled its last two rows Mon/Tue, days the coin trades like any other.
+    const isCrypto = cryptoMode != null ? cryptoMode === true : (band.mode === 'crypto' || band.cryptoMode === true);
+    const labels = dayLabels(band.days.length, isCrypto);
     const rows = band.days.map((d, i) => {
         const spanPct = currentPrice > 0
             ? ((d.high - d.low) / currentPrice * 100) : null;

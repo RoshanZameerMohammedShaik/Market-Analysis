@@ -3,6 +3,7 @@ import { state, nextHotPicksId } from './state.js';
 import { fmtPriceTag } from './format.js';
 import { sparkline } from './sparkline.js';
 import { displayTicker } from './exchanges.js';
+import { escapeHtml } from './escape.js';
 import { bindLiveSparks, stopLiveSparks } from './live-spark.js';
 import { revealStagger, drawLine, countTo, canAnimate, flipCapture, flipAnimate } from './motion.js';
 import { success, cardArrival, click as clickSound, error as errorSound } from './ui-sound.js';
@@ -84,7 +85,11 @@ export async function loadHotPicks(onPick) {
     const title = document.getElementById('hotpicks-title');
     const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
-    if (title) title.textContent = `🔥 Hot Picks — Top ${modeLabel} for ${tfLabel}`;
+    // "Top Stocks for Today" promised a ranking of winners. These are the engine's BUY calls, and
+    // its calls are right about half the time (the confidence on each card says exactly how often),
+    // so the title says what the list is rather than what it hopes to be.
+    const kind = state.mode === 'stock' ? 'Stock' : 'Crypto';
+    if (title) title.textContent = `🔥 Hot Picks — ${tfLabel === 'Today' ? "Today's" : "Tomorrow's"} ${kind} Buy Signals`;
 
     grid.innerHTML = `
         <div class="hp-skel-grid" style="grid-column: 1/-1;">
@@ -138,7 +143,7 @@ export async function loadHotPicks(onPick) {
             // symbol it scanned as DON'T BUY / AVOID / SELL — no buy at all.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No buy setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — nothing the engine scanned came back as a BUY. Sit it out, or check back later.</p>
+                <p>No buy setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now — nothing the engine scanned came back as a BUY with at least a coin-flip track record. Sit it out, or check back later.</p>
             </div>`;
             return;
         }
@@ -181,55 +186,33 @@ function renderCards(grid, picks, withFooter) {
         const sparkSeed = (sparkData && state.mode === 'crypto')
             ? ` data-spark="${encodeURIComponent(JSON.stringify(sparkData.slice(-40)))}"`
             : '';
-        // Verbose labels per Roshan's spec:
-        //   "56% Confidence"
-        //   "5% Spike Expected ⚡"
-        //   "Expected Highest Reach $X"
-        //   "Expected Lowest Fall $Y"
-        // All four lines surface so the user can read the FULL forecast
-        // at a glance without clicking into the card. Source-currency
-        // is threaded so non-USD listings render in their native quote
-        // currency (no FX-multiplied INR-as-USD bug).
+        // Source-currency is threaded so non-USD listings render in their native quote currency
+        // (no FX-multiplied INR-as-USD bug).
         const co = { srcCurrency: pick.currency || 'USD' };
-        // Direction-aware label: a SELL's expectedPct is now negative (the
-        // predicted drop), so calling it "Spike Expected" would contradict
-        // the move. Positive → "Spike Expected ⚡", negative → "Drop Expected".
-        const spikeHTML = (pick.expectedPct != null && Number.isFinite(pick.expectedPct))
-            ? (() => {
-                const p = Number(pick.expectedPct);
-                // highPercent now comes from the calibrated 80% band's upper edge, not a
-                // direction-scaled ATR guess, so 'Spike Expected' would overclaim: it is
-                // the top of a range, and the engine does not call which edge price
-                // approaches. Label it as range headroom instead.
-                const word = 'Range Top ⚡';
-                return `<div class="hot-pick-spike">${p >= 0 ? '+' : ''}${p.toFixed(2)}% ${word}</div>`;
-            })()
-            : '';
+        // Each edge carries its distance from the CURRENT price shown on the card. There used to
+        // be a headline badge instead, "+6.16% Range Top ⚡": the upper edge of an 80% range,
+        // shown alone, with a lightning bolt. The same range has a lower edge about as far below,
+        // and a day-trader reading only the badge was being sold half of a range as a target.
+        const pctFrom = (edge) => (Number.isFinite(edge) && pick.price > 0)
+            ? (edge / pick.price - 1) * 100 : null;
+        const pctTag = (p) => p == null ? '' : ` <span class="hot-pick-target-pct">${p >= 0 ? '+' : ''}${p.toFixed(1)}%</span>`;
         const highHTML = (pick.expectedHigh != null && Number.isFinite(pick.expectedHigh))
-            ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Range High (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}</span></div>`
+            ? `<div class="hot-pick-target hot-pick-target-high"><span class="hot-pick-target-label">Range High (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedHigh, co)}${pctTag(pctFrom(pick.expectedHigh))}</span></div>`
             : '';
         const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
-            ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}</span></div>`
+            ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}${pctTag(pctFrom(pick.expectedLow))}</span></div>`
             : '';
-        // HONESTY GUARD (display-only): a directional BUY/SELL whose CALIBRATED
-        // confidence is below 50% is, on the engine's own grounded data, worse
-        // than a coin flip on its OWN direction — a contradiction we must not
-        // present as a clean "BUY · 25%". Flag it as a rebuilding/low-trust
-        // read so the number isn't mistaken for real conviction. Does NOT
-        // change the signal or the number — just adds a caveat the eye catches.
-        const lowTrust = (isBuy || isSell) && Number.isFinite(pick.confidence) && pick.confidence < 50;
-        const lowTrustHTML = lowTrust
-            ? `<div class="hot-pick-lowtrust" title="Calibrated confidence is below 50% — the engine's track record for setups like this (under the current engine) doesn't yet support high conviction. Treat as exploratory, not a strong call.">⚠ low track record — exploratory</div>`
-            : '';
+        // What the percentage IS: the live hit rate of calls like this one.
+        const confTitle = Number.isFinite(pick.confidence)
+            ? `Calls like this one have been right ${pick.confidence}% of the time on this engine's live record.`
+            : 'Engine confidence (calibrated)';
         return `
-        <div class="hot-pick-card ${signalClass}${lowTrust ? ' lowtrust' : ''}" data-symbol="${pick.symbol}" data-id="${pick.id || pick.symbol}" data-flip-id="${pick.symbol}"${sparkSeed}>
-            <div class="hot-pick-symbol">${displayTicker(pick.symbol)}</div>
-            <div class="hot-pick-name">${pick.name}</div>
+        <div class="hot-pick-card ${signalClass}" data-symbol="${escapeHtml(pick.symbol)}" data-id="${escapeHtml(pick.id || pick.symbol)}" data-flip-id="${escapeHtml(pick.symbol)}"${sparkSeed}>
+            <div class="hot-pick-symbol">${escapeHtml(displayTicker(pick.symbol))}</div>
+            <div class="hot-pick-name">${escapeHtml(pick.name)}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-            <div class="hot-pick-confidence ${signalClass}" title="Engine confidence (calibrated)"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${pick.confidence}">${pick.confidence}</span>% Confidence</div>
-            ${lowTrustHTML}
-            ${spikeHTML}
+            <div class="hot-pick-confidence ${signalClass}" title="${escapeHtml(confTitle)}"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${pick.confidence}">${pick.confidence}</span>% Confidence</div>
             ${highHTML}
             ${lowHTML}
             <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.price, co)}</span></div>

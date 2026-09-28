@@ -1,15 +1,7 @@
 import { state } from './state.js';
 import { timeAgo } from './format.js';
 import { generateNewsImpact } from './reasons.js';
-
-// Defensive HTML-attribute escape. URLs from external feeds are
-// untrusted text; passing them straight into href="..." leaves a
-// quote-injection vector. This pins the value inside the attribute.
-function escapeAttr(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-}
+import { escapeHtml, safeHttpUrl } from './escape.js';
 
 export function renderNews(newsData, sentiment) {
     if (!newsData || newsData.length === 0) return '';
@@ -31,15 +23,17 @@ export function renderNews(newsData, sentiment) {
                     // sources (Yahoo, Google News RSS) provide it; we
                     // fall back to a plain title when missing. target=_blank
                     // + rel=noopener is the standard safe-outbound combo.
-                    const titleHTML = item.url
-                        ? `<a class="news-item-title" href="${escapeAttr(item.url)}" target="_blank" rel="noopener noreferrer">${item.title}</a>`
-                        : `<div class="news-item-title">${item.title}</div>`;
+                    // Title, source and link are all third-party text (see escape.js).
+                    const href = safeHttpUrl(item.url);
+                    const titleHTML = href
+                        ? `<a class="news-item-title" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>`
+                        : `<div class="news-item-title">${escapeHtml(item.title)}</div>`;
                     return `<details class="accordion-item news-accordion">
                         <summary class="accordion-header">
                             <span class="news-item-sentiment">${sentIcon}</span>
                             <div class="accordion-header-content">
                                 ${titleHTML}
-                                <div class="news-item-meta">${item.source} · ${ago}</div>
+                                <div class="news-item-meta">${escapeHtml(item.source)} · ${ago}</div>
                             </div>
                             <span class="accordion-chevron">▸</span>
                         </summary>

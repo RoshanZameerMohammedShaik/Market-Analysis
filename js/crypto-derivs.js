@@ -38,6 +38,12 @@ const MAP = {
 
 const cache = new Map(); // key -> { data, ts }
 const TTL_MS = 10 * 60 * 1000;
+// Binance's futures API refuses US connections (HTTP 451), and the desk runs on US GitHub
+// runners too, so for this app's users the three calls below fail on every crypto symbol. When a
+// whole round comes back empty, stop asking for a while instead of paying three failed requests
+// (and their console errors) per coin.
+const UNREACHABLE_BACKOFF_MS = 30 * 60 * 1000;
+let unreachableUntil = 0;
 
 function binanceSymbol(idOrSymbol) {
     if (!idOrSymbol) return null;
@@ -66,6 +72,7 @@ export async function fetchCryptoDerivs(idOrSymbol) {
     const cached = cache.get(sym);
     if (cached && Date.now() - cached.ts < TTL_MS) return cached.data;
 
+    if (Date.now() < unreachableUntil) return null;
     const out = { exchange: 'binance' };
     try {
         const fIdx = await fetchJson(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${sym}`);
@@ -90,6 +97,10 @@ export async function fetchCryptoDerivs(idOrSymbol) {
         }
     } catch (_) { /* */ }
 
+    if (out.fundingPctPer8h == null && out.oiContracts == null && out.oiTrend24hPct == null) {
+        unreachableUntil = Date.now() + UNREACHABLE_BACKOFF_MS;
+        return null;
+    }
     cache.set(sym, { data: out, ts: Date.now() });
     return out;
 }

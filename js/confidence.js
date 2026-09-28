@@ -58,9 +58,15 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     // Macro and the beta benchmark join the same parallel batch. Both are cached market-wide
     // in js/macro.js, so a 264-symbol scan pays for them ONCE rather than per symbol.
+    // The display name goes to the news search too. fetchStockNews used to get the ticker alone,
+    // and its relevance filter then kept only headlines containing the literal ticker, which is
+    // why AAPL showed "No recent news available": headlines say "Apple", not "AAPL".
+    const displayName = multiData?.daily?.name || '';
     const [aiResult, newsItems, marketResult, macroResult, benchResult] = await Promise.allSettled([
         getAIPrediction(aiCandles, { tier, intraday: useIntraday }),
-        mode === 'stock' ? fetchStockNews(symbolOrCoinId).catch(() => []) : fetchCryptoNews(symbolOrCoinId).catch(() => []),
+        mode === 'stock'
+            ? fetchStockNews(symbolOrCoinId, displayName).catch(() => [])
+            : fetchCryptoNews(displayName || symbolOrCoinId, multiData?.daily?.symbol || '').catch(() => []),
         getMarketConditionsScore(mode),
         getMacroScore(),
         getBenchmarkCloses(mode),
@@ -523,7 +529,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // mutates the object in place.
     const _pt = technicalPred?.priceTargets;
     if (_pt && forecastBand?.calibrated && forecastBand.days?.length) {
-        const d1 = forecastBand.days[0];
+        // The row for the session being asked about: Tomorrow's headline is day 2 of the band.
+        // It was always day 1, so the Tomorrow view printed TODAY's range under
+        // "Expected Price Range — Tomorrow" while the table right below it showed tomorrow's.
+        const dayIdx = timeframe === 'tomorrow' && forecastBand.days.length > 1 ? 1 : 0;
+        const d1 = forecastBand.days[dayIdx];
         const cp = _pt.currentPrice;
         if (cp > 0 && Number.isFinite(d1.high) && Number.isFinite(d1.low)) {
             _pt.predictedHigh = d1.high;
@@ -654,6 +664,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     return {
         signal: finalSignal,
         confidence: calibratedConfidence,
+        // How many resolved past calls the confidence was measured on (0 = raw, unmeasured).
+        calibrationN: Number.isFinite(calN) ? calN : 0,
         // The blended 0-100 score BEFORE it was thresholded into a signal. Computed
         // above and previously kept internal, which meant any consumer wanting to RANK
         // symbols had to re-derive it from breakdown scores and weights, or fall back
@@ -712,8 +724,13 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         // answer "why did the model say this?" without re-running anything.
         attribution: summarizeAttribution(technicalPred, 5),
         breakdown: {
-            ai: { score: ai.score, available: ai.available, weight: weights.ai * 100, modelTier: ai.modelTier || 'main' },
-            technical: { score: technicalScore, weight: weights.technical * 100 },
+            // EFFECTIVE weights for all four, i.e. after an unavailable source's share is spread
+            // over the rest. ai and technical used to report their NOMINAL weight while sentiment
+            // and market reported effective ones, so whenever sentiment dropped out the card's
+            // shares summed to 83% (AAPL: 15 + 35 + 0 + 33.3) and understated what actually drove
+            // the score (AI really carried 20%, technicals 46.7%).
+            ai: { score: ai.score, available: ai.available, weight: effectiveWeights.ai * 100, modelTier: ai.modelTier || 'main' },
+            technical: { score: technicalScore, weight: effectiveWeights.technical * 100 },
             sentiment: { score: sentiment.score, weight: effectiveWeights.sentiment * 100,
                          available: sentiment.available === true, method: sentiment.method },
             market: { score: market.score, weight: effectiveWeights.market * 100,

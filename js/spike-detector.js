@@ -224,7 +224,9 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
     const top = feasible.slice(0, 20);
     await Promise.all(top.map(async s => {
         try {
-            const news = mode === 'stock' ? await fetchStockNews(s.symbol).catch(() => []) : await fetchCryptoNews(s.symbol).catch(() => []);
+            const news = mode === 'stock'
+                ? await fetchStockNews(s.symbol, s.name || '').catch(() => [])
+                : await fetchCryptoNews(s.name || s.symbol, s.symbol).catch(() => []);
             const sent = await analyzeNewsSentiment(news.slice(0, 5));
             const score100 = sent.score; // 0..100 bullish
             const ns = (score100 - 50) / 50; // -1..+1

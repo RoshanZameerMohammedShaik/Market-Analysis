@@ -12,12 +12,13 @@
 // better reasoning + math precision when it matters.
 //
 // API note: Google's REST endpoint is /v1beta/models/{model}:streamGenerateContent
-// with ?alt=sse&key=... appended. SSE format is "data: {json}\n\n", same shape
+// with ?alt=sse appended (the key travels in the x-goog-api-key header). SSE format is "data: {json}\n\n", same shape
 // our existing parser knows. Mid-stream errors arrive as a final SSE chunk
 // containing {"error":{...}} — we throw a typed error so mia.js preserves
 // the partial reply instead of wiping it.
 
 import { markCooling, isCooling, msUntilHealthy } from './tier-cooldown.js';
+import { GEMINI_MODELS } from './gemini-models.js';
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 // Default tier mappings retained for callers (router, llm-client) that
@@ -127,8 +128,16 @@ function parseGeminiError(status, body, retryAfterSec) {
     return `Gemini error ${status}: ${(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}`;
 }
 
+// THE KEY GOES IN A HEADER, NEVER THE URL. A URL is what the browser prints in every failed-request
+// console line ("Failed to load resource: 429 ...?key=AIza..."), what DevTools and HAR exports keep,
+// and what gets copied when a log is pasted for help. The header is the documented alternative
+// and carries the same credential without putting it in any of those places.
+export function geminiHeaders(key) {
+    return { 'Content-Type': 'application/json', 'x-goog-api-key': key };
+}
+
 async function postOnce({ model, system, messages, key, signal }) {
-    const url = `${BASE_URL}/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`;
+    const url = `${BASE_URL}/${model}:streamGenerateContent?alt=sse`;
     const body = toGeminiContents(system, messages);
     body.generationConfig = {
         temperature: 0.3,
@@ -142,7 +151,7 @@ async function postOnce({ model, system, messages, key, signal }) {
     console.log('[mia/gemini] POST', model, '— request shape:', { msgs: messages.length, sysChars: system.length });
     const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: geminiHeaders(key),
         body: JSON.stringify(body),
         signal,
     });
@@ -309,30 +318,42 @@ export async function* stream({ system, messages, key, signal, tier = 'default',
 }
 
 export async function ping(key, tier = 'default') {
-    const model = modelFor(tier);
     if (!key) return { ok: false, msg: 'No API key configured.' };
-    try {
-        const res = await fetch(`${BASE_URL}/${model}:generateContent?key=${encodeURIComponent(key)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: 'reply pong' }] }],
-                generationConfig: { maxOutputTokens: 5, temperature: 0 },
-            }),
-            signal: AbortSignal.timeout(15000),
-        });
-        if (!res.ok) {
-            const body = await res.text().catch(() => '');
-            let parsed = null; try { parsed = JSON.parse(body); } catch (_) {}
-            const msg = parsed?.error?.message || '';
-            if (res.status === 400 && /API key not valid/i.test(msg)) return { ok: false, msg: 'Key was rejected by Google. Double-check it was copied in full.' };
-            if (res.status === 403) return { ok: false, msg: `Forbidden: ${msg.slice(0, 160)}` };
-            return { ok: false, msg: `Test failed (${res.status}).` };
+    // Test on the roster's fast tier, not on a 20-requests-a-day model: a connection check should
+    // not spend 5% of a scarce daily quota. First model that exists for this key wins; a 404 only
+    // means that ID is not served to it, so the next is tried.
+    const candidates = [
+        ...GEMINI_MODELS.filter(m => m.tier === 'fast' && (m.rpd || 0) >= 500).map(m => m.id),
+        modelFor(tier),
+    ];
+    let lastStatus = 0;
+    for (const model of [...new Set(candidates)]) {
+        try {
+            const res = await fetch(`${BASE_URL}/${model}:generateContent`, {
+                method: 'POST',
+                headers: geminiHeaders(key),
+                body: JSON.stringify({
+                    contents: [{ role: 'user', parts: [{ text: 'reply pong' }] }],
+                    generationConfig: { maxOutputTokens: 5, temperature: 0 },
+                }),
+                signal: AbortSignal.timeout(15000),
+            });
+            if (res.status === 404) { lastStatus = 404; continue; }
+            if (!res.ok) {
+                const body = await res.text().catch(() => '');
+                let parsed = null; try { parsed = JSON.parse(body); } catch (_) {}
+                const msg = parsed?.error?.message || '';
+                if (res.status === 400 && /API key not valid/i.test(msg)) return { ok: false, msg: 'Key was rejected by Google. Double-check it was copied in full.' };
+                if (res.status === 403) return { ok: false, msg: `Forbidden: ${msg.slice(0, 160)}` };
+                return { ok: false, msg: `Test failed (${res.status}).` };
+            }
+            const label = GEMINI_MODELS.find(m => m.id === model)?.label || model;
+            return { ok: true, msg: `Connected. ${label} answered; Mia rotates across the whole Gemini roster.` };
+        } catch (e) {
+            return { ok: false, msg: `Network error: ${e.message}` };
         }
-        return { ok: true, msg: `Connected. ${model === MODEL_THINKING ? 'Gemini 2.5 Flash' : 'Gemini 2.5 Flash-Lite'} ready.` };
-    } catch (e) {
-        return { ok: false, msg: `Network error: ${e.message}` };
     }
+    return { ok: false, msg: `Test failed (${lastStatus || 'no model answered'}).` };
 }
 
 export function getModelForTier(tier) { return modelFor(tier); }

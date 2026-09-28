@@ -76,6 +76,9 @@ const SUFFIX_INFO = {
 // search results that come from Yahoo's autocomplete (where we get a
 // code, not a suffix).
 const CODE_INFO = {
+    // Crypto has no listing exchange. Without this the lookup fell through to the empty-suffix
+    // rule and the BTC header read "NASDAQ / NYSE — USA".
+    CRYPTO: { name: 'Crypto', country: '' },
     NMS: { name: 'NASDAQ', country: 'USA' },
     NGM: { name: 'NASDAQ', country: 'USA' },
     NCM: { name: 'NASDAQ', country: 'USA' },

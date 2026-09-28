@@ -169,6 +169,13 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
         const date = new Date(bar.time * 1000).toISOString().slice(0, 10);
 
         let pred = lockedByDate.get(date) || null;
+        // A locked row whose entry is nowhere near this session's open belongs to another
+        // instrument filed under the same key (Yahoo's TON-USD is "TON Token", not Toncoin).
+        // Scoring its band against these bars would print confident nonsense, so replay instead.
+        if (pred && Number.isFinite(pred.anchor) && pred.anchor > 0 && bar.open > 0
+            && Math.abs(Math.log(pred.anchor / bar.open)) >= Math.log(3)) {
+            pred = null;
+        }
         let source = pred ? 'locked' : 'modelled';
 
         if (!pred) {

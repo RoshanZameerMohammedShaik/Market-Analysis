@@ -3,11 +3,11 @@
 // Two patterns under the hood — one per asset class — but one subscribe()
 // API for callers:
 //
-//   const handle = subscribe('BTC-USD', priceCb);  // Binance WS, real-time stream
+//   const handle = subscribe('BTC-USD', priceCb);  // live trades (Binance, else Coinbase)
 //   const handle = subscribe('NVDA',     priceCb);  // Stooq snapshot, manual refresh
 //   handle.close();
 //
-// Crypto: Binance WebSocket, true real-time. CB fires on every trade.
+// Crypto: live WebSocket trades via crypto-stream.js (Binance, falling back to Coinbase).
 // Stocks: snapshot-on-demand. CB fires:
 //   - immediately with cached price when available (so panel doesn't show '—')
 //   - again whenever refreshStockPrices() runs (panel-open + manual ↻ button)
@@ -27,7 +27,11 @@
 // honest design is "snapshot on demand" for the delayed sources, plus the
 // realtime Public feed when available.)
 
-// crypto: symbol -> { ws, retryMs, retryTimer, subs: Set<cb>, lastPrice }
+import { streamCryptoPrice, cryptoStreamVenue } from '../crypto-stream.js';
+
+// crypto: symbol -> { handle, subs: Set<cb>, lastPrice }. The socket itself lives in
+// crypto-stream.js, which falls back from Binance to Coinbase when Binance is unreachable
+// (it refuses US connections), so a US user still gets live prices.
 const cryptoStreams = new Map();
 // stocks: symbol -> { subs: Set<cb>, lastPrice, lastFetchedAt }
 const stockSubs = new Map();
@@ -36,65 +40,25 @@ export function isCryptoSymbol(symbol) {
     return /-USD$/i.test(String(symbol || ''));
 }
 
-function toBinanceStream(symbol) {
-    const s = String(symbol || '').toUpperCase();
-    const m = s.match(/^([A-Z0-9]+)-USD$/);
-    if (!m) return null;
-    return `${m[1].toLowerCase()}usdt@trade`;
-}
-
 // ── crypto path ───────────────────────────────────────────────────────
-
-function openCryptoSocket(symbol) {
-    const stream = toBinanceStream(symbol);
-    if (!stream) return; // unsupported coin → callers stay null-safe
-    const entry = cryptoStreams.get(symbol) || {
-        ws: null, retryMs: 1000, retryTimer: null, subs: new Set(), lastPrice: null,
-    };
-    cryptoStreams.set(symbol, entry);
-
-    const open = () => {
-        let ws;
-        try { ws = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`); }
-        catch (_) { scheduleRetry(); return; }
-        entry.ws = ws;
-        ws.onopen = () => { entry.retryMs = 1000; };
-        ws.onmessage = (ev) => {
-            try {
-                const m = JSON.parse(ev.data);
-                const price = parseFloat(m.p);
-                if (!Number.isFinite(price)) return;
-                entry.lastPrice = price;
-                for (const cb of entry.subs) {
-                    try { cb(price, { symbol, ts: Date.now(), source: 'binance' }); } catch (_) {}
-                }
-            } catch (_) {}
-        };
-        ws.onerror = () => { /* onclose handles cleanup */ };
-        ws.onclose = () => {
-            entry.ws = null;
-            if (entry.subs.size > 0) scheduleRetry();
-        };
-    };
-    const scheduleRetry = () => {
-        if (entry.retryTimer) clearTimeout(entry.retryTimer);
-        entry.retryTimer = setTimeout(() => { entry.retryTimer = null; open(); }, entry.retryMs);
-        entry.retryMs = Math.min(entry.retryMs * 2, 30_000);
-    };
-    open();
-    return entry;
-}
 
 function subscribeCrypto(symbol, cb) {
     let entry = cryptoStreams.get(symbol);
-    if (!entry) entry = openCryptoSocket(symbol);
-    if (!entry) return null; // unsupported coin
+    if (!entry) {
+        entry = { handle: null, subs: new Set(), lastPrice: null };
+        entry.handle = streamCryptoPrice(symbol, (price, meta) => {
+            entry.lastPrice = price;
+            for (const fn of entry.subs) {
+                try { fn(price, { symbol, ts: meta?.ts || Date.now(), source: meta?.source || 'stream' }); } catch (_) {}
+            }
+        });
+        if (!entry.handle) return null; // unusable symbol → callers stay null-safe
+        cryptoStreams.set(symbol, entry);
+    }
     entry.subs.add(cb);
     if (entry.lastPrice != null) {
-        // Fire once immediately so the UI doesn't sit on '—' until the
-        // next trade tick. Some thinly-traded pairs have several seconds
-        // between trades.
-        try { cb(entry.lastPrice, { symbol, ts: Date.now(), source: 'binance', cached: true }); } catch (_) {}
+        // Fire once immediately so the UI doesn't sit on '—' until the next trade tick.
+        try { cb(entry.lastPrice, { symbol, ts: Date.now(), source: cryptoStreamVenue(), cached: true }); } catch (_) {}
     }
     return {
         symbol,
@@ -108,10 +72,7 @@ function unsubscribeCrypto(symbol, cb) {
     if (!entry) return;
     entry.subs.delete(cb);
     if (entry.subs.size === 0) {
-        if (entry.retryTimer) { clearTimeout(entry.retryTimer); entry.retryTimer = null; }
-        if (entry.ws) {
-            try { entry.ws.onclose = null; entry.ws.close(); } catch (_) {}
-        }
+        try { entry.handle?.close(); } catch (_) {}
         cryptoStreams.delete(symbol);
     }
 }
@@ -357,7 +318,7 @@ export async function getCurrentPrice(symbol) {
                 handle.close();
                 resolve(price);
             });
-            if (!handle) return reject(new Error(`Symbol ${symbol} not supported on Binance.`));
+            if (!handle) return reject(new Error(`No live feed for ${symbol}.`));
             setTimeout(() => {
                 try { handle.close(); } catch (_) {}
                 reject(new Error('Timed out waiting for first tick.'));

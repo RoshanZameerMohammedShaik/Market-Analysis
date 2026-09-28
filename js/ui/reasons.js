@@ -28,25 +28,30 @@ export function humanizeReason(reason) {
 
 export function generateNewsImpact(title, sentimentLabel, symbol) {
     const sym = symbol || 'this asset';
-    const lower = title.toLowerCase();
+    // Whole words only. This used substring tests, and substrings misfire constantly in real
+    // headlines: "war" is inside "software", "toward" and "award" (a geopolitical warning on a
+    // software story), "sec" is inside "second" and "sector", "cut" is inside "executive",
+    // "rate" inside "corporate", "deal" inside "ideal". \w* keeps the inflections ("launches",
+    // "restructuring") that the substring test was there to catch.
+    const has = (re) => re.test(String(title || ''));
 
-    if (lower.includes('earnings') || lower.includes('revenue') || lower.includes('profit')) {
-        if (sentimentLabel === 'positive') return `Positive earnings/revenue news suggests strong fundamentals for ${sym}. This could drive buying pressure and push the price higher in the short term.`;
-        if (sentimentLabel === 'negative') return `Negative earnings data signals weakness in ${sym}'s fundamentals. Expect potential selling pressure as investors reassess valuations.`;
-        return `Earnings-related news for ${sym}. Monitor the actual numbers vs analyst expectations for directional clarity.`;
+    if (has(/\b(earnings?|revenues?|profits?)\b/i)) {
+        if (sentimentLabel === 'positive') return `Positive earnings or revenue news for ${sym}. Good results often draw buyers in the short term, though a lot is usually priced in already.`;
+        if (sentimentLabel === 'negative') return `Weak earnings or revenue news for ${sym}. Disappointing results often bring selling as investors reassess.`;
+        return `Earnings-related news for ${sym}. What moves the price is the actual numbers against expectations.`;
     }
-    if (lower.includes('upgrade') || lower.includes('price target')) return `Analyst action on ${sym}. Upgrades and raised price targets typically trigger institutional buying. This is a bullish catalyst.`;
-    if (lower.includes('downgrade') || lower.includes('cut')) return `Analyst downgrade or target cut for ${sym}. This signals reduced institutional confidence and may trigger selling pressure.`;
-    if (lower.includes('fda') || lower.includes('approval') || lower.includes('patent')) return `Regulatory/IP news for ${sym}. Approvals and patent grants are strong catalysts that can drive significant price moves.`;
-    if (lower.includes('lawsuit') || lower.includes('investigation') || lower.includes('sec') || lower.includes('fraud')) return `Legal/regulatory risk for ${sym}. Investigations and lawsuits create uncertainty and typically pressure stock prices downward until resolution.`;
-    if (lower.includes('partnership') || lower.includes('deal') || lower.includes('contract') || lower.includes('launch')) return `Business development news for ${sym}. New partnerships and product launches signal growth potential and can attract buyers.`;
-    if (lower.includes('layoff') || lower.includes('restructur')) return `Restructuring news for ${sym}. Layoffs may boost short-term margins but signal underlying business challenges. Mixed impact.`;
-    if (lower.includes('inflation') || lower.includes('rate') || lower.includes('fed')) return `Macro/Fed news affecting ${sym}. Interest rate decisions and inflation data impact all equities — higher rates typically pressure growth stocks.`;
-    if (lower.includes('war') || lower.includes('geopolit') || lower.includes('sanction') || lower.includes('tariff')) return `Geopolitical event impacting ${sym}. These create market uncertainty and typically increase volatility across sectors.`;
+    if (has(/\b(upgrade[sd]?|price targets?)\b/i)) return `Analyst action on ${sym}. Upgrades and higher price targets can bring buyers, but the effect on price is usually small and short-lived.`;
+    if (has(/\b(downgrade[sd]?|cuts?|slash\w*)\b/i)) return `Analyst downgrade or a cut for ${sym}. This can bring selling pressure in the short term.`;
+    if (has(/\b(fda|approv\w*|patents?)\b/i)) return `Regulatory or patent news for ${sym}. Approvals and patent rulings can move the price sharply in either direction.`;
+    if (has(/\b(lawsuits?|su(e|es|ed|ing)|investigat\w*|sec|fraud\w*|probes?)\b/i)) return `Legal or regulatory risk for ${sym}. Investigations and lawsuits add uncertainty until they are resolved.`;
+    if (has(/\b(partner\w*|deals?|contracts?|launch\w*|acqui\w*)\b/i)) return `Business news for ${sym}: a deal, contract, launch or acquisition. How much it matters depends on its size relative to the company.`;
+    if (has(/\b(layoffs?|restructur\w*|job cuts?)\b/i)) return `Restructuring news for ${sym}. Cost cuts can help margins but often signal a harder business backdrop.`;
+    if (has(/\b(inflation|rates?|fed|fomc|treasury yields?)\b/i)) return `Macro or Fed news touching ${sym}. Rate and inflation news moves most stocks together; higher rates tend to weigh on growth stocks.`;
+    if (has(/\b(wars?|geopoliti\w*|sanctions?|tariffs?)\b/i)) return `Geopolitical news touching ${sym}. Events like these tend to raise volatility across the market.`;
 
-    if (sentimentLabel === 'positive') return `Positive coverage for ${sym}. Bullish news flow tends to attract buying interest and supports upward price movement.`;
-    if (sentimentLabel === 'negative') return `Negative coverage for ${sym}. Bearish news creates selling pressure and may weigh on price in the near term.`;
-    return `Neutral news mention for ${sym}. No strong directional bias from this headline alone — monitor for follow-up developments.`;
+    if (sentimentLabel === 'positive') return `Positive coverage for ${sym}. Upbeat news flow can support the price in the short term.`;
+    if (sentimentLabel === 'negative') return `Negative coverage for ${sym}. Downbeat news flow can weigh on the price in the short term.`;
+    return `A neutral mention of ${sym}. No clear direction from this headline alone.`;
 }
 
 // Symbol-specific context for a small set of indicators. When an

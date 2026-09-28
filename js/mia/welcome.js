@@ -4,6 +4,7 @@
 
 import { saveSettings, loadSettings } from './settings.js';
 import { ping as pingGemini } from './backends/api-gemini.js';
+import { GEMINI_MODELS } from './backends/gemini-models.js';
 import { ping as pingCf } from './backends/api-cf.js';
 import { closeSidePanel } from '../ui/side-panel-stack.js';
 
@@ -50,7 +51,7 @@ export function renderWelcome(panel, onConfigured) {
                 <div class="mia-card-emoji">⚡</div>
                 <div class="mia-card-title">API key — instant + mobile-friendly</div>
                 <div class="mia-card-tags">
-                    <span>Gemini + Cloudflare</span><span>Auto-fallback</span><span>Free tier</span><span>Gemini 2.5 Flash</span>
+                    <span>Gemini + Cloudflare</span><span>Auto-fallback</span><span>Free tier</span><span>${GEMINI_MODELS[0]?.label || 'Gemini'}</span>
                 </div>
                 <div class="mia-card-body">
                     Paste a free Gemini AI Studio key or Cloudflare key. If you add both, Mia auto-falls-back the moment one rate-limits, so you effectively never run dry. Keys live only in this browser.

@@ -4,7 +4,7 @@
 const SECTIONS = [
     {
         title: 'What is Market Analyzer?',
-        body: `<p>A real-time stock & crypto prediction engine. Multi-timeframe technicals, AI pattern recognition, FinBERT news sentiment, macro regime, sector-relative scoring, earnings-aware confidence — blended into a single calibrated <strong>BUY / SELL / NEUTRAL</strong> signal.</p>
+        body: `<p>A real-time stock & crypto prediction engine. Multi-timeframe technicals, AI pattern recognition, news headline sentiment, macro regime, sector-relative scoring, earnings-aware confidence — blended into a single calibrated <strong>BUY / SELL / NEUTRAL</strong> signal.</p>
             <p>Runs in your browser. No backend. <em>Not financial advice.</em></p>`,
     },
     {

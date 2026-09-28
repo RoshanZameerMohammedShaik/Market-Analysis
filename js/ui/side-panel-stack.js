@@ -126,6 +126,18 @@ document.addEventListener('mousedown', (e) => {
     const toClose = [...openOrder].reverse();
     for (const id of toClose) closeSidePanel(id);
 }, true);
+// Escape closes the panel opened LAST (the one furthest from the right edge, the one the user is
+// looking at). Without this there was no keyboard way out at all: opening Portfolio, then P&L,
+// then Mia left three panels covering the whole page at 1360px, and Escape did nothing.
+// A dialog opened from inside a panel owns Escape first, so the panel behind it stays.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented || openOrder.length === 0) return;
+    const modal = document.getElementById('portfolio-modal-backdrop');
+    if (modal) { modal.remove(); return; }
+    if (document.querySelector('.mia-voice-overlay[aria-hidden="false"]')) return;
+    closeSidePanel(openOrder[openOrder.length - 1]);
+});
+
 // Same handler for touchstart so mobile gestures close too. We use
 // touchstart not touchend so the close happens immediately on tap-down,
 // matching the responsiveness of the chat-app pattern users expect.

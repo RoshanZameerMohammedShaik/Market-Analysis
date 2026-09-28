@@ -1,0 +1,4 @@
+{
+  "status": "not-trained",
+  "note": "Placeholder. The intraday (1h) LSTM has not been trained yet, so js/ai-model.js uses the daily model for the Today view. train_intraday.py overwrites this file with real weights (config + weights) when it runs. Shipping the placeholder stops the browser logging a 404 for it on every page load."
+}

@@ -310,6 +310,14 @@ jobs:
       - name: Check the band history scores without lookahead
         run: node tools/band_history_check.mjs
 
+      # The 2026-09-28 audit. Every one of these shipped silently: a news filter that threw away
+      # every AAPL headline, a velocity formula that called any busy stock a pump, headline HTML
+      # interpolated raw into the page, crypto tables without weekends, and a coin matcher that
+      # would take "ARbit" for Arbitrum. --network adds the crypto-bar checks (daily spacing, and
+      # TON resolving to Toncoin rather than Yahoo's "TON Token").
+      - name: Check the audit fixes stay fixed
+        run: node tools/audit_fixes_check.mjs --network
+
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.
   #

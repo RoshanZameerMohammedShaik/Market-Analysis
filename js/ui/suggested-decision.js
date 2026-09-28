@@ -25,6 +25,7 @@
 // so a weak call never reads as conviction.
 
 import { fmtPriceTag } from './format.js';
+import { escapeHtml } from './escape.js';
 
 // Round a % for display: 1 decimal under 10, whole number above.
 function pct(v) {
@@ -103,10 +104,13 @@ export function renderSuggestedDecision(view, opts = {}) {
         sentence = `<strong>${who}</strong> looks like a <strong class="sd-num down">SELL</strong> for ${tfWord} — the engine sees downside toward <strong>${fmtPriceTag(pt.predictedLow, co)}</strong> (<strong class="sd-num down">${pctSigned(down)}%</strong>) from ${fmtPriceTag(anchorPx, co)}.${usualTail}`;
         sigOwned = 'SELL'; sigNotOwned = "DON'T BUY";
     } else if (signal === 'NO_TRADE') {
-        // Hard event-risk cap (earnings/gap/etc.) — the engine is actively
-        // telling you to stay out, which is stronger than "no edge".
+        // The engine ABSTAINED: its indicators disagree, the edge is too thin, or the market is
+        // ranging. This used to say "there's event risk (e.g. earnings or a big gap)" for every
+        // AVOID, which was never what the gate tests (see the abstain gate in analysis.js), and
+        // told BTC holders to watch for earnings. Say what it actually is.
         state = 'avoid'; toneClass = 'sd-flat'; arrow = '⊘';
-        sentence = `<strong>${who}</strong> is best <strong class="sd-num">AVOIDED</strong> for ${tfWord} — there's event risk (e.g. earnings or a big gap) that makes the next move a coin toss. The engine is sitting it out.${usualTail}`;
+        const why = String(view.meta?.abstainReason || '').trim().replace(/\.$/, '');
+        sentence = `<strong>${who}</strong> is best <strong class="sd-num">AVOIDED</strong> for ${tfWord} — the engine found no edge worth taking and is sitting it out${why ? `: ${escapeHtml(why)}.` : '.'}${usualTail}`;
         sigOwned = 'HOLD'; sigNotOwned = "DON'T BUY";
     } else {
         // NEUTRAL — genuinely no directional edge. Describe the range honestly

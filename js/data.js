@@ -137,13 +137,25 @@ export async function fetchWithProxy(url) {
     // in a worker without anyone having to remember to set a flag.
     const tryDirect = !isBrowser || (!yahoo && !directBlockedHosts.test(urlHost));
     if (tryDirect) {
+        let definitive = null;
         try {
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (res.ok) {
                 const text = await res.text();
                 if (isValidResponse(text)) return createTextResponse(text, res);
+            } else if (res.status === 400 || res.status === 404 || res.status === 451) {
+                // 451 is a legal block ("restricted location"): no proxy route changes the law.
+                definitive = res.status;
             }
         } catch (e) { /* fall through */ }
+        // A 404 is the source's answer ("no such symbol"), not a transport failure. Walking the
+        // proxy chain after it re-asks the same question through slower routes: an unknown crypto
+        // ticker took 24 seconds that way before anything could fall back to another source.
+        if (definitive) {
+            const err = new Error(`Source answered ${definitive} for this request.`);
+            err.status = definitive;
+            throw err;
+        }
     }
 
     // 2) For Yahoo URLs, our Worker is the primary path.
@@ -161,6 +173,13 @@ export async function fetchWithProxy(url) {
             if (e.status === 401 && yahooBreakerNameFor(url)) {
                 recordYahooSkip(url);
                 throw new Error('Yahoo endpoint crumb-walled (401, skipping chain).');
+            }
+            // Yahoo's 404 ("No data found, symbol may be delisted") is final. Every public proxy
+            // would relay the same answer, only slower.
+            if (e.status === 400 || e.status === 404) {
+                const err = new Error(`Yahoo answered ${e.status} for this request.`);
+                err.status = e.status;
+                throw err;
             }
         }
     }
@@ -280,7 +299,9 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d', opt
     // avoid the freeze when even one symbol is dead. User-initiated
     // searches keep the probe enabled (default true).
     const hasSuffix = /\.[A-Z]{1,3}$/.test(symbol);
-    const probe = opts.suffixProbe !== false;
+    // Never probe exchange suffixes onto a crypto pair, an FX pair or an index: "UNI-USD.NS" is
+    // not a listing anywhere, and each miss costs two proxied requests.
+    const probe = opts.suffixProbe !== false && !/-USD$|[=^]/i.test(symbol);
     const candidates = hasSuffix || !probe
         ? [symbol]
         : [symbol, `${symbol}.NS`, `${symbol}.BO`, `${symbol}.L`, `${symbol}.HK`, `${symbol}.T`];
@@ -503,6 +524,8 @@ export async function fetchCryptoData(coinId, days = 90, opts = {}) {
     }
 
     const displayName = CRYPTO_NAMES[coinId] || coinId.charAt(0).toUpperCase() + coinId.slice(1).replace(/-/g, ' ');
+    // A CoinGecko id is not a ticker ('bitcoin' -> 'BITCOIN' was on the chart header). Callers
+    // that know the real ticker pass it; this is only the fallback label.
     const displaySymbol = coinId === 'ripple' ? 'XRP' : coinId.split('-')[0].toUpperCase();
 
     return {
@@ -517,20 +540,148 @@ export async function fetchCryptoData(coinId, days = 90, opts = {}) {
     };
 }
 
-export async function fetchCryptoMultiTimeframe(coinId) {
-    const [dailyRes, weeklyRes] = await Promise.allSettled([
-        fetchCryptoData(coinId, 90),
-        fetchCryptoData(coinId, 365),
-    ]);
+// ─── CRYPTO BARS: YAHOO, CROSS-CHECKED AGAINST KRAKEN ───────────────────────────────
+//
+// WHY NOT COINGECKO. Its free OHLC endpoint picks the candle size from the range: days=90 and
+// days=365 both return candles FOUR DAYS apart. Both were handed to the engine as "daily" and
+// "weekly" bars, and the 4h timeframe was the same 4-day series again. Measured on BTC: sigma
+// 4.63%/day ("wild") against 2.20% on real daily bars, a 7-day band 16.5% wide against 8.7%, and
+// "Daily: insufficient data for analysis" on the card, because 90 days of 4-day candles is 23
+// bars. The header price was the close of the last 4-day candle, hours stale. The ledger grades
+// bands built on yfinance daily bars, so its measured coverage never described the band a user
+// was shown for any coin.
+//
+// WHY THE CROSS-CHECK. Yahoo reuses tickers. TON-USD is "TON Token" at $0.005, not Toncoin at
+// $1.64; ARB-USD is "ARbit", not Arbitrum; UNI-USD, SUI-USD and PEPE-USD return nothing because
+// the real coins live at UNI7083-USD, SUI20947-USD and PEPE24478-USD. Kraken lists real coins
+// under their plain tickers and answers browsers directly (it echoes the Origin header), so it is
+// both the referee and the fallback: Yahoo is used when its price agrees with Kraken's, and
+// Kraken's own bars are used when it does not.
 
-    const daily = dailyRes.status === 'fulfilled' ? dailyRes.value : null;
-    const weekly = weeklyRes.status === 'fulfilled' ? weeklyRes.value : null;
-    if (!daily) throw new Error(`Could not fetch data for ${coinId}`);
-    const weeklyCandles = aggregateCandles(daily.candles, 7);
+const KRAKEN_OHLC = 'https://api.kraken.com/0/public/OHLC';
+
+function krakenCandles(json) {
+    const r = json?.result;
+    if (!r || (json.error && json.error.length)) return null;
+    const key = Object.keys(r).find(k => k !== 'last');
+    const rows = key ? r[key] : null;
+    if (!Array.isArray(rows) || !rows.length) return null;
+    return rows.map(([t, o, h, l, c, _vwap, v]) => ({
+        time: Number(t), open: +o, high: +h, low: +l, close: +c, volume: +v,
+    })).filter(c => c.close > 0);
+}
+
+async function fetchKrakenCandles(base, intervalMin) {
+    const b = String(base || '').toUpperCase();
+    if (!/^[A-Z0-9]{2,12}$/.test(b)) return null;
+    try {
+        const res = await fetch(`${KRAKEN_OHLC}?pair=${b}USD&interval=${intervalMin}`, { signal: AbortSignal.timeout(10000) });
+        if (!res.ok) return null;
+        return krakenCandles(await res.json());
+    } catch (_) { return null; }
+}
+
+const normCoinName = (s) => String(s || '').toLowerCase().replace(/\busd\b/g, '').replace(/[^a-z0-9]/g, '');
+/** Exact after normalising ("Bitcoin USD" = "Bitcoin"). Prefixes are NOT accepted: "ARbit" is a prefix of "Arbitrum". */
+export function coinNamesAgree(a, b) {
+    const x = normCoinName(a), y = normCoinName(b);
+    return !!x && x === y;
+}
+
+function wrapBars(base, name, candles, currentPrice) {
+    const prev = candles.length > 1 ? candles[candles.length - 2].close : null;
+    return { symbol: base, name, currency: 'USD', exchange: 'Crypto', currentPrice, previousClose: prev, candles };
+}
+
+// Monday-aligned weekly buckets from daily bars (crypto trades every day, so 7 per week).
+function weeklyFromDaily(candles) {
+    const out = [];
+    let cur = null;
+    for (const c of candles) {
+        const d = new Date(c.time * 1000);
+        const monday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)) / 1000;
+        if (!cur || cur.time !== monday) {
+            cur = { time: monday, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume || 0 };
+            out.push(cur);
+        } else {
+            cur.high = Math.max(cur.high, c.high);
+            cur.low = Math.min(cur.low, c.low);
+            cur.close = c.close;
+            cur.volume += c.volume || 0;
+        }
+    }
+    return out;
+}
+
+async function krakenMultiTimeframe(base, name) {
+    const [daily, hourly] = await Promise.all([fetchKrakenCandles(base, 1440), fetchKrakenCandles(base, 60)]);
+    if (!daily || daily.length < 30) return null;
+    const px = daily[daily.length - 1].close;
+    const d = daily.slice(-90);
+    const out = {
+        daily: wrapBars(base, name, d, px),
+        weekly: wrapBars(base, name, weeklyFromDaily(daily.slice(-371)), px),
+        fourHour: wrapBars(base, name, d, px),
+        source: 'kraken',
+    };
+    if (hourly && hourly.length >= 24) {
+        out.hourly = wrapBars(base, name, hourly.slice(-720), px);
+        out.fourHour = wrapBars(base, name, aggregateCandles(hourly.slice(-720), 4), px);
+    }
+    return out;
+}
+
+/**
+ * Real daily/weekly/4h bars for a coin.
+ * @param coinId  CoinGecko id (used only for the last-resort fallback)
+ * @param opts.base  ticker ("BTC"). Without it the CoinGecko id's first word is used.
+ * @param opts.name  coin name ("Bitcoin"), checked against Yahoo's name for the ticker
+ */
+export async function fetchCryptoMultiTimeframe(coinId, opts = {}) {
+    const base = String(opts.base || (coinId === 'ripple' ? 'XRP' : String(coinId || '').split('-')[0]) || '').toUpperCase();
+    const name = opts.name || CRYPTO_NAMES[coinId] || '';
+    const [yahooRes, krakenRes] = await Promise.allSettled([
+        base ? fetchStockMultiTimeframe(`${base}-USD`) : Promise.reject(new Error('no ticker')),
+        base ? fetchKrakenCandles(base, 1440) : Promise.resolve(null),
+    ]);
+    const yahoo = yahooRes.status === 'fulfilled' ? yahooRes.value : null;
+    const kraken = krakenRes.status === 'fulfilled' ? krakenRes.value : null;
+    const yPx = yahoo?.daily?.currentPrice;
+    const kPx = kraken?.length ? kraken[kraken.length - 1].close : null;
+    const priceOk = (yPx > 0 && kPx > 0) ? Math.abs(yPx / kPx - 1) < 0.05 : null;
+    const nameOk = (yahoo && name) ? coinNamesAgree(yahoo.daily?.name, name) : null;
+    // Yahoo wins when Kraken confirms the price, or when there is no Kraken market to compare
+    // against and Yahoo's own name for the ticker does not contradict the coin's.
+    if (yahoo && yahoo.daily?.candles?.length >= 30 && (priceOk === true || (priceOk === null && nameOk !== false))) {
+        const label = name || String(yahoo.daily.name || base).replace(/\s+USD$/i, '');
+        for (const tf of ['daily', 'weekly', 'fourHour', 'hourly']) {
+            if (yahoo[tf]) yahoo[tf] = { ...yahoo[tf], symbol: base, name: label, exchange: 'Crypto', currency: 'USD' };
+        }
+        yahoo.source = 'yahoo';
+        yahoo.yahooTicker = `${base}-USD`;
+        return yahoo;
+    }
+    if (kraken && kraken.length >= 30) {
+        const k = await krakenMultiTimeframe(base, name || base);
+        if (k) return k;
+    }
+    // Last resort: CoinGecko's 30-day window, the longest it serves at 4-hour granularity, rolled
+    // up into true daily bars. Never the 90/365-day calls: those are the 4-day candles above.
+    const four = await fetchCryptoData(coinId, 30);
+    const perDay = [];
+    for (const c of four.candles) {
+        const day = Math.floor(c.time / 86400) * 86400;
+        const last = perDay[perDay.length - 1];
+        if (!last || last.time !== day) perDay.push({ ...c, time: day });
+        else { last.high = Math.max(last.high, c.high); last.low = Math.min(last.low, c.low); last.close = c.close; }
+    }
+    if (perDay.length < 20) throw new Error(`Could not fetch data for ${base || coinId}`);
+    const px = four.currentPrice;
     return {
-        daily,
-        weekly: weekly || { ...daily, candles: weeklyCandles },
-        fourHour: daily,
+        daily: wrapBars(base || four.symbol, name || four.name, perDay, px),
+        weekly: wrapBars(base || four.symbol, name || four.name, weeklyFromDaily(perDay), px),
+        fourHour: wrapBars(base || four.symbol, name || four.name, four.candles, px),
+        source: 'coingecko-30d',
     };
 }
 

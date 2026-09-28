@@ -19,12 +19,61 @@
 // won't survive Phase 1 filtering. Hot Picks is discovery, not exhaustive
 // scan; user can search any symbol directly for the full pipeline.
 
-import { fetchStockData, fetchCryptoData, fetchWithProxy, coingeckoJson } from './data.js';
-import { generatePrediction, generateMultiTimeframePrediction } from './analysis.js';
+import { fetchStockData, fetchWithProxy, coingeckoJson } from './data.js';
 import { getMarketConditionsScore } from './market.js';
 import { UNIVERSE_CONFIG } from './markets.js';
 import { computeFullConfidence } from './confidence.js';
 import { getCalibrationThresholds, getCalibrationThresholdsSync } from './calibration-thresholds.js';
+import { getEffectiveLock } from './ui/daily-lock.js';
+import { applyLockToPrediction } from './ui/lock-view.js';
+
+// THE CALL THE USER WILL SEE WHEN THEY OPEN THE SYMBOL.
+//
+// The signal card shows the session's LOCKED call (the cron's, or the one this browser first saw)
+// while Hot Picks used to show the live engine output, so a card could read "BUY 50%" and open to
+// "DON'T BUY 48%". Both now go through applyLockToPrediction. Read-only here: every scanned
+// symbol is checked, but only the picks actually shown get a local lock (see lockShownPicks).
+async function effectiveView(lockKey, result, timeframe) {
+    if (timeframe !== 'today' || !lockKey || !result) return { view: result, locked: false };
+    try {
+        const lock = await getEffectiveLock(lockKey, result, { create: false });
+        return lock ? { view: applyLockToPrediction(result, lock), locked: true } : { view: result, locked: false };
+    } catch (_) { return { view: result, locked: false }; }
+}
+
+function pickFields(view) {
+    const pt = view?.priceTargets || {};
+    return {
+        signal: view.signal,
+        confidence: view.confidence,
+        expectedHigh: pt.predictedHigh ?? null,
+        expectedLow: pt.predictedLow ?? null,
+        expectedPct: pt.highPercent ?? null,
+        expectedLowPct: pt.lowPercent ?? null,
+        reasons: view.reasons,
+    };
+}
+
+// Lock the picks on screen that have no lock yet, so opening one shows the same call the card
+// showed. Only these few: locking all ~70 scanned symbols would stamp calls the user never saw.
+async function lockShownPicks(picks, timeframe) {
+    if (timeframe !== 'today') {
+        for (const p of picks) delete p._live;
+        return;
+    }
+    for (const p of picks) {
+        if (!p._locked && p._live && p._lockKey) {
+            try {
+                const lock = await getEffectiveLock(p._lockKey, p._live);
+                // Re-read the pick from the lock just taken. A new lock is anchored on the SESSION
+                // OPEN, not on the live price the scan saw, so on a symbol that has moved since
+                // the open the range differs: MOD showed $165-$186 here and $184-$207 on its card.
+                if (lock) Object.assign(p, pickFields(applyLockToPrediction(p._live, lock)), { _locked: true });
+            } catch (_) { /* card will lock on open */ }
+        }
+        delete p._live;
+    }
+}
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const stockCache = new Map(); // key -> { ts, picks }
@@ -223,28 +272,19 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const result = await computeFullConfidence(multiData, 'stock', symbol, timeframe, { bulkScan: false });
                     const meta = symbolMeta[symbol] || {};
                     const sparkline = data.candles.slice(-30).map(c => c.close);
+                    const lockKey = data.symbol || symbol;
+                    const { view, locked } = await effectiveView(lockKey, result, timeframe);
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
                         price: data.currentPrice || meta.price,
-                        signal: result.signal,
-                        confidence: result.confidence,
-                        // Direction-aware expected move: a SELL's thesis is a
-                        // DROP, so its headline must be lowPercent (negative),
-                        // not highPercent (the small upside CAP, which read as
-                        // a bogus "+X% Spike Expected" on every SELL card).
-                        expectedPct: (result.signal === 'SELL'
-                            ? result.priceTargets?.lowPercent
-                            : result.priceTargets?.highPercent) ?? null,
-                        expectedHigh: result.priceTargets?.predictedHigh ?? null,
-                        expectedLow: result.priceTargets?.predictedLow ?? null,
-                        expectedLowPct: result.priceTargets?.lowPercent ?? null,
+                        ...pickFields(view),
                         currency: data.currency || 'USD',
-                        reasons: result.reasons,
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                             : 0),
                         _sparkline: sparkline,
+                        _lockKey: lockKey, _locked: locked, _live: result,
                     };
                 } catch (e) {
                     return null;
@@ -259,6 +299,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     }
 
     const finalPicks = rankPicks(results, maxPicks, hotFloor);
+    await lockShownPicks(finalPicks, timeframe);
     cacheSet(stockCache, cacheKey, finalPicks);
     return finalPicks;
 }
@@ -287,9 +328,15 @@ export function getHotPicksFloor() {
 //      permanently empty (the opposite of what the user wants). "Strong" =
 //      top-ranked, and every card shows its real confidence % so nothing is
 //      dressed up — a 27% card reads as 27%.
+//
+// Plus one floor that is not a tuning knob: calibrated confidence of at least 50%. The calibrated
+// number is the live hit rate of calls like this one, so a BUY at 46% is, by the engine's own
+// record, more often wrong than right. It used to be shown anyway with a "low track record"
+// badge, which left the reader to reconcile "BUY" with "worse than a coin flip". The detail card
+// still shows it (with its hedge) for anyone who opens the symbol.
 function rankPicks(results, maxPicks, _floor) {
     return results
-        .filter(r => r.signal === 'BUY')
+        .filter(r => r.signal === 'BUY' && Number.isFinite(r.confidence) && r.confidence >= 50)
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, maxPicks);
 }
@@ -404,64 +451,76 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
 
     const results = [];
     let analyzed = 0;
+    // REAL DAILY BARS, one proxied Yahoo call per coin, in parallel batches like the stock scan.
+    //
+    // The scan used to rebuild "candles" from CoinGecko's 7-day hourly sparkline: 4-hour bars that
+    // the engine read as DAILY ones. Every indicator ran on the wrong clock and the band came out
+    // about a quarter of its true width (BTC day-7: 1.85% wide against 8.7% on daily bars), so a
+    // pick's "Range High (80%)" was a number the price would blow through most days. Yahoo reuses
+    // crypto tickers (TON-USD is "TON Token"), so a coin is kept only when Yahoo's last price
+    // agrees with CoinGecko's for that coin; otherwise it is dropped rather than analysed as
+    // something else.
+    const dailyBars = new Map();
+    const BATCH = 6;
+    for (let i = 0; i < coins.length; i += BATCH) {
+        const batch = coins.slice(i, i + BATCH);
+        if (onProgress) onProgress(`Fetching daily bars (${Math.min(i + BATCH, coins.length)}/${coins.length})…`);
+        await Promise.all(batch.map(async (coin) => {
+            try {
+                const d = await fetchStockData(`${coin.symbol.toUpperCase()}-USD`, '3mo', '1d', { suffixProbe: false });
+                const px = d?.currentPrice;
+                if (d?.candles?.length >= 30 && px > 0 && coin.price > 0 && Math.abs(px / coin.price - 1) < 0.05) {
+                    dailyBars.set(coin.id, d);
+                }
+            } catch (_) { /* dropped: no trustworthy bars */ }
+        }));
+    }
     for (const coin of coins) {
         analyzed++;
         if (onProgress) onProgress(`${isTomorrow ? 'Predicting' : 'Analyzing'} ${coin.name} (${coin.symbol.toUpperCase()})... (${analyzed}/${coins.length})`);
         try {
             let candles;
             let sparklineData = null;
-            if (coin.sparkline && coin.sparkline.length >= 20) {
-                candles = sparklineToCandles(coin.sparkline);
-                sparklineData = coin.sparkline;
+            const bars = dailyBars.get(coin.id);
+            if (bars) {
+                candles = bars.candles;
+                sparklineData = coin.sparkline && coin.sparkline.length >= 20 ? coin.sparkline : candles.slice(-30).map(c => c.close);
             } else {
-                // SKIP, do not fetch. During a bulk scan a coin without a usable sparkline is not
-                // worth a dedicated CoinGecko call.
-                //
-                // Measured 2026-09-18: the free tier now serves about THREE requests before
-                // returning 429 with Retry-After: 58, and at 6-second spacing only five got through
-                // before it cut off again -- roughly 5/min, not the ~30/min this code was written
-                // against. Worse, a CoinGecko 429 carries no Access-Control-Allow-Origin header, so
-                // the browser reports it as a CORS failure and the calling code cannot even see the
-                // status. The console filled with "blocked by CORS policy" for zcoin, zano, pearl-2,
-                // starknet and pudgy-penguins -- all of them this fallback -- and once the limit was
-                // burned, every OTHER coin that needed a call failed too.
-                //
-                // The bulk /coins/markets call already supplies sparklines for the whole page in ONE
-                // request. A handful of coins lacking one is a fine thing to drop from a 50-coin
-                // scan; spending the entire minute's quota on them so that nothing else can load is
-                // not. Individual coins still fetch normally when the user opens them directly.
+                // No daily bars we can trust for this coin (Yahoo has no listing, or its price is a
+                // different coin's). Dropped, and NOT fetched from CoinGecko: its free tier serves
+                // about five calls a minute, answers the rest with a 429 the browser cannot read
+                // (no CORS header on the error), and a single burst starves every other coin.
                 continue;
             }
-            if (!candles || candles.length < 20) continue;
+            if (!candles || candles.length < 30) continue;
+            const sym = coin.symbol.toUpperCase();
+            const px = bars.currentPrice || coin.price;
+            const prev = candles.length > 1 ? candles[candles.length - 2].close : null;
+            const tf = (c) => ({ symbol: sym, name: coin.name, currency: 'USD', exchange: 'Crypto', currentPrice: px, previousClose: prev, candles: c });
             const multiData = {
-                daily: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
-                weekly: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles: aggregateCandlesPeriod(candles, 7) },
-                fourHour: { symbol: coin.symbol.toUpperCase(), name: coin.name, currentPrice: coin.price, previousClose: null, candles },
+                daily: tf(candles),
+                // Crypto trades every day, so a week is 7 bars.
+                weekly: tf(aggregateCandlesPeriod(candles, 7)),
+                fourHour: tf(candles.slice(-20)),
             };
             // Full pipeline on crypto Hot Picks too — same engine as
             // the click-path. computeFullConfidence handles crypto by
             // routing through derivs / cross-asset enrichments.
             const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false });
+            const { view, locked } = await effectiveView(sym, result, timeframe);
             results.push({
-                symbol: coin.symbol.toUpperCase(), name: coin.name, id: coin.id, price: coin.price,
-                signal: result.signal,
-                confidence: result.confidence,
-                // Direction-aware (see stock path): SELL headline = the drop.
-                expectedPct: (result.signal === 'SELL'
-                    ? result.priceTargets?.lowPercent
-                    : result.priceTargets?.highPercent) ?? null,
-                expectedHigh: result.priceTargets?.predictedHigh ?? null,
-                expectedLow: result.priceTargets?.predictedLow ?? null,
-                expectedLowPct: result.priceTargets?.lowPercent ?? null,
-                currency: 'USD', // CoinGecko data is always USD
-                reasons: result.reasons,
+                symbol: sym, name: coin.name, id: coin.id, price: px,
+                ...pickFields(view),
+                currency: 'USD',
                 change: coin.change24h || 0, _sparkline: sparklineData,
+                _lockKey: sym, _locked: locked, _live: result,
             });
             // Progressive update every ~10 coins so the UI can repaint.
             if (onPartial && analyzed % 10 === 0) onPartial(rankPicks(results, maxPicks, cryptoFloor));
         } catch (e) { continue; }
     }
     const finalPicks = rankPicks(results, maxPicks, cryptoFloor);
+    await lockShownPicks(finalPicks, timeframe);
     cacheSet(cryptoCache, cacheKey, finalPicks);
     return finalPicks;
 }
@@ -492,22 +551,6 @@ async function fetchCryptoTrending() {
     }));
 }
 
-function sparklineToCandles(prices) {
-    if (!prices || prices.length < 20) return [];
-    const periodSize = 4;
-    const candles = [];
-    for (let i = 0; i < prices.length; i += periodSize) {
-        const slice = prices.slice(i, i + periodSize);
-        if (slice.length === 0) continue;
-        candles.push({
-            time: Date.now() / 1000 - (prices.length - i) * 3600,
-            open: slice[0], high: Math.max(...slice), low: Math.min(...slice),
-            close: slice[slice.length - 1], volume: 0,
-        });
-    }
-    return candles;
-}
-
 function deriveMultiTimeframe(data) {
     const candles = data.candles;
     const weeklyCandles = aggregateCandlesPeriod(candles, 5);
@@ -530,10 +573,4 @@ function aggregateCandlesPeriod(candles, periodSize) {
         });
     }
     return aggregated;
-}
-
-function convertSignalToScore(signal, confidence) {
-    if (signal === 'BUY') return 50 + (confidence - 38) * (50 / 50);
-    if (signal === 'SELL') return 50 - (confidence - 38) * (50 / 50);
-    return 50;
 }

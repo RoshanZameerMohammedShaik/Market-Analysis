@@ -1,8 +1,8 @@
 // Full-article extraction client. Hits the Cloudflare Worker's
 // /extract-article endpoint to fetch a news URL server-side and
 // return cleaned-up main body text. Used by:
-//   - js/sentiment.js: top-N articles per symbol get full-text
-//     FinBERT scoring instead of headline-only.
+//   - js/sentiment.js: top-N articles per symbol get their lead
+//     paragraphs scored instead of the headline alone.
 //   - js/mia/tools.js: Mia's evaluate_news_for_symbol tool.
 //
 // Per Roshan's architecture: ON-DEMAND ONLY. We fetch full text for

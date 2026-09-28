@@ -261,21 +261,16 @@ def ai_prediction(candles, tier=None):
                                     and math.isfinite(gbt_p)) else lstm_p
     score = int(round(prob * 100))
     signal = 'bullish' if prob > 0.6 else 'bearish' if prob < 0.4 else 'neutral'
-    label = 'Penny-LSTM' if model_key == 'penny' else 'LSTM'
     # Must not say "ensemble" when only one model is in the blend. The string is
     # user-visible (it reaches the signal card's reason list) and is also what a
     # future reader would trust when auditing how a call was made, so claiming a
     # two-model ensemble while using one would be a quiet lie in the audit trail.
+    # Plain words, mirrored exactly in js/ai-model.js.
+    flip = ', about a coin flip' if abs(score - 50) <= 5 else ''
     if GBT_IN_BLEND and gbt_p is not None:
-        reason = (f'AI ensemble ({label} {round(lstm_p * 100)}% + GBT '
-                  f'{round(gbt_p * 100)}%): {score}% probability of upward move')
-    elif gbt_p is not None:
-        reason = (f'AI pattern recognition ({label} only): {score}% probability of '
-                  f'upward move. GBT ({round(gbt_p * 100)}%) recorded but excluded: '
-                  f'no measurable discrimination.')
+        reason = f'AI pattern models (two combined): {score}% chance of an up move{flip}'
     else:
-        reason = (f'AI pattern recognition ({label} only): {score}% probability of '
-                  f'upward move')
+        reason = f'AI pattern model: {score}% chance of an up move{flip}'
 
     return {
         'score': score,

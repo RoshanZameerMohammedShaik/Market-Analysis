@@ -6,6 +6,8 @@
 //   GET /openinsider?symbol=BBAI     — OpenInsider recent insider buy/sell rows
 //   GET /extract-article?url=...     — server-side article extraction (Readability-style)
 //   GET /source-tier?domain=...      — credibility tier (1-4) for a known news source
+//   GET /news-rss?q=...&hl=&gl=      — Google News RSS search (origin-restricted)
+//   GET /stocktwits?symbol=AAPL      — StockTwits message timestamps (origin-restricted)
 //   GET /health                       — health probe
 //
 // All endpoints return CORS-friendly JSON. Errors NEVER cache (we learned).
@@ -505,10 +507,12 @@ async function extractArticle(targetUrl) {
     } catch (e) {
         return { error: `fetch failed: ${e.message || e}` };
     }
-    if (!upstream.ok) return { error: `upstream ${upstream.status}` };
+    // A 4xx is the site saying no (paywall, bot wall, not found): the content is unusable, which is
+    // an answer, so it goes back as 200 + unusable rather than as a gateway error the browser logs.
+    if (!upstream.ok) return { error: `upstream ${upstream.status}`, unusable: upstream.status < 500 };
 
     const ct = upstream.headers.get('Content-Type') || '';
-    if (!ct.includes('html')) return { error: `not html (${ct})` };
+    if (!ct.includes('html')) return { error: `not html (${ct})`, unusable: true };
 
     const rawHtml = await upstream.text();
     if (rawHtml.length > 5_000_000) return { error: 'page too large (>5MB)' };
@@ -519,7 +523,16 @@ async function extractArticle(targetUrl) {
         cleaned.match(ARTICLE_HOST_DIV)?.[1]  ||
         cleaned;
     let paragraphs = extractParagraphs(articleHost);
-    if (paragraphs.length < 2) paragraphs = extractParagraphs(cleaned);
+    // ARTICLE_HOST_DIV is non-greedy, so it stops at the FIRST </div> inside the matched block.
+    // On nested layouts that is a wrapper holding one teaser line, not the story: every Yahoo
+    // Finance article came back as ~100 characters and a 502 ("extracted text too short"), which
+    // is most of the news this app reads. When the host block is thin, score the whole document
+    // too and keep whichever carries more text.
+    const textLen = (ps) => ps.reduce((n, p) => n + p.length, 0);
+    if (paragraphs.length < 2 || textLen(paragraphs) < 600) {
+        const whole = extractParagraphs(cleaned);
+        if (textLen(whole) > textLen(paragraphs)) paragraphs = whole;
+    }
     const mainText = paragraphs.join('\n\n').slice(0, 12_000); // cap at ~12K chars
 
     const data = {
@@ -532,7 +545,10 @@ async function extractArticle(targetUrl) {
         wordCount: mainText.split(/\s+/).filter(Boolean).length,
     };
     if (!data.mainText || data.wordCount < 40) {
-        return { error: 'extracted text too short to be useful', ...data };
+        // A content limit, not a gateway failure: the page loaded but carries no readable body
+        // (Yahoo's syndicated briefs render only a teaser server-side). `unusable` makes the route
+        // answer 200 so the browser does not log a failed request for every such headline.
+        return { error: 'extracted text too short to be useful', unusable: true, ...data };
     }
 
     articleCache.set(targetUrl, { ts: Date.now(), data });
@@ -661,6 +677,108 @@ async function proxyYahoo(targetUrl) {
     });
 }
 
+// ============================================================================
+// /news-rss and /stocktwits — two public feeds a browser cannot read directly
+// ============================================================================
+//
+// Google News RSS and StockTwits both answer a server-side fetch with 200 and send no
+// Access-Control-Allow-Origin header, so from the browser they only worked through public CORS
+// proxies. Measured on 2026-09-28, that whole chain was dead: corsproxy.io now answers 401 for
+// any non-localhost origin, allorigins and codetabs abort, and thingproxy no longer resolves.
+// News sentiment and social velocity were silently empty for every symbol a user opened.
+//
+// Both routes build the upstream URL here from a few validated parameters, so neither can be
+// used to fetch anything else.
+const NEWS_RSS_CACHE_TTL_MS = 10 * 60 * 1000;
+const STOCKTWITS_CACHE_TTL_MS = 5 * 60 * 1000;
+const newsRssCache = new Map();
+const stocktwitsCache = new Map();
+
+function boundedSet(map, key, value, max = 300) {
+    map.set(key, value);
+    if (map.size > max) map.delete(map.keys().next().value);
+}
+
+// Bing first, Google second. Google News answers Cloudflare's egress with 503 (measured on the
+// first deploy of this route), while Bing News RSS returns 200 with a description per item, which
+// gives sentiment more to read than a bare headline.
+async function fetchNewsRss(params) {
+    const q = String(params.get('q') || '').trim().slice(0, 200);
+    if (!q) return { status: 400, body: JSON.stringify({ error: 'q required' }), type: 'application/json' };
+    const hlRaw = params.get('hl') || 'en-US';
+    const glRaw = params.get('gl') || 'US';
+    const hl = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(hlRaw) ? hlRaw : 'en-US';
+    const gl = /^[A-Z]{2}$/.test(glRaw) ? glRaw : 'US';
+    const lang = hl.split('-')[0] || 'en';
+    const targets = [
+        `https://www.bing.com/news/search?q=${encodeURIComponent(q)}&format=rss&mkt=${lang}-${gl}`,
+        // Same derivation the client used when it built the Google URL itself (js/news.js).
+        `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=${hl}&gl=${gl}&ceid=${gl}:${lang}`,
+    ];
+    const cacheKey = targets[0];
+    const hit = newsRssCache.get(cacheKey);
+    if (hit && Date.now() - hit.ts < NEWS_RSS_CACHE_TTL_MS) return { status: 200, body: hit.body, type: 'application/rss+xml; charset=utf-8' };
+    let lastStatus = 0;
+    // Bing sheds requests when a scan sends a burst of them, so it gets one quick second try
+    // before falling through to Google. Waiting costs wall time, not the free plan's CPU budget.
+    const attempts = [targets[0], targets[0], ...targets.slice(1)];
+    for (let a = 0; a < attempts.length; a++) {
+        const target = attempts[a];
+        if (a === 1) await new Promise(r => setTimeout(r, 350));
+        try {
+            const upstream = await fetch(target, {
+                headers: { 'User-Agent': BROWSER_UA, 'Accept': 'application/rss+xml, application/xml, text/xml' },
+            });
+            lastStatus = upstream.status;
+            const text = await upstream.text();
+            // A consent page or a captcha is HTML with a 200. Only real RSS is worth returning.
+            if (upstream.ok && /<rss[\s>]/i.test(text.slice(0, 2000))) {
+                boundedSet(newsRssCache, cacheKey, { ts: Date.now(), body: text });
+                return { status: 200, body: text, type: 'application/rss+xml; charset=utf-8' };
+            }
+        } catch (_) { /* next source */ }
+    }
+    return { status: 502, body: JSON.stringify({ error: `no RSS source answered (last status ${lastStatus})` }), type: 'application/json' };
+}
+
+async function fetchStockTwits(symbolRaw) {
+    const sym = String(symbolRaw || '').toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9.\-]{0,14}$/.test(sym)) return { status: 400, body: { error: 'bad symbol' } };
+    const hit = stocktwitsCache.get(sym);
+    if (hit && Date.now() - hit.ts < STOCKTWITS_CACHE_TTL_MS) return { status: 200, body: hit.body };
+    const upstream = await fetch(`https://api.stocktwits.com/api/2/streams/symbol/${encodeURIComponent(sym)}.json?limit=30`, {
+        headers: { 'User-Agent': BROWSER_UA, 'Accept': 'application/json' },
+    });
+    if (!upstream.ok) return { status: upstream.status === 404 ? 404 : 502, body: { error: `upstream ${upstream.status}` } };
+    const j = await upstream.json().catch(() => null);
+    // Only what the client reads. The raw stream carries user profiles and message bodies that
+    // the app has no use for and should not be relaying.
+    const body = {
+        symbol: sym,
+        messages: (j?.messages || []).map(m => ({
+            created_at: m.created_at,
+            sentiment: m.entities?.sentiment?.basic || null,
+        })),
+    };
+    boundedSet(stocktwitsCache, sym, { ts: Date.now(), body });
+    return { status: 200, body };
+}
+
+function restrictedText(text, origin, status, type) {
+    const allow = (originAllowed(origin) && origin) ? origin : 'null';
+    return new Response(text, {
+        status,
+        headers: {
+            'Content-Type': type,
+            'Access-Control-Allow-Origin': allow,
+            'Vary': 'Origin',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Max-Age': '86400',
+            'Cache-Control': status === 200 ? 'public, max-age=300' : 'no-store',
+        },
+    });
+}
+
 function corsJson(body, status = 200) {
     const cacheControl = status === 200
         ? 'public, max-age=600'
@@ -693,6 +811,11 @@ function originAllowed(origin) {
     if (!origin) return false;                      // no Origin → reject (curl/bots/scrapers)
     if (PUBLIC_ALLOWED_ORIGINS.has(origin)) return true;
     if (/^https:\/\/[a-z0-9-]+\.market-ai\.pages\.dev$/.test(origin)) return true;  // CF preview deploys
+    // Local dev and the CI browser checks, on whatever port they serve from (8153, 8765, ...).
+    // The list exists to stop other WEBSITES spending this Worker's quota; a page on the
+    // developer's own machine is not that threat, and pinning one port broke every check that
+    // served from another.
+    if (/^http:\/\/(localhost|127\.0\.0\.1):\d{2,5}$/.test(origin)) return true;
     return false;
 }
 
@@ -731,12 +854,26 @@ export default {
     async fetch(request, env) {
         const url = new URL(request.url);
         const origin = request.headers.get('Origin');
+        const restrictedRoute = url.pathname === '/stock-quote'
+            || url.pathname === '/news-rss' || url.pathname === '/stocktwits';
         if (request.method === 'OPTIONS') {
             // Preflight: answer with the right CORS scope for the route.
-            if (url.pathname === '/stock-quote') return restrictedJson({ ok: true }, origin);
+            if (restrictedRoute) return restrictedJson({ ok: true }, origin);
             return corsJson({ ok: true });
         }
         try {
+            // Origin-restricted like /stock-quote: these relay third-party feeds, and an open
+            // relay would let any site spend this Worker's daily request quota.
+            if (url.pathname === '/news-rss') {
+                if (!originAllowed(origin)) return restrictedJson({ error: 'origin not allowed' }, origin, 403);
+                const r = await fetchNewsRss(url.searchParams);
+                return restrictedText(r.body, origin, r.status, r.type);
+            }
+            if (url.pathname === '/stocktwits') {
+                if (!originAllowed(origin)) return restrictedJson({ error: 'origin not allowed' }, origin, 403);
+                const r = await fetchStockTwits(url.searchParams.get('symbol'));
+                return restrictedText(JSON.stringify(r.body), origin, r.status, 'application/json');
+            }
             if (url.pathname === '/stock-quote') {
                 // Realtime stock price via Public.com (origin-restricted so the
                 // brokerage key's quota isn't a free public feed). Read-only —
@@ -790,7 +927,7 @@ export default {
                 const target = url.searchParams.get('url');
                 if (!target) return corsJson({ error: 'url required' }, 400);
                 const body = await extractArticle(target);
-                return corsJson(body, body.error ? 502 : 200);
+                return corsJson(body, body.error && !body.unusable ? 502 : 200);
             }
             if (url.pathname === '/source-tier') {
                 const domain = url.searchParams.get('domain');
@@ -807,6 +944,8 @@ export default {
             error: 'not found',
             endpoints: [
                 '/stock-quote?symbol=X (realtime, origin-restricted)',
+                '/news-rss?q=X&hl=en-US&gl=US (origin-restricted)',
+                '/stocktwits?symbol=X (origin-restricted)',
                 '/key-stats?symbol=X', '/finra-short?symbol=X', '/openinsider?symbol=X',
                 '/yahoo?u=<encoded URL>', '/extract-article?url=<encoded URL>',
                 '/source-tier?domain=X', '/health',

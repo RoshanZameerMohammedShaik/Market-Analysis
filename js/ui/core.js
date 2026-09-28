@@ -8,7 +8,7 @@ import { clearHotPicksCache } from '../hotpicks.js';
 import { initPLCalculator } from './pl.js';
 import { initPLPanel, openPLPanel } from './pl-panel.js';
 import { renderAccuracyStrip } from './accuracy.js';
-import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe, fetchWithProxy } from '../data.js';
+import { fetchStockMultiTimeframe, fetchCryptoMultiTimeframe } from '../data.js';
 import { computeFullConfidence } from '../confidence.js';
 import { peek as peekCache, refresh as refreshCache, prewarmWatchlist } from '../analysis-cache.js';
 import { loadModel } from '../ai-model.js';
@@ -170,9 +170,14 @@ function initTabs() {
     });
 }
 
-function onSelectFromSearch({ mode, symbol, coinId }) {
+function rememberCoinName(coinId, name) {
+    if (!coinId || !name) return;
+    state.cryptoCache[coinId] = { ...(state.cryptoCache[coinId] || {}), name };
+}
+
+function onSelectFromSearch({ mode, symbol, coinId, name }) {
     if (mode === 'stock') { state.currentSymbol = symbol; state.currentCoinId = null; }
-    else { state.currentSymbol = symbol; state.currentCoinId = coinId; }
+    else { state.currentSymbol = symbol; state.currentCoinId = coinId; rememberCoinName(coinId, name); }
     document.getElementById('search-input').value = symbol;
     loadChart();
     runAnalysis();
@@ -230,29 +235,14 @@ async function runAnalysis() {
         if (state.mode === 'stock') {
             multiData = await fetchStockMultiTimeframe(state.currentSymbol);
         } else {
+            // Real daily/weekly/4h bars (Yahoo, cross-checked against Kraken). The fallbacks that
+            // used to follow are gone on purpose: one rebuilt "candles" from the hourly sparkline
+            // (4-hour bars read as daily ones), the other invented every high and low as the close
+            // plus or minus 0.5%. Both produced a confident-looking card from data that did not
+            // exist; an error message is the honest result when no real bars can be had.
             const coinId = state.currentCoinId;
-            try {
-                multiData = await fetchCryptoMultiTimeframe(coinId);
-            } catch (_) {
-                const cached = state.cryptoCache[coinId];
-                if (cached?.sparkline?.length >= 20) {
-                    const candles = sparklineToCandles(cached.sparkline);
-                    multiData = wrapCandles(symbolName, cached.name, cached.price, null, candles);
-                }
-            }
-            if (!multiData) {
-                try {
-                    const marketRes = await fetchWithProxy(`https://api.coingecko.com/api/v3/coins/${state.currentCoinId}/market_chart?vs_currency=usd&days=30`);
-                    const marketData = await marketRes.json();
-                    if (marketData.prices?.length > 20) {
-                        const candles = marketData.prices.map(([time, price]) => ({
-                            time: time / 1000, open: price, high: price * 1.005, low: price * 0.995, close: price, volume: 0,
-                        }));
-                        const cur = candles[candles.length - 1].close;
-                        multiData = wrapCandles(symbolName, symbolName, cur, candles[candles.length - 2]?.close, candles);
-                    }
-                } catch (_) { /* */ }
-            }
+            const base = String(symbolName || '').replace(/-USD$/i, '');
+            multiData = await fetchCryptoMultiTimeframe(coinId, { base, name: state.cryptoCache[coinId]?.name || '' });
             if (!multiData) throw new Error(`Could not fetch data for ${symbolName}.`);
         }
 
@@ -307,14 +297,6 @@ async function runAnalysis() {
     }
 }
 
-function wrapCandles(symbol, name, price, prev, candles) {
-    return {
-        daily: { symbol, name, currentPrice: price, previousClose: prev, candles },
-        weekly: { symbol, name, currentPrice: price, previousClose: null, candles },
-        fourHour: { symbol, name, currentPrice: price, previousClose: null, candles },
-    };
-}
-
 // Time-travel helper. Slices each timeframe's candles at the chosen
 // past date and rewrites currentPrice/previousClose so downstream
 // indicators behave as if it were that day.
@@ -349,21 +331,6 @@ function truncateMultiData(multiData, dateIso) {
         weekly: slice(multiData.weekly) || daily,
         fourHour: slice(multiData.fourHour) || daily,
     };
-}
-function sparklineToCandles(prices) {
-    if (!prices || prices.length < 20) return [];
-    const periodSize = 4;
-    const candles = [];
-    for (let i = 0; i < prices.length; i += periodSize) {
-        const slice = prices.slice(i, i + periodSize);
-        if (slice.length === 0) continue;
-        candles.push({
-            time: Date.now() / 1000 - (prices.length - i) * 3600,
-            open: slice[0], high: Math.max(...slice), low: Math.min(...slice),
-            close: slice[slice.length - 1], volume: 0,
-        });
-    }
-    return candles;
 }
 function clearAnalysis() {
     document.getElementById('signal-section').innerHTML = '';

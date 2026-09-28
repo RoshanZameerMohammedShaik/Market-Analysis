@@ -3,7 +3,7 @@ import { fmtPrice, fmtPriceTag } from './format.js';
 import { attachWatchButton } from './watchlist.js';
 import { attachTradeButtons } from './trade-buttons.js';
 import { attachTimeTravel } from './time-travel.js';
-import { fetchStockData, fetchCryptoData } from '../data.js';
+import { fetchStockData, fetchCryptoMultiTimeframe } from '../data.js';
 import { fullLabelForSymbol, fullLabelForCode, displayTicker } from './exchanges.js';
 import { readSymbolSignalMarkers } from '../ledger-reader.js';
 import { mountParticles } from './particles.js';
@@ -207,12 +207,15 @@ async function renderLocalChart(symbol, container, opts = {}) {
     </div>`;
     try {
         let LWC, data;
-        if (mode === 'crypto' && coinId) {
-            // Crypto: fetch OHLC from CoinGecko by coinId (not the ticker).
-            [LWC, data] = await Promise.all([
+        if (mode === 'crypto') {
+            // Crypto: the same real daily bars the analysis uses. This was CoinGecko's 90-day OHLC,
+            // which is 4-day candles, so the "daily" chart drew one candle per four days.
+            let md;
+            [LWC, md] = await Promise.all([
                 loadLightweightCharts(),
-                fetchCryptoData(coinId, 90, { withLivePrice: true }),   // single coin → precise spot price is worth the extra call
+                fetchCryptoMultiTimeframe(coinId, { base: String(symbol).replace(/-USD$/i, ''), name: state.cryptoCache?.[coinId]?.name || '' }),
             ]);
+            data = md?.daily;
         } else {
             // Non-US tickers arrive already exchange-tagged (suffixProbe off
             // is correct + faster). US tickers in engine-signals mode have no

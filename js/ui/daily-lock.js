@@ -188,7 +188,12 @@ export function lockCall(symbol, prediction, anchor = null) {
 // fallback path (to create/read the local visit-lock) and to tag currency on
 // the ledger lock (the ledger row doesn't store currency). Returns the same
 // record shape from both paths, plus `source` ∈ 'ledger' | 'local'.
-export async function getEffectiveLock(symbol, livePrediction) {
+/**
+ * @param opts.create  false = read only: return the cron's lock or an existing local one, but never
+ *                     start a new local lock. Hot Picks reads every scanned symbol this way and
+ *                     only locks the handful it actually shows.
+ */
+export async function getEffectiveLock(symbol, livePrediction, { create = true } = {}) {
     if (!symbol) return null;
     // The session anchor comes from the daily bar the engine already fetched, so
     // this costs nothing. It decides which session we are in (and therefore when
@@ -198,7 +203,15 @@ export async function getEffectiveLock(symbol, livePrediction) {
         || null;
     try {
         const led = await readTodayLock(symbol, anchor);
-        if (led) {
+        // A ledger row for a DIFFERENT instrument that happens to share the key. Yahoo reuses
+        // crypto tickers (TON-USD is "TON Token" at $0.005, Toncoin is $1.64), so the cron has
+        // recorded the wrong coin under a symbol the user reaches through the right one. A locked
+        // entry that far from this session's own open cannot be this asset's call.
+        const refPx = Number.isFinite(anchor?.openPrice) && anchor.openPrice > 0
+            ? anchor.openPrice : Number(livePrediction?.priceTargets?.currentPrice);
+        const sameInstrument = !(led && Number.isFinite(led.entry) && led.entry > 0 && refPx > 0)
+            || Math.abs(Math.log(led.entry / refPx)) < Math.log(3);
+        if (led && sameInstrument) {
             // Ledger has no currency column; inherit it from the live view so
             // the card formats the locked prices in the symbol's native unit.
             led.currency = (livePrediction && livePrediction.currency) || led.currency || 'USD';
@@ -217,7 +230,7 @@ export async function getEffectiveLock(symbol, livePrediction) {
     } catch (_) { /* fall through to the local session lock */ }
     // Fallback: this browser's own first call of the session. Now anchored to the
     // session open price and timestamp rather than the moment of the page visit.
-    if (livePrediction && livePrediction.signal) lockCall(symbol, livePrediction, anchor);
+    if (create && livePrediction && livePrediction.signal) lockCall(symbol, livePrediction, anchor);
     const local = getLockedCall(symbol, anchor);
     if (local && !local.source) local.source = 'local';
     if (local) {

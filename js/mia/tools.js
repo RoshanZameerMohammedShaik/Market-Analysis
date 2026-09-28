@@ -208,7 +208,7 @@ const TOOLS = {
         kind: 'read',
     },
     get_news_and_sentiment: {
-        desc: 'recent headlines + FinBERT sentiment', args: '{"symbol":"AAPL","mode":"stock|crypto"}',
+        desc: 'recent headlines + word-based tone score', args: '{"symbol":"AAPL","mode":"stock|crypto"}',
         run: ({ symbol, mode = 'stock', companyName = '' }) => fetchNewsAndSentiment({ symbol, mode, companyName }),
         kind: 'read',
     },

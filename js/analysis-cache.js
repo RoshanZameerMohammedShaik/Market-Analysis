@@ -58,7 +58,7 @@ export async function analyzeAndCache(symbol, timeframe = 'today', mode = 'stock
     const { bulkScan = true } = opts;
     const lookupId = symbolOrCoinId || symbol;
     const multiData = mode === 'crypto'
-        ? await fetchCryptoMultiTimeframe(lookupId)
+        ? await fetchCryptoMultiTimeframe(lookupId, { base: String(symbol).toUpperCase().replace(/-USD$/, '') })
         : await fetchStockMultiTimeframe(symbol);
     const signal = await computeFullConfidence(multiData, mode, lookupId, timeframe, { bulkScan });
     const entry = { ts: Date.now(), data: multiData, signal, bulkScan };

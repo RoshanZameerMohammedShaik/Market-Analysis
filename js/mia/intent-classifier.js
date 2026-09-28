@@ -111,10 +111,11 @@ export async function classifyIntent({ userMessage, key, signal }) {
         : '(no symbol loaded)';
 
     try {
-        const url = `${BASE_URL}/${CLASSIFY_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+        // Key in a header, not the URL (see geminiHeaders in backends/api-gemini.js).
+        const url = `${BASE_URL}/${CLASSIFY_MODEL}:generateContent`;
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: CLASSIFIER_SYSTEM }] },
                 contents: [{ role: 'user', parts: [{ text: `${context}\n\nUser request: ${userMessage}` }] }],

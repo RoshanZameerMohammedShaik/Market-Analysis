@@ -130,7 +130,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_news_and_sentiment',
-        description: 'Recent headlines for a symbol with FinBERT sentiment scores. Use when the user asks for news on a specific symbol.',
+        description: 'Recent headlines for a symbol with word-based tone scores. Use when the user asks for news on a specific symbol.',
         parameters: {
             type: T.OBJECT,
             properties: {

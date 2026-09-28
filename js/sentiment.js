@@ -1,66 +1,46 @@
-// AI Sentiment Analysis — HuggingFace FinBERT with keyword fallback,
-// weighted by recency so stale news doesn't dominate.
+// News sentiment — word-based headline scoring, weighted by recency and source tier so stale or
+// low-grade news doesn't dominate.
+//
+// There used to be a HuggingFace FinBERT call in front of this. It could never have worked: the
+// anonymous inference endpoint is gone (api-inference.huggingface.co), its replacement
+// router.huggingface.co answers 401 without a token, and this app has never held one. Every
+// score in the ledger came from the word-based fallback below, so that is now simply the method.
 //
 // Recency decay: each headline's contribution is multiplied by
 // exp(-age_hours / 48). 1h → 0.98, 12h → 0.78, 24h → 0.61, 48h → 0.37, 7d → 0.03.
 // Tunes how fast yesterday's narrative fades vs. today's.
 
-import { fetchWithProxy } from './data.js';
-import { isCooling, recordFailure, recordSuccess } from './breaker.js';
-
-const HF_API_URL = 'https://api-inference.huggingface.co/models/ProsusAI/finbert';
 const RECENCY_HALF_LIFE_HOURS = 48;
-
-// HuggingFace inference is gated unpredictably (403/429/DNS-block).
-// Single shared breaker instance — first failure trips, 10-min cooldown,
-// then probes again. Keyword fallback fills the gap.
-async function analyzeWithFinBERT(texts) {
-    if (isCooling('hf-finbert')) return null;
-    try {
-        const res = await fetch(HF_API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inputs: texts }),
-            signal: AbortSignal.timeout(15000),
-        });
-        if (!res.ok) {
-            if ([401, 403, 429, 503].includes(res.status)) recordFailure('hf-finbert');
-            return null;
-        }
-        recordSuccess('hf-finbert');
-        return await res.json();
-    } catch (_) {
-        recordFailure('hf-finbert');
-        return null;
-    }
-}
-
-function parseFinBERTResult(result) {
-    if (!result || !Array.isArray(result)) return { score: 0, label: 'neutral' };
-    let positive = 0, negative = 0, neutral = 0;
-    result.forEach(item => {
-        if (item.label === 'positive') positive = item.score;
-        else if (item.label === 'negative') negative = item.score;
-        else neutral = item.score;
-    });
-    const score = positive - negative;
-    let label;
-    if (score > 0.3) label = 'positive';
-    else if (score < -0.3) label = 'negative';
-    else label = 'neutral';
-    return { score, label, positive, negative, neutral };
-}
 
 const BULLISH_WORDS = ['surge', 'surges', 'rally', 'soar', 'jump', 'gain', 'rise', 'high', 'record', 'boom', 'bull', 'breakout', 'upgrade', 'beat', 'strong', 'growth', 'profit', 'buy', 'outperform', 'optimistic', 'boost', 'recover', 'recovery', 'momentum', 'upside', 'milestone', 'approval'];
 const BEARISH_WORDS = ['crash', 'plunge', 'drop', 'fall', 'decline', 'low', 'sell', 'bear', 'loss', 'miss', 'weak', 'warning', 'fear', 'risk', 'cut', 'downgrade', 'layoff', 'bankruptcy', 'debt', 'recession', 'crisis', 'lawsuit', 'fraud', 'hack', 'worst', 'collapse', 'dump', 'tank'];
 
+const BULLISH_SET = new Set(BULLISH_WORDS);
+const BEARISH_SET = new Set(BEARISH_WORDS);
+
+// Exact matching missed almost every real headline, because headlines inflect: "gained",
+// "rallies", "soared", "plunged", "downgraded", "misses". Map a word back to a list entry by
+// undoing the regular English endings instead of enumerating every form.
+function inflectedIn(word, set) {
+    if (set.has(word)) return true;
+    if (word.length > 4 && word.endsWith('ies') && set.has(word.slice(0, -3) + 'y')) return true;   // rallies
+    for (const suf of ['ing', 'ed', 'es', 's', 'd']) {
+        if (word.length <= suf.length + 2 || !word.endsWith(suf)) continue;
+        const base = word.slice(0, -suf.length);
+        if (set.has(base) || set.has(base + 'e')) return true;                                     // gains, surging
+        const n = base.length;
+        if (n > 3 && base[n - 1] === base[n - 2] && set.has(base.slice(0, -1))) return true;      // dropped, cutting
+    }
+    return false;
+}
+
 function keywordSentiment(text) {
-    const lower = text.toLowerCase();
-    const words = lower.split(/\W+/);
+    const lower = String(text || '').toLowerCase();
+    const words = lower.split(/\W+/).filter(Boolean);
     let bull = 0, bear = 0;
     words.forEach(word => {
-        if (BULLISH_WORDS.includes(word)) bull++;
-        if (BEARISH_WORDS.includes(word)) bear++;
+        if (inflectedIn(word, BULLISH_SET)) bull++;
+        if (inflectedIn(word, BEARISH_SET)) bear++;
     });
     const score = Math.max(-1, Math.min(1, (bull - bear) / 3));
     let label;
@@ -134,23 +114,18 @@ export async function analyzeNewsSentiment(newsItems, opts = {}) {
         if (enrichTargets.has(i) && item.url) {
             const article = await fetchFullArticle(item.url).catch(() => null);
             if (article?.mainText) {
-                // Cap text fed to FinBERT — FinBERT max input is 512
-                // tokens (~2000 chars); we use the LEAD (first 1800
-                // chars) where the article's thesis usually lives.
+                // Score the LEAD (first 1800 chars), where the article's thesis usually lives.
+                // Beyond it, long bodies pile up incidental words and drown the tone.
                 enrichedTexts[i] = article.mainText.slice(0, 1800);
             }
         }
     }));
 
-    // Build the FinBERT input array: full-text-lead where available,
-    // else headline. FinBERT scores each independently.
-    const inputs = items.map((n, i) => enrichedTexts[i] || n.title);
-    let sentimentResults = await analyzeWithFinBERT(inputs);
-    let method = enrichedTexts.some(Boolean) ? 'ai-fulltext' : 'ai';
-    if (!sentimentResults) {
-        method = 'keyword';
-        sentimentResults = inputs.map(t => [keywordSentiment(t)]);
-    }
+    // Score the article lead where one was extracted, else the headline plus the feed's own
+    // one-line summary when it sent one (Bing does), else the headline alone.
+    const inputs = items.map((n, i) => enrichedTexts[i] || (n.summary ? `${n.title}. ${n.summary}` : n.title));
+    const method = enrichedTexts.some(Boolean) ? 'keyword-fulltext' : 'keyword';
+    const sentimentResults = inputs.map(t => [keywordSentiment(t)]);
 
     const analyzed = [];
     let weightedScoreSum = 0;
@@ -160,9 +135,7 @@ export async function analyzeNewsSentiment(newsItems, opts = {}) {
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const sentiment = (method === 'keyword')
-            ? sentimentResults[i][0]
-            : parseFinBERTResult(sentimentResults[i]);
+        const sentiment = sentimentResults[i][0];
         // Combined weight: recency × source-tier. A Tier-1 story from
         // 2 hours ago should carry more weight than a Tier-4 social
         // post from 30 minutes ago. tierWeight ranges 1.0 (Tier 1) →
@@ -196,9 +169,10 @@ export async function analyzeNewsSentiment(newsItems, opts = {}) {
     else overall = 'neutral';
 
     const reasons = [];
-    if (overall === 'positive') reasons.push(`${positiveCount}/${items.length} headlines bullish, recency-weighted (${method === 'ai' ? 'FinBERT' : 'keyword'})`);
-    else if (overall === 'negative') reasons.push(`${negativeCount}/${items.length} headlines bearish, recency-weighted (${method === 'ai' ? 'FinBERT' : 'keyword'})`);
-    else reasons.push(`Mixed sentiment: ${positiveCount}+ ${negativeCount}- (recency-weighted ${method === 'ai' ? 'FinBERT' : 'keyword'})`);
+    const n = items.length;
+    if (overall === 'positive') reasons.push(`Headlines lean positive: ${positiveCount} of ${n} upbeat, ${negativeCount} downbeat`);
+    else if (overall === 'negative') reasons.push(`Headlines lean negative: ${negativeCount} of ${n} downbeat, ${positiveCount} upbeat`);
+    else reasons.push(`Headlines are mixed: ${positiveCount} of ${n} upbeat, ${negativeCount} downbeat`);
 
     return {
         overall,

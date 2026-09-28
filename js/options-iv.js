@@ -1,5 +1,5 @@
 // Yahoo options chain (free) for put/call ratio + ATM IV skew.
-// /v7/finance/options/{SYMBOL} returns nearest-expiry options chain.
+// /v7/finance/options/{SYMBOL} returns the nearest expiry; we use the first one 5+ days out.
 //
 // Logic:
 //   PCR (put volume / call volume):
@@ -30,8 +30,24 @@ export async function fetchOptionsPositioning(symbol) {
         const url = `https://query1.finance.yahoo.com/v7/finance/options/${key}`;
         const res = await fetchWithProxy(url);
         const json = await res.json();
-        const result = json?.optionChain?.result?.[0];
+        let result = json?.optionChain?.result?.[0];
         if (!result) return null;
+        // SKIP EXPIRIES UNDER 5 DAYS. The bare request returns the NEAREST expiry, and on expiry
+        // days that is the same-day (0DTE) chain: measured on 2026-09-28, Yahoo's at-the-money
+        // 0DTE IV read 6.3% call / 9.5% put where Cboe quoted 23.6% / 23.6%, and the resulting
+        // "skew 0.87" fired the euphoria rule below, a contrarian SELL +2 manufactured from a
+        // chain hours from expiring. Its volume is dominated by same-day speculation too, which
+        // skews the put/call ratio the same way.
+        const minExpiry = Date.now() / 1000 + 5 * 86400;
+        const nearest = result.options?.[0]?.expirationDate;
+        if (!(nearest >= minExpiry)) {
+            const next = (result.expirationDates || []).find(t => t >= minExpiry);
+            if (!next) return null;
+            const res2 = await fetchWithProxy(`${url}?date=${next}`);
+            const json2 = await res2.json();
+            result = json2?.optionChain?.result?.[0];
+            if (!result) return null;
+        }
         const chain = result.options?.[0];
         if (!chain) return null;
 

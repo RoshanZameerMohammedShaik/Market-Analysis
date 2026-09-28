@@ -672,6 +672,13 @@
 }
 .hot-pick-target-high .hot-pick-target-value { color: var(--green); }
 .hot-pick-target-low .hot-pick-target-value { color: var(--red); }
+/* Distance of each range edge from the current price, quieter than the price itself. */
+.hot-pick-target-pct {
+    margin-left: 4px;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-medium);
+    opacity: 0.75;
+}
 
 /* Current price is the anchor number: separated by a rule and set larger. */
 .hot-pick-current-price {
@@ -1314,4 +1321,65 @@ tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
                 color var(--dur-base) var(--ease-out),
                 fill var(--dur-base) var(--ease-out),
                 stroke var(--dur-base) var(--ease-out) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   NEWS & SENTIMENT
+   This section had no styles at all: the news feed was empty for every symbol until the
+   relevance filter and the Worker route were fixed, so it had never rendered. Its titles came
+   out as browser-default blue underlined links on a black card. Same card language as the
+   drivers section above it.
+   --------------------------------------------------------------------------- */
+.news-section {
+    margin: 14px 0;
+    padding: 12px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+.news-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    margin-bottom: 6px;
+}
+.news-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.news-sentiment-badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+}
+.news-sentiment-badge.positive { color: var(--green); border-color: rgba(var(--green-rgb, 34, 197, 94), 0.35); }
+.news-sentiment-badge.negative { color: var(--red); border-color: rgba(var(--red-rgb, 239, 68, 68), 0.35); }
+.news-summary {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+.news-list { display: flex; flex-direction: column; gap: 6px; }
+.news-item-sentiment { flex-shrink: 0; font-size: 0.7rem; line-height: 1; }
+.news-item-title,
+.news-item-title:visited {
+    display: block;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    color: var(--text-primary);
+    text-decoration: none;
+}
+a.news-item-title:hover { color: var(--accent); text-decoration: underline; }
+.news-item-meta {
+    margin-top: 2px;
+    font-size: var(--fs-2xs);
+    color: var(--text-muted);
 }

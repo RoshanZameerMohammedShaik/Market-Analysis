@@ -1,6 +1,7 @@
 import { searchStocks, searchCrypto } from '../data.js';
 import { state } from './state.js';
 import { fullLabelForCode, fullLabelForSymbol, displayTicker } from './exchanges.js';
+import { escapeHtml } from './escape.js';
 
 let searchTimeout = null;
 
@@ -58,13 +59,13 @@ async function performSearch(query, onSelect) {
                 // disambiguation.
                 const exchange = prettyExchange(item.exchange, item.symbol);
                 const shown = displayTicker(item.symbol);
-                return `<div class="search-result-item" data-symbol="${item.symbol}">
-                    <div><span class="result-symbol">${shown}</span> <span class="result-name">${item.name}</span></div>
-                    ${exchange ? `<span class="result-name">${exchange}</span>` : ''}
+                return `<div class="search-result-item" data-symbol="${escapeHtml(item.symbol)}">
+                    <div><span class="result-symbol">${escapeHtml(shown)}</span> <span class="result-name">${escapeHtml(item.name)}</span></div>
+                    ${exchange ? `<span class="result-name">${escapeHtml(exchange)}</span>` : ''}
                 </div>`;
             }
-            return `<div class="search-result-item" data-coinid="${item.id}" data-symbol="${item.symbol}">
-                <div><span class="result-symbol">${item.symbol}</span> <span class="result-name">${item.name}</span></div>
+            return `<div class="search-result-item" data-coinid="${escapeHtml(item.id)}" data-symbol="${escapeHtml(item.symbol)}" data-name="${escapeHtml(item.name)}">
+                <div><span class="result-symbol">${escapeHtml(item.symbol)}</span> <span class="result-name">${escapeHtml(item.name)}</span></div>
             </div>`;
         }).join('');
         results.querySelectorAll('.search-result-item').forEach(el => {
@@ -74,6 +75,7 @@ async function performSearch(query, onSelect) {
                     mode: state.mode,
                     symbol: el.dataset.symbol,
                     coinId: el.dataset.coinid || null,
+                    name: el.dataset.name || null,
                 });
             });
         });

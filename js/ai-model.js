@@ -52,6 +52,12 @@ async function loadModelForTier(tier) {
                 return false;
             }
             const data = await res.json();
+            // A file with no weights is a placeholder ("not trained yet"), shipped so the browser
+            // does not log a 404 on every page load for a model that has never been trained.
+            if (!data?.config || !data?.weights) {
+                modelCache[key] = 'unavailable';
+                return false;
+            }
             modelCache[key] = { config: data.config, weights: data.weights };
             return true;
         } catch (_) {
@@ -398,15 +404,14 @@ export async function getAIPrediction(candles, opts = {}) {
     else if (probability < 0.4) signal = 'bearish';
     else signal = 'neutral';
 
-    const modelLabel = modelKey === PENNY_KEY ? 'Penny-LSTM'
-        : modelKey === INTRADAY_KEY ? 'Intraday-LSTM (1h)'
-        : 'LSTM';
+    // Plain words on the card. Model names and blend bookkeeping ("GBT recorded but excluded: no
+    // measurable discrimination") meant nothing to a reader; the probability, and how close it is
+    // to a coin flip, is the part they can use. The ensemble wording stays exact, because
+    // claiming two models when one decided would be a quiet lie in the audit trail.
+    const flip = Math.abs(score - 50) <= 5 ? ', about a coin flip' : '';
     const reason = (GBT_IN_BLEND && gbtProb != null)
-        ? `AI ensemble (${modelLabel} ${Math.round(lstmProb * 100)}% + GBT ${Math.round(gbtProb * 100)}%): ${score}% probability of upward move`
-        : (gbtProb != null)
-            ? `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move. `
-              + `GBT (${Math.round(gbtProb * 100)}%) recorded but excluded: no measurable discrimination.`
-            : `AI pattern recognition (${modelLabel} only): ${score}% probability of upward move`;
+        ? `AI pattern models (two combined): ${score}% chance of an up move${flip}`
+        : `AI pattern model: ${score}% chance of an up move${flip}`;
 
     return {
         score, available: true,

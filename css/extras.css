@@ -629,6 +629,13 @@ html[data-dev="1"] body { padding-top: 22px; }
     cursor: help;
 }
 
+/* An abstaining source is named in words, not drawn as a half-full bar at 50. */
+.breakdown-note {
+    margin-top: 6px;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
 .pt-from {
     font-weight: 500; opacity: 0.75; font-size: 0.86em;
 }

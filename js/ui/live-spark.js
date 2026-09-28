@@ -1,14 +1,14 @@
 // Live-ticking sparklines for Hot Picks cards.
 //
-// CRYPTO ONLY — and deliberately so. Binance's public WebSocket gives
-// true real-time crypto trades for free; stock feeds on the free path
+// CRYPTO ONLY — and deliberately so. Public crypto WebSockets (Binance, or
+// Coinbase where Binance is refused) give true real-time trades for free; stock feeds on the free path
 // (Stooq / Yahoo) are 5–15 min delayed, so animating a stock sparkline
 // tick-by-tick would be faking liveness. We honour the same honesty
 // line the price-alerts module draws.
 //
 // For each visible crypto card we:
 //   1. seed a rolling price buffer from the card's existing _sparkline,
-//   2. subscribe to the symbol's Binance trade stream,
+//   2. subscribe to the symbol's live trade stream,
 //   3. on each tick push the price (capped buffer), redraw the inline
 //      sparkline SVG, and update the "Current Price" label in place,
 //   4. briefly flash the card so the tick is perceptible.

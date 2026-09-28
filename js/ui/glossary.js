@@ -33,7 +33,7 @@ const SECTIONS = [
         items: [
             ['Technicals', 'Multi-timeframe indicator agreement. The largest weight, most reliable in the medium term.'],
             ['AI Model', 'A small LSTM trained on 300 stocks and 38 crypto symbols, retrained monthly. Acts as a pattern-recognition co-pilot.'],
-            ['Sentiment', 'FinBERT analyzes recent news headlines. Recent news weighted higher than stale news.'],
+            ['Sentiment', 'Recent headlines about the symbol are scored for tone, word by word. Recent news is weighted higher than stale news, and major outlets higher than blogs.'],
             ['Market', 'Fear & Greed Index, VIX, S&P 500 trend. Provides regime context.'],
         ],
     },
@@ -50,7 +50,7 @@ const SECTIONS = [
         items: [
             ['How accurate is this?', 'It depends — see the per-confidence-bucket calibration. Anyone claiming "95% accuracy" on stock prediction is either lying or has overfit.'],
             ['Should I trade based on this?', 'No tool replaces your own judgment. This is one input among many. Position size matters more than entry.'],
-            ['Where does the data come from?', 'Yahoo Finance for stocks, CoinGecko for crypto, Google News + FinBERT for sentiment, alternative.me for Fear & Greed. All free, no API keys.'],
+            ['Where does the data come from?', 'Yahoo Finance for stocks and crypto bars (Kraken when Yahoo has the wrong coin), CoinGecko for the crypto list, Yahoo and Bing News for headlines, alternative.me for Fear & Greed. All free, no API keys.'],
             ['Is my data sent anywhere?', 'No. Everything runs in your browser. Your prediction history lives in your browser\'s localStorage.'],
             ['What\'s “dev mode”?', 'A diagnostic view for the developer. Shows calibration metadata, raw vs. calibrated confidence, and a personal-accuracy strip. Public users see a cleaner view.'],
         ],

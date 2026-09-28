@@ -4,13 +4,14 @@
 // delayed because real-time exchange feeds are licensed. A 15-min-late
 // price alert for a market that moves second-by-second is worse than
 // useless — it would tell users about moves that already played out.
-// Crypto, by contrast, has Binance's public WebSocket which is true
-// realtime and free. So this module covers the case where realtime
-// is achievable and honestly omits where it isn't.
+// Crypto, by contrast, has free public WebSocket trade feeds (Binance, or
+// Coinbase where Binance refuses the connection, as it does for US users).
+// So this module covers the case where realtime is achievable and
+// honestly omits where it isn't.
 //
 // Architecture:
 //   - localStorage holds per-symbol thresholds: { "BTC-USD": {above, below} }
-//   - One WebSocket per active alert; auto-reconnect with backoff.
+//   - One live subscription per active alert (crypto-stream.js reconnects).
 //   - Each tick, compare against thresholds; fire Notification on cross
 //     and clear that direction (one-shot — you don't want a $-1 dip
 //     re-firing every tick).
@@ -21,11 +22,13 @@
 // the tab also closes the WS, and the alert won't fire. That matches
 // the existing watchlist's tab-open-only model.
 
+import { streamCryptoPrice } from '../crypto-stream.js';
+
 const LS_KEY = 'ma-price-alerts-v1';
 
 // { "BTC-USD": { above: 75000, below: null } }
 let alerts = {};
-const sockets = new Map(); // symbol -> { ws, retryMs, retryTimer }
+const sockets = new Map(); // symbol -> { handle } (see crypto-stream.js)
 const lastPrices = new Map();
 
 function loadAlerts() {
@@ -38,18 +41,6 @@ function saveAlerts() {
 
 export function isCryptoSymbol(symbol) {
     return /-USD$/i.test(String(symbol || ''));
-}
-
-// Yahoo-style "BTC-USD" → Binance "btcusdt". Returns null for symbols
-// Binance doesn't carry (e.g., niche tokens that aren't on Binance Spot).
-// We map only the common ones; the rest fail gracefully and the user
-// is told the symbol isn't supported for realtime alerts.
-function toBinanceStream(symbol) {
-    const s = String(symbol || '').toUpperCase();
-    const m = s.match(/^([A-Z0-9]+)-USD$/);
-    if (!m) return null;
-    const base = m[1].toLowerCase();
-    return `${base}usdt@trade`;
 }
 
 export function getAlert(symbol) {
@@ -122,61 +113,22 @@ function evaluate(symbol, price) {
 }
 
 function connectSocket(symbol) {
-    const stream = toBinanceStream(symbol);
-    if (!stream) return; // unsupported symbol — UI surfaces this
     if (sockets.has(symbol)) return;
-
-    const entry = { ws: null, retryMs: 1000, retryTimer: null };
-    sockets.set(symbol, entry);
-
-    const open = () => {
-        const url = `wss://stream.binance.com:9443/ws/${stream}`;
-        let ws;
-        try { ws = new WebSocket(url); }
-        catch (_) { scheduleRetry(); return; }
-
-        entry.ws = ws;
-
-        ws.onopen = () => { entry.retryMs = 1000; };
-        ws.onmessage = (ev) => {
-            try {
-                const m = JSON.parse(ev.data);
-                // @trade event fields: p = price (string), q = qty, T = trade time
-                const price = parseFloat(m.p);
-                if (!Number.isFinite(price)) return;
-                lastPrices.set(symbol, price);
-                document.dispatchEvent(new CustomEvent('ma:price-tick', { detail: { symbol, price } }));
-                evaluate(symbol, price);
-            } catch (_) {}
-        };
-        ws.onerror = () => { /* onclose will fire next */ };
-        ws.onclose = () => {
-            entry.ws = null;
-            // If we still have alerts on this symbol, retry. Otherwise let go.
-            if (alerts[symbol]) scheduleRetry();
-            else sockets.delete(symbol);
-        };
-    };
-
-    const scheduleRetry = () => {
-        if (!alerts[symbol]) return;
-        if (entry.retryTimer) clearTimeout(entry.retryTimer);
-        entry.retryTimer = setTimeout(() => { entry.retryTimer = null; open(); }, entry.retryMs);
-        // Cap backoff at 30s so a long outage doesn't end up waiting hours.
-        entry.retryMs = Math.min(entry.retryMs * 2, 30_000);
-    };
-
-    open();
+    // Live trades via crypto-stream.js: Binance, falling back to Coinbase for US connections.
+    const handle = streamCryptoPrice(symbol, (price) => {
+        lastPrices.set(symbol, price);
+        document.dispatchEvent(new CustomEvent('ma:price-tick', { detail: { symbol, price } }));
+        evaluate(symbol, price);
+    });
+    if (!handle) return; // unsupported symbol — UI surfaces this
+    sockets.set(symbol, { handle });
 }
 
 function closeSocket(symbol) {
     const entry = sockets.get(symbol);
     if (!entry) return;
     sockets.delete(symbol);
-    if (entry.retryTimer) { clearTimeout(entry.retryTimer); entry.retryTimer = null; }
-    if (entry.ws) {
-        try { entry.ws.onclose = null; entry.ws.close(); } catch (_) {}
-    }
+    try { entry.handle?.close(); } catch (_) {}
 }
 
 export function initPriceAlerts() {
