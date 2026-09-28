@@ -41,6 +41,11 @@ import { getCalibrationThresholds } from './calibration-thresholds.js';
 
 export async function computeFullConfidence(multiData, mode, symbolOrCoinId, timeframe, opts = {}) {
     const { bulkScan = false } = opts;
+    // newsLite: headlines from Yahoo only, no RSS search. Hot Picks analyses ~70 symbols in a
+    // burst, which is ~140 RSS searches in half a minute; Bing sheds a share of them, and three
+    // misses in a row trip the news breaker for ten minutes, which switched news off for the
+    // very symbol the user opened next (crypto news is RSS-only, so it went blank entirely).
+    const newsLite = opts.newsLite === true;
     loadConformal();
     loadPatterns();
 
@@ -65,8 +70,8 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const [aiResult, newsItems, marketResult, macroResult, benchResult] = await Promise.allSettled([
         getAIPrediction(aiCandles, { tier, intraday: useIntraday }),
         mode === 'stock'
-            ? fetchStockNews(symbolOrCoinId, displayName).catch(() => [])
-            : fetchCryptoNews(displayName || symbolOrCoinId, multiData?.daily?.symbol || '').catch(() => []),
+            ? fetchStockNews(symbolOrCoinId, displayName, { rss: !newsLite }).catch(() => [])
+            : fetchCryptoNews(displayName || symbolOrCoinId, multiData?.daily?.symbol || '', { rss: !newsLite }).catch(() => []),
         getMarketConditionsScore(mode),
         getMacroScore(),
         getBenchmarkCloses(mode),

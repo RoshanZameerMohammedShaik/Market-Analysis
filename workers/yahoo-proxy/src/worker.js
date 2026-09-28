@@ -662,16 +662,24 @@ async function proxyYahoo(targetUrl) {
         upstream = await withCrumb();
     }
     const text = await upstream.text();
-    const cacheControl = upstream.ok
+    // Yahoo's "No data found, symbol may be delisted" is an ANSWER, sent as 404 with a JSON body.
+    // Relayed as a 404, every browser logs it as a failed request, so a Hot Picks scan that meets
+    // a few dead tickers fills the console with red that means nothing. The body (and so the
+    // client's handling of it) is unchanged; the original status travels in X-Upstream-Status.
+    const notFoundAnswer = upstream.status === 404 && /"code"\s*:\s*"Not Found"/.test(text.slice(0, 400));
+    const status = notFoundAnswer ? 200 : upstream.status;
+    const cacheControl = upstream.ok || notFoundAnswer
         ? 'public, max-age=60'
         : 'no-store, no-cache, must-revalidate, max-age=0';
     return new Response(text, {
-        status: upstream.status,
+        status,
         headers: {
             'Content-Type': upstream.headers.get('Content-Type') || 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Access-Control-Max-Age': '86400',
+            'Access-Control-Expose-Headers': 'X-Upstream-Status',
+            'X-Upstream-Status': String(upstream.status),
             'Cache-Control': cacheControl,
         },
     });
@@ -926,8 +934,11 @@ export default {
             if (url.pathname === '/extract-article') {
                 const target = url.searchParams.get('url');
                 if (!target) return corsJson({ error: 'url required' }, 400);
+                // Always 200: every failure here (paywall, bot wall, timeout, thin page) means "no
+                // article text", which the client already handles by falling back to the headline.
+                // A 502 only made the browser log a red error per headline.
                 const body = await extractArticle(target);
-                return corsJson(body, body.error && !body.unusable ? 502 : 200);
+                return corsJson(body.error ? { ...body, unusable: true } : body, 200);
             }
             if (url.pathname === '/source-tier') {
                 const domain = url.searchParams.get('domain');

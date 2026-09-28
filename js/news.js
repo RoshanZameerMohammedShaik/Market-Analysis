@@ -8,7 +8,7 @@ import { isCooling, recordFailure, recordSuccess } from './breaker.js';
 const WORKER_BASE = 'https://market-analysis-yahoo-proxy.roshanzameer7866.workers.dev';
 const isBrowser = () => typeof window !== 'undefined' && typeof document !== 'undefined';
 
-export async function fetchStockNews(symbol, companyName = '') {
+export async function fetchStockNews(symbol, companyName = '', { rss = true } = {}) {
     const results = [];
     const market = getMarket();
     const core = coreCompanyName(companyName);
@@ -20,7 +20,7 @@ export async function fetchStockNews(symbol, companyName = '') {
     // First RSS query in parallel with Yahoo. If the first call trips the breaker
     // (cooling), the second call is a no-op.
     const [first, yahoo] = await Promise.allSettled([
-        fetchRssNews(queries[0], market.locale),
+        rss ? fetchRssNews(queries[0], market.locale) : Promise.resolve([]),
         fetchYahooNews(symbol),
     ]);
     const sources = [first, yahoo];
@@ -40,8 +40,10 @@ export async function fetchStockNews(symbol, companyName = '') {
  *                  is just a worse search query.
  * @param ticker    optional base ticker ("BTC"), accepted as a mention in headlines.
  */
-export async function fetchCryptoNews(coinName, ticker = '') {
+export async function fetchCryptoNews(coinName, ticker = '', { rss = true } = {}) {
     const results = [];
+    // Crypto headlines come only from RSS search (Yahoo's news search has none for coins).
+    if (!rss) return results;
     // Yahoo names crypto "Bitcoin USD"; headlines say "Bitcoin". A CoinGecko id arrives hyphenated.
     const name = String(coinName || ticker || '').replace(/-/g, ' ').replace(/\s+USD$/i, '').trim();
     if (!name) return [];

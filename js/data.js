@@ -3,20 +3,21 @@
 //   1) Direct fetch (works for non-Yahoo URLs that send CORS headers).
 //   2) Our own Cloudflare Worker /yahoo proxy (always tried for Yahoo URLs;
 //      handles cookies/crumb for v7 quote, has stable uptime).
-//   3) Public CORS proxies as last-resort fallback (corsproxy.io etc.
-//      regularly start gating; we keep them so non-Yahoo CORS-blocked
-//      sources still have a path).
+//
+// There used to be a third step: four public CORS proxies (corsproxy.io, allorigins,
+// codetabs, thingproxy). Measured on 2026-09-28 every one was dead from the deployed origin:
+// corsproxy.io answers 401 to anything but localhost, allorigins and codetabs abort, thingproxy
+// no longer resolves. They were also a standing privacy and integrity cost: a third party saw
+// every URL relayed through it and could have answered with anything. Sources a browser cannot
+// read directly now go through our own Worker (news RSS, StockTwits) or a published slice
+// (macro), so the chain only ever added failed requests and seconds of latency. Kept as an
+// empty list so the fallback code below documents itself if one is ever added back.
 
 import { isCooling, recordFailure } from './breaker.js';
 
 const WORKER_PROXY = 'https://market-analysis-yahoo-proxy.roshanzameer7866.workers.dev/yahoo?u=';
 
-const CORS_PROXIES = [
-    'https://corsproxy.io/?url=',
-    'https://api.allorigins.win/raw?url=',
-    'https://api.codetabs.com/v1/proxy?quest=',
-    'https://thingproxy.freeboard.io/fetch/',
-];
+const CORS_PROXIES = [];
 
 let workingProxy = null;
 
@@ -323,7 +324,13 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d', opt
                     resolvedSymbol = candidate;
                     break outer;
                 }
-            } catch (e) { continue; }
+                // Yahoo's own "No data found" is final for this candidate: query2 serves the same
+                // index, so asking it too just doubles the cost of every unknown ticker.
+                if (j?.chart?.error?.code === 'Not Found') continue outer;
+            } catch (e) {
+                if (e?.status === 404) continue outer;
+                continue;
+            }
         }
     }
 

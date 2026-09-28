@@ -269,7 +269,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     // Full pipeline — same call as the user-click path
                     // in core.js. bulkScan=false so the LSTM, per-symbol
                     // ledger track record, and all enrichments fire.
-                    const result = await computeFullConfidence(multiData, 'stock', symbol, timeframe, { bulkScan: false });
+                    const result = await computeFullConfidence(multiData, 'stock', symbol, timeframe, { bulkScan: false, newsLite: true });
                     const meta = symbolMeta[symbol] || {};
                     const sparkline = data.candles.slice(-30).map(c => c.close);
                     const lockKey = data.symbol || symbol;
@@ -506,7 +506,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             // Full pipeline on crypto Hot Picks too — same engine as
             // the click-path. computeFullConfidence handles crypto by
             // routing through derivs / cross-asset enrichments.
-            const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false });
+            const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false, newsLite: true });
             const { view, locked } = await effectiveView(sym, result, timeframe);
             results.push({
                 symbol: sym, name: coin.name, id: coin.id, price: px,
