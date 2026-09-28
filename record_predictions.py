@@ -42,6 +42,7 @@ import yfinance as yf
 from backtest import generate_prediction
 from price_round import round_price
 from forecast_band import forecast_bands
+from earnings_calendar import earnings_day as earnings_band_day, session_date_for
 from ai_infer import ai_prediction
 from shared_features import extract_ohlcv
 from ledger_universe import symbols_for_region, region_for, HORIZONS_DAYS
@@ -149,6 +150,15 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
     path = ledger_path_for(date_iso)
     if already_predicted_today(path, date_iso, symbol):
         return ('skipped-dup', symbol)
+
+    # Which band day an earnings announcement lands on (None = unknown; see earnings_calendar).
+    # The band's day 1 is THIS market's session, in its own calendar: date_iso is the UTC date
+    # of the cron run, and for ASX (23:00 UTC open) that is the day before the Sydney session.
+    try:
+        sess = session_date_for(region) or datetime.date.fromisoformat(date_iso)
+        earn_day = earnings_band_day(symbol, region, sess)
+    except Exception:
+        earn_day = None
 
     candles_data, why = fetch_recent_candles(symbol)
     if candles_data is None:
@@ -294,8 +304,15 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # heuristic goes once forecastBand has its own out-of-sample history.
         # `calibrated` may be False (sub-penny), and the grader must respect that
         # rather than reporting an unvalidated band as an 80% claim.
-        'forecastBand': forecast_bands(candles, entry_price,
-                                       mode='perDay') if candles else None,
+        # EARNINGS-AWARE. earn_day selects which z family draws the rows: None when this
+        # symbol has no calendar entry (the pooled z, i.e. the band exactly as before), 0 when
+        # nothing reacts inside the 7 sessions, or the first band day an announcement moves.
+        # The band a user sees is this locked row, so the cron has to decide it, not the browser.
+        'forecastBand': forecast_bands(candles, entry_price, mode='perDay',
+                                       earnings_day=earn_day) if candles else None,
+        # Stored so the grader can score earnings and ordinary weeks separately later, and so a
+        # row stays interpretable after the calendar has moved on.
+        'earningsDay': earn_day,
         'indicators': pred.get('indicators') or {},
         'horizons': {str(h): None for h in HORIZONS_DAYS},
     }

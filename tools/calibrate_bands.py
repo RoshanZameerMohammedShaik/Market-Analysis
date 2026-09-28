@@ -30,6 +30,13 @@ newly listed names with no history, and it avoids fitting 700 separate z's to
 noise. Tiers are assigned from the symbol's own realized sigma, so a symbol
 moves between tiers as its volatility changes.
 
+5. **Earnings windows get their own z.** 5-6% of windows contain an earnings reaction and move
+   1.5-2.5x further, so one z per cell is too wide for ordinary weeks and far too narrow for
+   earnings weeks (held-out on this sample: 51.5% coverage in earnings windows vs 81.1% in the
+   rest). The pooled `z`/`zPerDay` stay exactly as before and remain what a symbol with no
+   calendar data gets; `zEarn`/`zNoEarn` (and per-day twins) are fitted on the split. See
+   earnings_calendar.py for how an announcement becomes a band day.
+
 Output: model/band_calibration.json, read by js/forecast-band.js.
 
 Run: python tools/calibrate_bands.py [--target 0.80]
@@ -43,6 +50,9 @@ import statistics
 import sys
 import time
 import urllib.request
+
+# Repo root, for ledger_store, ledger_universe and earnings_calendar.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis band calibrator)'}
 OUT_PATH = os.path.join('model', 'band_calibration.json')
@@ -76,26 +86,20 @@ def ledger_universe_sample(limit=140, per_region=24):
     ranked by row count within each region so the picks have enough history to
     calibrate against.
     """
-    path = os.path.join('model', 'ledger', '2026.jsonl')
-    if not os.path.exists(path):
-        return None
+    # Monthly shards (model/ledger/YYYY-MM.jsonl). This read the single 2026.jsonl, which was
+    # retired when it outgrew GitHub's file limit, so every recalibration since then would have
+    # silently fallen back to the 48 hand-picked names this function exists to replace.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import ledger_store
     by_region = {}
     prices = {}
-    with open(path, encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                r = json.loads(line)
-            except Exception:
-                continue
-            sym, reg, e = r.get('symbol'), r.get('region'), r.get('entry')
-            if not sym or not isinstance(e, (int, float)) or e != e or e < MIN_PRICE:
-                continue
-            by_region.setdefault(reg, {}).setdefault(sym, 0)
-            by_region[reg][sym] += 1
-            prices[sym] = e
+    for r in ledger_store.iter_rows():
+        sym, reg, e = r.get('symbol'), r.get('region'), r.get('entry')
+        if not sym or not isinstance(e, (int, float)) or e != e or e < MIN_PRICE:
+            continue
+        by_region.setdefault(reg, {}).setdefault(sym, 0)
+        by_region[reg][sym] += 1
+        prices[sym] = e
     if not by_region:
         return None
     # Round-robin across regions rather than concatenate-then-truncate. With 8
@@ -120,16 +124,58 @@ def tier_for(sigma):
 
 
 def fetch(sym, start_year=2021):
+    """(bars, times): bars are (close, high, low); times the matching session-open epochs."""
     p1 = int(datetime.datetime(start_year, 1, 1).timestamp())
     p2 = int(time.time())
     url = (f'https://query1.finance.yahoo.com/v8/finance/chart/{sym}'
            f'?period1={p1}&period2={p2}&interval=1d')
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r:
         d = json.load(r)
-    q = d['chart']['result'][0]['indicators']['quote'][0]
-    bars = [(c, h, l) for c, h, l in zip(q['close'], q['high'], q['low'])
+    res = d['chart']['result'][0]
+    q = res['indicators']['quote'][0]
+    keep = [(t, (c, h, l)) for t, c, h, l in zip(res.get('timestamp') or [], q['close'], q['high'], q['low'])
             if c and h and l and c > 0 and h >= l > 0]
-    return bars
+    return [b for _, b in keep], [t for t, _ in keep]
+
+
+def earnings_bar_indices(sym, times):
+    """Indices of the bars an earnings announcement first moved, or None when unknown.
+
+    Crypto has none (an empty set, i.e. KNOWN ordinary). A stock whose calendar lookup fails is
+    None, so its windows count only toward the pooled z and never pose as ordinary weeks.
+    """
+    from ledger_universe import region_for
+    import earnings_calendar as ec
+    region = region_for(sym)
+    if region == 'CRYPTO':
+        return set()
+    try:
+        import yfinance as yf
+        df = yf.Ticker(sym).get_earnings_dates(limit=100)
+    except Exception:
+        return None
+    if df is None or not len(df):
+        return None
+    spec = ec.MARKETS.get(region)
+    if not spec or ec.ZoneInfo is None:
+        return None
+    tz = ec.ZoneInfo(spec['tz'])
+    local_dates = [datetime.datetime.fromtimestamp(t, datetime.timezone.utc).astimezone(tz).date() for t in times]
+    idx = set()
+    for ts in df.index:
+        try:
+            rd = ec.reaction_date(int(ts.timestamp()), region)
+        except Exception:
+            continue
+        if rd is None:
+            continue
+        # First bar on or after the reaction date (a holiday pushes it to the next session).
+        for j, d in enumerate(local_dates):
+            if d >= rd:
+                if (d - rd).days <= 4:
+                    idx.add(j)
+                break
+    return idx
 
 
 # Data-quality gates. These exist because the live ledger surfaced symbols that
@@ -190,13 +236,18 @@ def collect(symbols):
     """
     obs = {(t[2], h): [] for t in TIER_EDGES for h in HORIZONS}
     per_day = {(t[2], h): [] for t in TIER_EDGES for h in HORIZONS}
+    # The same observations again, split by whether an earnings reaction falls inside the
+    # window. Only from symbols whose calendar is KNOWN; see earnings_bar_indices.
+    split = {'earn': ({k: [] for k in obs}, {k: [] for k in obs}),
+             'noEarn': ({k: [] for k in obs}, {k: [] for k in obs})}
     used = 0
     for i, sym in enumerate(symbols):
         try:
-            bars = fetch(sym)
+            bars, times = fetch(sym)
         except Exception as e:
             print(f'  [skip] {sym}: {type(e).__name__}', file=sys.stderr)
             continue
+        earn_idx = earnings_bar_indices(sym, times)
         if len(bars) < VOL_LOOKBACK + max(HORIZONS) + 50:
             print(f'  [skip] {sym}: only {len(bars)} bars', file=sys.stderr)
             continue
@@ -217,15 +268,19 @@ def collect(symbols):
                 # Storing this instead of a hit/miss lets one pass calibrate ANY
                 # target confidence later without refetching.
                 denom = s * math.sqrt(h)
-                obs[(tier, h)].append((math.log(hi / c0) / denom,
-                                       math.log(c0 / lo) / denom))
+                cum_pair = (math.log(hi / c0) / denom, math.log(c0 / lo) / denom)
+                obs[(tier, h)].append(cum_pair)
                 # Day h's OWN session extremes, still anchored on today's close,
                 # since today's close is all a forecast can be anchored to.
                 d_hi, d_lo = bars[k + h][1], bars[k + h][2]
-                per_day[(tier, h)].append((math.log(d_hi / c0) / denom,
-                                           math.log(c0 / d_lo) / denom))
+                day_pair = (math.log(d_hi / c0) / denom, math.log(c0 / d_lo) / denom)
+                per_day[(tier, h)].append(day_pair)
+                if earn_idx is not None:
+                    fam = 'earn' if any(k < j <= k + h for j in earn_idx) else 'noEarn'
+                    split[fam][0][(tier, h)].append(cum_pair)
+                    split[fam][1][(tier, h)].append(day_pair)
         time.sleep(0.25 if i % 20 else 0.6)
-    return obs, per_day, used
+    return obs, per_day, used, split
 
 
 def _quantile(sorted_vals, q):
@@ -283,7 +338,7 @@ def main():
     src = 'live ledger' if sample is not FALLBACK_SAMPLE else 'fallback list'
     print(f'Calibrating {len(HORIZONS)}-day bands at target confidence '
           f'{target:.0%} over {len(sample)} symbols from the {src}...')
-    obs, per_day, used = collect(sample)
+    obs, per_day, used, split = collect(sample)
     print(f'Symbols used: {used}/{len(sample)}')
 
     z = {}
@@ -319,6 +374,72 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
+    # Earnings / ordinary-week families. A cell too thin to fit is simply absent, and the band
+    # falls back to the pooled z for it (forecast_band.py), so a missing cell costs nothing.
+    fam_z = {}
+    fam_cov = {}
+    fam_n = {}
+    for fam, (cum_cells, day_cells) in split.items():
+        for kind, cells in (('cum', cum_cells), ('day', day_cells)):
+            key = {'cum': 'z', 'day': 'zPerDay'}[kind] + {'earn': 'Earn', 'noEarn': 'NoEarn'}[fam]
+            for (tier, h), pairs in sorted(cells.items()):
+                fam_n[f'{key}:{tier}:{h}'] = len(pairs)
+                zz = solve_z(pairs, target)
+                if zz is None:
+                    continue
+                fam_z.setdefault(key, {}).setdefault(tier, {})[str(h)] = round(zz, 4)
+                hit = sum(1 for u, d in pairs if u <= zz and d <= zz)
+                fam_cov[f'{key}:{tier}:{h}'] = round(hit / len(pairs), 4)
+    # Earnings cells too thin to fit (the wild tier has only a few dozen day-1 earnings windows)
+    # would otherwise fall back to the POOLED z, which is the too-narrow number this split
+    # replaces. Derive them instead, keeping two measured facts: the tier's OWN earnings ratio
+    # (earnings z / ordinary z) at its nearest fitted horizon, and the common SHAPE of how that
+    # ratio decays with horizon in the tiers that fitted everywhere. The level matters: wild
+    # names already move so much that an earnings week adds relatively little (ratio ~1.05 at
+    # day 4, against ~1.6 for calm names), so borrowing the other tiers' level would make their
+    # band far too wide. Listed in earningsDerivedCells so nobody mistakes them for fits.
+    derived = []
+    tiers = [t[2] for t in TIER_EDGES]
+    for cum_key, ord_key in (('zEarn', 'zNoEarn'), ('zPerDayEarn', 'zPerDayNoEarn')):
+        earn_t, ord_t = fam_z.setdefault(cum_key, {}), fam_z.get(ord_key, {})
+
+        def ratio(t, h):
+            e, o = earn_t.get(t, {}).get(str(h)), ord_t.get(t, {}).get(str(h))
+            return e / o if e and o else None
+
+        for tier in tiers:
+            fitted = [h for h in HORIZONS if ratio(tier, h) is not None]
+            for h in HORIZONS:
+                if str(h) in earn_t.get(tier, {}) or str(h) not in ord_t.get(tier, {}):
+                    continue
+                if fitted:
+                    h0 = min(fitted, key=lambda x: abs(x - h))
+                    shape = [ratio(t, h) / ratio(t, h0) for t in tiers
+                             if t != tier and ratio(t, h) and ratio(t, h0)]
+                    if not shape:
+                        continue
+                    r = ratio(tier, h0) * statistics.median(shape)
+                else:
+                    across = [ratio(t, h) for t in tiers if ratio(t, h)]
+                    if not across:
+                        continue
+                    r = statistics.median(across)
+                earn_t.setdefault(tier, {})[str(h)] = round(ord_t[tier][str(h)] * max(1.0, r), 4)
+                derived.append(f'{cum_key}:{tier}:{h}')
+
+    # What the pooled z delivered in each family: the gap this split exists to close.
+    pooled_cov = {}
+    for fam, (_, day_cells) in split.items():
+        hit = tot = 0
+        for (tier, h), pairs in day_cells.items():
+            zz = z_per_day.get(tier, {}).get(str(h))
+            if zz is None:
+                continue
+            tot += len(pairs)
+            hit += sum(1 for u, d in pairs if u <= zz and d <= zz)
+        if tot:
+            pooled_cov[fam] = round(hit / tot, 4)
+
     # Normal-theory z for the same two-sided containment, for comparison. If the
     # empirical z is materially larger, fat tails are real and assuming normality
     # would have made the app overconfident.
@@ -349,6 +470,17 @@ def main():
         # `z` above stays CUMULATIVE and is what stops are sized from.
         'zPerDay': z_per_day,
         'realizedCoveragePerDay': coverage_per_day,
+        # Earnings-aware families (see the method note at the top). Absent keys mean "not
+        # enough windows to fit", and the band uses the pooled z for that cell.
+        'earningsSource': 'yfinance get_earnings_dates; reaction session per earnings_calendar.py',
+        'zEarn': fam_z.get('zEarn', {}),
+        'zNoEarn': fam_z.get('zNoEarn', {}),
+        'zPerDayEarn': fam_z.get('zPerDayEarn', {}),
+        'zPerDayNoEarn': fam_z.get('zPerDayNoEarn', {}),
+        'realizedCoverageEarnSplit': fam_cov,
+        'sampleCountsEarnSplit': fam_n,
+        'pooledCoveragePerDayBySplit': pooled_cov,
+        'earningsDerivedCells': derived,
     }
     os.makedirs('model', exist_ok=True)
     with open(OUT_PATH, 'w', encoding='utf-8') as f:
@@ -377,6 +509,12 @@ def main():
     violations = [f'{t}:{h}' for t in z for h in z[t]
                   if int(h) > 1 and t in z_per_day and h in z_per_day[t]
                   and z_per_day[t][h] >= z[t][h]]
+    for fam in ('Earn', 'NoEarn'):
+        zc, zd = fam_z.get('z' + fam, {}), fam_z.get('zPerDay' + fam, {})
+        violations += [f'{fam}:{t}:{h}' for t in zc for h in zc[t]
+                       if int(h) > 1 and h in zd.get(t, {}) and zd[t][h] >= zc[t][h]]
+    print(f"\nPooled per-day z, by family: ordinary weeks {pooled_cov.get('noEarn', float('nan')):.1%}, "
+          f"earnings weeks {pooled_cov.get('earn', float('nan')):.1%} (target {target:.0%})")
     if violations:
         print(f'\nERROR: per-day z >= cumulative z at {violations}', file=sys.stderr)
         sys.exit(1)

@@ -11,13 +11,15 @@ import sys
 import datetime
 from collections import defaultdict
 
-LEDGER = os.path.join(os.path.dirname(__file__), '..', 'model', 'ledger', '2026.jsonl')
-LEDGER = os.path.abspath(LEDGER)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import ledger_store  # noqa: E402  (monthly shards; the single 2026.jsonl was retired)
+
+LEDGER_FILES = ledger_store.shard_files()
 
 
 def main():
-    if not os.path.exists(LEDGER):
-        print(f'NO LEDGER FILE at {LEDGER}')
+    if not LEDGER_FILES:
+        print(f'NO LEDGER FILES under {ledger_store.LEDGER_DIR}')
         sys.exit(1)
 
     today = datetime.date.today()
@@ -32,53 +34,59 @@ def main():
     schema_violations = []
     weird_dm = []
 
-    with open(LEDGER, encoding='utf-8') as f:
-        for ln_no, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
+    def _lines():
+        # "file:line" so a violation still points at the exact row across shards.
+        for path in LEDGER_FILES:
+            with open(path, encoding='utf-8') as fh:
+                for n, text in enumerate(fh, 1):
+                    yield f'{os.path.basename(path)}:{n}', text
+
+    for ln_no, line in _lines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except Exception as e:
+            schema_violations.append(f'L{ln_no}: bad JSON ({e})')
+            continue
+        sym = r.get('symbol')
+        if not sym:
+            schema_violations.append(f'L{ln_no}: missing symbol')
+            continue
+        sig = r.get('signal')
+        horizons = r.get('horizons') or {}
+        s = stats[sym]
+        if sig not in ('BUY', 'SELL'):
+            s['neutral_skipped'] += 1
+            continue
+        s['total'] += 1
+        d = r.get('date')
+        if d and (s['first_date'] is None or d < s['first_date']):
+            s['first_date'] = d
+        any_resolved = False
+        any_hit = False
+        for k, h in horizons.items():
+            if h is None:
                 continue
-            try:
-                r = json.loads(line)
-            except Exception as e:
-                schema_violations.append(f'L{ln_no}: bad JSON ({e})')
+            if not isinstance(h, dict):
+                schema_violations.append(f'L{ln_no} {sym} h{k}: not-dict')
                 continue
-            sym = r.get('symbol')
-            if not sym:
-                schema_violations.append(f'L{ln_no}: missing symbol')
+            dm = h.get('directionMatch')
+            if dm is None:
                 continue
-            sig = r.get('signal')
-            horizons = r.get('horizons') or {}
-            s = stats[sym]
-            if sig not in ('BUY', 'SELL'):
-                s['neutral_skipped'] += 1
+            if not isinstance(dm, bool):
+                weird_dm.append(f'{sym} h{k}: directionMatch={dm!r}')
                 continue
-            s['total'] += 1
-            d = r.get('date')
-            if d and (s['first_date'] is None or d < s['first_date']):
-                s['first_date'] = d
-            any_resolved = False
-            any_hit = False
-            for k, h in horizons.items():
-                if h is None:
-                    continue
-                if not isinstance(h, dict):
-                    schema_violations.append(f'L{ln_no} {sym} h{k}: not-dict')
-                    continue
-                dm = h.get('directionMatch')
-                if dm is None:
-                    continue
-                if not isinstance(dm, bool):
-                    weird_dm.append(f'{sym} h{k}: directionMatch={dm!r}')
-                    continue
-                any_resolved = True
-                if dm:
-                    any_hit = True
-            if not any_resolved:
-                s['pending'] += 1
-            elif any_hit:
-                s['hits'] += 1
-            else:
-                s['misses'] += 1
+            any_resolved = True
+            if dm:
+                any_hit = True
+        if not any_resolved:
+            s['pending'] += 1
+        elif any_hit:
+            s['hits'] += 1
+        else:
+            s['misses'] += 1
 
     total_rows = sum(v['total'] + v['neutral_skipped'] for v in stats.values())
     total_committed = sum(v['total'] for v in stats.values())

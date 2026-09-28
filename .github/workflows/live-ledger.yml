@@ -272,6 +272,16 @@ jobs:
         continue-on-error: true
         run: python tools/write_history_slice.py --days 30
 
+      # Upcoming earnings per symbol. The band's z is fitted separately for windows that
+      # contain an earnings reaction (they move 1.5-2.7x further), and BOTH the cron's locked
+      # band and the browser's live one read this file to decide which family applies. Without
+      # it every band silently falls back to the pooled z, which is the too-narrow number on
+      # earnings weeks. always() so a failed predict leg still refreshes it.
+      - name: Publish upcoming earnings for the band
+        if: always()
+        continue-on-error: true
+        run: python tools/write_earnings_slice.py
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -331,6 +341,9 @@ jobs:
           fi
           # The browser's only route to the macro series. Unstaged, it would be rebuilt every
           # run and published never, leaving the `market` source dead in the app.
+          if [ -f model/earnings.json ]; then
+            git add -f model/earnings.json
+          fi
           if [ -f model/macro.json ]; then
             git add -f model/macro.json
           fi
@@ -456,6 +469,9 @@ jobs:
             # Same staging as the happy path. The two lists drifting apart is its own bug:
             # a file only staged on the non-recovery path is published only when nothing
             # goes wrong, which is exactly when nobody notices it is missing.
+            if [ -f model/earnings.json ]; then
+              git add -f model/earnings.json
+            fi
             if [ -f model/macro.json ]; then
               git add -f model/macro.json
             fi

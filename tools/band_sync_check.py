@@ -45,13 +45,14 @@ def synth(seed, n=N_CANDLES, base=100.0, drift=0.0, spread=0.02):
     return bars
 
 
-def py_forecast(cal, candles, price, mode='perDay'):
+def py_forecast(cal, candles, price, mode='perDay', earnings_day=None):
     """Delegate to the REAL module. This file used to carry its own copy of the
     band math, which made it a third implementation and therefore a third thing
     to drift: a parity test that reimplements the code under test can pass while
     both sides are wrong together. forecast_band.py is now the only Python band,
     used by the cron and validated here against the JS."""
-    return forecast_band.forecast_bands(candles, price, mode=mode, cal=cal)
+    return forecast_band.forecast_bands(candles, price, mode=mode, cal=cal,
+                                       earnings_day=earnings_day)
 
 
 def build_fixtures(live=False):
@@ -71,6 +72,14 @@ def build_fixtures(live=False):
     payload = {}
     for name, (bars, _) in cases.items():
         payload[name] = {'candles': bars, 'price': bars[-1]['close'], 'crypto': False}
+    # EARNINGS FAMILIES. Same bars, three earnings states, so the fixtures cover the pooled z
+    # (unknown), the ordinary-week z (0) and the earnings z from a mid-band day (4). Without
+    # these the split could drift between the two languages and every check here would still
+    # pass, which is exactly the class of silent divergence this file exists to prevent.
+    for state in (0, 1, 4):
+        bars = synth(2, spread=0.022)
+        payload[f'SYNTH_EARN_D{state}'] = {'candles': bars, 'price': bars[-1]['close'],
+                                           'crypto': False, 'earningsDay': state}
     if live:
         import datetime, time, urllib.request
         ua = {'User-Agent': 'Mozilla/5.0'}
@@ -129,7 +138,7 @@ def main():
     print(f'{"case":<15}{"tier":<9}{"sigma%":>8}{"conf":>6}{"max diff":>11}  result')
     failures = 0
     for name, o in payload.items():
-        p = py_forecast(cal, o['candles'], o['price'])
+        p = py_forecast(cal, o['candles'], o['price'], earnings_day=o.get('earningsDay'))
         j = js.get(name)
         if p is None or j is None:
             print(f'{name:<15}{"-":<9}{"-":>8}{"-":>6}{"-":>11}  '
@@ -146,7 +155,10 @@ def main():
               # both sides, and a disagreement is the bug worth catching.
               and j['calibrated'] == p['calibrated']
               and j.get('uncalibratedReason') == p.get('uncalibratedReason')
-              and j['confidence'] == round(cal['targetConfidence'] * 100))
+              and j['confidence'] == round(cal['targetConfidence'] * 100)
+              # Which z family drew the band has to agree too, or one side is silently
+              # using the pooled z while the other widens for earnings.
+              and j.get('earningsDay') == p.get('earningsDay'))
         failures += 0 if ok else 1
         print(f'{name:<15}{p["volTier"]:<9}{p["sigmaDaily"]:>8.2f}{j["confidence"]:>5}%'
               f'{worst:>11.4f}  {"OK" if ok else "MISMATCH"}')
@@ -165,6 +177,42 @@ def main():
                 zw += 1
     failures += zw
     print('  OK: every day has positive width' if not zw else f'  {zw} collapsed band(s)')
+
+    # THE SPLIT MUST ACTUALLY DO SOMETHING, and in the right direction: an earnings day inside
+    # the band widens the rows from that day on and leaves the earlier ones alone, while a band
+    # with no earnings is no wider than the pooled one. A no-op split would otherwise pass every
+    # comparison above.
+    print('\nearnings split:')
+    bars = synth(2, spread=0.022)
+    px = bars[-1]['close']
+    pooled = py_forecast(cal, bars, px)
+    none_ = py_forecast(cal, bars, px, earnings_day=0)
+    mid = py_forecast(cal, bars, px, earnings_day=4)
+    d1 = py_forecast(cal, bars, px, earnings_day=1)
+    split_bad = 0
+    if not (pooled and none_ and mid and d1):
+        print('  could not build the earnings fixtures')
+        split_bad += 1
+    else:
+        w = lambda r, h: r['days'][h - 1]['high'] - r['days'][h - 1]['low']
+        if not w(mid, 3) < w(pooled, 3) * 1.0001:
+            print(f'  day 3 (before the announcement) is not ordinary-week narrow: '
+                  f'{w(mid, 3):.4f} vs pooled {w(pooled, 3):.4f}')
+            split_bad += 1
+        if not w(mid, 4) > w(pooled, 4) * 1.05:
+            print(f'  day 4 (the announcement) is not widened: {w(mid, 4):.4f} vs pooled {w(pooled, 4):.4f}')
+            split_bad += 1
+        if not w(d1, 1) > w(none_, 1) * 1.2:
+            print(f'  an earnings day 1 is not much wider than an ordinary day 1: '
+                  f'{w(d1, 1):.4f} vs {w(none_, 1):.4f}')
+            split_bad += 1
+        if abs(w(none_, 1) - w(pooled, 1)) / w(pooled, 1) > 0.10:
+            print(f'  ordinary-week day 1 moved more than 10% from pooled: '
+                  f'{w(none_, 1):.4f} vs {w(pooled, 1):.4f}')
+            split_bad += 1
+    failures += split_bad
+    print('  OK: ordinary weeks unchanged, earnings days widened from the announcement on'
+          if not split_bad else f'  {split_bad} problem(s)')
 
     tiers = {p['volTier'] for p in
              (py_forecast(cal, o['candles'], o['price']) for o in payload.values()) if p}

@@ -1383,3 +1383,20 @@ a.news-item-title:hover { color: var(--accent); text-decoration: underline; }
     font-size: var(--fs-2xs);
     color: var(--text-muted);
 }
+
+/* Band rows drawn with the wider earnings-week z. Marked, not merely wider: a row that jumps
+   without explanation reads as a glitch. */
+.fb-row-earn .fb-low,
+.fb-row-earn .fb-high,
+.fb-row-earn .fb-span { opacity: 0.92; }
+.fb-earn-tag {
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--yellow);
+    background: color-mix(in srgb, var(--yellow) 16%, transparent);
+    cursor: help;
+}

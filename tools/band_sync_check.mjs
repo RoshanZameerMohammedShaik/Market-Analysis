@@ -40,6 +40,8 @@ for (const [sym, o] of Object.entries(input)) {
         candles: o.candles,
         currentPrice: o.price,
         cryptoMode: !!o.crypto,
+        // null / 0 / 1..7 selects the pooled, ordinary-week or earnings z family.
+        earningsDay: o.earningsDay ?? null,
         // Pinned so date labels are deterministic across runs.
         now: new Date('2026-01-02T00:00:00Z'),
     });
@@ -49,6 +51,7 @@ for (const [sym, o] of Object.entries(input)) {
         calibrated: r.calibrated,
         uncalibratedReason: r.uncalibratedReason ?? null,
         confidence: r.confidence,
+        earningsDay: r.earningsDay ?? null,
         days: r.days.map(d => ({ day: d.day, low: d.low, high: d.high })),
     };
 }

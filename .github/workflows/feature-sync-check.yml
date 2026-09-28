@@ -13,6 +13,11 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'earnings_calendar.py'
+      - 'js/earnings-calendar-slice.js'
+      - 'tools/earnings_sync_check.py'
+      - 'tools/earnings_sync_check.mjs'
+      - 'tools/audit_fixes_check.mjs'
       - 'js/risk.js'
       - 'tools/risk_check.mjs'
       - 'record_outcomes.py'
@@ -91,6 +96,11 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'earnings_calendar.py'
+      - 'js/earnings-calendar-slice.js'
+      - 'tools/earnings_sync_check.py'
+      - 'tools/earnings_sync_check.mjs'
+      - 'tools/audit_fixes_check.mjs'
       - 'js/risk.js'
       - 'tools/risk_check.mjs'
       - 'record_outcomes.py'
@@ -317,6 +327,14 @@ jobs:
       # TON resolving to Toncoin rather than Yahoo's "TON Token").
       - name: Check the audit fixes stay fixed
         run: node tools/audit_fixes_check.mjs --network
+
+      # Which band day an earnings announcement moves selects the band's WIDTH, so the two
+      # implementations of that decision must agree exactly or the band a user sees is not the
+      # band the cron locked and graded. Fixtures cover the cases that are easy to get wrong:
+      # a release exactly at the close, a Friday evening, ASX (whose session's UTC date is the
+      # day before its own) and Tokyo's 15:30 close.
+      - name: Check the earnings calendar agrees across languages
+        run: python tools/earnings_sync_check.py
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

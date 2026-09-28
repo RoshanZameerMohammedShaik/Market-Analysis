@@ -70,7 +70,8 @@ MARKETS = {
     'HKEX':  {'tz': 'Asia/Hong_Kong', 'open': (9, 30), 'close': (16, 0),
               'lunch': ((12, 0), (13, 0)), 'days': (0, 1, 2, 3, 4), 'currency': 'HKD',
               'label': 'Hong Kong'},
-    'TYO':   {'tz': 'Asia/Tokyo', 'open': (9, 0), 'close': (15, 0),
+    # 15:30, not 15:00: the Tokyo Stock Exchange extended the afternoon session on 2024-11-05.
+    'TYO':   {'tz': 'Asia/Tokyo', 'open': (9, 0), 'close': (15, 30),
               'lunch': ((11, 30), (12, 30)), 'days': (0, 1, 2, 3, 4), 'currency': 'JPY',
               'label': 'Tokyo'},
     'ASX':   {'tz': 'Australia/Sydney', 'open': (10, 0), 'close': (16, 0),

@@ -234,12 +234,20 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
     // labelled its last two rows Mon/Tue, days the coin trades like any other.
     const isCrypto = cryptoMode != null ? cryptoMode === true : (band.mode === 'crypto' || band.cryptoMode === true);
     const labels = dayLabels(band.days.length, isCrypto);
+    // Rows from the earnings day on are drawn with the wider earnings z (see
+    // js/earnings-calendar-slice.js). Saying which ones, and why, is the difference between "the
+    // band suddenly jumped on Thursday" and "Thursday is the earnings reaction".
+    const earnDay = Number.isFinite(band.earningsDay) && band.earningsDay > 0 ? band.earningsDay : null;
     const rows = band.days.map((d, i) => {
         const spanPct = currentPrice > 0
             ? ((d.high - d.low) / currentPrice * 100) : null;
+        const isEarn = earnDay != null && d.day >= earnDay;
+        const tag = (earnDay != null && d.day === earnDay)
+            ? ' <span class="fb-earn-tag" title="Earnings are expected to move this session, so this row and the ones after it use the wider band measured on earnings weeks.">earnings</span>'
+            : '';
         return `
-            <tr class="fb-row">
-                <td class="fb-day">${labels[i]}</td>
+            <tr class="fb-row${isEarn ? ' fb-row-earn' : ''}">
+                <td class="fb-day">${labels[i]}${tag}</td>
                 <td class="fb-low">${money(d.low, currency)}</td>
                 <td class="fb-high">${money(d.high, currency)}</td>
                 <td class="fb-span">${spanPct != null ? `±${(spanPct / 2).toFixed(1)}%` : '—'}</td>
@@ -281,6 +289,9 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
                     and the band widens with time because uncertainty grows.
                     Coverage is a long-run average: when volatility jumps sharply after the band is
                     set, it holds far less often.
+                    ${earnDay != null
+                        ? `Earnings are due on the ${labels[earnDay - 1] ? `<strong>${labels[earnDay - 1]}</strong> row` : `${earnDay}th session`}, so that row and the ones after it use the band width measured on earnings weeks, which is far wider.`
+                        : ''}
                 </div>
             </div>
             ${renderHistory(history, currency)}

@@ -20,6 +20,12 @@
 // values run 1.66-2.09 depending on volatility tier. Assuming normality here is
 // exactly how the app became overconfident the first time.
 //
+// EARNINGS WINDOWS GET THEIR OWN z. About 6% of windows contain an earnings reaction and they
+// move 1.5-2.7x further, so one z per cell is simultaneously too wide for ordinary weeks and far
+// too narrow for earnings weeks: measured on the app's own calibration sample, the 80% band
+// covered 55.5% of earnings windows against 80.9% of the rest. `earningsDay` selects the family
+// (see js/earnings-calendar-slice.js); without it the pooled z is used, exactly as before.
+//
 // Replaces js/multi-horizon.js, which multiplied expected move by the signal's
 // direction and by a hand-picked 0.5-1.5 confidence multiplier. Both were
 // unfounded; see git history.
@@ -175,8 +181,19 @@ export function forwardDates(n, { cryptoMode = false, from = null } = {}) {
  * @returns {Object|null} { calibrated, confidence, sigmaDaily, volTier, days: [...] }
  *   days[i] = { day, date, low, high, widthPct, confidence }
  */
+/** z table per horizon given what is known about earnings. MIRRORS forecast_band._z_tables. */
+function zTablesFor(cal, mode, earningsDay) {
+    const cumulative = mode === 'cumulative';
+    const pooled = cumulative ? cal.z : (cal.zPerDay || cal.z);
+    const earn = cumulative ? cal.zEarn : cal.zPerDayEarn;
+    const ordinary = cumulative ? cal.zNoEarn : cal.zPerDayNoEarn;
+    const have = (t) => t && Object.keys(t).length > 0;
+    if (earningsDay == null || !have(earn) || !have(ordinary)) return { tableFor: () => pooled, aware: false };
+    return { tableFor: (h) => ((earningsDay && h >= earningsDay) ? earn : ordinary), aware: true };
+}
+
 export function forecastBands({ candles, currentPrice, cryptoMode = false,
-                                mode = 'perDay', now = null }) {
+                                mode = 'perDay', now = null, earningsDay = null }) {
     const cal = _cal || FALLBACK;
     const price = Number(currentPrice);
     if (!(price > 0)) return null;
@@ -197,12 +214,14 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
 
     // perDay is the display default; cumulative is what stops are sized from.
     const zTable = mode === 'cumulative' ? cal.z : (cal.zPerDay || cal.z);
+    const { tableFor, aware } = zTablesFor(cal, mode, earningsDay);
     // Edges go through roundPrice: see js/price-round.js. A flat 4dp collapsed
     // both edges of a sub-penny asset onto the same number, a zero-width band.
     const days = horizons.map((h, i) => {
         // z from calibration when available. Without it we cannot state a
         // confidence, so the band is returned but flagged uncalibrated.
-        const z = zTable?.[tier]?.[String(h)] ?? null;
+        // A split cell too thin to fit falls back to the pooled one rather than dropping the row.
+        const z = tableFor(h)?.[tier]?.[String(h)] ?? zTable?.[tier]?.[String(h)] ?? null;
         const zz = z ?? 1.96;   // placeholder ONLY for the uncalibrated path
         const move = zz * sigma * Math.sqrt(h);
         const high = price * Math.exp(move);
@@ -225,6 +244,9 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
         sigmaDaily: +(sigma * 100).toFixed(2),
         volTier: tier,
         generatedFrom: cal.generatedAt || null,
+        // Which z family drew the rows: null = pooled (earnings unknown), 0 = ordinary weeks,
+        // r = earnings z from band day r onward.
+        earningsDay: aware ? earningsDay : null,
         days,
     };
 }

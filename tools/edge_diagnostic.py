@@ -18,20 +18,19 @@ import json
 import math
 import os
 from collections import defaultdict
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import ledger_store  # noqa: E402  (repo root, for the monthly ledger shards)
 
 LEDGER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'model', 'ledger', '2026.jsonl')
 
 
 def load():
     rows = []
-    with open(LEDGER) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    rows.append(json.loads(line))
-                except json.JSONDecodeError:
-                    pass
+    # The ledger is monthly shards now (model/ledger/YYYY-MM.jsonl); the single 2026.jsonl
+    # this used to open was retired when it outgrew GitHub's 100 MB file limit, so reading
+    # it returned nothing at all.
+    rows.extend(ledger_store.iter_rows())
     return rows
 
 

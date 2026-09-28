@@ -23,6 +23,7 @@ import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
 import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
 import { sessionAnchorFromCandles } from './ui/market-session.js';
+import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
@@ -503,10 +504,22 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const currentPrice = multiData?.daily?.currentPrice || closes[closes.length - 1];
         if (currentPrice && candles.length) {
             await loadBandCalibration();
+            // EARNINGS-AWARE BAND. Which day of the 7 an announcement moves selects the z family
+            // (see js/earnings-calendar-slice.js): null keeps the pooled z the band always used,
+            // so a symbol with no calendar entry is unaffected. The cron locks the same decision
+            // into the ledger row, so the displayed band and the graded one stay identical.
+            let earningsDay = null;
+            try {
+                const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
+                const slice = await loadEarningsSlice();
+                const sess = sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
+                earningsDay = earningsDayFor(symbolOrCoinId, region, sess, slice);
+            } catch (_) { earningsDay = null; }
             forecastBand = forecastBands({
                 candles,
                 currentPrice,
                 cryptoMode: mode === 'crypto',
+                earningsDay,
             });
         }
     } catch (_) { forecastBand = null; }

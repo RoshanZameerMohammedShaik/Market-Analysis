@@ -100,12 +100,30 @@ def tier_for(sigma, tier_edges):
     return tier_edges[-1][2]
 
 
-def forecast_bands(candles, current_price, mode='perDay', cal=None):
+def _z_tables(c, mode, earnings_day):
+    """z table for each horizon, given what is known about earnings (see earnings_calendar.py).
+
+    None  -> the pooled table, fitted over every window: exactly the band before this existed.
+    0 / r -> the ordinary-week table before day r, the earnings table from day r on. Only when
+             the calibration carries both; an older file keeps the pooled table throughout.
+    """
+    cumulative = mode == 'cumulative'
+    pooled = c['z'] if cumulative else c.get('zPerDay') or c['z']
+    earn = c.get('zEarn' if cumulative else 'zPerDayEarn')
+    ordinary = c.get('zNoEarn' if cumulative else 'zPerDayNoEarn')
+    if earnings_day is None or not earn or not ordinary:
+        return lambda h: pooled, False
+    return (lambda h: earn if (earnings_day and h >= earnings_day) else ordinary), True
+
+
+def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day=None):
     """7-day High/Low band. Returns None when it cannot be stated honestly.
 
     mode='perDay'     day h's OWN session extremes. What the UI shows.
     mode='cumulative' the running extremes across h days. Wider, and the correct
                       basis for a STOP, since a stop can be hit on any day.
+    earnings_day      None (unknown), 0 (none inside the band) or the first band day an
+                      earnings announcement moves. From earnings_calendar.earnings_day().
     """
     c = cal or load_calibration()
     if not c:
@@ -134,10 +152,14 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None):
     table = c['z'] if mode == 'cumulative' else c.get('zPerDay') or c['z']
     if tier not in table:
         return None
+    table_for, earnings_aware = _z_tables(c, mode, earnings_day)
 
     days = []
     for h in c['horizons']:
-        z = table[tier].get(str(h))
+        # A split cell too thin to fit falls back to the pooled one rather than dropping the row.
+        z = (table_for(h).get(tier) or {}).get(str(h))
+        if z is None:
+            z = table[tier].get(str(h))
         if z is None:
             continue
         dist = z * sigma * math.sqrt(h)
@@ -155,5 +177,8 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None):
         'sigmaDaily': round(sigma * 100, 2),
         'volTier': tier,
         'calibratedAt': c.get('generatedAt'),
+        # Which z family drew the rows: None = pooled (earnings unknown), 0 = ordinary weeks,
+        # r = earnings z from band day r. The UI marks those rows.
+        'earningsDay': earnings_day if earnings_aware else None,
         'days': days,
     }
