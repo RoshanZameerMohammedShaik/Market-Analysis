@@ -10,6 +10,7 @@ import { escapeHtml, safeHttpUrl } from '../js/ui/escape.js';
 import { generateNewsImpact } from '../js/ui/reasons.js';
 import { forwardDates } from '../js/forecast-band.js';
 import { coinNamesAgree } from '../js/data.js';
+import { renderForecastBand } from '../js/ui/forecast-band-panel.js';
 
 let passed = 0, failed = 0;
 const check = (name, cond, detail = '') => {
@@ -83,6 +84,23 @@ console.log('\n=== crypto calendar and coin identity ===');
     // Prefix matching would accept this, and ARB-USD really is "ARbit" at $0.0006.
     check('"ARbit" is not Arbitrum', !coinNamesAgree('ARbit USD', 'Arbitrum'));
     check('"TON Token" is not Toncoin', !coinNamesAgree('TON Token USD', 'Toncoin'));
+}
+
+console.log('\n=== the band table marks its earnings rows ===');
+{
+    // A band read back from a ledger row carries only {day, low, high, widthPct} + earningsDay,
+    // so the panel has to work from that alone. An unmarked widened row reads as a glitch.
+    const days = [1, 2, 3, 4, 5, 6, 7].map(h => ({ day: h, low: 100 - h, high: 100 + h, widthPct: h }));
+    const render = (earningsDay) => renderForecastBand(
+        { calibrated: true, confidence: 80, volTier: 'normal', sigmaDaily: 2.1, days, earningsDay },
+        { currency: 'USD', currentPrice: 100, cryptoMode: false });
+    const count = (h, re) => (h.match(re) || []).length;
+    const mid = render(4), none = render(0), unknown = render(null);
+    check('the earnings day carries a tag', count(mid, /fb-earn-tag/g) === 1);
+    check('that row and the ones after it are marked', count(mid, /fb-row-earn/g) === 4, String(count(mid, /fb-row-earn/g)));
+    check('and the caveat names the row', /Earnings are due/.test(mid));
+    check('nothing is marked when no earnings fall inside', count(none, /fb-row-earn/g) === 0 && !/Earnings are due/.test(none));
+    check('nothing is marked when earnings are unknown', count(unknown, /fb-row-earn/g) === 0);
 }
 
 if (process.argv.includes('--network')) {

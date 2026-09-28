@@ -54,6 +54,9 @@ on:
           - resolve-and-recalibrate
           - resolve-outcomes
           - recalibrate
+          # Refresh the earnings slice alone (the band's width depends on it), without
+          # re-resolving or recalibrating anything.
+          - publish-earnings
           # Destructive: rebuilds every matured horizon (~67,000 rows). Manual
           # only, never on a cron. See the step for why it has to exist.
           - reresolve-outcomes
@@ -272,13 +275,24 @@ jobs:
         continue-on-error: true
         run: python tools/write_history_slice.py --days 30
 
-      # Upcoming earnings per symbol. The band's z is fitted separately for windows that
-      # contain an earnings reaction (they move 1.5-2.7x further), and BOTH the cron's locked
-      # band and the browser's live one read this file to decide which family applies. Without
-      # it every band silently falls back to the pooled z, which is the too-narrow number on
-      # earnings weeks. always() so a failed predict leg still refreshes it.
+      # Upcoming earnings per symbol. The band's z is fitted separately for windows that contain
+      # an earnings reaction (they move 1.5-2.7x further), and BOTH the cron's locked band and
+      # the browser's live one read this file to decide which family applies. Without it every
+      # band falls back to the pooled z, which is the too-narrow number on earnings weeks.
+      #
+      # ONCE A DAY, on the nightly job, not on every regional predict: the walk is ~1,000 Yahoo
+      # lookups and six minutes, and it would add that to all eight runs for a file whose
+      # contents barely move (announcement dates are known weeks ahead, and the slice carries a
+      # 45-day horizon). Each predict run therefore uses the slice from the previous night,
+      # which is exactly what it is built to tolerate. continue-on-error because a stale slice
+      # is a slightly worse band, not a reason to lose a night's rows.
+      #
+      # No always() guard on purpose: tools/workflow_task_coverage.py can only verify that a
+      # dispatch option actually routes somewhere by reading these conditions, and it must skip
+      # always() steps (they prove nothing about routing). A hard failure earlier in the nightly
+      # job therefore leaves last night's slice in place, which is the tolerated case anyway.
       - name: Publish upcoming earnings for the band
-        if: always()
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'recalibrate' || steps.decide.outputs.task == 'publish-earnings'
         continue-on-error: true
         run: python tools/write_earnings_slice.py
 
@@ -413,6 +427,7 @@ jobs:
               # tools/workflow_task_coverage.py now asserts this stays complete.
               resolve-outcomes)    python record_outcomes.py ;;
               recalibrate)         python recalibrate_from_ledger.py ;;
+              publish-earnings)    python tools/write_earnings_slice.py ;;
               reresolve-outcomes)  python record_outcomes.py --reresolve ;;
               *) echo "Unknown TASK: $TASK"; return 1 ;;
             esac
