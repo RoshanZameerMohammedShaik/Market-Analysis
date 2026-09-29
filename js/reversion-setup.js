@@ -25,11 +25,43 @@ import { rangeSigma } from './forecast-band.js';
 import { trendState, MIN_PRICE, MIN_DOLLAR_VOL } from './trend-gate.js';
 
 const CAL_URL = 'model/reversion_calibration.json';
+const SETUPS_URL = 'model/setups.json';
 export const RSI2_MAX = 10;
 const MA_TRIGGER = 5;
 
 let _cal = null;
 let _calPromise = null;
+let _slice = null;
+let _slicePromise = null;
+
+/**
+ * Today's published setups, so a symbol that is ON the list shows the SAME cell the list does.
+ *
+ * Without this the two disagreed: ELV's 30-day sigma sits at 1.455% against a 1.5% tier edge, and
+ * the browser's bars (Worker chart, plus a live partial bar) put it in `calm` while the slice's
+ * bars (yfinance, final closes) put it in `normal`. Two numbers for one setup, twelve pixels and
+ * one scroll apart. The slice is computed once, from one source, so it is the authority for any
+ * symbol it covers; the live evaluation stands only for symbols it does not.
+ */
+export async function loadPublishedSetups() {
+    if (_slice !== null) return _slice || null;
+    if (_slicePromise) return _slicePromise;
+    _slicePromise = (async () => {
+        try {
+            const r = await fetch(SETUPS_URL, { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('not json');
+            const j = await r.json();
+            _slice = Array.isArray(j?.setups)
+                ? { sessionDate: j.sessionDate, confirmed: j.confirmed !== false,
+                    bySymbol: new Map(j.setups.map(x => [String(x.symbol).toUpperCase(), x])) }
+                : false;
+        } catch (_) {
+            _slice = false;
+        }
+        return _slice || null;
+    })();
+    return _slicePromise;
+}
 
 export async function loadReversionCalibration() {
     if (_cal !== null) return _cal || null;
@@ -99,7 +131,7 @@ export function nyseSessionOpen(nowMs = Date.now()) {
  *          { active, forming, reliable, rsi2, trigger, ma200, tier, vixBand, cell, heldOut,
  *            pooled, reason }
  */
-export function evaluateReversionSetup({ history, region, vix, cal, nowMs = Date.now() }) {
+export function evaluateReversionSetup({ history, region, vix, cal, published = null, symbol = '', nowMs = Date.now() }) {
     if (!cal || String(region || '').toUpperCase() !== 'NYSE') return null;
     const bars = (history || []).filter(c => c && c.close > 0 && c.high >= c.low && c.low > 0);
     if (bars.length < 200) return null;
@@ -112,11 +144,14 @@ export function evaluateReversionSetup({ history, region, vix, cal, nowMs = Date
     const edges = cal.tierEdges || [];
     const tier = Number.isFinite(sigma) && edges.length ? tierFor(sigma, edges) : null;
     const vixBand = vixBandFor(Number(vix), cal.vixBands || []);
-    const key = tier && vixBand ? `${tier}:${vixBand}` : null;
+    // The published row for this symbol, when today's slice covers it: one cell, one number.
+    const pub = published?.bySymbol?.get(String(symbol).toUpperCase()) || null;
+    const key = pub ? `${pub.tier}:${pub.vixBand}` : (tier && vixBand ? `${tier}:${vixBand}` : null);
     const cell = key ? cal.cells?.[key] || null : null;
     const heldOut = key ? cal.cellsHeldOut?.[key] || null : null;
     const base = {
-        rsi2: rsi2 == null ? null : +rsi2.toFixed(1), trigger, ma200: trend.ma200 ?? null, tier, vixBand,
+        rsi2: rsi2 == null ? null : +rsi2.toFixed(1), trigger, ma200: trend.ma200 ?? null,
+        tier: pub ? pub.tier : tier, vixBand: pub ? pub.vixBand : vixBand, published: !!pub,
         cell, heldOut, pooled: cal.pooled, pooledHeldOut: cal.pooledHeldOut, price: px,
     };
     // Eligibility first, each measured: below the 200d the app's own BUYs earned +5 bps against

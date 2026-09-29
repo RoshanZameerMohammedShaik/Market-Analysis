@@ -11,6 +11,7 @@ import { generateNewsImpact } from '../js/ui/reasons.js';
 import { forwardDates } from '../js/forecast-band.js';
 import { coinNamesAgree } from '../js/data.js';
 import { renderForecastBand } from '../js/ui/forecast-band-panel.js';
+import { readFileSync } from 'node:fs';
 
 let passed = 0, failed = 0;
 const check = (name, cond, detail = '') => {
@@ -101,6 +102,33 @@ console.log('\n=== the band table marks its earnings rows ===');
     check('and the caveat names the row', /Earnings are due/.test(mid));
     check('nothing is marked when no earnings fall inside', count(none, /fb-row-earn/g) === 0 && !/Earnings are due/.test(none));
     check('nothing is marked when earnings are unknown', count(unknown, /fb-row-earn/g) === 0);
+}
+
+console.log('\n=== the card and the published list read ONE cell ===');
+{
+    // ELV's 30-day sigma sits at 1.455% against a 1.5% tier edge, so the browser's bars and the
+    // slice's bars put it in different tiers and the app showed 67.7% in one place and 67.3% in
+    // another. A symbol on today's list must take the published cell.
+    const { evaluateReversionSetup } = await import('../js/reversion-setup.js');
+    const cal = JSON.parse(readFileSync('model/reversion_calibration.json', 'utf8'));
+    // Bars engineered to land just inside `calm` while the published row says `normal`.
+    const bars = [];
+    let px = 300;
+    for (let i = 0; i < 260; i++) {
+        px *= 1 + (i % 7 === 0 ? 0.004 : 0.0012);
+        bars.push({ close: +px.toFixed(4), high: +(px * 1.004).toFixed(4), low: +(px * 0.996).toFixed(4), volume: 3e6 });
+    }
+    bars[bars.length - 2] = { ...bars[bars.length - 2], close: +(bars[bars.length - 3].close * 0.96).toFixed(4) };
+    bars[bars.length - 1] = { ...bars[bars.length - 1], close: +(bars[bars.length - 2].close * 0.97).toFixed(4) };
+    bars[bars.length - 1].low = bars[bars.length - 1].close;
+    const published = { bySymbol: new Map([['TEST', { symbol: 'TEST', tier: 'wild', vixBand: 'high' }]]) };
+    const live = evaluateReversionSetup({ history: bars, region: 'NYSE', vix: 16, cal, symbol: 'TEST' });
+    const pubd = evaluateReversionSetup({ history: bars, region: 'NYSE', vix: 16, cal, published, symbol: 'TEST' });
+    check('a symbol on the list takes the PUBLISHED tier, not a recomputed one',
+        pubd?.tier === 'wild' && pubd?.vixBand === 'high' && pubd?.published === true,
+        `${pubd?.tier}/${pubd?.vixBand}`);
+    check('its cell is the published cell', pubd?.cell === cal.cells['wild:high'] || JSON.stringify(pubd?.cell) === JSON.stringify(cal.cells['wild:high']));
+    check('a symbol NOT on the list is still evaluated live', live?.published === false && live?.tier !== 'wild', `${live?.tier}`);
 }
 
 if (process.argv.includes('--network')) {
