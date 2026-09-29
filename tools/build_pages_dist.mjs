@@ -78,6 +78,10 @@ const MODEL = [
     // Which band day an earnings announcement moves, per symbol. Read by
     // js/earnings-calendar-slice.js to pick the earnings vs ordinary-week band width.
     'model/earnings.json',
+    // The pullback setup: its calibration (read by js/reversion-setup.js on every stock card) and
+    // tonight's confirmed setups list (js/ui/setups-list.js).
+    'model/reversion_calibration.json',
+    'model/setups.json',
     'model/ledger/recent.json',
     // The 30-day compact history. Seven features read it (confidence trend, signal markers, equity
     // curve, accuracy-by-setup, ledger history, scanner aggregation, watchlist signals) and all of

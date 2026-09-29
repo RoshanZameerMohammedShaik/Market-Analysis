@@ -85,3 +85,4 @@ model/bot/_*
 /joblog.txt
 /*.tmp.json
 dist/
+model/_ohlc_cache/

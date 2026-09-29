@@ -43,6 +43,7 @@ from backtest import generate_prediction
 from price_round import round_price
 from forecast_band import forecast_bands
 from earnings_calendar import earnings_day as earnings_band_day, session_date_for
+from trend_gate import trend_state, gate as trend_gate_why
 from ai_infer import ai_prediction
 from shared_features import extract_ohlcv
 from ledger_universe import symbols_for_region, region_for, HORIZONS_DAYS
@@ -104,7 +105,7 @@ _FETCH_RETRIES = 3
 _FETCH_BACKOFF_S = (2, 4, 8)
 
 
-def fetch_recent_candles(symbol: str, period='6mo'):
+def fetch_recent_candles(symbol: str, period='1y'):
     """Pull the trailing window needed to compute indicators (RSI, MACD, BB, etc.).
 
     Retries on a transient empty/raising response with exponential backoff
@@ -198,11 +199,24 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
     # credit, just at finer granularity, and it survives fixing the other one.
     locked_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+    # A YEAR of bars is fetched (fetch_recent_candles) only so the trend gate can see a 200-day
+    # average. The engine still reads the trailing 120, exactly as before, so its indicators and
+    # therefore its raw call are unchanged by the longer fetch.
     candles = candles_as_records(close, high, low, volume)
     pred = generate_prediction(candles)
     if not pred or not pred.get('signal'):
         _add_diag('skipped-no-pred', symbol, f'pred={pred}')
         return ('skipped-no-pred', symbol)
+
+    # TREND GATE (trend_gate.py has the 12-year evidence). BUYs in downtrends and on thin names,
+    # and SELLs in uptrends, were most of this engine's calls and ran 49.5% / 48.7%; they are
+    # withheld to NEUTRAL here, and js/trend-gate.js does the same in the browser.
+    trend = trend_state(list(close), list(volume))
+    gated_why = trend_gate_why(pred['signal'], trend, region)
+    gated_from = None
+    if gated_why:
+        gated_from = pred['signal']
+        pred = {**pred, 'signal': 'NEUTRAL', 'confidence': min(int(pred.get('confidence') or 0), 50)}
     entry_price = float(close[-1])
 
     # AI inference, same models and same numbers as the browser (ai_infer mirrors
@@ -283,6 +297,11 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # target — no JS<->Python re-derivation. None for non-directional /
         # ATR-unavailable rows; those simply get capturedPct=null.
         'expectedMove': pred.get('expectedMove'),
+        # Why a directional call was withheld (None when it stands), and the trend it read. Stored
+        # so the gate's effect can be graded on real forward outcomes, not just on the replay.
+        'trendGate': {'withheld': gated_from, 'reason': gated_why} if gated_from else None,
+        'trend': ({'above200': bool(trend['above200']), 'ma200': round_price(trend['ma200']),
+                   'dollarVol20': round(trend['dollarVol20'])} if trend.get('known') else None),
         # Full possible + probable price-target bands the engine LOCKED at this
         # symbol's market open, anchored to the open entry. The browser
         # (daily-lock via ledger-reader.readTodayLock) reads these directly so

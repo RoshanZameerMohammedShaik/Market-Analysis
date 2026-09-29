@@ -1400,3 +1400,79 @@ a.news-item-title:hover { color: var(--accent); text-decoration: underline; }
     background: color-mix(in srgb, var(--yellow) 16%, transparent);
     cursor: help;
 }
+
+
+/* ---------------------------------------------------------------------------
+   PULLBACK SETUP (js/ui/reversion-panel.js). The one short-horizon call measured above 60%
+   out of sample, so it gets a real panel; the inactive states stay one quiet line.
+   --------------------------------------------------------------------------- */
+.rv-panel {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border: 1px solid color-mix(in srgb, var(--green) 40%, var(--border));
+    background: color-mix(in srgb, var(--green) 7%, var(--bg-card));
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+.rv-panel.rv-muted {
+    border-color: var(--border);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+.rv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.rv-title {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+.rv-state {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--fs-2xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.rv-active { color: var(--green); background: color-mix(in srgb, var(--green) 18%, transparent); }
+.rv-forming { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 16%, transparent); cursor: help; }
+.rv-body { color: var(--text-primary); }
+.rv-rule { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; color: var(--text-secondary); }
+.rv-note { margin-top: 8px; font-size: 0.74rem; color: var(--text-muted); }
+
+
+/* ---------------------------------------------------------------------------
+   PULLBACK SETUPS list (js/ui/setups-list.js)
+   --------------------------------------------------------------------------- */
+.setups-section { margin: 28px 0 8px; }
+.su-intro { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; margin: 6px 0 12px; max-width: 900px; }
+.su-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); }
+.su-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.su-table th { text-align: left; padding: 8px 12px; font-size: 0.7rem; letter-spacing: 0.6px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); cursor: help; }
+.su-table td { padding: 8px 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.su-table tr:last-child td { border-bottom: none; }
+.su-row { cursor: pointer; }
+.su-row:hover, .su-row:focus { background: color-mix(in srgb, var(--accent) 8%, transparent); outline: none; }
+.su-sym { font-weight: 700; }
+.su-num { text-align: right; font-family: var(--num-font); font-variant-numeric: tabular-nums; }
+.su-hit { color: var(--green); font-weight: 700; }
+.su-ho { color: var(--text-secondary); }
+.su-empty { padding: 14px; font-size: 0.82rem; color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--radius-sm); }
+.su-foot { margin-top: 8px; font-size: 0.72rem; color: var(--text-muted); }
+/* Phones: keep what decides the trade (symbol, trigger, recovery rate, net) and drop the rest,
+   rather than letting the recovery column scroll off the right edge. */
+@media (max-width: 600px) {
+    .su-table th:nth-child(2), .su-table td:nth-child(2),
+    .su-table th:nth-child(3), .su-table td:nth-child(3),
+    .su-table th:nth-child(7), .su-table td:nth-child(7) { display: none; }
+    .su-table th, .su-table td { padding: 8px 10px; }
+    .su-table { font-size: 0.8rem; }
+}

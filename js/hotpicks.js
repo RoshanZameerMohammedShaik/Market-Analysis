@@ -19,7 +19,7 @@
 // won't survive Phase 1 filtering. Hot Picks is discovery, not exhaustive
 // scan; user can search any symbol directly for the full pipeline.
 
-import { fetchStockData, fetchWithProxy, coingeckoJson } from './data.js';
+import { fetchStockData, fetchWithProxy, coingeckoJson, withHistory } from './data.js';
 import { getMarketConditionsScore } from './market.js';
 import { UNIVERSE_CONFIG } from './markets.js';
 import { computeFullConfidence } from './confidence.js';
@@ -263,7 +263,9 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         const batchResults = await Promise.allSettled(
             batch.map(async (symbol) => {
                 try {
-                    const data = await fetchStockData(symbol, '3mo', '1d', { suffixProbe: false });
+                    // A year, split so the engine sees its usual 3 months and the trend gate
+                    // sees the 200-day history (see withHistory in data.js).
+                    const data = withHistory(await fetchStockData(symbol, '1y', '1d', { suffixProbe: false }));
                     if (!data.candles || data.candles.length < 30) return null;
                     const multiData = deriveMultiTimeframe(data);
                     // Full pipeline — same call as the user-click path
@@ -467,7 +469,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
         if (onProgress) onProgress(`Fetching daily bars (${Math.min(i + BATCH, coins.length)}/${coins.length})…`);
         await Promise.all(batch.map(async (coin) => {
             try {
-                const d = await fetchStockData(`${coin.symbol.toUpperCase()}-USD`, '3mo', '1d', { suffixProbe: false });
+                const d = withHistory(await fetchStockData(`${coin.symbol.toUpperCase()}-USD`, '1y', '1d', { suffixProbe: false }));
                 const px = d?.currentPrice;
                 if (d?.candles?.length >= 30 && px > 0 && coin.price > 0 && Math.abs(px / coin.price - 1) < 0.05) {
                     dailyBars.set(coin.id, d);
@@ -498,7 +500,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             const prev = candles.length > 1 ? candles[candles.length - 2].close : null;
             const tf = (c) => ({ symbol: sym, name: coin.name, currency: 'USD', exchange: 'Crypto', currentPrice: px, previousClose: prev, candles: c });
             const multiData = {
-                daily: tf(candles),
+                daily: { ...tf(candles), history: bars.history || candles },
                 // Crypto trades every day, so a week is 7 bars.
                 weekly: tf(aggregateCandlesPeriod(candles, 7)),
                 fourHour: tf(candles.slice(-20)),

@@ -388,6 +388,18 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d', opt
     };
 }
 
+/**
+ * Split a long daily fetch into what the engine reads (`candles`, the trailing ~3 months) and the
+ * full series (`history`), which only the trend gate and the pullback setup read. Exported so Hot
+ * Picks gives its engine run the identical shape.
+ */
+export function withHistory(data, days = 92) {
+    if (!data || !Array.isArray(data.candles) || !data.candles.length) return data;
+    const full = data.candles;
+    const cutoff = full[full.length - 1].time - days * 86400;
+    return { ...data, candles: full.filter(c => c.time >= cutoff), history: full };
+}
+
 export async function fetchStockMultiTimeframe(symbol) {
     // Resolve the daily fetch FIRST — that one runs the suffix probe
     // (CORDSCABLE → CORDSCABLE.NS), so the weekly + 4h calls can
@@ -395,7 +407,11 @@ export async function fetchStockMultiTimeframe(symbol) {
     // Without this, an unsuffixed Indian ticker would re-probe through
     // 6 candidates × 2 URLs three separate times in parallel — major
     // slowdown on a search miss.
-    const dailyRes = await fetchStockData(symbol, '3mo', '1d').catch(() => null);
+    // A YEAR of daily bars, not three months: the trend gate and the pullback setup need a
+    // 200-day average. The engine is still handed the same trailing ~3 months it always saw
+    // (withHistory), because its EMAs depend on history length and changing that would shift
+    // every indicator it computes, and so every call it makes.
+    const dailyRes = await fetchStockData(symbol, '1y', '1d').then(withHistory).catch(() => null);
     if (!dailyRes) throw new Error(`Could not fetch data for ${symbol}`);
     const resolved = dailyRes.symbol || symbol;
     const [weeklyRes, fourHourRes] = await Promise.allSettled([
@@ -626,7 +642,7 @@ async function krakenMultiTimeframe(base, name) {
     const px = daily[daily.length - 1].close;
     const d = daily.slice(-90);
     const out = {
-        daily: wrapBars(base, name, d, px),
+        daily: { ...wrapBars(base, name, d, px), history: daily },
         weekly: wrapBars(base, name, weeklyFromDaily(daily.slice(-371)), px),
         fourHour: wrapBars(base, name, d, px),
         source: 'kraken',

@@ -42,7 +42,9 @@ FEATURES = 11
 # defaming the fix for weeks. The version filter makes the displayed track
 # record self-heal: it rebuilds under the new logic and only ever reflects
 # the engine the user is actually getting.
-ENGINE_VERSION = '2026.06.06-mr-rebalance'
+# 2026.09.29: the trend gate (trend_gate.py) withholds BUYs below the 200-day average or on
+# thin names, and SELLs above it. It changes the recorded signal, so it is a new engine.
+ENGINE_VERSION = '2026.09.29-trend-gate'
 
 # ── Labeling ──────────────────────────────────────────────────────────────
 # Triple-barrier labeling (López de Prado). Instead of "did the very next

@@ -24,6 +24,8 @@ import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
 import { sessionAnchorFromCandles } from './ui/market-session.js';
 import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
+import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js';
+import { loadReversionCalibration, evaluateReversionSetup } from './reversion-setup.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
@@ -292,6 +294,21 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         rawConfidence = thresh.commitFloorConfidence;
     }
 
+    // ── Trend gate (see js/trend-gate.js for the evidence) ──────────────────
+    // Withhold the BUYs taken in downtrends and on thin names, and the SELLs taken in uptrends:
+    // over 12 years of this engine's own calls those groups ran 49.5% and 48.7%, and they were
+    // most of the calls. The same gate runs in the cron (trend_gate.py), so the locked ledger call
+    // and this live one cannot disagree about it. Stocks only, US only, where it was measured.
+    const trend = trendState(multiData?.daily?.history || multiData?.daily?.candles);
+    const trendRegion = mode === 'stock' ? regionFor(symbolOrCoinId) : 'CRYPTO';
+    const gatedWhy = trendGate(finalSignal, trend, trendRegion);
+    let gatedFrom = null;
+    if (gatedWhy) {
+        gatedFrom = finalSignal;
+        finalSignal = 'NEUTRAL';
+        rawConfidence = thresh.commitFloorConfidence;
+    }
+
     // Per-symbol live-ledger track-record bonus. If the engine has
     // a meaningful number of resolved predictions on THIS exact
     // symbol (>=5) AND its 1d hit rate on this symbol is above the
@@ -523,6 +540,22 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             });
         }
     } catch (_) { forecastBand = null; }
+
+    // The pullback setup: a separate, answerable question (does price recover to its 5-day average
+    // within 10 sessions), measured at 66% held out where next-day direction is a coin flip. See
+    // js/reversion-setup.js. US stocks only, where it was calibrated.
+    let reversionSetup = null;
+    if (mode === 'stock') {
+        try {
+            const rcal = await loadReversionCalibration();
+            reversionSetup = evaluateReversionSetup({
+                history: multiData?.daily?.history || multiData?.daily?.candles,
+                region: regionFor(symbolOrCoinId),
+                vix: currentVix,
+                cal: rcal,
+            });
+        } catch (_) { reversionSetup = null; }
+    }
 
     // ONE range on the card, and it is the calibrated one.
     //
@@ -774,10 +807,18 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         // meta carries why the engine abstained (read by the signal card's
         // "Sit this one out" insight). abstainedFrom = the directional call
         // the score WOULD have made before the ensemble split killed it.
-        meta: abstainedFromEnsemble ? {
+        meta: gatedFrom ? {
+            // The trend gate, stated with its evidence rather than as a bare "no".
+            abstainReason: `The setup leaned ${gatedFrom}, but ${TREND_REASONS[gatedWhy]}. Over 12 years this engine's ${gatedFrom === 'BUY' ? 'BUYs' : 'SELLs'} in that situation were right less than half the time, so the call is withheld`,
+            abstainedFrom: gatedFrom,
+            trendGate: gatedWhy,
+        } : abstainedFromEnsemble ? {
             abstainReason: `The ensemble is split — only ${consensus.for} of ${consensus.total} sources agreed and ${consensus.against} pushed the other way. Better to wait for a cleaner setup than force a coin-flip.`,
             abstainedFrom: weightedScore > 50 ? 'BUY' : 'SELL',
         } : undefined,
+        // Long-term trend and liquidity, for the pullback setup and the UI (js/trend-gate.js).
+        trend,
+        reversionSetup,
     };
 }
 

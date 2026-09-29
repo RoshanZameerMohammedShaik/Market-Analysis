@@ -296,6 +296,14 @@ jobs:
         continue-on-error: true
         run: python tools/write_earnings_slice.py
 
+      # Tonight's confirmed pullback setups (reversion_setup.py), read by the landing page. The
+      # nightly job runs at 22:00 UTC, after the 16:00 New York close, so every setup listed is
+      # confirmed on a final closing price. Same gating as earnings, for the same reasons.
+      - name: Publish tonight's pullback setups
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'publish-earnings'
+        continue-on-error: true
+        run: python tools/write_setups_slice.py
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -357,6 +365,9 @@ jobs:
           # run and published never, leaving the `market` source dead in the app.
           if [ -f model/earnings.json ]; then
             git add -f model/earnings.json
+          fi
+          if [ -f model/setups.json ]; then
+            git add -f model/setups.json
           fi
           if [ -f model/macro.json ]; then
             git add -f model/macro.json
@@ -427,7 +438,7 @@ jobs:
               # tools/workflow_task_coverage.py now asserts this stays complete.
               resolve-outcomes)    python record_outcomes.py ;;
               recalibrate)         python recalibrate_from_ledger.py ;;
-              publish-earnings)    python tools/write_earnings_slice.py ;;
+              publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py ;;
               reresolve-outcomes)  python record_outcomes.py --reresolve ;;
               *) echo "Unknown TASK: $TASK"; return 1 ;;
             esac
@@ -486,6 +497,9 @@ jobs:
             # goes wrong, which is exactly when nobody notices it is missing.
             if [ -f model/earnings.json ]; then
               git add -f model/earnings.json
+            fi
+            if [ -f model/setups.json ]; then
+              git add -f model/setups.json
             fi
             if [ -f model/macro.json ]; then
               git add -f model/macro.json

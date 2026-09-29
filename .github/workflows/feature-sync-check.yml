@@ -13,6 +13,13 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'trend_gate.py'
+      - 'js/trend-gate.js'
+      - 'reversion_setup.py'
+      - 'js/reversion-setup.js'
+      - 'model/reversion_calibration.json'
+      - 'tools/reversion_sync_check.py'
+      - 'tools/reversion_sync_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -96,6 +103,13 @@ on:
       - 'tools/band_sync_check.mjs'
       - 'tools/calibrate_bands.py'
       - 'model/band_calibration.json'
+      - 'trend_gate.py'
+      - 'js/trend-gate.js'
+      - 'reversion_setup.py'
+      - 'js/reversion-setup.js'
+      - 'model/reversion_calibration.json'
+      - 'tools/reversion_sync_check.py'
+      - 'tools/reversion_sync_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -335,6 +349,13 @@ jobs:
       # day before its own) and Tokyo's 15:30 close.
       - name: Check the earnings calendar agrees across languages
         run: python tools/earnings_sync_check.py
+
+      # The trend gate decides which calls the ledger RECORDS and the pullback setup decides what
+      # the landing list PUBLISHES (both in Python), while the card shows the browser's version of
+      # both. 495 evaluations on real bars plus forced branches, and the RSI pinned to the pandas
+      # definition the calibration was fitted with.
+      - name: Check the trend gate and pullback setup agree across languages
+        run: python tools/reversion_sync_check.py
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

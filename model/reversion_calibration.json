@@ -1,0 +1,359 @@
+{
+ "generatedAt": "2026-09-29T18:40:24Z",
+ "question": "Does price close above its 5-day average within 10 sessions, and what does the trade earn, entering at the signal close and exiting at the next open after that trigger?",
+ "whyNotDirection": "Next-day direction on these same entries is 53.4%, and the app's own live ledger grades all committed BUY/SELL at 50.4%. A 71-feature gradient-boosted model walked forward over 440 stocks and 12 years reached AUC 0.519. Direction at this horizon is not answerable; this question is.",
+ "entry": {
+  "rsi2Max": 10.0,
+  "minPrice": 5.0,
+  "minDollarVolume": 50000000.0,
+  "requireAbove200dma": true
+ },
+ "exit": {
+  "trigger": "close > 5-day moving average",
+  "fillAt": "next session open",
+  "holdCapSessions": 10,
+  "stop": null,
+  "stopNote": "No stop, deliberately. A 3-sigma stop moved this from +11.4 to -9.5 bps net and from 9 to 5 positive years out of 12: on a mean-reversion trade a stop converts temporary dips into realised losses."
+ },
+ "costAssumptionBps": 6.0,
+ "hitRateIsADial": "A limit target at +0.5 sigma reverts 89.1% of the time and earns +4.0 bps, which is negative after costs. Never show hitRate without netBps beside it.",
+ "splitDate": "2023-01-01",
+ "tierEdges": [
+  [
+   0.0,
+   0.015,
+   "calm"
+  ],
+  [
+   0.015,
+   0.025,
+   "normal"
+  ],
+  [
+   0.025,
+   0.04,
+   "active"
+  ],
+  [
+   0.04,
+   9.99,
+   "wild"
+  ]
+ ],
+ "vixBands": [
+  [
+   0,
+   20,
+   "low"
+  ],
+  [
+   20,
+   30,
+   "elevated"
+  ],
+  [
+   30,
+   999,
+   "high"
+  ]
+ ],
+ "symbolsUsed": 432,
+ "trades": 51925,
+ "pooled": {
+  "n": 34641,
+  "hitRate": 0.6838,
+  "hitSE": 0.0025,
+  "meanBps": 50.7,
+  "netBps": 44.7,
+  "netBpsLo95": 40.0,
+  "medianDays": 4.0,
+  "positiveYears": 9,
+  "years": 11
+ },
+ "pooledHeldOut": {
+  "n": 17284,
+  "hitRate": 0.6595,
+  "hitSE": 0.0036,
+  "meanBps": 47.0,
+  "netBps": 41.0,
+  "netBpsLo95": 32.9,
+  "medianDays": 4.0,
+  "positiveYears": 4,
+  "years": 4
+ },
+ "cells": {
+  "calm:low": {
+   "n": 15693,
+   "hitRate": 0.6765,
+   "hitSE": 0.0037,
+   "meanBps": 22.2,
+   "netBps": 16.2,
+   "netBpsLo95": 12.2,
+   "medianDays": 4.0,
+   "positiveYears": 8,
+   "years": 11
+  },
+  "calm:elevated": {
+   "n": 3586,
+   "hitRate": 0.6938,
+   "hitSE": 0.0077,
+   "meanBps": 51.4,
+   "netBps": 45.4,
+   "netBpsLo95": 35.6,
+   "medianDays": 4.0,
+   "positiveYears": 7,
+   "years": 10
+  },
+  "calm:high": {
+   "n": 603,
+   "hitRate": 0.7861,
+   "hitSE": 0.0167,
+   "meanBps": 140.4,
+   "netBps": 134.4,
+   "netBpsLo95": 115.5,
+   "medianDays": 4.0,
+   "positiveYears": 5,
+   "years": 5
+  },
+  "normal:low": {
+   "n": 5495,
+   "hitRate": 0.6726,
+   "hitSE": 0.0063,
+   "meanBps": 31.0,
+   "netBps": 25.0,
+   "netBpsLo95": 14.5,
+   "medianDays": 4.0,
+   "positiveYears": 8,
+   "years": 11
+  },
+  "normal:elevated": {
+   "n": 3588,
+   "hitRate": 0.6915,
+   "hitSE": 0.0077,
+   "meanBps": 60.8,
+   "netBps": 54.8,
+   "netBpsLo95": 42.0,
+   "medianDays": 4.0,
+   "positiveYears": 9,
+   "years": 10
+  },
+  "normal:high": {
+   "n": 941,
+   "hitRate": 0.8108,
+   "hitSE": 0.0128,
+   "meanBps": 213.3,
+   "netBps": 207.3,
+   "netBpsLo95": 177.9,
+   "medianDays": 4.0,
+   "positiveYears": 5,
+   "years": 5
+  },
+  "active:low": {
+   "n": 1378,
+   "hitRate": 0.6306,
+   "hitSE": 0.013,
+   "meanBps": 17.5,
+   "netBps": 11.5,
+   "netBpsLo95": -17.4,
+   "medianDays": 4.0,
+   "positiveYears": 7,
+   "years": 11
+  },
+  "active:elevated": {
+   "n": 1226,
+   "hitRate": 0.7243,
+   "hitSE": 0.0128,
+   "meanBps": 165.9,
+   "netBps": 159.9,
+   "netBpsLo95": 130.6,
+   "medianDays": 4.0,
+   "positiveYears": 7,
+   "years": 9
+  },
+  "active:high": {
+   "n": 390,
+   "hitRate": 0.7744,
+   "hitSE": 0.0212,
+   "meanBps": 237.0,
+   "netBps": 231.0,
+   "netBpsLo95": 172.6,
+   "medianDays": 4.0,
+   "positiveYears": 4,
+   "years": 5
+  },
+  "wild:low": {
+   "n": 691,
+   "hitRate": 0.5687,
+   "hitSE": 0.0188,
+   "meanBps": -63.5,
+   "netBps": -69.5,
+   "netBpsLo95": -158.6,
+   "medianDays": 5.0,
+   "positiveYears": 6,
+   "years": 11
+  },
+  "wild:elevated": {
+   "n": 807,
+   "hitRate": 0.6753,
+   "hitSE": 0.0165,
+   "meanBps": 314.3,
+   "netBps": 308.3,
+   "netBpsLo95": 214.7,
+   "medianDays": 4.0,
+   "positiveYears": 6,
+   "years": 7
+  },
+  "wild:high": {
+   "n": 243,
+   "hitRate": 0.7078,
+   "hitSE": 0.0292,
+   "meanBps": 84.3,
+   "netBps": 78.3,
+   "netBpsLo95": -111.6,
+   "medianDays": 4.0,
+   "positiveYears": 4,
+   "years": 5
+  }
+ },
+ "cellsHeldOut": {
+  "calm:low": {
+   "n": 5434,
+   "hitRate": 0.6319,
+   "hitSE": 0.0065,
+   "meanBps": 17.0,
+   "netBps": 11.0,
+   "netBpsLo95": 3.7,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 4
+  },
+  "calm:elevated": {
+   "n": 1302,
+   "hitRate": 0.7097,
+   "hitSE": 0.0126,
+   "meanBps": 52.4,
+   "netBps": 46.4,
+   "netBpsLo95": 31.0,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 4
+  },
+  "normal:low": {
+   "n": 4443,
+   "hitRate": 0.6797,
+   "hitSE": 0.007,
+   "meanBps": 56.4,
+   "netBps": 50.4,
+   "netBpsLo95": 39.0,
+   "medianDays": 4.0,
+   "positiveYears": 4,
+   "years": 4
+  },
+  "normal:elevated": {
+   "n": 1463,
+   "hitRate": 0.6357,
+   "hitSE": 0.0126,
+   "meanBps": 21.5,
+   "netBps": 15.5,
+   "netBpsLo95": -3.0,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 4
+  },
+  "normal:high": {
+   "n": 150,
+   "hitRate": 0.86,
+   "hitSE": 0.0283,
+   "meanBps": 220.9,
+   "netBps": 214.9,
+   "netBpsLo95": 155.4,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 3
+  },
+  "active:low": {
+   "n": 1771,
+   "hitRate": 0.6714,
+   "hitSE": 0.0112,
+   "meanBps": 65.9,
+   "netBps": 59.9,
+   "netBpsLo95": 30.3,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 4
+  },
+  "active:elevated": {
+   "n": 590,
+   "hitRate": 0.6983,
+   "hitSE": 0.0189,
+   "meanBps": 141.3,
+   "netBps": 135.3,
+   "netBpsLo95": 84.8,
+   "medianDays": 4.0,
+   "positiveYears": 4,
+   "years": 4
+  },
+  "wild:low": {
+   "n": 1589,
+   "hitRate": 0.6268,
+   "hitSE": 0.0121,
+   "meanBps": 29.7,
+   "netBps": 23.7,
+   "netBpsLo95": -35.7,
+   "medianDays": 4.0,
+   "positiveYears": 3,
+   "years": 4
+  },
+  "wild:elevated": {
+   "n": 426,
+   "hitRate": 0.6385,
+   "hitSE": 0.0233,
+   "meanBps": 121.3,
+   "netBps": 115.3,
+   "netBpsLo95": 19.8,
+   "medianDays": 5.0,
+   "positiveYears": 3,
+   "years": 4
+  }
+ },
+ "depthQuantiles": [
+  -2.163,
+  -1.271
+ ],
+ "depthCells": {
+  "deep": {
+   "n": 11432,
+   "hitRate": 0.6744,
+   "hitSE": 0.0044,
+   "meanBps": 67.3,
+   "netBps": 61.3,
+   "netBpsLo95": 53.1,
+   "medianDays": 5.0,
+   "positiveYears": 9,
+   "years": 11
+  },
+  "mid": {
+   "n": 11429,
+   "hitRate": 0.6794,
+   "hitSE": 0.0044,
+   "meanBps": 45.0,
+   "netBps": 39.0,
+   "netBpsLo95": 31.0,
+   "medianDays": 4.0,
+   "positiveYears": 9,
+   "years": 11
+  },
+  "shallow": {
+   "n": 11780,
+   "hitRate": 0.6972,
+   "hitSE": 0.0042,
+   "meanBps": 40.2,
+   "netBps": 34.2,
+   "netBpsLo95": 25.7,
+   "medianDays": 4.0,
+   "positiveYears": 9,
+   "years": 11
+  }
+ },
+ "minCellN": 150
+}
