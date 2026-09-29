@@ -1,38 +1,28 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-09-29T08:15:06Z",
-  "runs": 980,
+  "updatedAt": "2026-09-29T13:32:19Z",
+  "runs": 991,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10083.601057,
-    "cashUSD": 1626.610758,
-    "unsettledCashUSD": 0.0,
-    "holdingsUSD": 8456.990299,
-    "realizedUSD": 0.0,
-    "unrealizedUSD": 83.601057,
-    "feesUSD": 7.179817,
-    "pnlUSD": 83.601057,
-    "pnlPct": 0.836,
-    "trades": 7
+    "equityUSD": 9738.586568,
+    "cashUSD": 1626.576725,
+    "unsettledCashUSD": 1240.57457,
+    "holdingsUSD": 6871.435273,
+    "realizedUSD": 53.07457,
+    "unrealizedUSD": -314.488002,
+    "feesUSD": 8.331373,
+    "pnlUSD": -261.413432,
+    "pnlPct": -2.6141,
+    "trades": 8
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 125.023357,
+      "cashUSD": 124.989324,
       "positions": {
-        "CCL": {
-          "units": 50.930766731491346,
-          "lots": [
-            {
-              "units": 50.930766731491346,
-              "costUSD": 1187.5,
-              "openedAt": "2026-09-08T18:14:44Z"
-            }
-          ]
-        },
         "UPST": {
           "units": 43.698301087538425,
           "lots": [
@@ -44,10 +34,10 @@
           ]
         }
       },
-      "pendingUSD": 0.0,
-      "realizedUSD": 0.0,
-      "feesUSD": 2.135557,
-      "trades": 2
+      "pendingUSD": 1240.57457,
+      "realizedUSD": 53.07457,
+      "feesUSD": 3.287113,
+      "trades": 3
     },
     "reversion": {
       "id": "reversion",
@@ -140,7 +130,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [],
+    "pending": [
+      {
+        "amountUSD": 1240.57457,
+        "settlesOn": "2026-09-30"
+      }
+    ],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [],
@@ -151,7 +146,6 @@
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
   "meta": {
     "openedAt": {
-      "engine:CCL": "2026-09-08T18:14:44Z",
       "reversion:TJX": "2026-09-08T18:14:44Z",
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
@@ -159,7 +153,9 @@
       "reversion:DYN": "2026-09-08T18:29:28Z",
       "mia-ai:CIEN": "2026-09-08T18:29:28Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "engine": 1
+    },
     "day": "2026-09-29"
   },
   "equityOpen": {
@@ -168,5 +164,7 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {}
+  "pendingBySleeve": {
+    "engine": 1240.57457
+  }
 }
