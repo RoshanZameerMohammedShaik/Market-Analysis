@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-09-29T15:46:58Z",
-  "runs": 1000,
+  "updatedAt": "2026-09-30T00:29:15Z",
+  "runs": 1020,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9675.362619,
-    "cashUSD": 1626.576725,
-    "unsettledCashUSD": 1240.57457,
-    "holdingsUSD": 6808.211324,
+    "equityUSD": 10129.465659,
+    "cashUSD": 2867.151295,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 7262.314364,
     "realizedUSD": 53.07457,
-    "unrealizedUSD": -377.711951,
+    "unrealizedUSD": 76.391089,
     "feesUSD": 8.331373,
-    "pnlUSD": -324.637381,
-    "pnlPct": -3.2464,
+    "pnlUSD": 129.465659,
+    "pnlPct": 1.2947,
     "trades": 8
   },
   "sleeves": {
@@ -21,7 +21,7 @@
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 124.989324,
+      "cashUSD": 1365.563894,
       "positions": {
         "UPST": {
           "units": 43.698301087538425,
@@ -34,7 +34,7 @@
           ]
         }
       },
-      "pendingUSD": 1240.57457,
+      "pendingUSD": 0.0,
       "realizedUSD": 53.07457,
       "feesUSD": 3.287113,
       "trades": 3
@@ -130,17 +130,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [
-      {
-        "amountUSD": 1240.57457,
-        "settlesOn": "2026-09-30"
-      }
-    ],
+    "pending": [],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [],
     "openedToday": {},
-    "lastAccrual": "2026-09-29",
+    "lastAccrual": "2026-09-30",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -153,10 +148,8 @@
       "reversion:DYN": "2026-09-08T18:29:28Z",
       "mia-ai:CIEN": "2026-09-08T18:29:28Z"
     },
-    "tradesToday": {
-      "engine": 1
-    },
-    "day": "2026-09-29"
+    "tradesToday": {},
+    "day": "2026-09-30"
   },
   "equityOpen": {
     "engine": 2500.0,
@@ -164,7 +157,5 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {
-    "engine": 1240.57457
-  }
+  "pendingBySleeve": {}
 }
