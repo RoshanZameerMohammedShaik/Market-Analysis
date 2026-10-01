@@ -304,6 +304,13 @@ jobs:
         continue-on-error: true
         run: python tools/write_setups_slice.py
 
+      # Grade every setup published so far against what actually happened, and add tonight's.
+      # Append-only: a setup enters the record the night it is published, before its outcome.
+      - name: Grade published pullback setups
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'publish-earnings'
+        continue-on-error: true
+        run: python tools/grade_setups.py
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -368,6 +375,9 @@ jobs:
           fi
           if [ -f model/setups.json ]; then
             git add -f model/setups.json
+          fi
+          if [ -f model/setups_record.json ]; then
+            git add -f model/setups_record.json
           fi
           if [ -f model/macro.json ]; then
             git add -f model/macro.json
@@ -438,7 +448,7 @@ jobs:
               # tools/workflow_task_coverage.py now asserts this stays complete.
               resolve-outcomes)    python record_outcomes.py ;;
               recalibrate)         python recalibrate_from_ledger.py ;;
-              publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py ;;
+              publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py && python tools/grade_setups.py ;;
               reresolve-outcomes)  python record_outcomes.py --reresolve ;;
               *) echo "Unknown TASK: $TASK"; return 1 ;;
             esac
@@ -500,6 +510,9 @@ jobs:
             fi
             if [ -f model/setups.json ]; then
               git add -f model/setups.json
+            fi
+            if [ -f model/setups_record.json ]; then
+              git add -f model/setups_record.json
             fi
             if [ -f model/macro.json ]; then
               git add -f model/macro.json

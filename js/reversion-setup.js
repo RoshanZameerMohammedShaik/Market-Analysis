@@ -26,6 +26,7 @@ import { trendState, MIN_PRICE, MIN_DOLLAR_VOL } from './trend-gate.js';
 
 const CAL_URL = 'model/reversion_calibration.json';
 const SETUPS_URL = 'model/setups.json';
+const RECORD_URL = 'model/setups_record.json';
 export const RSI2_MAX = 10;
 const MA_TRIGGER = 5;
 
@@ -33,6 +34,37 @@ let _cal = null;
 let _calPromise = null;
 let _slice = null;
 let _slicePromise = null;
+let _record = null;
+
+/**
+ * The live record: every confirmed setup this app has published, graded nightly against what
+ * happened (tools/grade_setups.py). The backtest number is a cell average and does not move; this
+ * is the part that is measured on calls made BEFORE their outcome, and it changes every night.
+ */
+export function loadSetupsRecord() {
+    if (_record) return _record;
+    _record = (async () => {
+        try {
+            const r = await fetch(RECORD_URL, { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return null;
+            const j = await r.json();
+            return Array.isArray(j?.entries) ? j : null;
+        } catch (_) { return null; }
+    })();
+    return _record;
+}
+
+/** The slice of the record a card needs: overall, this setup's cell, and this symbol's calls. */
+export function recordFor(record, symbol, tier, vixBand) {
+    if (!record) return null;
+    const sym = String(symbol || '').toUpperCase();
+    return {
+        since: record.since,
+        overall: record.overall,
+        cell: tier && vixBand ? record.byCell?.[`${tier}:${vixBand}`] || null : null,
+        symbol: record.entries.filter(e => String(e.symbol).toUpperCase() === sym).reverse(),
+    };
+}
 
 /**
  * Today's published setups, so a symbol that is ON the list shows the SAME cell the list does.

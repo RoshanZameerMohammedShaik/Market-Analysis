@@ -5,12 +5,30 @@
 // target raises it and loses money), and a fitted number on its own asks to be trusted.
 
 import { fmtPriceTag } from './format.js';
+import { liveSummaryHtml, recordTableHtml } from './setups-record.js';
 
 const pct = (x) => `${(x * 100).toFixed(1)}%`;
 const bps = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(0)} bps`;
 
-export function renderReversionPanel(rs, { currency = 'USD' } = {}) {
+// This symbol's earlier published setups and how each went, then the overall live record. Shown on
+// every state of the panel: a stock that is "not today" may still be inside a trade from last week.
+function liveHtml(rs) {
+    const r = rs?.record;
+    if (!r) return '';
+    const mine = r.symbol?.length
+        ? `<div><strong>This app's calls on this stock:</strong></div>${recordTableHtml(r.symbol, { limit: 10, symbolCol: false })}`
+        : '';
+    return `<div class="rv-live">${mine}<div style="margin-top:${mine ? 8 : 0}px">${liveSummaryHtml(r)}</div></div>`;
+}
+
+export function renderReversionPanel(rs, opts = {}) {
     if (!rs) return '';
+    const html = panelHtml(rs, opts);
+    const live = liveHtml(rs);
+    return live ? html.replace(/<\/div>\s*$/, `${live}</div>`) : html;
+}
+
+function panelHtml(rs, { currency = 'USD' } = {}) {
     const co = { srcCurrency: currency };
     if (!rs.eligible) {
         return `<div class="rv-panel rv-muted"><span class="rv-title">Pullback setup</span>

@@ -20,6 +20,8 @@ on:
       - 'model/reversion_calibration.json'
       - 'tools/reversion_sync_check.py'
       - 'tools/reversion_sync_check.mjs'
+      - 'tools/grade_setups.py'
+      - 'tools/grade_setups_check.py'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -110,6 +112,8 @@ on:
       - 'model/reversion_calibration.json'
       - 'tools/reversion_sync_check.py'
       - 'tools/reversion_sync_check.mjs'
+      - 'tools/grade_setups.py'
+      - 'tools/grade_setups_check.py'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -356,6 +360,9 @@ jobs:
       # definition the calibration was fitted with.
       - name: Check the trend gate and pullback setup agree across languages
         run: python tools/reversion_sync_check.py
+      # The live record grades every published setup with the rule the app tells people to follow.
+      - name: Check the live grader follows the published rule
+        run: python tools/grade_setups_check.py
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

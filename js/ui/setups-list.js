@@ -6,6 +6,8 @@
 
 import { escapeHtml } from './escape.js';
 import { fmtPriceTag } from './format.js';
+import { loadSetupsRecord } from '../reversion-setup.js';
+import { liveSummaryHtml, recordTableHtml } from './setups-record.js';
 
 const SLICE_URL = 'model/setups.json';
 
@@ -27,7 +29,7 @@ function sessionLabel(iso) {
 export async function renderSetupsList(onPick) {
     const host = document.getElementById('setups-section');
     if (!host) return;
-    const s = await loadSlice();
+    const [s, rec] = await Promise.all([loadSlice(), loadSetupsRecord()]);
     if (!s) { host.hidden = true; return; }
     host.hidden = false;
     const rows = s.setups.slice(0, 30).map(x => `
@@ -50,20 +52,33 @@ export async function renderSetupsList(onPick) {
             stop. Over 12 years these recovered <strong>about two times in three</strong>, and held
             that on 2023-26 data the fit never saw. That is the trade's recovery rate, not a forecast
             that the price rises tomorrow.
+            <span class="su-why">Why rows share a number: it is the average for the stock's volatility
+            and VIX regime. A model that gave each setup its own probability was tested on 52,346
+            past trades it never trained on and did no better (its "88%" setups recovered 69%), so
+            none is shown. The live record below is graded on calls made before the outcome, and it
+            is what changes night to night.</span>
         </div>
         ${s.setups.length ? `
         <div class="su-table-wrap"><table class="su-table">
             <thead><tr>
                 <th>Symbol</th><th class="su-num">Close</th><th class="su-num" title="RSI over 2 sessions; the setup needs under 10">RSI(2)</th>
                 <th class="su-num" title="Sell at the open after the first close above this (the 5-day average, recalculated daily)">Trigger</th>
-                <th class="su-num" title="Share of setups like this that recovered, 2014-2022">Recovered</th>
+                <th class="su-num" title="Share of setups in this volatility and VIX regime that recovered, 2014-2022. A regime average: every setup in the same regime shares it.">Backtest</th>
                 <th class="su-num" title="Average result per trade after costs">Net</th>
                 <th class="su-num" title="The same figure on 2023-26 data the fit never saw">Held out</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table></div>`
         : `<div class="su-empty">No setups at this close. They cluster after sharp market-wide dips and can be absent for days.</div>`}
-        <div class="su-foot">${s.scanned} liquid US names scanned · VIX ${s.vix ?? '—'}${s.unflagged ? ` · ${s.unflagged} more qualified in volatility/VIX regimes where the trade has not paid reliably, so they are not listed` : ''}</div>`;
+        <div class="su-foot">${s.scanned} liquid US names scanned · VIX ${s.vix ?? '—'}${s.unflagged ? ` · ${s.unflagged} more qualified in volatility/VIX regimes where the trade has not paid reliably, so they are not listed` : ''}</div>
+        ${rec ? `
+        <div class="sr-block">
+            <div class="sr-summary">${liveSummaryHtml(rec)}</div>
+            <details class="sr-details">
+                <summary>Every published setup and what happened (${rec.entries.length})</summary>
+                ${recordTableHtml([...rec.entries].reverse())}
+            </details>
+        </div>` : ''}`;
     host.querySelectorAll('.su-row').forEach(tr => {
         const go = () => onPick?.({ mode: 'stock', symbol: tr.dataset.symbol, coinId: null });
         tr.addEventListener('click', go);

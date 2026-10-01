@@ -25,7 +25,7 @@ import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-ag
 import { sessionAnchorFromCandles } from './ui/market-session.js';
 import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
 import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js';
-import { loadReversionCalibration, loadPublishedSetups, evaluateReversionSetup } from './reversion-setup.js';
+import { loadReversionCalibration, loadPublishedSetups, loadSetupsRecord, recordFor, evaluateReversionSetup } from './reversion-setup.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
@@ -547,7 +547,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     let reversionSetup = null;
     if (mode === 'stock') {
         try {
-            const [rcal, rpub] = await Promise.all([loadReversionCalibration(), loadPublishedSetups()]);
+            const [rcal, rpub, rrec] = await Promise.all([loadReversionCalibration(), loadPublishedSetups(), loadSetupsRecord()]);
             reversionSetup = evaluateReversionSetup({
                 history: multiData?.daily?.history || multiData?.daily?.candles,
                 region: regionFor(symbolOrCoinId),
@@ -556,6 +556,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
                 published: rpub,
                 symbol: multiData?.daily?.symbol || symbolOrCoinId,
             });
+            if (reversionSetup) {
+                reversionSetup.record = recordFor(rrec, multiData?.daily?.symbol || symbolOrCoinId,
+                    reversionSetup.tier, reversionSetup.vixBand);
+            }
         } catch (_) { reversionSetup = null; }
     }
 
