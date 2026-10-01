@@ -1,10 +1,166 @@
 {
-  "generatedAt": "2026-09-30T01:13:51Z",
+  "generatedAt": "2026-10-01T01:13:29Z",
   "engineVersion": "2026.09.29-trend-gate",
   "skippedOldEngineRows": 41664,
-  "skippedOldEngineResolved": 184899,
-  "byHorizon": {},
-  "byRegion": {},
-  "totalRowsConsidered": 94792,
-  "totalResolvedHorizons": 0
+  "skippedOldEngineResolved": 187091,
+  "byHorizon": {
+    "1": {
+      "SELL": {
+        "50-55": {
+          "n": 29,
+          "predicted": 51.4,
+          "actual": 37.9
+        },
+        "55-60": {
+          "n": 6,
+          "predicted": 57.0,
+          "actual": 50.0
+        },
+        "60-65": {
+          "n": 2,
+          "predicted": 62.0,
+          "actual": 50.0
+        },
+        "65-70": {
+          "n": 1,
+          "predicted": 66.0,
+          "actual": 0.0
+        }
+      },
+      "BUY": {
+        "50-55": {
+          "n": 20,
+          "predicted": 51.5,
+          "actual": 30.0
+        },
+        "60-65": {
+          "n": 2,
+          "predicted": 60.5,
+          "actual": 0.0
+        },
+        "55-60": {
+          "n": 14,
+          "predicted": 57.3,
+          "actual": 71.4
+        }
+      },
+      "NEUTRAL": {
+        "50-55": {
+          "n": 86,
+          "predicted": 50.0,
+          "actual": 46.5
+        }
+      }
+    }
+  },
+  "byRegion": {
+    "ASX": {
+      "50-55": {
+        "n": 8,
+        "predicted": 51.1,
+        "actual": 37.5
+      },
+      "60-65": {
+        "n": 1,
+        "predicted": 60.0,
+        "actual": 0.0
+      },
+      "55-60": {
+        "n": 1,
+        "predicted": 56.0,
+        "actual": 0.0
+      }
+    },
+    "CRYPTO": {
+      "55-60": {
+        "n": 4,
+        "predicted": 56.2,
+        "actual": 75.0
+      },
+      "50-55": {
+        "n": 4,
+        "predicted": 53.0,
+        "actual": 0.0
+      }
+    },
+    "TYO": {
+      "50-55": {
+        "n": 7,
+        "predicted": 51.4,
+        "actual": 14.3
+      },
+      "60-65": {
+        "n": 1,
+        "predicted": 61.0,
+        "actual": 0.0
+      },
+      "55-60": {
+        "n": 3,
+        "predicted": 58.7,
+        "actual": 0.0
+      }
+    },
+    "HKEX": {
+      "50-55": {
+        "n": 2,
+        "predicted": 50.5,
+        "actual": 100.0
+      }
+    },
+    "NSE": {
+      "50-55": {
+        "n": 2,
+        "predicted": 52.0,
+        "actual": 0.0
+      }
+    },
+    "XETRA": {
+      "50-55": {
+        "n": 4,
+        "predicted": 52.5,
+        "actual": 25.0
+      },
+      "55-60": {
+        "n": 1,
+        "predicted": 56.0,
+        "actual": 100.0
+      }
+    },
+    "LSE": {
+      "50-55": {
+        "n": 4,
+        "predicted": 50.2,
+        "actual": 25.0
+      },
+      "55-60": {
+        "n": 2,
+        "predicted": 58.0,
+        "actual": 50.0
+      }
+    },
+    "NYSE": {
+      "55-60": {
+        "n": 9,
+        "predicted": 57.2,
+        "actual": 88.9
+      },
+      "50-55": {
+        "n": 18,
+        "predicted": 51.3,
+        "actual": 50.0
+      },
+      "60-65": {
+        "n": 2,
+        "predicted": 62.0,
+        "actual": 50.0
+      },
+      "65-70": {
+        "n": 1,
+        "predicted": 66.0,
+        "actual": 0.0
+      }
+    }
+  },
+  "totalRowsConsidered": 95968,
+  "totalResolvedHorizons": 160
 }
