@@ -11,6 +11,7 @@
 // no listed options gets them as missing, which the trees were trained to route.
 
 import { loadEarningsSlice, earningsDayFor } from './earnings-calendar-slice.js';
+import { loadMarketSessions } from './market-sessions.js';
 
 const MODEL_URL = 'model/vol_model.json';
 const SLICE_URL = 'model/vol_forecasts.json';
@@ -174,7 +175,10 @@ export async function evaluateVolForecast({ history, symbol, region, nowMs = Dat
         const age = (Date.parse(`${last}T12:00:00Z`) - Date.parse(`${slice.sessionDate}T12:00:00Z`)) / 864e5;
         if (!(age >= 0 && age <= 4)) return null;
         let eday = null;
-        try { eday = earningsDayFor(sym, 'NYSE', addDay(last), await loadEarningsSlice(), H); } catch (_) { eday = null; }
+        try {
+            const [es] = await Promise.all([loadEarningsSlice(), loadMarketSessions()]);
+            eday = earningsDayFor(sym, 'NYSE', addDay(last), es, H);
+        } catch (_) { eday = null; }
         const dow = (new Date(`${last}T12:00:00Z`).getUTCDay() + 6) % 7;
         const iv = slice.ivDate && slice.ivDate < last ? slice.iv?.[sym] ?? null : null;
         const p = volPredict(model, volFeatures(bars, slice.market, eday > 0, dow, iv));
@@ -183,7 +187,9 @@ export async function evaluateVolForecast({ history, symbol, region, nowMs = Dat
     }
     // The options market's own number, when there is one: shown beside the forecast, and an input to it.
     const ivUsed = slice.ivDate && slice.ivDate < last ? (slice.iv?.[sym] ?? null) : null;
-    return { ...f, session: last, impliedVol: ivUsed, ivDate: ivUsed ? slice.ivDate : null,
+    // ivLoaded: the slice carries an IV map at all. A slice published before the IV fetch existed
+    // (or a night DoltHub failed) has none, which is not the same as "this stock has no options".
+    return { ...f, session: last, impliedVol: ivUsed, ivDate: ivUsed ? slice.ivDate : null, ivLoaded: !!slice.ivDate,
              bucket: f.call === 'similar' ? null : bucketFor(model, f.confidence),
              walkForward: model.walkForward, minCall: model.minCallConfidence };
 }

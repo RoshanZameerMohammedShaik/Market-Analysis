@@ -15,7 +15,9 @@ if (!inputPath || !repoRoot) {
 }
 
 const mod = await import(pathToFileURL(path.join(repoRoot, 'js/earnings-calendar-slice.js')).href);
+const sessions = await import(pathToFileURL(path.join(repoRoot, 'js/market-sessions.js')).href);
 const input = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+sessions.setMarketSessions(input.sessions || null);
 
 const out = {
     cases: input.cases.map(([sym, region, sess]) => mod.earningsDayFor(sym, region, sess, input.slice)),

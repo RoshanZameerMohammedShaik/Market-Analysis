@@ -11,6 +11,9 @@ The fixtures deliberately cover the cases that are easy to get wrong:
   * TYO's 15:30 close (extended in Nov 2024; a 15:00 table puts a 15:15 release a day late)
   * a symbol absent from the slice (unknown, NOT "no earnings")
   * crypto (known-none, never unknown)
+  * exchange HOLIDAYS (a synthetic calendar, so the check does not depend on today's file):
+    Tokyo 2026-10-12, NSE 2026-10-02, NYSE Thanksgiving 2026-11-26. Each shifts the band's
+    later rows, and a release on a holiday moves the next open session.
 
 Run: python tools/earnings_sync_check.py
 """
@@ -25,6 +28,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
 
 import earnings_calendar as ec  # noqa: E402
+import market_sessions  # noqa: E402
 
 passed = failed = 0
 
@@ -56,8 +60,31 @@ SLICE = {
     },
 }
 
+def _calendar(holidays):
+    """A session list for 2026-09-01..2026-12-31: weekdays minus the given holidays."""
+    d, out = datetime.date(2026, 9, 1), []
+    while d <= datetime.date(2026, 12, 31):
+        if d.weekday() < 5 and d.isoformat() not in holidays:
+            out.append(d.isoformat())
+        d += datetime.timedelta(days=1)
+    return {'sessions': out, 'to': '2026-12-31', 'holidays': sorted(holidays)}
+
+
+SESSIONS = {'generatedAt': 'fixture', 'markets': {
+    'TYO': _calendar({'2026-10-12'}), 'NSE': _calendar({'2026-10-02'}), 'NYSE': _calendar({'2026-11-26'}),
+    'ASX': _calendar(set()), 'LSE': _calendar(set()),
+}}
+SLICE['symbols'].update({
+    'TYOHOL.T': [epoch(2026, 10, 14, 3, 0)],      # Wed 12:00 Tokyo, two sessions after Sports Day
+    'TYOONHOL.T': [epoch(2026, 10, 12, 0, 30)],   # 09:30 Tokyo ON the holiday -> Tue 13th
+    'TURKEY': [epoch(2026, 11, 27, 14, 0)],       # Fri 09:00 New York, the day after Thanksgiving
+})
+
 # (symbol, region, band day-1 session date)
 CASES = [
+    ('TYOHOL.T', 'TYO', '2026-10-09'),    # rows 9, 13, 14: day 3 (weekday rule said day 4)
+    ('TYOONHOL.T', 'TYO', '2026-10-09'),  # the holiday release reacts on the 13th: day 2
+    ('TURKEY', 'NYSE', '2026-11-24'),     # rows 24, 25, 27: day 3 (weekday rule said day 4)
     ('ATCLOSE', 'NYSE', '2026-10-26'),
     ('ATCLOSE', 'NYSE', '2026-10-29'),
     ('ATCLOSE', 'NYSE', '2026-10-30'),
@@ -81,15 +108,19 @@ SESSION_CASES = [
     ('LSE', epoch(2026, 9, 28, 23, 30)),
     ('TYO', epoch(2026, 9, 26, 6, 0)),      # a Saturday in Tokyo -> back to Friday
     ('NYSE', epoch(2026, 9, 27, 14, 0)),    # a Sunday in New York -> back to Friday
+    ('NSE', epoch(2026, 10, 2, 5, 0)),      # 10:30 IST on Gandhi Jayanti -> back to Oct 1
+    ('NYSE', epoch(2026, 11, 26, 20, 0)),   # Thanksgiving afternoon -> back to Nov 25
+    ('TYO', epoch(2026, 10, 12, 2, 0)),     # Sports Day morning -> back to Fri Oct 9
 ]
 
 
 def main():
+    market_sessions.use(SESSIONS)
     fd, tmp = tempfile.mkstemp(suffix='.json', dir=os.path.join(REPO, 'tools'))
     os.close(fd)
     try:
         with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump({'slice': SLICE, 'cases': CASES, 'sessionCases': SESSION_CASES}, f)
+            json.dump({'slice': SLICE, 'cases': CASES, 'sessionCases': SESSION_CASES, 'sessions': SESSIONS}, f)
         proc = subprocess.run(['node', os.path.join('tools', 'earnings_sync_check.mjs'), tmp, REPO],
                               capture_output=True, text=True, cwd=REPO)
     finally:
@@ -129,6 +160,13 @@ def main():
           ec.reaction_date(epoch(2026, 10, 30, 21, 0), 'NYSE') == datetime.date(2026, 11, 2))
     check('Tokyo closes at 15:30, so 15:15 moves that session',
           ec.reaction_date(epoch(2026, 10, 29, 6, 15), 'TYO') == datetime.date(2026, 10, 29))
+    check('a holiday release moves the next OPEN session',
+          ec.reaction_date(epoch(2026, 10, 12, 0, 30), 'TYO') == datetime.date(2026, 10, 13))
+    check('band rows skip the holiday',
+          ec.band_dates(datetime.date(2026, 11, 24), 'NYSE', 4) == [datetime.date(2026, 11, 24), datetime.date(2026, 11, 25),
+                                                                     datetime.date(2026, 11, 27), datetime.date(2026, 11, 30)])
+    check('outside the published window the weekday rule still applies',
+          ec.band_dates(datetime.date(2027, 3, 1), 'NYSE', 2) == [datetime.date(2027, 3, 1), datetime.date(2027, 3, 2)])
     check('an already-reacted announcement is not counted again',
           ec.earnings_day('PRECLOSE', 'NYSE', datetime.date(2026, 10, 30), slice_=SLICE) == 0)
 

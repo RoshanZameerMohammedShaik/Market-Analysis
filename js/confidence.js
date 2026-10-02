@@ -26,6 +26,7 @@ import { sessionAnchorFromCandles } from './ui/market-session.js';
 import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
 import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js';
 import { evaluateVolForecast, loadVolRecord } from './vol-forecast.js';
+import { loadMarketSessions } from './market-sessions.js';
 import { loadReversionCalibration, loadPublishedSetups, loadSetupsRecord, recordFor, evaluateReversionSetup } from './reversion-setup.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
@@ -529,7 +530,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             let earningsDay = null;
             try {
                 const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
-                const slice = await loadEarningsSlice();
+                const [slice] = await Promise.all([loadEarningsSlice(), loadMarketSessions()]);
                 const sess = sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
                 earningsDay = earningsDayFor(symbolOrCoinId, region, sess, slice);
             } catch (_) { earningsDay = null; }

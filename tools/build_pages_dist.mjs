@@ -84,6 +84,7 @@ const MODEL = [
     'model/setups.json',
     'model/setups_record.json',
     'model/vol_model.json',
+    'model/market_sessions.json',
     'model/vol_forecasts.json',
     'model/vol_record.json',
     'model/ledger/recent.json',

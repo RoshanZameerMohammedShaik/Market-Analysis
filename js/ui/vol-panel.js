@@ -75,6 +75,8 @@ export function renderVolPanel(vf, { currency = 'USD', price = null, record = nu
             ${liveLine(record)}
             ${mineHtml(record?.symbol)}
             <div class="vp-note">How much it moves, not which way. Size is predictable (scored R² ${wf.levelR2} against 0.53 for "same as the
-                last 30 days"); direction is not. ${vf.impliedVol ? "Uses this stock's option-implied volatility and the VIX term structure." : 'No listed options for this stock, so it runs on price history and the VIX term structure.'}</div>
+                last 30 days"); direction is not. ${vf.impliedVol ? "Uses this stock's option-implied volatility and the VIX term structure."
+                    : vf.ivLoaded ? 'No option-implied volatility for this stock in the data, so it runs on price history and the VIX term structure.'
+                    : 'Option-implied volatility was not part of this forecast; it runs on price history alone.'}</div>
         </div>`;
 }

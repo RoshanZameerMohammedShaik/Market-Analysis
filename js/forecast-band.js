@@ -31,6 +31,7 @@
 // unfounded; see git history.
 
 import { roundPrice } from './price-round.js';
+import { nextSessionDates } from './earnings-calendar-slice.js';
 
 const CAL_URL = 'model/band_calibration.json';
 const VOL_LOOKBACK = 30;
@@ -150,7 +151,12 @@ function tierFor(sigma, tierEdges) {
  * band from an earlier session is displayed. The labels describe when the horizons fall relative
  * to NOW, so they have to be computed now.
  */
-export function forwardDates(n, { cryptoMode = false, from = null } = {}) {
+export function forwardDates(n, { cryptoMode = false, from = null, region = null } = {}) {
+    // With a region, the exchange's own sessions, holidays skipped (js/market-sessions.js).
+    if (!cryptoMode && region && region !== 'CRYPTO') {
+        const iso = nextSessionDates(region, n, from ? new Date(from).getTime() : Date.now());
+        if (iso.length === n) return iso.map(x => new Date(`${x}T12:00:00Z`));
+    }
     const out = [];
     const d = from ? new Date(from) : new Date();
     while (out.length < n) {

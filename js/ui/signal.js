@@ -6,7 +6,7 @@ import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
 import { renderNews } from './news.js';
 import { isDev } from '../dev-mode.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
-import { getCalibrationSource } from '../calibration.js';
+import { getCalibrationSource, regionFor } from '../calibration.js';
 import { renderTrustPanel } from './trust-panel.js';
 import { renderForecastBand } from './forecast-band-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
@@ -443,6 +443,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             });
         } catch (_) { bandHistory = null; }
         bandHTML = renderForecastBand(view.forecastBand, {
+            region: state.mode === 'crypto' ? 'CRYPTO' : regionFor(state.currentSymbol),
             currency: cur, currentPrice: view.priceTargets?.currentPrice ?? null,
             history: bandHistory,
             cryptoMode: state.mode === 'crypto',

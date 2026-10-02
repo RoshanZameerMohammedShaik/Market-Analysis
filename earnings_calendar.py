@@ -37,6 +37,7 @@ except Exception:                                   # pragma: no cover
     ZoneInfo = None
 
 from bot.sessions import MARKETS
+import market_sessions
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SLICE_PATH = os.path.join(_HERE, 'model', 'earnings.json')
@@ -63,7 +64,11 @@ def load_slice(path=None):
     return s
 
 
-def _is_session_day(d, spec):
+def _is_session_day(d, spec, region=None):
+    # Holidays from the published exchange calendar (market_sessions.py); the weekday rule
+    # outside its window. A holiday shifted every later band row by one before this.
+    if region:
+        return market_sessions.is_session(region, d, weekdays=spec['days'])
     return d.weekday() in spec['days']
 
 
@@ -76,9 +81,9 @@ def reaction_date(announce_epoch, region):
     close_h, close_m = spec['close']
     d = local.date()
     # Before the close on a session day moves that session; at or after the close, the next one.
-    if not (_is_session_day(d, spec) and (local.hour, local.minute) < (close_h, close_m)):
+    if not (_is_session_day(d, spec, region) and (local.hour, local.minute) < (close_h, close_m)):
         d += datetime.timedelta(days=1)
-    while not _is_session_day(d, spec):
+    while not _is_session_day(d, spec, region):
         d += datetime.timedelta(days=1)
     return d
 
@@ -96,7 +101,7 @@ def session_date_for(region, epoch=None):
     t = datetime.datetime.fromtimestamp(int(epoch if epoch is not None else datetime.datetime.now(datetime.timezone.utc).timestamp()),
                                         datetime.timezone.utc).astimezone(ZoneInfo(spec['tz']))
     d = t.date()
-    while not _is_session_day(d, spec):
+    while not _is_session_day(d, spec, region):
         d -= datetime.timedelta(days=1)
     return d
 
@@ -107,10 +112,10 @@ def band_dates(session_date, region, n=BAND_SESSIONS):
     if not spec:
         return []
     out, d = [], session_date
-    while not _is_session_day(d, spec):
+    while not _is_session_day(d, spec, region):
         d += datetime.timedelta(days=1)
     while len(out) < n:
-        if _is_session_day(d, spec):
+        if _is_session_day(d, spec, region):
             out.append(d)
         d += datetime.timedelta(days=1)
     return out

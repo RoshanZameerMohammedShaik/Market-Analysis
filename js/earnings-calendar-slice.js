@@ -15,6 +15,8 @@
 // close moves the next one. Exchange-local, via Intl, so DST needs no table.
 
 const SLICE_URL = 'model/earnings.json';
+import { isSession } from './market-sessions.js';
+
 export const BAND_SESSIONS = 7;
 
 // Exchange close times and trading days. MIRRORS bot/sessions.py MARKETS, which is the one table.
@@ -72,8 +74,6 @@ const addDays = (iso, n) => {
     d.setUTCDate(d.getUTCDate() + n);
     return d.toISOString().slice(0, 10);
 };
-// Weekday of an ISO date, read in UTC so it cannot shift with the viewer's timezone.
-const isoWeekday = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
 /** Exchange-local date of the session an announcement first moves. */
 export function reactionDate(epochSec, region) {
@@ -82,8 +82,10 @@ export function reactionDate(epochSec, region) {
     const { date, hour, minute, weekday } = localParts(epochSec * 1000, m.tz);
     let d = date;
     const beforeClose = hour * 60 + minute < m.close[0] * 60 + m.close[1];
-    if (!(m.days.includes(weekday) && beforeClose)) d = addDays(d, 1);
-    while (!m.days.includes(isoWeekday(d))) d = addDays(d, 1);
+    // Holidays count as closed (js/market-sessions.js), so a pre-market release on a holiday
+    // moves the next session, not the closed one.
+    if (!(isSession(region, d, m.days) && beforeClose)) d = addDays(d, 1);
+    while (!isSession(region, d, m.days)) d = addDays(d, 1);
     return d;
 }
 
@@ -97,8 +99,30 @@ export function sessionDateFor(region, epochMs = Date.now()) {
     const m = MARKETS[String(region || '').toUpperCase()];
     if (!m) return null;
     let { date } = localParts(epochMs, m.tz);
-    while (!m.days.includes(isoWeekday(date))) date = addDays(date, -1);
+    while (!isSession(region, date, m.days)) date = addDays(date, -1);
     return date;
+}
+
+/** Exchange-local calendar date (ISO) at `epochMs`, whether or not the market trades that day. */
+export function exchangeToday(region, epochMs = Date.now()) {
+    const m = MARKETS[String(region || '').toUpperCase()];
+    return m ? localParts(epochMs, m.tz).date : null;
+}
+
+/**
+ * The next n sessions strictly AFTER the exchange-local date at `epochMs`, holidays skipped.
+ * For labels: row 2 of the band is the first of these.
+ */
+export function nextSessionDates(region, n, epochMs = Date.now()) {
+    const m = MARKETS[String(region || '').toUpperCase()];
+    if (!m) return [];
+    let d = localParts(epochMs, m.tz).date;
+    const out = [];
+    while (out.length < n) {
+        d = addDays(d, 1);
+        if (isSession(region, d, m.days)) out.push(d);
+    }
+    return out;
 }
 
 /** The n session dates the band's rows describe, day 1 = sessionDate. */
@@ -107,9 +131,9 @@ export function bandDates(sessionDate, region, n = BAND_SESSIONS) {
     if (!m || !sessionDate) return [];
     const out = [];
     let d = sessionDate;
-    while (!m.days.includes(isoWeekday(d))) d = addDays(d, 1);
+    while (!isSession(region, d, m.days)) d = addDays(d, 1);
     while (out.length < n) {
-        if (m.days.includes(isoWeekday(d))) out.push(d);
+        if (isSession(region, d, m.days)) out.push(d);
         d = addDays(d, 1);
     }
     return out;

@@ -319,6 +319,13 @@ jobs:
         continue-on-error: true
         run: python tools/write_vol_slice.py
 
+      # Exchange sessions with holidays (exchange_calendars), read by every session count: the
+      # band's row dates, which session earnings land on, and the volatility forecast's window.
+      - name: Publish exchange session calendars
+        if: always()
+        continue-on-error: true
+        run: python tools/write_market_sessions.py
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -395,6 +402,9 @@ jobs:
           fi
           if [ -f model/vol_record.json ]; then
             git add -f model/vol_record.json
+          fi
+          if [ -f model/market_sessions.json ]; then
+            git add -f model/market_sessions.json
           fi
           if [ -f model/macro.json ]; then
             git add -f model/macro.json
@@ -539,6 +549,9 @@ jobs:
             fi
             if [ -f model/vol_record.json ]; then
               git add -f model/vol_record.json
+            fi
+            if [ -f model/market_sessions.json ]; then
+              git add -f model/market_sessions.json
             fi
             if [ -f model/macro.json ]; then
               git add -f model/macro.json

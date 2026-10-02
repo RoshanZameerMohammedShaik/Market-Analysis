@@ -6,6 +6,7 @@ import { renderSignal } from './signal.js';
 import { loadHotPicks, initPennyFilterButtons } from './hotpicks.js';
 import { renderSetupsList } from './setups-list.js';
 import { renderVolOutlook } from './vol-outlook.js';
+import { loadMarketSessions } from '../market-sessions.js';
 import { clearHotPicksCache } from '../hotpicks.js';
 import { initPLCalculator } from './pl.js';
 import { initPLPanel, openPLPanel } from './pl-panel.js';
@@ -96,6 +97,8 @@ export function init() {
     startTipsForLoading();
     loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
     // Confirmed pullback setups from the nightly slice; stocks only, independent of the scan.
+    // Exchange holidays, for every session count on the card (band rows, earnings, volatility).
+    loadMarketSessions();
     renderVolOutlook(onSelectFromCard);
     renderSetupsList(onSelectFromCard);
 
