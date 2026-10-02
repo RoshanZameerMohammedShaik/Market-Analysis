@@ -311,6 +311,14 @@ jobs:
         continue-on-error: true
         run: python tools/grade_setups.py
 
+      # Tonight's volatility forecasts for the US universe, and the live grade of the ones made
+      # 5+ sessions ago. Append-only like the setups record: a forecast is queued the night it
+      # is made, before its outcome exists.
+      - name: Publish and grade volatility forecasts
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'publish-earnings'
+        continue-on-error: true
+        run: python tools/write_vol_slice.py
+
       - name: Publish FRED macro series for the browser
         if: always()
         continue-on-error: true
@@ -378,6 +386,15 @@ jobs:
           fi
           if [ -f model/setups_record.json ]; then
             git add -f model/setups_record.json
+          fi
+          if [ -f model/vol_forecasts.json ]; then
+            git add -f model/vol_forecasts.json
+          fi
+          if [ -f model/vol_pending.json ]; then
+            git add -f model/vol_pending.json
+          fi
+          if [ -f model/vol_record.json ]; then
+            git add -f model/vol_record.json
           fi
           if [ -f model/macro.json ]; then
             git add -f model/macro.json
@@ -448,7 +465,7 @@ jobs:
               # tools/workflow_task_coverage.py now asserts this stays complete.
               resolve-outcomes)    python record_outcomes.py ;;
               recalibrate)         python recalibrate_from_ledger.py ;;
-              publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py && python tools/grade_setups.py ;;
+              publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py && python tools/grade_setups.py && python tools/write_vol_slice.py ;;
               reresolve-outcomes)  python record_outcomes.py --reresolve ;;
               *) echo "Unknown TASK: $TASK"; return 1 ;;
             esac
@@ -513,6 +530,15 @@ jobs:
             fi
             if [ -f model/setups_record.json ]; then
               git add -f model/setups_record.json
+            fi
+            if [ -f model/vol_forecasts.json ]; then
+              git add -f model/vol_forecasts.json
+            fi
+            if [ -f model/vol_pending.json ]; then
+              git add -f model/vol_pending.json
+            fi
+            if [ -f model/vol_record.json ]; then
+              git add -f model/vol_record.json
             fi
             if [ -f model/macro.json ]; then
               git add -f model/macro.json

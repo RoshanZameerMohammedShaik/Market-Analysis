@@ -91,6 +91,31 @@ def main():
             if i % 100 == 0:
                 print(f'  {i}/{len(symbols)} ({time.time() - t0:.0f}s)', file=sys.stderr)
 
+    # The parallel pass trips Yahoo's rate limit for a share of symbols (161 of 611 US names on
+    # 2026-09-30, NVDA and TSLA among them), and a failed lookup is "unknown", which costs the band
+    # and the volatility forecast their earnings adjustment. Retry those slowly, one at a time.
+    retry = failed
+    failed = []
+    for s in retry:
+        time.sleep(0.8)
+        v = upcoming(s, now)
+        if v is None:
+            failed.append(s)
+        else:
+            result[s] = v
+    # Still failing: last night's dates for the symbol remain true if they are still ahead.
+    carried = 0
+    try:
+        with open(OUT, encoding='utf-8') as f:
+            prev = json.load(f).get('symbols') or {}
+        for s in failed:
+            if s in prev and isinstance(prev[s], list):
+                result[s] = [t for t in prev[s] if t >= now - 86400]
+                carried += 1
+    except (OSError, ValueError):
+        pass
+    print(f'  retried {len(retry)} slowly: {len(retry) - len(failed)} answered; {carried} carried from the last slice',
+          file=sys.stderr)
     with_dates = sum(1 for v in result.values() if v)
     payload = {
         'generatedAt': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),

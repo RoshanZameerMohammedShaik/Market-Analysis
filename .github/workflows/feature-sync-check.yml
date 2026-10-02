@@ -22,6 +22,11 @@ on:
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
       - 'tools/grade_setups_check.py'
+      - 'vol_forecast.py'
+      - 'js/vol-forecast.js'
+      - 'model/vol_model.json'
+      - 'tools/vol_sync_check.py'
+      - 'tools/vol_sync_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -114,6 +119,11 @@ on:
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
       - 'tools/grade_setups_check.py'
+      - 'vol_forecast.py'
+      - 'js/vol-forecast.js'
+      - 'model/vol_model.json'
+      - 'tools/vol_sync_check.py'
+      - 'tools/vol_sync_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -363,6 +373,9 @@ jobs:
       # The live record grades every published setup with the rule the app tells people to follow.
       - name: Check the live grader follows the published rule
         run: python tools/grade_setups_check.py
+      # The volatility forecast runs in Python nightly and in the browser on the card: one model.
+      - name: Check the volatility forecast agrees across languages
+        run: pip install pandas && python tools/vol_sync_check.py
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

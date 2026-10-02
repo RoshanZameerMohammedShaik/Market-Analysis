@@ -5,6 +5,7 @@ import { loadChart, updateChartHeader, showChartPlaceholder } from './chart.js';
 import { renderSignal } from './signal.js';
 import { loadHotPicks, initPennyFilterButtons } from './hotpicks.js';
 import { renderSetupsList } from './setups-list.js';
+import { renderVolOutlook } from './vol-outlook.js';
 import { clearHotPicksCache } from '../hotpicks.js';
 import { initPLCalculator } from './pl.js';
 import { initPLPanel, openPLPanel } from './pl-panel.js';
@@ -95,6 +96,7 @@ export function init() {
     startTipsForLoading();
     loadHotPicks(onSelectFromCard).finally(stopTipsForLoading);
     // Confirmed pullback setups from the nightly slice; stocks only, independent of the scan.
+    renderVolOutlook(onSelectFromCard);
     renderSetupsList(onSelectFromCard);
 
     loadModel().then(loaded => loaded && console.log('[Market Analyzer] AI model loaded'));

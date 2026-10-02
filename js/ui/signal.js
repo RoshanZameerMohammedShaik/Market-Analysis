@@ -18,6 +18,7 @@ import { revealUp, revealText, revealStagger, canAnimate } from './motion.js';
 import { signalLanded } from './ui-sound.js';
 import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
+import { renderVolPanel } from './vol-panel.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -464,6 +465,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
             ${calibrationDelta ? `<div class="cal-delta-row">${calibrationDelta}</div>` : ''}
+            ${renderVolPanel(prediction.volForecast, { currency: cur, price: view.priceTargets?.currentPrice ?? null, record: prediction.volForecast?.record })}
             ${suggestedDecisionHTML}
             ${/* The pullback setup: today only, since it is defined at this session's close. */''}
             ${state.timeframe === 'today' ? renderReversionPanel(prediction.reversionSetup, { currency: cur }) : ''}

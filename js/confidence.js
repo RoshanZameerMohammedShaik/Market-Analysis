@@ -25,6 +25,7 @@ import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-ag
 import { sessionAnchorFromCandles } from './ui/market-session.js';
 import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
 import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js';
+import { evaluateVolForecast, loadVolRecord } from './vol-forecast.js';
 import { loadReversionCalibration, loadPublishedSetups, loadSetupsRecord, recordFor, evaluateReversionSetup } from './reversion-setup.js';
 import { forecastBands, loadBandCalibration } from './forecast-band.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
@@ -563,6 +564,23 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         } catch (_) { reversionSetup = null; }
     }
 
+    // Next-week volatility: the size of the moves, which IS forecastable (js/vol-forecast.js).
+    let volForecast = null;
+    if (mode === 'stock') {
+        try {
+            const sym = multiData?.daily?.symbol || symbolOrCoinId;
+            const [vfc, vrec] = await Promise.all([
+                evaluateVolForecast({ history: multiData?.daily?.history || multiData?.daily?.candles, symbol: sym,
+                                      region: regionFor(symbolOrCoinId) }),
+                loadVolRecord(),
+            ]);
+            if (vfc) {
+                volForecast = { ...vfc, record: vrec ? { since: vrec.since, overall: vrec.overall, pending: vrec.pending,
+                                                         symbol: vrec.perSymbol?.[String(sym).toUpperCase()] || [] } : null };
+            }
+        } catch (_) { volForecast = null; }
+    }
+
     // ONE range on the card, and it is the calibrated one.
     //
     // calculatePriceTargets is the same unvalidated family as the multi-horizon
@@ -825,6 +843,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         // Long-term trend and liquidity, for the pullback setup and the UI (js/trend-gate.js).
         trend,
         reversionSetup,
+        volForecast,
     };
 }
 

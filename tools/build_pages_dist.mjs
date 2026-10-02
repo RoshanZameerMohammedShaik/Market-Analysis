@@ -83,6 +83,9 @@ const MODEL = [
     'model/reversion_calibration.json',
     'model/setups.json',
     'model/setups_record.json',
+    'model/vol_model.json',
+    'model/vol_forecasts.json',
+    'model/vol_record.json',
     'model/ledger/recent.json',
     // The 30-day compact history. Seven features read it (confidence trend, signal markers, equity
     // curve, accuracy-by-setup, ledger history, scanner aggregation, watchlist signals) and all of
