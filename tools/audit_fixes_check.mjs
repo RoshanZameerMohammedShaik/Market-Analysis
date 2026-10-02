@@ -131,6 +131,35 @@ console.log('\n=== the card and the published list read ONE cell ===');
     check('a symbol NOT on the list is still evaluated live', live?.published === false && live?.tier !== 'wild', `${live?.tier}`);
 }
 
+console.log('\n=== the headline leads with what is measured, not a coin-flip direction ===');
+{
+    // Every US stock read "no clear edge" because next-day direction IS a coin flip. The headline
+    // must be the pullback setup when one is active, else the calibrated volatility call.
+    const { renderSuggestedDecision, directionRecord } = await import('../js/ui/suggested-decision.js');
+    const pt = { currentPrice: 32.55, predictedLow: 30.38, predictedHigh: 34.89, highPercent: 7.2, lowPercent: -6.7, expectedMove: 0.9 };
+    const vf = { sigma: 0.0335, lo: 0.0179, hi: 0.0712, past20: 0.0137, confidence: 0.83, call: 'choppier', earnIn: true,
+                 bucket: { lo: 0.8, hi: 0.9, hitRate: 0.84 } };
+    const rs = { active: true, reliable: true, forming: false, trigger: 33.1,
+                 cell: { hitRate: 0.673, netBps: 25, n: 5495 } };
+    const opts = { timeframe: 'today', ticker: 'NKE', name: 'Nike, Inc.' };
+    const vol = renderSuggestedDecision({ signal: 'NEUTRAL', confidence: 50, priceTargets: pt, volForecast: vf }, opts);
+    check('a US stock with a volatility forecast leads with it', /choppier week/.test(vol) && !/no clear edge/.test(vol));
+    check('and states the measured hit rate of calls this sure', /right 84\.0%/.test(vol));
+    check('direction is one line, not the headline', /Which way:<\/strong> no measurable edge/.test(vol));
+    const setup = renderSuggestedDecision({ signal: 'BUY', confidence: 62, priceTargets: pt, volForecast: vf, reversionSetup: rs }, opts);
+    check('an active pullback setup outranks the volatility call', /pullback setup/.test(setup) && /BUY<\/span><span class="sd-chip-cond">at the next open/.test(setup));
+    const tomorrow = renderSuggestedDecision({ signal: 'BUY', confidence: 62, priceTargets: pt, volForecast: vf, reversionSetup: rs }, { ...opts, timeframe: 'tomorrow' });
+    check("the setup leads only on Today (it is defined at today's close)", !/pullback setup/.test(tomorrow) && /choppier week/.test(tomorrow));
+    const crypto = renderSuggestedDecision({ signal: 'NEUTRAL', confidence: 50, priceTargets: pt }, { ...opts, ticker: 'BTC-USD', name: 'Bitcoin' });
+    check('no volatility model (crypto, non-US): the old direction text stands', /no clear edge/.test(crypto));
+    const held = renderSuggestedDecision({ signal: 'NEUTRAL', confidence: 50, priceTargets: pt, volForecast: vf,
+        reversionSetup: { active: false, trigger: 33.1, record: { symbol: [{ session: '2026-10-01', status: 'open', held: 2, markPct: -0.8, hitRate: 0.673 }] } } }, opts);
+    check('a published setup still inside its trade leads with the exit rule', /still open/.test(held) && /HOLD<\/span><span class="sd-chip-cond">until the exit rule fires/.test(held), held.slice(0, 200));
+    check('and says buying late was not measured', /Late to enter/.test(held));
+    const rec = directionRecord({ byHorizon: { 1: { BUY: { a: { n: 10, actual: 40 } }, SELL: { b: { n: 30, actual: 60 } }, NEUTRAL: { c: { n: 99, actual: 50 } } } } });
+    check('the live direction record counts BUY and SELL only', rec && rec.n === 40 && Math.abs(rec.hitRate - 0.55) < 1e-9, JSON.stringify(rec));
+}
+
 if (process.argv.includes('--network')) {
     const { fetchCryptoMultiTimeframe } = await import('../js/data.js');
     console.log('\n=== crypto bars are daily, and the right coin (network) ===');
