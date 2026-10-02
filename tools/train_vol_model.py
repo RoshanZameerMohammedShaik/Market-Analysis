@@ -1,8 +1,11 @@
 """Train and validate the volatility forecast; write model/vol_model.json.
 
 Data: model/_ohlc_cache (daily OHLCV per symbol, from tools/calibrate_reversion.py), with
-_market.json (VIX), _spy.json and _earnings.json (reaction sessions per symbol). Symbols with no
-earnings history are left out: their earnings weeks would train as ordinary ones.
+_market.json (VIX), _spy.json and _earnings.json (reaction sessions per symbol), and the implied-
+vol inputs from tools/fetch_vol_inputs.py: _iv_full.csv (DoltHub per-stock IV since 2019) and
+_cboe_{VIX9D,VIX3M,VVIX}.json. Symbols with no earnings history are left out: their earnings weeks
+would train as ordinary ones. IV is joined strictly BEFORE each forecast date (within 8 days), as
+the nightly job will see it.
 
 Validation is walk-forward by calendar year 2016-2026 with a 14-day embargo: every number this
 writes about accuracy was scored on a year the model had not seen. Those out-of-sample forecasts
@@ -48,8 +51,13 @@ def load(fn):
 def dataset():
     vix = json.load(open(os.path.join(CACHE, '_market.json')))
     spy = json.load(open(os.path.join(CACHE, '_spy.json')))
-    mkt = vf.market_frame(vix['d'], vix['c'], spy['d'], spy['c'])
+    cboe = {n: json.load(open(os.path.join(CACHE, f'_cboe_{n}.json'))) for n in ('VIX9D', 'VIX3M', 'VVIX')}
+    mkt = vf.market_frame(vix['d'], vix['c'], spy['d'], spy['c'], cboe)
     earn = json.load(open(os.path.join(CACHE, '_earnings.json')))
+    IV = pd.read_csv(os.path.join(CACHE, '_iv_full.csv'), usecols=['date', 'act_symbol', 'iv_current'])
+    IV = IV[IV.iv_current > 0].dropna()
+    IV['date'] = pd.to_datetime(IV.date)
+    ivs = {k: g.sort_values('date') for k, g in IV.groupby('act_symbol')}
     frames, skipped = [], 0
     for fn in sorted(os.listdir(CACHE)):
         if fn.startswith('_'):
@@ -61,7 +69,14 @@ def dataset():
         df = load(fn)
         if len(df) < 400:
             continue
-        f = vf.feature_frame(df, mkt)
+        iv = None
+        if sym in ivs:
+            g = ivs[sym]
+            # Strictly before the forecast date: shift IV dates one day later, then as-of join.
+            j = pd.merge_asof(df[['date']], pd.DataFrame({'date': g.date + pd.Timedelta(days=1), 'iv': g.iv_current.values}),
+                              on='date', direction='backward', tolerance=pd.Timedelta(days=8))
+            iv = j.iv.values
+        f = vf.feature_frame(df, mkt, iv)
         pos = np.searchsorted(df.date.values, pd.to_datetime(earn[sym]).values)
         e = np.zeros(len(df))
         for p in pos:
@@ -70,11 +85,15 @@ def dataset():
         f['earn_in'] = e
         f['sym'] = sym
         f = f.iloc[vf.MIN_BARS:-vf.H:STEP]
-        frames.append(f.dropna(subset=vf.FEATURES + ['y']))
+        # IV and the term structure may be missing (before 2019, names without options); the
+        # rest of the features may not.
+        need = [k for k in vf.FEATURES if k not in ('ts9', 'ts3m', 'l_vvix', 'l_iv', 'iv_rel', 'iv_rv5')]
+        frames.append(f.dropna(subset=need + ['y']))
     D = pd.concat(frames, ignore_index=True)
     D = D[np.isfinite(D.y) & (D.y > np.log(1e-4))]
     D['up'] = (D.y > D.past20).astype(int)
-    log(f'{len(D):,} rows from {D.sym.nunique()} symbols ({skipped} without earnings history left out)')
+    log(f'{len(D):,} rows from {D.sym.nunique()} symbols ({skipped} without earnings history left out); '
+        f'implied vol on {D.l_iv.notna().mean() * 100:.1f}% of rows, {D[D.date >= "2021-01-01"].l_iv.notna().mean() * 100:.1f}% since 2021')
     return D
 
 
@@ -87,7 +106,8 @@ def export(model, kind):
             if nd['is_leaf']:
                 out.append([float(nd['value'])])
             else:
-                out.append([int(nd['feature_idx']), float(nd['num_threshold']), int(nd['left']), int(nd['right'])])
+                out.append([int(nd['feature_idx']), float(nd['num_threshold']), int(nd['left']), int(nd['right']),
+                            1 if nd['missing_go_to_left'] else 0])
         trees.append(out)
     base = float(np.ravel(model._baseline_prediction)[0])
     return {'kind': kind, 'base': round(base, 6), 'trees': trees}
@@ -172,7 +192,7 @@ def main():
     up = HistGradientBoostingClassifier(**PARAMS).fit(D[F], D.up)
     # The exported trees must reproduce sklearn exactly, or the browser runs a different model.
     lv, uv = export(level, 'regressor'), export(up, 'classifier')
-    S = D.sample(3000, random_state=1)
+    S = pd.concat([D[D.l_iv.isna()].sample(1500, random_state=1), D[D.l_iv.notna()].sample(1500, random_state=1)])
     xs = S[F].values.tolist()
     d_level = np.abs(np.array([vf._raw(lv, x) for x in xs]) - level.predict(S[F])).max()
     d_up = np.abs(np.array([vf._raw(uv, x) for x in xs]) - up.decision_function(S[F])).max()

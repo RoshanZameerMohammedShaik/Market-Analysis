@@ -17,6 +17,14 @@ Two models, both gradient-boosted trees exported to model/vol_model.json:
   * `level`  predicts log of next-5-session daily volatility (close to close, sqrt(mean r^2));
   * `up`     predicts P(next-5-session volatility > the last 20 sessions'), then calibrated.
 
+IMPLIED VOLATILITY (2026-10-02). The stock's own option-implied vol (DoltHub, since 2019) and the
+market's implied-vol term structure (CBOE VIX9D, VIX3M, VVIX), all as of the PREVIOUS session,
+because the nightly run happens before that day's IV is published. On 2021-2026 test years: move
+size R^2 0.428 -> 0.441, earnings weeks 0.295 -> 0.322, AUC 0.737 -> 0.749, and the share of
+stocks with an 80%+ call 25.6% -> 30.1% at the same 85.8% hit rate (tools/_exp4/iv_ablation.py;
+same-day IV scored the same, so there is no timing leak to lean on). Stocks without listed
+options, and every row before 2019, carry IV as missing; the trees route missing values natively.
+
 MIRRORED BY js/vol-forecast.js; tools/vol_sync_check.py holds them together. Features are built
 from COMPLETED daily bars only; a live partial bar would read as a finished day.
 """
@@ -32,8 +40,11 @@ EPS = 1e-10
 LN2X4 = 4 * math.log(2)
 
 FEATURES = ['pk1', 'pk5', 'pk22', 'pk66', 'cc5', 'cc22', 'cc66', 'gap22', 'ar1', 'ret5', 'ret22', 'l_dv',
-            'vol_ratio', 'l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22', 'dow', 'earn_in', 'past20']
-MARKET_FEATURES = ['l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22']
+            'vol_ratio', 'l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22', 'dow', 'earn_in', 'past20',
+            'ts9', 'ts3m', 'l_vvix', 'l_iv', 'iv_rel', 'iv_rv5']
+MARKET_FEATURES = ['l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22', 'ts9', 'ts3m', 'l_vvix']
+NAN = float('nan')
+SQRT252 = math.sqrt(252)
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'model', 'vol_model.json')
 
 
@@ -41,18 +52,28 @@ def _half_log_mean(xs):
     return 0.5 * math.log(sum(xs) / len(xs) + EPS)
 
 
-def market_state(vix_closes, spy_closes):
-    """Market features at the last completed session. vix_closes needs >= 60, spy >= 23."""
+def _ratio_ln(a, b):
+    return math.log(a / b) if a and b and a > 0 and b > 0 else NAN
+
+
+def market_state(vix_closes, spy_closes, prev=None):
+    """Market features at the last completed session. vix_closes needs >= 60, spy >= 23.
+    prev: the PREVIOUS session's {vix, v9, v3m, vvix} closes for the term structure. A value
+    CBOE could not supply is None and its feature is missing, never guessed."""
     lv = [math.log(v) for v in vix_closes[-60:]]
     sr = [math.log(spy_closes[i] / spy_closes[i - 1]) for i in range(len(spy_closes) - 22, len(spy_closes))]
+    p = prev or {}
     return {'l_vix': lv[-1], 'vix_rel': lv[-1] - sum(lv) / len(lv),
-            'spy_rv5': _half_log_mean([r * r for r in sr[-5:]]), 'spy_rv22': _half_log_mean([r * r for r in sr])}
+            'spy_rv5': _half_log_mean([r * r for r in sr[-5:]]), 'spy_rv22': _half_log_mean([r * r for r in sr]),
+            'ts9': _ratio_ln(p.get('v9'), p.get('vix')), 'ts3m': _ratio_ln(p.get('v3m'), p.get('vix')),
+            'l_vvix': _ratio_ln(p.get('vvix'), 1.0)}
 
 
-def features(bars, market, earn_in, dow):
+def features(bars, market, earn_in, dow, iv=None):
     """bars: completed daily bars, oldest first, each {open, high, low, close, volume}.
     earn_in: 1 when an earnings reaction session falls in the next H sessions, else 0.
-    dow: weekday (Mon=0) of the LAST bar. Returns None when the history cannot support it."""
+    dow: weekday (Mon=0) of the LAST bar. iv: the stock's annualized implied volatility as of
+    the PREVIOUS session, or None. Returns None when the history cannot support it."""
     if not bars or len(bars) < MIN_BARS or not market:
         return None
     b = bars[-(MIN_BARS + 1):]
@@ -82,11 +103,16 @@ def features(bars, market, earn_in, dow):
         'past20': _half_log_mean(r2[-20:]),
     }
     for k in MARKET_FEATURES:
-        f[k] = float(market[k])
+        v = market.get(k)
+        f[k] = float(v) if v is not None else NAN
+    l_iv = math.log(iv / SQRT252) if iv and iv > 0 else NAN
+    f['l_iv'] = l_iv
+    f['iv_rel'] = l_iv - f['past20']
+    f['iv_rv5'] = l_iv - f['cc5']
     return f
 
 
-def feature_frame(df, mkt):
+def feature_frame(df, mkt, iv=None):
     """Vectorized features for every row of one symbol's history (training). Must equal
     features() at each row; tools/vol_sync_check.py asserts it. df: date,o,h,l,c,v; mkt indexed
     by date with MARKET_FEATURES."""
@@ -117,22 +143,39 @@ def feature_frame(df, mkt):
     m = mkt.reindex(df.date.values)
     for k in MARKET_FEATURES:
         f[k] = m[k].values
+    # iv: annualized implied vol aligned to df's rows, ALREADY as of the previous session.
+    l_iv = np.log(np.asarray(iv, dtype=float) / SQRT252) if iv is not None else np.full(len(df), np.nan)
+    f['l_iv'] = l_iv
+    f['iv_rel'] = l_iv - f['past20'].values
+    f['iv_rv5'] = l_iv - f['cc5'].values
     # Target: next H sessions, close to close.
     fut = pd.Series(r2[::-1]).rolling(H).mean().values[::-1]
     f['y'] = 0.5 * np.log(np.r_[fut[1:], np.nan] + EPS)
     return f
 
 
-def market_frame(vix_dates, vix_closes, spy_dates, spy_closes):
-    """MARKET_FEATURES for every SPY session (training); equals market_state() at each row."""
+def market_frame(vix_dates, vix_closes, spy_dates, spy_closes, cboe=None):
+    """MARKET_FEATURES for every SPY session (training); equals market_state() at each row.
+    cboe: {'VIX9D': [(iso, close)], 'VIX3M': [...], 'VVIX': [...]}."""
     import pandas as pd
     spy = pd.Series(spy_closes, index=pd.to_datetime(spy_dates))
     vix = pd.Series(vix_closes, index=pd.to_datetime(vix_dates)).reindex(spy.index).ffill()
     lv = np.log(vix)
     sr2 = np.log(spy).diff() ** 2
-    return pd.DataFrame({'l_vix': lv, 'vix_rel': lv - lv.rolling(60).mean(),
-                         'spy_rv5': 0.5 * np.log(sr2.rolling(5).mean() + EPS),
-                         'spy_rv22': 0.5 * np.log(sr2.rolling(22).mean() + EPS)}, index=spy.index)
+    out = pd.DataFrame({'l_vix': lv, 'vix_rel': lv - lv.rolling(60).mean(),
+                        'spy_rv5': 0.5 * np.log(sr2.rolling(5).mean() + EPS),
+                        'spy_rv22': 0.5 * np.log(sr2.rolling(22).mean() + EPS)}, index=spy.index)
+
+    def series(name):
+        rows = (cboe or {}).get(name) or []
+        s = pd.Series([v for _, v in rows], index=pd.to_datetime([d for d, _ in rows]), dtype=float)
+        return s[~s.index.duplicated()].reindex(spy.index)
+
+    # Term structure as of the PREVIOUS session (market_state's `prev`): shift one SPY session.
+    out['ts9'] = np.log(series('VIX9D') / vix).shift(1)
+    out['ts3m'] = np.log(series('VIX3M') / vix).shift(1)
+    out['l_vvix'] = np.log(series('VVIX')).shift(1)
+    return out
 
 
 # --- inference -----------------------------------------------------------------------------------
@@ -143,8 +186,13 @@ def _tree(nodes, x):
         nd = nodes[i]
         if len(nd) == 1:
             return nd[0]
-        # [feature, threshold, left, right]; sklearn's HistGradientBoosting goes left on <=.
-        i = nd[2] if x[nd[0]] <= nd[1] else nd[3]
+        # [feature, threshold, left, right, missing_left]. sklearn's HistGradientBoosting goes
+        # left on <=, and a missing value goes the way training sent missing values.
+        v = x[nd[0]]
+        if v != v:
+            i = nd[2] if nd[4] else nd[3]
+        else:
+            i = nd[2] if v <= nd[1] else nd[3]
 
 
 def _raw(m, x):

@@ -67,6 +67,7 @@ export function renderVolPanel(vf, { currency = 'USD', price = null, record = nu
                     <div>Last 20 sessions: ±${pct(vf.past20)}</div>
                     <div>80% range: ${pct(vf.lo)} to ${pct(vf.hi)}</div>
                     ${week ? `<div>Over the week: about ±${fmtPriceTag(week, co)}</div>` : ''}
+                    ${vf.impliedVol ? `<div title="Annualized ${pct(vf.impliedVol)} from the ${shortDate(vf.ivDate)} options close (DoltHub), an input to this forecast">Options market implies: ±${pct(vf.impliedVol / Math.sqrt(252))}</div>` : ''}
                 </div>
             </div>
             <div class="vp-conf">${conf}</div>
@@ -74,6 +75,6 @@ export function renderVolPanel(vf, { currency = 'USD', price = null, record = nu
             ${liveLine(record)}
             ${mineHtml(record?.symbol)}
             <div class="vp-note">How much it moves, not which way. Size is predictable (scored R² ${wf.levelR2} against 0.53 for "same as the
-                last 30 days"); direction is not.</div>
+                last 30 days"); direction is not. ${vf.impliedVol ? "Uses this stock's option-implied volatility and the VIX term structure." : 'No listed options for this stock, so it runs on price history and the VIX term structure.'}</div>
         </div>`;
 }

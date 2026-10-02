@@ -23,8 +23,10 @@ import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, 'tools'))
 
 import earnings_calendar as ec  # noqa: E402
+import fetch_vol_inputs as fvi  # noqa: E402
 import vol_forecast as vf  # noqa: E402
 from ledger_universe import symbols_for_region  # noqa: E402
 
@@ -127,8 +129,22 @@ def main():
         d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
         mk[t] = completed(d.dropna(subset=['Close']))
     common = mk['SPY'].index.intersection(mk['^VIX'].index)
-    market = vf.market_state(mk['^VIX'].Close.reindex(common).values.tolist(), mk['SPY'].Close.reindex(common).values.tolist())
     msession = common[-1].strftime('%Y-%m-%d')
+    # Implied-vol inputs, as of the PREVIOUS session (what the model was trained on). Either
+    # source failing leaves its features missing rather than stopping the forecast.
+    prev_day = common[-2].strftime('%Y-%m-%d')
+    prev = {'vix': float(mk['^VIX'].Close.reindex(common).values[-2])}
+    for name, key in (('VIX9D', 'v9'), ('VIX3M', 'v3m'), ('VVIX', 'vvix')):
+        try:
+            prev[key] = dict(fvi.cboe_series(name)).get(prev_day)
+        except Exception as e:
+            print(f'  [warn] CBOE {name}: {type(e).__name__}', file=sys.stderr)
+    try:
+        stock_iv, iv_date = fvi.latest_stock_iv(msession)
+    except Exception as e:
+        print(f'  [warn] DoltHub IV: {type(e).__name__}: {e}', file=sys.stderr)
+        stock_iv, iv_date = {}, None
+    market = vf.market_state(mk['^VIX'].Close.reindex(common).values.tolist(), mk['SPY'].Close.reindex(common).values.tolist(), prev)
 
     pending = json.load(open(PENDING, encoding='utf-8')) if os.path.exists(PENDING) else []
     syms = sorted({s for s in symbols_for_region('NYSE') if '.' not in s and '-' not in s} | {p['symbol'] for p in pending})
@@ -155,7 +171,7 @@ def main():
                 continue                      # stale or halted: its market features would not match
             session = msession
             eday = ec.earnings_day(s, 'NYSE', next_day(last), eslice, n=vf.H)
-            f = vf.features(bars_of(sub), market, bool(eday), last.weekday())
+            f = vf.features(bars_of(sub), market, bool(eday), last.weekday(), stock_iv.get(s))
             p = vf.predict(model, f)
             if not p:
                 continue
@@ -173,7 +189,11 @@ def main():
 
     with open(OUT, 'w', encoding='utf-8') as fh:
         json.dump({'generatedAt': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                   'sessionDate': session, 'horizon': vf.H, 'market': {k: r4(v) for k, v in market.items()},
+                   'sessionDate': session, 'horizon': vf.H,
+                   'market': {k: (r4(v) if v == v else None) for k, v in market.items()},
+                   # The browser computes stocks outside this list itself and needs their IV too.
+                   'ivDate': iv_date, 'iv': {k: round(v, 4) for k, v in sorted(stock_iv.items())},
+                   'modelGeneratedAt': model.get('generatedAt'),
                    'forecasts': forecasts}, fh, separators=(',', ':'), allow_nan=False)
 
     # Grade what has matured, then queue tonight's.
@@ -201,6 +221,8 @@ def main():
     with open(RECORD, 'w', encoding='utf-8') as fh:
         json.dump(rec, fh, separators=(',', ':'), allow_nan=False)
     o = rec['overall']
+    print(f'  implied vol for {sum(1 for x in forecasts if x in stock_iv)} of {len(forecasts)} (DoltHub {iv_date}); '
+          f'term structure {"ok" if market["ts9"] == market["ts9"] else "missing"}')
     print(f'Wrote {OUT}: {len(forecasts)} forecasts for session {session}; graded {len(graded)} tonight, '
           f'{o["n"]} all-time ({o["inRange"]} in range, {o["right"]}/{o["calls"]} calls right); {len(still)} pending')
 

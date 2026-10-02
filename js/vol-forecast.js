@@ -5,6 +5,10 @@
 // 70-80% confidence were right 74.8%, at 90%+ right 94.5%.
 //
 // US stocks only: the model was trained on them, with VIX and SPY as its market inputs.
+//
+// Implied volatility: the stock's own option IV (DoltHub) and the VIX term structure (CBOE), both
+// as of the PREVIOUS session, come from the nightly slice (slice.iv, slice.market). A stock with
+// no listed options gets them as missing, which the trees were trained to route.
 
 import { loadEarningsSlice, earningsDayFor } from './earnings-calendar-slice.js';
 
@@ -15,7 +19,9 @@ export const H = 5;
 export const MIN_BARS = 90;
 const EPS = 1e-10;
 const LN2X4 = 4 * Math.log(2);
-const MARKET_FEATURES = ['l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22'];
+const MARKET_FEATURES = ['l_vix', 'vix_rel', 'spy_rv5', 'spy_rv22', 'ts9', 'ts3m', 'l_vvix'];
+const SQRT252 = Math.sqrt(252);
+const num = (v) => (v === null || v === undefined ? NaN : Number(v));
 
 const once = (url) => {
     let p = null;
@@ -55,7 +61,7 @@ export function completedBars(history, nowMs = Date.now()) {
 }
 
 /** MIRRORS vol_forecast.features. */
-export function volFeatures(bars, market, earnIn, dow) {
+export function volFeatures(bars, market, earnIn, dow, iv = null) {
     if (!bars || bars.length < MIN_BARS || !market) return null;
     const b = bars.slice(-(MIN_BARS + 1));
     const o = b.map(x => x.open), h = b.map(x => x.high), lo = b.map(x => x.low), c = b.map(x => x.close);
@@ -84,7 +90,11 @@ export function volFeatures(bars, market, earnIn, dow) {
         dow, earn_in: earnIn ? 1 : 0,
         past20: halfLogMean(r2.slice(-20)),
     };
-    for (const k of MARKET_FEATURES) f[k] = Number(market[k]);
+    for (const k of MARKET_FEATURES) f[k] = num(market[k]);
+    const lIv = iv > 0 ? Math.log(iv / SQRT252) : NaN;
+    f.l_iv = lIv;
+    f.iv_rel = lIv - f.past20;
+    f.iv_rv5 = lIv - f.cc5;
     return f;
 }
 
@@ -93,7 +103,10 @@ function tree(nodes, x) {
     for (;;) {
         const nd = nodes[i];
         if (nd.length === 1) return nd[0];
-        i = x[nd[0]] <= nd[1] ? nd[2] : nd[3];      // sklearn HistGradientBoosting: left on <=
+        const v = x[nd[0]];
+        // sklearn HistGradientBoosting: left on <=; a missing value goes where training sent them.
+        if (Number.isNaN(v)) i = nd[4] ? nd[2] : nd[3];
+        else i = v <= nd[1] ? nd[2] : nd[3];
     }
 }
 const raw = (m, x) => m.trees.reduce((s, t) => s + tree(t, x), m.base);
@@ -163,10 +176,14 @@ export async function evaluateVolForecast({ history, symbol, region, nowMs = Dat
         let eday = null;
         try { eday = earningsDayFor(sym, 'NYSE', addDay(last), await loadEarningsSlice(), H); } catch (_) { eday = null; }
         const dow = (new Date(`${last}T12:00:00Z`).getUTCDay() + 6) % 7;
-        const p = volPredict(model, volFeatures(bars, slice.market, eday > 0, dow));
+        const iv = slice.ivDate && slice.ivDate < last ? slice.iv?.[sym] ?? null : null;
+        const p = volPredict(model, volFeatures(bars, slice.market, eday > 0, dow, iv));
         if (!p) return null;
         f = { ...p, earnKnown: eday != null, published: false };
     }
-    return { ...f, session: last, bucket: f.call === 'similar' ? null : bucketFor(model, f.confidence),
+    // The options market's own number, when there is one: shown beside the forecast, and an input to it.
+    const ivUsed = slice.ivDate && slice.ivDate < last ? (slice.iv?.[sym] ?? null) : null;
+    return { ...f, session: last, impliedVol: ivUsed, ivDate: ivUsed ? slice.ivDate : null,
+             bucket: f.call === 'similar' ? null : bucketFor(model, f.confidence),
              walkForward: model.walkForward, minCall: model.minCallConfidence };
 }
