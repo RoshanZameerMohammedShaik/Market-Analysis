@@ -440,10 +440,11 @@ html[data-dev="1"] body { padding-top: 22px; }
 }
 .fb-table tr:last-child td { border-bottom: none; }
 .fb-table td.fb-day { color: var(--text-secondary); font-size: 0.82rem; }
-/* Low/high are tinted only to separate the two columns visually. They are NOT a
-   directional call, so the tint is deliberately muted rather than signal-green. */
-.fb-table td.fb-low  { color: var(--red); opacity: 0.85; }
-.fb-table td.fb-high { color: var(--green); opacity: 0.85; }
+/* Low and high are plain figures. They used to be red and green to separate the columns, but
+   red reads as a loss and they are not a directional call (Roshan, 2026-10-05: "the red should
+   be removed... it would probably cause confusion"). */
+.fb-table td.fb-low  { color: var(--text-primary); }
+.fb-table td.fb-high { color: var(--text-primary); }
 .fb-table td.fb-span { color: var(--text-muted); font-size: 0.78rem; }
 .fb-foot { margin-top: 10px; }
 .fb-conf { font-size: 0.8rem; color: var(--text-secondary); }
@@ -746,4 +747,32 @@ html[data-dev="1"] body { padding-top: 22px; }
     color: var(--accent); border: 1px solid var(--border);
     border-radius: 999px; padding: 1px 7px; vertical-align: middle;
     letter-spacing: 0.02em;
+}
+
+/* Past sessions, one line each (js/ui/forecast-band-panel.js renderHistory). No red anywhere:
+   blue is where price went, amber the part of it outside the range. */
+.bh-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 0.72rem; color: var(--text-muted); margin: 4px 0 8px; }
+.bh-key { display: inline-block; width: 18px; height: 6px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+.bh-key-pred { background: color-mix(in srgb, var(--text-muted) 35%, transparent); }
+.bh-key-act { background: var(--accent); }
+.bh-key-out { background: var(--yellow); }
+.bh-list { display: flex; flex-direction: column; gap: 2px; }
+.bh-row { display: grid; grid-template-columns: 120px 1fr 110px; align-items: center; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.bh-row:last-child { border-bottom: none; }
+.bh-day { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; }
+.bh-src { font-size: 0.66rem; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
+.bh-viz { position: relative; height: 10px; border-radius: 5px; }
+.bh-viz span { position: absolute; top: 0; height: 100%; border-radius: 5px; }
+.bh-pred { background: color-mix(in srgb, var(--text-muted) 30%, transparent); }
+.bh-act { background: var(--accent); top: 2px !important; height: 6px !important; }
+.bh-out { background: var(--yellow); top: 2px !important; height: 6px !important; }
+.bh-start { width: 2px; background: var(--text-primary); opacity: 0.7; border-radius: 1px; }
+.bh-res { font-size: 0.8rem; font-weight: 700; text-align: right; white-space: nowrap; }
+.bh-in { color: var(--text-secondary); }
+.bh-outside { color: var(--yellow); }
+.bh-nums { grid-column: 1 / -1; font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+    .bh-row { grid-template-columns: 78px 1fr 92px; gap: 4px 8px; }
+    .bh-day .fb-d-long { display: none; }
+    .bh-day .fb-d-short { display: inline; }
 }
