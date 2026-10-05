@@ -69,7 +69,16 @@ def main():
                 unflagged += 1
                 continue
             c = res['cell']
+            # What the list shows instead of RSI(2): the run of down closes and how far it went.
+            # RSI(2) under 10 fires on a STREAK of down days whatever their size (KO qualified on
+            # 2026-10-02 down 0.5% over two days), so "a sharp dip" was the wrong description.
+            closes = [c['close'] for c in candles]
+            streak = 0
+            while streak + 1 < len(closes) and closes[-1 - streak] < closes[-2 - streak]:
+                streak += 1
+            run_pct = round((closes[-1] / closes[-1 - streak] - 1) * 100, 2) if streak else 0.0
             setups.append({'symbol': s, 'close': round(res['price'], 4), 'rsi2': res['rsi2'],
+                           'downDays': streak, 'downPct': run_pct,
                            'trigger': round(res['trigger'], 4), 'ma200': round(res['ma200'], 4),
                            'tier': res['tier'], 'vixBand': res['vixBand'],
                            'hitRate': c['hitRate'], 'netBps': c['netBps'], 'n': c['n'],

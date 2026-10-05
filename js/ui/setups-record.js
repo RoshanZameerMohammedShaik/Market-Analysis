@@ -59,11 +59,10 @@ export function recordTableHtml(entries, { limit = 40, symbolCol = true } = {}) 
         <tr class="${symbolCol ? 'su-row' : ''}" data-symbol="${escapeHtml(e.symbol)}" ${symbolCol ? 'tabindex="0"' : ''}>
             <td>${escapeHtml(shortDate(e.session))}</td>
             ${symbolCol ? `<td class="su-sym">${escapeHtml(e.symbol)}</td>` : ''}
-            <td class="su-num sr-bt">${pct(e.hitRate)}</td>
             <td>${statusHtml(e)}</td>
         </tr>`).join('');
     return `<div class="su-table-wrap"><table class="su-table sr-table">
         <thead><tr><th title="Session whose close confirmed the setup">Signal</th>${symbolCol ? '<th>Symbol</th>' : ''}
-            <th class="su-num sr-bt" title="What the backtest said when it was published">Backtest</th><th>What happened</th></tr></thead>
+            <th>What happened</th></tr></thead>
         <tbody>${rows}</tbody></table></div>`;
 }

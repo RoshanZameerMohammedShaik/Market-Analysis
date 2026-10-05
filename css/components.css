@@ -1520,3 +1520,19 @@ a.news-item-title:hover { color: var(--accent); text-decoration: underline; }
     .vo-grid { grid-template-columns: 1fr; }
     .vp-big { font-size: 1.6rem; }
 }
+
+/* Pullback list v2 (js/ui/setups-list.js): the shared odds once, plain columns. */
+.su-stats { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 4px 0 14px; }
+.su-stat { display: flex; flex-direction: column; max-width: 300px; }
+.su-stat-big { font-family: var(--num-font); font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1.15; }
+.su-stat-cap { font-size: 0.76rem; color: var(--text-muted); line-height: 1.35; }
+.su-table-v2 .su-run { color: var(--text-secondary); }
+.su-table-v2 .su-need { color: var(--text-secondary); }
+@media (max-width: 640px) {
+    .su-table.su-table-v2 th:nth-child(2), .su-table.su-table-v2 td:nth-child(2),
+    .su-table.su-table-v2 th:nth-child(3), .su-table.su-table-v2 td:nth-child(3),
+    .su-table.su-table-v2 th:nth-child(7), .su-table.su-table-v2 td:nth-child(7) { display: table-cell; }
+    .su-stat-big { font-size: 1.3rem; }
+    .su-table-v2 th, .su-table-v2 td { padding: 8px 6px; }
+}
+.su-sub { display: block; font-size: 0.68rem; color: var(--text-muted); }

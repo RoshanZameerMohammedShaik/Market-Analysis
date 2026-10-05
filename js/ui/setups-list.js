@@ -1,13 +1,21 @@
-// "Pullback setups" on the landing page: today's confirmed setups from model/setups.json.
+// "Pullback setups" on the landing page: the confirmed setups from model/setups.json.
 //
 // Published nightly by tools/write_setups_slice.py after the US close, from real closing prices,
 // so nothing here is computed in the browser and the list is identical for everyone. Each row is a
-// click through to the full card, which shows the same setup with its rule and evidence.
+// click through to the full card.
+//
+// Rebuilt 2026-10-05 after "why everything shows as 67% here? ... I cant understand a thing in
+// that table." The odds are a GROUP figure (every setup in the same volatility/VIX regime shares
+// it; per-stock odds were tested on 52,346 trades and did no better), so printing them on every
+// row said nothing while looking like a per-stock claim. They are stated ONCE, above the table.
+// The rows carry only what differs between stocks and what someone acting on the rule needs:
+// the price, the run of down days that qualified it, the sell trigger, and how far price has to
+// rise to reach it. No RSI(2), no bps, no "held out".
 
 import { escapeHtml } from './escape.js';
 import { fmtPriceTag } from './format.js';
 import { loadSetupsRecord } from '../reversion-setup.js';
-import { liveSummaryHtml, recordTableHtml } from './setups-record.js';
+import { recordTableHtml } from './setups-record.js';
 
 const SLICE_URL = 'model/setups.json';
 
@@ -26,59 +34,83 @@ function sessionLabel(iso) {
     } catch (_) { return iso; }
 }
 
+const pct0 = (x) => `${Math.round(x * 100)}%`;
+
+/** The shared odds, once: the group figures span a small range, so show the range if it is one. */
+function sharedStats(setups, rec) {
+    const hits = setups.map(x => x.hitRate).filter(Number.isFinite);
+    const nets = setups.map(x => x.netBps).filter(Number.isFinite);
+    const recent = setups.map(x => x.heldOutHitRate).filter(Number.isFinite);
+    if (!hits.length) return '';
+    // Figures within `tight` of each other are one number to a reader ("67%", not "67%–68%"),
+    // so print their mean; a real spread prints as a range.
+    const span = (xs, f, tight) => {
+        const lo = Math.min(...xs), hi = Math.max(...xs);
+        if (f(lo) === f(hi) || hi - lo <= tight) return f(xs.reduce((a, b) => a + b, 0) / xs.length);
+        return `${f(lo)}–${f(hi)}`;
+    };
+    const signed = (b) => `${b >= 0 ? '+' : '−'}${Math.abs(b / 100).toFixed(1)}%`;
+    const o = rec?.overall;
+    const live = o?.n
+        ? `<div class="su-stat"><span class="su-stat-big">${o.wins} of ${o.n}</span><span class="su-stat-cap">recovered live so far${o.open ? `, ${o.open} still open` : ''}${o.n < 30 ? ' (too early to judge)' : ''}</span></div>`
+        : '';
+    return `
+        <div class="su-stats">
+            <div class="su-stat"><span class="su-stat-big">${span(hits, pct0, 0.02)}</span><span class="su-stat-cap">of trades like these recovered over 12 years${recent.length ? ` (${span(recent, pct0, 0.02)} in 2023-26, which the model never saw)` : ''}</span></div>
+            <div class="su-stat"><span class="su-stat-big">${span(nets, signed, 15)}</span><span class="su-stat-cap">average gain per trade, after costs</span></div>
+            ${live}
+        </div>`;
+}
+
 export async function renderSetupsList(onPick) {
     const host = document.getElementById('setups-section');
     if (!host) return;
     const [s, rec] = await Promise.all([loadSlice(), loadSetupsRecord()]);
     if (!s) { host.hidden = true; return; }
     host.hidden = false;
-    const rows = s.setups.slice(0, 30).map(x => `
+    const rows = s.setups.slice(0, 30).map(x => {
+        const needs = Number.isFinite(x.trigger) && x.close > 0 ? (x.trigger / x.close - 1) * 100 : null;
+        const run = Number.isFinite(x.downDays) && x.downDays > 0
+            ? `−${Math.abs(x.downPct).toFixed(1)}%<span class="su-sub">${x.downDays} day${x.downDays === 1 ? '' : 's'}</span>`
+            : '—';
+        return `
         <tr class="su-row" data-symbol="${escapeHtml(x.symbol)}" tabindex="0">
             <td class="su-sym">${escapeHtml(x.symbol)}</td>
             <td class="su-num">${fmtPriceTag(x.close, { srcCurrency: 'USD' })}</td>
-            <td class="su-num">${Number(x.rsi2).toFixed(1)}</td>
+            <td class="su-num su-run">${run}</td>
             <td class="su-num">${fmtPriceTag(x.trigger, { srcCurrency: 'USD' })}</td>
-            <td class="su-num su-hit">${(x.hitRate * 100).toFixed(1)}%</td>
-            <td class="su-num">${x.netBps >= 0 ? '+' : ''}${Math.round(x.netBps)} bps</td>
-            <td class="su-num su-ho">${x.heldOutHitRate != null ? `${(x.heldOutHitRate * 100).toFixed(1)}%` : '—'}</td>
-        </tr>`).join('');
+            <td class="su-num su-need">${needs != null ? `+${needs.toFixed(1)}%` : '—'}</td>
+        </tr>`;
+    }).join('');
     host.innerHTML = `
         <div class="section-header">
-            <h2 class="section-title">↺ Pullback setups — ${escapeHtml(sessionLabel(s.sessionDate))} ${s.confirmed === false ? '(forming, not yet the close)' : 'close'}</h2>
+            <h2 class="section-title">↺ Pullback setups · from the ${escapeHtml(sessionLabel(s.sessionDate))} close${s.confirmed === false ? ' (forming, not final)' : ''}</h2>
         </div>
         <div class="su-intro">
-            Uptrending, liquid US stocks after a sharp two-day dip. Buy at the next open; sell at the
-            open after the first close above the trigger (the 5-day average), within 10 sessions; no
-            stop. Over 12 years these recovered <strong>about two times in three</strong>, and held
-            that on 2023-26 data the fit never saw. That is the trade's recovery rate, not a forecast
-            that the price rises tomorrow.
-            <span class="su-why">Why rows share a number: it is the average for the stock's volatility
-            and VIX regime. A model that gave each setup its own probability was tested on 52,346
-            past trades it never trained on and did no better (its "88%" setups recovered 69%), so
-            none is shown. The live record below is graded on calls made before the outcome, and it
-            is what changes night to night.</span>
+            Stocks in an uptrend that just fell several days running. The rule: <strong>buy at the next open</strong>,
+            <strong>sell at the open after it closes above its 5-day average</strong>, or after 10 trading days at most. No stop-loss.
         </div>
+        ${sharedStats(s.setups, rec)}
         ${s.setups.length ? `
-        <div class="su-table-wrap"><table class="su-table">
+        <div class="su-table-wrap"><table class="su-table su-table-v2">
             <thead><tr>
-                <th>Symbol</th><th class="su-num">Close</th><th class="su-num" title="RSI over 2 sessions; the setup needs under 10">RSI(2)</th>
-                <th class="su-num" title="Sell at the open after the first close above this (the 5-day average, recalculated daily)">Trigger</th>
-                <th class="su-num" title="Share of setups in this volatility and VIX regime that recovered, 2014-2022. A regime average: every setup in the same regime shares it.">Backtest</th>
-                <th class="su-num" title="Average result per trade after costs">Net</th>
-                <th class="su-num" title="The same figure on 2023-26 data the fit never saw">Held out</th>
+                <th>Stock</th>
+                <th class="su-num">Price</th>
+                <th class="su-num" title="Consecutive down closes up to the signal, and how far they went">Down</th>
+                <th class="su-num" title="Its 5-day average. Sell at the open after the first close above it.">Sell above</th>
+                <th class="su-num" title="How far the price has to rise to reach the sell level">Needs</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table></div>`
         : `<div class="su-empty">No setups at this close. They cluster after sharp market-wide dips and can be absent for days.</div>`}
-        <div class="su-foot">${s.scanned} liquid US names scanned · VIX ${s.vix ?? '—'}${s.unflagged ? ` · ${s.unflagged} more qualified in volatility/VIX regimes where the trade has not paid reliably, so they are not listed` : ''}</div>
+        <div class="su-foot">Every row shares the same odds: they come from the history of the whole group, not the single stock.
+            Per-stock odds were tested and did no better, so none are shown.
+            ${s.unflagged ? ` ${s.unflagged} more stocks qualified in market conditions where this trade has not paid, so they are left out.` : ''}</div>
         ${rec ? `
-        <div class="sr-block">
-            <div class="sr-summary">${liveSummaryHtml(rec)}</div>
-            <details class="sr-details">
-                <summary>Every published setup and what happened (${rec.entries.length})</summary>
-                ${recordTableHtml([...rec.entries].reverse())}
-            </details>
-        </div>` : ''}`;
+        <details class="sr-details">
+            <summary>Every setup published so far and what happened (${rec.entries.length})</summary>
+            ${recordTableHtml([...rec.entries].reverse())}
+        </details>` : ''}`;
     host.querySelectorAll('.su-row').forEach(tr => {
         const go = () => onPick?.({ mode: 'stock', symbol: tr.dataset.symbol, coinId: null });
         tr.addEventListener('click', go);
