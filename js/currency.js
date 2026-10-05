@@ -230,14 +230,16 @@ export function priceTag(value, opts = {}) {
     if (!Number.isFinite(n)) return '<span class="price" data-usd="">—</span>';
     const src = (opts.srcCurrency || 'USD').toUpperCase();
     const txt = format(n, opts);
-    return `<span class="price" data-usd="${n}" data-src="${src}">${txt}</span>`;
+    const dg = Number.isInteger(opts.digits) ? ` data-digits="${opts.digits}"` : '';
+    return `<span class="price" data-usd="${n}" data-src="${src}"${dg}>${txt}</span>`;
 }
 
 function rerenderAll() {
     document.querySelectorAll('[data-usd]').forEach(el => {
         const value = parseFloat(el.getAttribute('data-usd'));
         const src = el.getAttribute('data-src') || 'USD';
-        if (Number.isFinite(value)) el.textContent = format(value, { srcCurrency: src });
+        const dg = el.getAttribute('data-digits');
+        if (Number.isFinite(value)) el.textContent = format(value, { srcCurrency: src, ...(dg != null ? { digits: Number(dg) } : {}) });
     });
 }
 

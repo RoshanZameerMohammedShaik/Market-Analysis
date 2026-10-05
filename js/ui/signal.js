@@ -19,6 +19,8 @@ import { signalLanded } from './ui-sound.js';
 import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
+import { renderWeekCard } from './week-card.js';
+import { directionRecord } from './suggested-decision.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -453,6 +455,33 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // from the live ledger (removed if there isn't enough history).
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
 
+    // US stocks with a volatility forecast lead with ONE compact block (js/ui/week-card.js) and
+    // drop the direction widgets above the fold: next-day direction is a coin flip, and six blocks
+    // repeating the same numbers in different words was the complaint. Everything else keeps the
+    // full layout until the volatility model covers it.
+    const volLed = !!prediction.volForecast;
+    if (volLed) {
+        const tickerNow = state.currentSymbol || '';
+        section.innerHTML = `
+        <div class="signal-box wk-box">
+            <div class="signal-header">
+                <span class="signal-label wk-label">${tickerNow} · next 5 sessions</span>
+                <button class="refresh-btn small" id="share-prediction" title="Share this prediction as an image">⤴</button>
+                <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
+            </div>
+            ${renderWeekCard(prediction.volForecast, {
+                price: view.priceTargets?.currentPrice ?? null, currency: cur,
+                rs: state.timeframe === 'today' ? prediction.reversionSetup : (prediction.reversionSetup?.record ? { record: prediction.reversionSetup.record, trigger: prediction.reversionSetup.trigger } : null),
+                dirRec: directionRecord(), record: prediction.volForecast?.record,
+            })}
+            ${bandHTML}
+            ${newsHTML}
+            ${technicalHTML}
+            <div class="risk-disclaimer">
+                <strong>Not financial advice.</strong> Forecasts are statistical, not guarantees.
+            </div>
+        </div>`;
+    } else
     section.innerHTML = `
         <div class="signal-box ${signalClass}">
             <div class="signal-header">

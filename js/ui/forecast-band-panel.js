@@ -297,8 +297,8 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
                 <thead>
                     <tr>
                         <th class="fb-day">Day</th>
-                        <th class="fb-low">Expected low</th>
-                        <th class="fb-high">Expected high</th>
+                        <th class="fb-low"><span class="fb-th-long">Expected low</span><span class="fb-th-short">Low</span></th>
+                        <th class="fb-high"><span class="fb-th-long">Expected high</span><span class="fb-th-short">High</span></th>
                         <th class="fb-span">Width</th>
                     </tr>
                 </thead>

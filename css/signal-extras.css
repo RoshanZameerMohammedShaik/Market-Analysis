@@ -475,3 +475,35 @@
 .sd-body .sd-num.warn { color: var(--yellow); }
 .sd-dir { margin-top: 8px; font-size: 0.84rem; line-height: 1.45; color: var(--text-secondary); }
 .sd-chip-main { white-space: nowrap; }
+
+/* "This week" compact block (js/ui/week-card.js) */
+.wk-label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin-right: auto; }
+.wk-card { margin: 6px 0 14px; padding: 16px 18px; border-radius: var(--radius-md, 12px); border: 1px solid var(--border); border-left: 5px solid var(--text-muted); background: var(--bg-secondary); }
+.wk-card.wk-choppier { border-left-color: var(--yellow); }
+.wk-card.wk-calmer { border-left-color: var(--green); }
+.wk-head { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.wk-pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.wk-up { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 16%, transparent); }
+.wk-down { color: var(--green); background: color-mix(in srgb, var(--green) 16%, transparent); }
+.wk-flat { color: var(--text-secondary); background: color-mix(in srgb, var(--text-muted) 16%, transparent); }
+.wk-earn { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.wk-nums { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 8px; }
+.wk-num { display: flex; flex-direction: column; }
+.wk-big { font-family: var(--num-font); font-size: 2rem; font-weight: 800; line-height: 1.1; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.wk-cap { font-size: 0.75rem; color: var(--text-muted); }
+.wk-line { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.45; }
+.wk-setup { margin-top: 10px; padding: 8px 10px; border-radius: 8px; font-size: 0.86rem; background: color-mix(in srgb, var(--green) 9%, transparent); color: var(--text-primary); }
+.wk-dir { margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); }
+.wk-why { margin-top: 10px; font-size: 0.82rem; color: var(--text-secondary); }
+.wk-why summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.wk-why ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.5; }
+.wk-why li { margin: 2px 0; }
+@media (max-width: 640px) { .wk-big { font-size: 1.7rem; } .wk-nums { gap: 22px; } }
+/* Compact header: the title shrinks before the buttons wrap. */
+.wk-box .signal-header { flex-wrap: nowrap; }
+.signal-header .signal-label.wk-label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); text-shadow: none; animation: none; margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* The band's own 30-day volatility chip contradicts the forecast above it ("Calm 0.92%/day" under
+   "Choppier week ±1.7%"): two different estimates of one thing. The forecast is the better one. */
+.wk-box .fb-tier { display: none; }
+.fb-th-short { display: none; }
+@media (max-width: 640px) { .fb-th-long { display: none; } .fb-th-short { display: inline; } }
