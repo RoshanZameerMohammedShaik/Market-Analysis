@@ -115,30 +115,11 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: pip
-
-      # bot/advise.mjs imports the app's REAL engine (js/confidence.js, js/ai-model.js)
-      # rather than reimplementing it, so the desk needs Node as well as Python. Pinned to
-      # the same major the parity harnesses are developed against: a version skew here was
-      # already one wasted debugging session on ai_sync_check.
-      # NODE AND PIP ARE ONLY FOR TRADING.
-      #
-      # arm / disarm / reset are a few lines of stdlib Python that rewrite a JSON file and
-      # delete some others. They were paying ~60s of `pip install -r requirements.txt` plus a
-      # Node toolchain install before doing 0.2s of work, which is most of the reason Clear &
-      # reset felt like it was hanging. Skipping both takes a control action from ~90s to ~15s.
-      - uses: actions/setup-node@v4
-        if: steps.mode.outputs.mode == 'trade' || steps.mode.outputs.mode == 'dry-run'
-        with:
-          node-version: '24'
-
-      - name: Install Python deps (trading only)
-        if: steps.mode.outputs.mode == 'trade' || steps.mode.outputs.mode == 'dry-run'
-        run: pip install -r requirements.txt
-
+      # FIRST, because every step below reads it. GitHub evaluates `steps.mode` to empty for a
+      # step that runs before this one, so an `if:` testing it is silently false: from the day
+      # this step was moved below them until 2026-10-05, the Node 24 setup never ran (the desk
+      # used the runner's default Node) and nobody saw, because the only symptom was the pip
+      # cache error below. tools/workflow_step_order_check.py now fails CI on this pattern.
       - name: Decide mode
         id: mode
         run: |
@@ -149,6 +130,31 @@ jobs:
           fi
           echo "Mode: $mode"
           echo "mode=$mode" >> $GITHUB_OUTPUT
+
+      # NO pip cache and NO pip install. Every Python file the desk runs (bot/, ledger_store.py,
+      # trading_costs.py, tools/write_bot_slice.py) is standard library only. The old step
+      # installed requirements.txt -- torch, xgboost, scikit-learn -- for nothing, and
+      # `cache: pip` then FAILED THE JOB in its post step whenever the cache restore timed out,
+      # because ~/.cache/pip never existed (2026-10-04, run 37174438014, after a 10-minute
+      # cache download that also delayed trading by those 10 minutes).
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # bot/advise.mjs imports the app's REAL engine (js/confidence.js, js/ai-model.js)
+      # rather than reimplementing it, so the desk needs Node as well as Python. Pinned to
+      # the same major the parity harnesses are developed against: a version skew here was
+      # already one wasted debugging session on ai_sync_check.
+      # NODE IS ONLY FOR TRADING.
+      #
+      # arm / disarm / reset are a few lines of stdlib Python that rewrite a JSON file and
+      # delete some others. They were paying ~60s of `pip install -r requirements.txt` plus a
+      # Node toolchain install before doing 0.2s of work, which is most of the reason Clear &
+      # reset felt like it was hanging. Skipping both takes a control action from ~90s to ~15s.
+      - uses: actions/setup-node@v4
+        if: steps.mode.outputs.mode == 'trade' || steps.mode.outputs.mode == 'dry-run'
+        with:
+          node-version: '24'
 
       # Exact equality, never contains(). 'dry-run' does not contain 'trade' and vice
       # versa here, but the Live ledger workflow lost two months of LSE and XETRA rows to

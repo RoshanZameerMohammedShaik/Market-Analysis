@@ -7,6 +7,7 @@ on:
       - 'shared_features.py'
       - 'train_model.py'
       - '.github/workflows/live-ledger.yml'
+      - '.github/workflows/**'
       - 'tools/workflow_task_coverage.py'
       - 'js/forecast-band.js'
       - 'tools/band_sync_check.py'
@@ -21,6 +22,7 @@ on:
       - 'tools/reversion_sync_check.py'
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
+      - 'tools/workflow_step_order_check.py'
       - 'market_sessions.py'
       - 'js/market-sessions.js'
       - 'earnings_calendar.py'
@@ -108,6 +110,7 @@ on:
       - 'shared_features.py'
       - 'train_model.py'
       - '.github/workflows/live-ledger.yml'
+      - '.github/workflows/**'
       - 'tools/workflow_task_coverage.py'
       - 'js/forecast-band.js'
       - 'tools/band_sync_check.py'
@@ -122,6 +125,7 @@ on:
       - 'tools/reversion_sync_check.py'
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
+      - 'tools/workflow_step_order_check.py'
       - 'market_sessions.py'
       - 'js/market-sessions.js'
       - 'earnings_calendar.py'
@@ -246,6 +250,10 @@ jobs:
       - run: pip install pyyaml
       - name: Check Live ledger task routing
         run: python tools/workflow_task_coverage.py
+      # A step that reads steps.<id> before <id> runs gets an empty value, so its `if:` is
+      # silently false forever. The Mia desk skipped its Node 24 setup for weeks this way.
+      - name: Check no step reads an output that does not exist yet
+        run: python tools/workflow_step_order_check.py
 
   # The browser draws the High/Low bands the user sees; the cron scores them for
   # calibration. If the two implementations drift, the displayed confidence stops
