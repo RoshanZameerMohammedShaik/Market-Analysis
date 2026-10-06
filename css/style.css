@@ -2276,7 +2276,7 @@ body.resources-open .resources-toggle {
                  max(14px, env(safe-area-inset-left, 14px));
     }
     .app-title { font-size: 1.05rem; letter-spacing: 0.3px; }
-    .app-title-portfolio-svg { width: 18px; height: 18px; }
+    .bull-svg { width: 30px; height: 21px; }
     .header-ecg { display: none; }    /* save horizontal space */
     .header-actions { right: max(10px, env(safe-area-inset-right, 10px)); gap: 4px; }
     /* Tap-target floor: 36×36 minimum on phones. Apple HIG says 44pt;

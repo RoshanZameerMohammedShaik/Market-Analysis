@@ -86,3 +86,4 @@ model/bot/_*
 /*.tmp.json
 dist/
 model/_ohlc_cache/
+tools/_exp*/

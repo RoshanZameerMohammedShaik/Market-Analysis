@@ -244,82 +244,90 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
    bottom-left to top-right, and each candle grows up to meet it in
    sequence. The whole staircase reads as a "trend up" mark beside
    MARKET ANALYZER. */
-.app-title-portfolio {
+.app-title-bull {
+    /* The old candle staircase was tucked under the title's trailing kerning with a -13px
+       pull. The traced bull is a wider, taller mark that has to sit BESIDE the words, so the
+       negative pull is gone and only a small optical gap remains. */
     display: inline-flex;
     align-items: center;
-    height: 30px;
-    /* Aggressive negative margin-left tucks the mark right up against
-       the 'R' in ANALYZER. -7px eats further into the title's trailing
-       kerning so the leftmost candle visually kisses the letter.
-       margin-top relaxed from -6 → -3px per Roshan's "bring it down 2-3
-       pixels" — keeps the staircase in the title's vertical band but
-       shifts the arrow's apex down off the cap-height so the whole
-       composition reads as anchored to the baseline rather than
-       hovering above the text. */
-    margin-left: -13px;
-    margin-top: -5px;
+    height: 31px;
+    margin-left: 2px;
+    margin-top: -2px;
 }
-.app-title-portfolio-svg {
-    /* 26×28 viewBox now (was 22×28) — added a 4th candle in front,
-       extending width by 4 viewBox units. The leftmost candle still
-       starts at x=0 so the SVG remains flush to the title. */
-    width: 28px;
-    height: 30px;
+.bull-svg {
+    /* The traced reference mark. 100x100 viewBox; the bull's own bounding box leaves a little
+       air on the right, so the box is set by eye against the MARKET ANALYZER cap height
+       rather than matched to the glyph height. */
+    /* 73.4 x 51.56 viewBox = 1.42:1, so a square box would letterbox the bull. */
+    width: 44px;
+    height: 31px;
     overflow: visible;
 }
-.app-title-pf-candle {
-    /* Solid accent fill, no glow filter. Roshan asked the glow be
-       removed — the stacked drop-shadows read as overdone next to the
-       crisp MARKET ANALYZER title; flat color keeps the staircase
-       legible and matches the rest of the header's clean typography. */
+/* Bars first, then the arrow, then the bull leaping over: the same order the reference
+   reads in, and the order the animation plays. */
+.bull-bar {
     fill: rgb(var(--accent-rgb));
     transform-origin: center bottom;
     transform-box: fill-box;
-    transform: scaleY(0);
-    animation: app-title-pf-candle-grow 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+    animation: bull-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.app-title-pf-candle.candle-1 { animation-delay: 0.00s; }
-.app-title-pf-candle.candle-2 { animation-delay: 0.32s; }
-.app-title-pf-candle.candle-3 { animation-delay: 0.64s; }
-.app-title-pf-arrow {
-    stroke: var(--green);
-    /* Path length for the curved Q-bezier: chord ~27.6 units, curve
-       adds ~15% so ~32. Use 35 so dash fully retracts at loop start. */
-    stroke-dasharray: 35;
-    stroke-dashoffset: 35;
-    animation: app-title-pf-arrow-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+.bull-bar.bar-1 { animation-delay: 0.05s; }
+.bull-bar.bar-2 { animation-delay: 0.14s; }
+.bull-bar.bar-3 { animation-delay: 0.23s; }
+.bull-bar.bar-4 { animation-delay: 0.32s; }
+@keyframes bull-bar-grow {
+    from { transform: scaleY(0); opacity: 0.5; }
+    to   { transform: scaleY(1); opacity: 1; }
 }
-.app-title-pf-arrowhead {
-    stroke: var(--green);
-    stroke-dasharray: 8;
-    stroke-dashoffset: 8;
-    animation: app-title-pf-arrowhead-draw 3.2s cubic-bezier(0.55, 0, 0.35, 1) infinite;
+.bull-arrow {
+    fill: var(--green);
+    /* The arrow is a FILLED traced shape, not a stroke, so it cannot be drawn with
+       stroke-dashoffset. A clip wipe left-to-right is the honest equivalent and keeps the
+       reference's exact arrowhead geometry. */
+    animation: bull-arrow-wipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
 }
-@keyframes app-title-pf-candle-grow {
-    0%,  10%  { transform: scaleY(0);    opacity: 0.4; }
-    35%, 70%  { transform: scaleY(1);    opacity: 1; }
-    90%       { transform: scaleY(0.95); opacity: 0.85; }
-    100%      { transform: scaleY(0);    opacity: 0.4; }
+@keyframes bull-arrow-wipe {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
 }
-@keyframes app-title-pf-arrow-draw {
-    0%        { stroke-dashoffset: 35; opacity: 0.5; }
-    25%       { stroke-dashoffset: 35; opacity: 0.5; }
-    65%       { stroke-dashoffset: 0;  opacity: 1; }
-    85%       { stroke-dashoffset: 0;  opacity: 1; }
-    100%      { stroke-dashoffset: 35; opacity: 0.5; }
+.bull-bull {
+    fill: var(--text-primary);
+    transform-origin: 30% 80%;
+    transform-box: fill-box;
+    animation: bull-leap 0.72s cubic-bezier(0.2, 1.3, 0.4, 1) 0.42s both,
+               bull-idle 6s ease-in-out 1.6s infinite;
 }
-@keyframes app-title-pf-arrowhead-draw {
-    0%, 55%   { stroke-dashoffset: 8; opacity: 0; }
-    70%       { stroke-dashoffset: 0; opacity: 1; }
-    85%       { stroke-dashoffset: 0; opacity: 1; }
-    100%      { stroke-dashoffset: 8; opacity: 0; }
+@keyframes bull-leap {
+    from { transform: translate(-16%, 14%) rotate(-11deg) scale(0.82); opacity: 0; }
+    60%  { opacity: 1; }
+    to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
+}
+/* Idle: a breath, not a bounce. The old logo looped a shimmer forever, which Roshan did not
+   like; this is a 1.5% lift every 6 seconds and is easy to stop looking at. */
+@keyframes bull-idle {
+    0%, 100%  { translate: 0 0; }
+    50%       { translate: 0 -1.5%; }
+}
+/* Hover the title: the bull takes the jump again. */
+.app-title-wrap:hover .bull-bull {
+    animation: bull-leap 0.72s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.app-title-wrap:hover .bull-bar {
+    animation: bull-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.app-title-wrap:hover .bull-arrow {
+    animation: bull-arrow-wipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
 }
 @media (prefers-reduced-motion: reduce) {
-    .app-title-pf-candle, .app-title-pf-arrow, .app-title-pf-arrowhead {
+    .bull-bar, .bull-arrow, .bull-bull,
+    .app-title-wrap:hover .bull-bar,
+    .app-title-wrap:hover .bull-arrow,
+    .app-title-wrap:hover .bull-bull {
         animation: none;
-        transform: scaleY(1);
-        stroke-dashoffset: 0;
+        transform: none;
+        translate: none;
         opacity: 1;
+        clip-path: none;
     }
 }
 
