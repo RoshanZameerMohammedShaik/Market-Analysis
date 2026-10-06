@@ -138,36 +138,37 @@
             transform: translateX(0) scale(1);
         }
         #splash-overlay .splash-bull-svg {
-            width: 62px; height: 44px; overflow: visible;
+            width: 64px; height: 45px; overflow: visible;
         }
-        /* The traced reference mark (tools/_exp6/trace.py). Bars grow, the arrow wipes in
-           left to right, the bull leaps in over the top. */
-        #splash-overlay .splash-bull-bar {
-            fill: #4a9eff;
+        /* Resting state = the finished mark, for the same reason as the header: these used to
+           animate on CSS parse, which is before the icon is even faded in. The sequence now
+           starts when .visible lands on the icon. */
+        #splash-overlay .splash-bull-bar  { fill: #4a9eff; }
+        #splash-overlay .splash-bull-arrow { fill: #2dd28b; }
+        #splash-overlay .splash-bull-bull  { fill: #eef2f7; }
+        #splash-overlay .splash-icon.visible .splash-bull-bar {
             transform-origin: center bottom; transform-box: fill-box;
             animation: splash-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        #splash-overlay .splash-bull-bar.bar-1 { animation-delay: 0.05s; }
-        #splash-overlay .splash-bull-bar.bar-2 { animation-delay: 0.14s; }
-        #splash-overlay .splash-bull-bar.bar-3 { animation-delay: 0.23s; }
-        #splash-overlay .splash-bull-bar.bar-4 { animation-delay: 0.32s; }
+        #splash-overlay .splash-icon.visible .splash-bull-bar.bar-1 { animation-delay: 0.02s; }
+        #splash-overlay .splash-icon.visible .splash-bull-bar.bar-2 { animation-delay: 0.11s; }
+        #splash-overlay .splash-icon.visible .splash-bull-bar.bar-3 { animation-delay: 0.20s; }
+        #splash-overlay .splash-icon.visible .splash-bull-bar.bar-4 { animation-delay: 0.29s; }
         @keyframes splash-bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-        #splash-overlay .splash-bull-arrow {
-            fill: #2dd28b;
-            animation: splash-arrow-wipe 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+        #splash-overlay .splash-icon.visible .splash-bull-arrow {
+            animation: splash-arrow-wipe 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
         }
         @keyframes splash-arrow-wipe {
             from { clip-path: inset(0 100% 0 0); }
             to   { clip-path: inset(0 0 0 0); }
         }
-        #splash-overlay .splash-bull-bull {
-            fill: #eef2f7;
+        #splash-overlay .splash-icon.visible .splash-bull-bull {
             transform-origin: 30% 80%; transform-box: fill-box;
-            animation: splash-bull-leap 0.72s cubic-bezier(0.2, 1.3, 0.4, 1) 0.42s both;
+            animation: splash-bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) 0.34s both;
         }
         @keyframes splash-bull-leap {
-            from { transform: translate(-16%, 14%) rotate(-11deg) scale(0.82); opacity: 0; }
-            60%  { opacity: 1; }
+            from { transform: translate(-18%, 16%) rotate(-12deg) scale(0.8); opacity: 0; }
+            55%  { opacity: 1; }
             to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
         }
         /* The "BAMM" — splash content flies up to where the real
@@ -182,9 +183,9 @@
             #splash-overlay .splash-content,
             #splash-overlay .splash-icon { transition: none; }
             #splash-overlay .splash-title.shimmer { animation: none; background-position: 50% 0; }
-            #splash-overlay .splash-bull-bar,
-            #splash-overlay .splash-bull-arrow,
-            #splash-overlay .splash-bull-bull {
+            #splash-overlay .splash-icon.visible .splash-bull-bar,
+            #splash-overlay .splash-icon.visible .splash-bull-arrow,
+            #splash-overlay .splash-icon.visible .splash-bull-bull {
                 animation: none; transform: none; opacity: 1; clip-path: none;
             }
         }
@@ -580,6 +581,11 @@
             var content = overlay.querySelector('.splash-content');
             var done = false;
 
+            function playHeaderLogo() {
+                var mark = document.querySelector('.app-title-bull');
+                if (mark) mark.classList.add('play');
+            }
+
             function settle() {
                 if (done) return;
                 done = true;
@@ -590,8 +596,13 @@
                 setTimeout(function () { icon.classList.add('visible'); }, 250);
                 // Step 3: ~700ms later, BAMM — fly to header.
                 setTimeout(function () { content.classList.add('fly'); }, 700);
-                // Step 4: ~1.25s later, fade out the overlay.
-                setTimeout(function () { overlay.classList.add('dismissing'); }, 1250);
+                // Step 4: ~1.25s later, fade out the overlay AND start the header
+                // logo's sequence. It is deliberately not started earlier: the overlay is
+                // opaque until now, so an earlier start is an animation nobody can see.
+                setTimeout(function () {
+                    overlay.classList.add('dismissing');
+                    playHeaderLogo();
+                }, 1250);
                 // Step 5: ~1.6s later, remove from DOM entirely so it
                 // can't intercept clicks or hold layout.
                 setTimeout(function () {
