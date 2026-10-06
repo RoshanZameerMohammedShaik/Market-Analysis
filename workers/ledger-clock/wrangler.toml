@@ -1,0 +1,29 @@
+# Cloudflare Worker: fires the Live ledger's daily slots ON TIME.
+#
+# GitHub delivered the ledger's scheduled runs hours late in October 2026 (the 08:05 UTC slot at
+# 17:00, 13:35 at 21:12, one never), and NYSE recorded nothing for two days. Cloudflare cron
+# triggers fire on the minute, so this Worker calls GitHub's workflow_dispatch API at each slot
+# and the workflow's own `schedule:` stays as the fallback. A fallback that arrives after the work
+# is done exits in seconds (the workflow's `gate` job), and record_predictions.py skips symbols it
+# already wrote, so firing twice is harmless.
+#
+# ── ONE-TIME SETUP (Roshan, authenticated CF + GitHub accounts) ─────────
+#   1. GitHub -> Settings -> Developer settings -> Fine-grained tokens -> Generate new token
+#        Repository access: Only select repositories -> Market-Analysis
+#        Permissions: Repository -> Actions: Read and write   (nothing else)
+#   2. From this folder, store it as a secret (it is never written to a file):
+#        npx wrangler secret put GITHUB_DISPATCH_TOKEN
+#   3. Check:  https://market-analysis-ledger-clock.<your-subdomain>.workers.dev/status
+#        "tokenSet": true, and the next slots listed.
+#
+# Without the secret the Worker runs, logs "no token", and dispatches nothing: the GitHub
+# schedule keeps working exactly as before.
+
+name = "market-analysis-ledger-clock"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# Every 5 minutes, UTC. Every slot in SLOTS is on a multiple of 5 minutes, so each one matches
+# exactly one tick. One trigger, not eight: the free plan allows 5 cron triggers per account.
+[triggers]
+crons = ["*/5 * * * *"]

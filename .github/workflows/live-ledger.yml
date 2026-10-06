@@ -73,7 +73,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # SECONDS, NOT MINUTES, WHEN THERE IS NOTHING TO DO.
+  #
+  # GitHub delivered this workflow's crons hours late in October 2026 (the 08:05 slot at 17:00,
+  # 13:35 at 21:12, one not at all), so NYSE recorded nothing on Oct 5 and Oct 6. The slots are
+  # now fired on time by workers/ledger-clock (a Cloudflare cron that calls workflow_dispatch),
+  # and the schedule below stays as the fallback. A fallback that turns up after the work is
+  # done stops here, before setup-python and the 2-8 minute pip install, because every minute
+  # spent in the concurrency group is a minute in which GitHub can cancel a run that is waiting
+  # behind it. Standard library only; no setup step needed.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      done: ${{ steps.check.outputs.done }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github
+            tools/ledger_task_done.py
+            model/ledger
+      - name: Has this task already run today?
+        id: check
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TASK: ${{ github.event.inputs.task }}
+        run: |
+          python3 tools/ledger_task_done.py --schedule "$SCHEDULE" --task "$INPUT_TASK" | tee -a "$GITHUB_OUTPUT"
+
   ledger:
+    needs: gate
+    if: needs.gate.outputs.done != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write

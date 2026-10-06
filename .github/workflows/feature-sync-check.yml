@@ -23,6 +23,9 @@ on:
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
       - 'tools/workflow_step_order_check.py'
+      - 'tools/ledger_clock_check.py'
+      - 'tools/ledger_task_done.py'
+      - 'workers/ledger-clock/**'
       - 'market_sessions.py'
       - 'js/market-sessions.js'
       - 'earnings_calendar.py'
@@ -126,6 +129,9 @@ on:
       - 'tools/reversion_sync_check.mjs'
       - 'tools/grade_setups.py'
       - 'tools/workflow_step_order_check.py'
+      - 'tools/ledger_clock_check.py'
+      - 'tools/ledger_task_done.py'
+      - 'workers/ledger-clock/**'
       - 'market_sessions.py'
       - 'js/market-sessions.js'
       - 'earnings_calendar.py'
@@ -254,6 +260,10 @@ jobs:
       # silently false forever. The Mia desk skipped its Node 24 setup for weeks this way.
       - name: Check no step reads an output that does not exist yet
         run: python tools/workflow_step_order_check.py
+      # workers/ledger-clock fires the ledger's slots on time; its copy of the schedule must
+      # match the workflow's, or a slot silently falls back to GitHub's late delivery.
+      - name: Check the ledger clock fires exactly the workflow's slots
+        run: python tools/ledger_clock_check.py
 
   # The browser draws the High/Low bands the user sees; the cron scores them for
   # calibration. If the two implementations drift, the displayed confidence stops
