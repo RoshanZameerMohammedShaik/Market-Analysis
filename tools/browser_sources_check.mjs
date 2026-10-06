@@ -135,21 +135,61 @@ console.log('=== earnings and options read through the Yahoo crumb wall ===');
 // 401 "Invalid Crumb". earnings.js then returned null for EVERY symbol -- which reads exactly like "no
 // earnings coming up", so the pre-earnings cap that stops a directional call on the eve of a binary
 // event never fired and nothing looked wrong. A null here is only acceptable with a stated reason.
+//
+// A BLOCKED RUNNER IS NOT A BROKEN CRUMB, and this check has to tell them apart.
+//
+// It went red on GitHub on 2026-10-02 and 2026-10-06 while passing 16/16 locally the same
+// hour. Yahoo rate-limits and refuses datacenter IPs, so a CI failure here is usually the
+// runner's address, not our code. Downgrading the check to a warning was the wrong fix: the
+// silent null it was written for (quoteSummary 401 => "no earnings coming up" => the
+// pre-earnings cap never fires) is a real bug class that must still go red.
+//
+// So the two cases are separated by evidence. A PLAIN QUOTE for the same symbol goes through
+// the same Worker and the same Yahoo host, but needs no crumb:
+//   * plain quote fails too      -> Yahoo is refusing this IP. Environmental: WARN.
+//   * plain quote works, these do not -> the crumb path is broken. REGRESSION: FAIL.
+// Retried a few times first, because the cookie/crumb handshake is genuinely flaky from a
+// datacenter and a retry clears most of it.
 const eo = await page.evaluate(async () => {
-    const out = {};
-    try { out.earnings = await (await import('/js/earnings.js')).getEarningsProximity('AAPL'); }
-    catch (e) { out.earnings = { error: String(e.message) }; }
-    try { out.options = await (await import('/js/options-iv.js')).fetchOptionsPositioning('AAPL'); }
-    catch (e) { out.options = { error: String(e.message) }; }
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const out = { attempts: 0 };
+    for (let i = 0; i < 3; i++) {
+        out.attempts = i + 1;
+        try { out.earnings = await (await import('/js/earnings.js')).getEarningsProximity('AAPL'); }
+        catch (e) { out.earnings = { error: String(e.message) }; }
+        try { out.options = await (await import('/js/options-iv.js')).fetchOptionsPositioning('AAPL'); }
+        catch (e) { out.options = { error: String(e.message) }; }
+        if (Number.isFinite(out.earnings?.daysUntil) && Number.isFinite(out.options?.pcr)) break;
+        if (i < 2) await sleep(2500);
+    }
+    // The control: same proxy, same host, no crumb required.
+    try {
+        const { fetchStockData } = await import('/js/data.js');
+        const d = await fetchStockData('AAPL', '5d', '1d');
+        out.plainQuoteOk = Number.isFinite(d?.currentPrice) && d.currentPrice > 0;
+    } catch (e) {
+        out.plainQuoteOk = false;
+        out.plainQuoteError = String(e.message).slice(0, 120);
+    }
     return out;
 });
+const crumbOk = Number.isFinite(eo.earnings?.daysUntil) && Number.isFinite(eo.options?.pcr);
 // AAPL always has a scheduled report, so a null proximity is a broken source, not a quiet calendar.
-check('earnings proximity resolves for AAPL (not a silent null)',
-      Number.isFinite(eo.earnings?.daysUntil),
-      `${JSON.stringify(eo.earnings)} -- a 401 "Invalid Crumb" means the Worker stopped sending the crumb on quoteSummary`);
-check('options positioning resolves for AAPL',
-      Number.isFinite(eo.options?.pcr),
-      `${JSON.stringify(eo.options)?.slice(0, 120)} -- same crumb wall, on v7/finance/options`);
+if (crumbOk || eo.plainQuoteOk) {
+    check('earnings proximity resolves for AAPL (not a silent null)',
+          Number.isFinite(eo.earnings?.daysUntil),
+          `${JSON.stringify(eo.earnings)} -- a plain quote for AAPL DID work, so Yahoo is not `
+          + `refusing this IP: the crumb is no longer reaching quoteSummary`);
+    check('options positioning resolves for AAPL',
+          Number.isFinite(eo.options?.pcr),
+          `${JSON.stringify(eo.options)?.slice(0, 120)} -- same crumb wall, on v7/finance/options`);
+} else {
+    warn('earnings + options skipped: Yahoo is refusing this IP',
+         `earnings, options AND a plain AAPL quote all failed after ${eo.attempts} attempts `
+         + `(${eo.plainQuoteError || 'no quote'}). The control request failed too, so this is the `
+         + "runner's address, not a crumb regression. If the plain quote ever succeeds while "
+         + 'these two fail, this becomes a hard failure again.');
+}
 
 console.log();
 console.log(`=== the full ensemble on ${SYMBOL} ===`);
