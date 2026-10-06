@@ -74,6 +74,18 @@ on:
         description: 'For mode=arm only: how many stocks she may hold at once, per strategy (1 = one name at a time)'
         required: false
         default: '3'
+      # CASH OR MARGIN IS A HUMAN DECISION, taken when the desk is turned on and not after.
+      # Margin permits leverage and skips the T+1 settlement wait, so it changes how much can
+      # be lost; the desk must never pick it for itself, and it is not changed mid-book
+      # because every recorded trade carries the type it executed under.
+      accountType:
+        description: 'For mode=arm only: cash (no leverage, settled funds) or margin (leverage allowed)'
+        required: false
+        default: 'cash'
+        type: choice
+        options:
+          - cash
+          - margin
 
 # Mia gets her OWN group rather than sharing 'live-ledger'.
 #
@@ -172,12 +184,12 @@ jobs:
             echo "::error title=No allocation::mode=arm needs allocationUSD. Re-run and enter how much of your portfolio the desk should trade."
             exit 1
           fi
+          args=""
           pos="${{ github.event.inputs.positions }}"
-          if [ -n "$pos" ]; then
-            python -m bot.run --arm "$alloc" --positions "$pos"
-          else
-            python -m bot.run --arm "$alloc"
-          fi
+          [ -n "$pos" ] && args="$args --positions $pos"
+          at="${{ github.event.inputs.accountType }}"
+          [ -n "$at" ] && args="$args --account-type $at"
+          python -m bot.run --arm "$alloc" $args
 
       - name: Disarm the desk
         if: steps.mode.outputs.mode == 'disarm'

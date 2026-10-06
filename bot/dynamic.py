@@ -252,11 +252,63 @@ def atr_exit_levels(cand, avg_cost):
              'tpMovePct': round(200.0 * atr, 3), 'slMovePct': round(-100.0 * atr, 3)})
 
 
-def exit_levels(cand, avg_cost):
+def exit_levels(cand, avg_cost, exits=None):
+    """Take-profit and stop-loss prices, after the configured rails are applied.
+
+    The band and ATR paths decide what this symbol can plausibly move; `exits` decides what
+    the desk is willing to accept. profitTargetPct is a FLOOR on the target (never sell for
+    less than it) and maxLossPct is a CEILING on the loss (never risk more than it), so a
+    symbol whose own band is wider than either gets the tighter, configured level.
+    """
     tp, sl, ev = band_exit_levels(cand, avg_cost)
-    if tp is not None:
+    if tp is None:
+        tp, sl, ev = atr_exit_levels(cand, avg_cost)
+    if tp is None or not (avg_cost > 0):
         return tp, sl, ev
-    return atr_exit_levels(cand, avg_cost)
+    e = exits or {}
+    floor_pct = e.get('profitTargetPct')
+    if isinstance(floor_pct, (int, float)) and floor_pct > 0:
+        floor = avg_cost * (1.0 + float(floor_pct) / 100.0)
+        if floor > tp:
+            tp = floor
+            ev = dict(ev, tpFloorPct=float(floor_pct), tpMovePct=round(float(floor_pct), 3),
+                      tpSource='configured floor')
+    cap_pct = e.get('maxLossPct')
+    if isinstance(cap_pct, (int, float)) and cap_pct > 0:
+        # The stop sits AT maxLossPct, not at whichever of the two is tighter. A band stop
+        # inside it (a calm name's day-1 low is often -1.5%) would fire more often than the
+        # distance that was actually measured, which is how a conditional stop drifts back
+        # toward the blind one that took the edge to zero.
+        sl = avg_cost * (1.0 - float(cap_pct) / 100.0)
+        ev = dict(ev, slCapPct=float(cap_pct), slMovePct=round(-float(cap_pct), 3),
+                  slSource='configured cap')
+    return tp, sl, ev
+
+
+def target_reachable(cand, exits=None):
+    """Can this symbol plausibly reach the profit target inside the hold window?
+
+    (ok, evidence). Entry-side half of profitTargetPct: a 0.9%-sigma large cap cannot travel
+    5% in a few weeks, and promising it would be a target that never fires. Judged on the
+    symbol's own daily sigma scaled over the window, not on a category.
+    """
+    e = exits or {}
+    pct = e.get('profitTargetPct')
+    cap = e.get('maxTargetSigmas')
+    if not (isinstance(pct, (int, float)) and pct > 0 and isinstance(cap, (int, float)) and cap > 0):
+        return True, {}
+    sigma = cand.get('sigmaDailyPct')
+    if sigma is None:
+        sigma = ((cand.get('band') or {}).get('sigmaDaily'))
+    if sigma is None:
+        sigma = cand.get('atrPct')
+    if not isinstance(sigma, (int, float)) or sigma <= 0:
+        return True, {'reason': 'no volatility estimate; not filtered'}
+    days = float(e.get('windowDays') or 20)
+    window = float(sigma) * (days ** 0.5)
+    need = float(pct) / window if window > 0 else 99.0
+    return need <= float(cap), {'targetSigmas': round(need, 2), 'maxTargetSigmas': float(cap),
+                                'windowMovePct': round(window, 2)}
 
 
 # ── volatility-scaled position sizing ────────────────────────────────────────

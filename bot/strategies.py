@@ -36,7 +36,7 @@ class Intent:
     """A strategy's wish. Advisory only until the runner approves it."""
 
     def __init__(self, action, symbol, why, evidence=None, conviction=0.5,
-                 size_hint_pct=None):
+                 size_hint_pct=None, order_type='market', limit_price=None):
         self.action = action.upper()        # BUY | SELL
         self.symbol = symbol
         self.why = why
@@ -45,10 +45,20 @@ class Intent:
         # marginal call takes a smaller bite than a strong one.
         self.conviction = max(0.0, min(1.0, float(conviction)))
         self.size_hint_pct = size_hint_pct
+        # MARKET or LIMIT, Mia's choice per trade (Roshan: "she can either do market orders
+        # or limit orders on buy and sell, it is her choice"). A limit does not rest in a book
+        # here: it is live for THIS cycle only and she re-places it next cycle if she still
+        # wants it, which is an honest ~15-minute order rather than a fictional queue
+        # position. It fills at her price or better, or not at all.
+        self.order_type = 'limit' if str(order_type).lower() == 'limit' else 'market'
+        self.limit_price = float(limit_price) if isinstance(limit_price, (int, float)) else None
+        if self.order_type == 'limit' and not (self.limit_price and self.limit_price > 0):
+            self.order_type = 'market'      # a limit without a price is not an order
 
     def to_dict(self):
         return {'action': self.action, 'symbol': self.symbol, 'why': self.why,
-                'evidence': self.evidence, 'conviction': round(self.conviction, 4)}
+                'evidence': self.evidence, 'conviction': round(self.conviction, 4),
+                'orderType': self.order_type, 'limitPrice': self.limit_price}
 
     def __repr__(self):
         return f'<Intent {self.action} {self.symbol} conv={self.conviction:.2f}>'
@@ -70,6 +80,39 @@ def _rank_conviction(rank, entry_pctile):
         return 0.6
     span = max(1e-6, 1.0 - entry_pctile)
     return 0.5 + 0.5 * max(0.0, min(1.0, (rank - entry_pctile) / span))
+
+
+# ── "a sharp decline is analyzed" ────────────────────────────────────────────
+
+def confirmed_decline(cand, exits=None):
+    """Is this position's decline CONFIRMED, rather than ordinary noise? (bool, why).
+
+    The stop is armed only when this says yes, because of what happens when it is not. On
+    85,464 simulated trades over 14 years with identical entries (tools/_exp5/exit_rules.py),
+    a blind -2% stop fired on 69% of trades and cut the average result from +0.91% to +0.04%
+    on momentum entries and +1.65% to +0.14% on dips: the distance is inside one day's noise
+    for most of this universe. The same -2% armed only on confirmation returned +0.99% and
+    +1.25%, and cut the worst single trade from -489% to -163%.
+
+    Two confirmations, both measured elsewhere in this repo rather than invented here:
+      * below the 200-day average -- the regime where this engine's own BUYs ran 49.5% over
+        417,612 calls and lost money (js/trend-gate.js);
+      * next week's volatility forecast to rise sharply -- that call is right 84% at 80-90%
+        confidence and 94% above 90% on unseen years (js/vol-forecast.js).
+
+    requireConfirmedDecline=False restores the blind stop, with the measured result above.
+    """
+    e = exits or {}
+    if not e.get('requireConfirmedDecline', True):
+        return True, 'confirmation disabled'
+    trend = cand.get('trend') or {}
+    if trend.get('above200') is False:
+        return True, 'below its 200-day average'
+    vf = cand.get('volForecast') or {}
+    if vf.get('call') == 'choppier' and isinstance(vf.get('confidence'), (int, float)) \
+            and vf['confidence'] >= 0.7:
+        return True, f"volatility forecast {int(vf['confidence'] * 100)}% to rise next week"
+    return False, 'ordinary dip, not a confirmed decline'
 
 
 class Strategy:
@@ -122,6 +165,7 @@ class Strategy:
         xs = snapshot.get('cross')
         return xs.rank_of(field, value) if xs else None
 
+
     # ── shared exit logic ────────────────────────────────────────────────────
     def exit_intents(self, snapshot, sleeve):
         """Take-profit and stop-loss, derived per symbol from its own calibrated band.
@@ -148,7 +192,7 @@ class Strategy:
                 continue
             avg = basis / units
             cand = (snapshot['candidates'] or {}).get(sym) or {}
-            tp, sl, ev = exit_levels(cand, avg)
+            tp, sl, ev = exit_levels(cand, avg, self.cfg.get('exits'))
             if tp is None:
                 # No band AND no ATR. Refuse to invent a level; the strategy's own signal
                 # exit still applies, so the position is not unmanaged.
@@ -164,14 +208,17 @@ class Strategy:
                          targetUSD=round(tp, 6), movePct=round(move, 3),
                          rule='take-profit'),
                     conviction=0.9))
-            elif px <= sl and not self.cfg.get('neverSellAtLoss', True):
+            elif px <= sl and not self.cfg.get('neverSellAtLoss', True) and confirmed_decline(
+                    cand, self.cfg.get('exits'))[0]:
                 out.append(Intent(
                     'SELL', sym,
                     f'Stop loss: down {move:.2f}% from ${avg:,.4f}, through the '
-                    f'{ev.get("source", "model")} floor of ${sl:,.4f} '
-                    f'({ev.get("slMovePct", 0):.2f}% for its volatility). Cutting it.',
+                    f'{ev.get("slSource", ev.get("source", "model"))} floor of ${sl:,.4f}, '
+                    f'and the decline is confirmed ({confirmed_decline(cand, self.cfg.get("exits"))[1]}). '
+                    f'Cutting it.',
                     dict(ev, avgCostUSD=round(avg, 6), priceUSD=px,
                          stopUSD=round(sl, 6), movePct=round(move, 3),
+                         declineConfirmedBy=confirmed_decline(cand, self.cfg.get('exits'))[1],
                          rule='stop-loss'),
                     conviction=0.95))
         return out
@@ -493,6 +540,8 @@ class MiaAIStrategy(Strategy):
                     continue
                 if score < buy_cut:
                     continue
+            otype = str(d.get('orderType') or 'market').lower()
+            lpx = d.get('limitPrice')
             out.append(Intent(
                 act, sym,
                 why or f'{act} on my own read of the evidence.',
@@ -505,12 +554,14 @@ class MiaAIStrategy(Strategy):
                  'rsi': (c.get('indicators') or {}).get('rsi'),
                  'aiProbability': (c.get('ai') or {}).get('probability'),
                  'universeSize': snapshot['cross'].n,
+                 'orderType': otype, 'limitPrice': lpx,
                  'rule': 'mia-judgement'},
                 # Blend what she says with where the name actually ranks, so a confident
                 # call on a mediocre name sizes smaller than a confident call on a strong
                 # one. Falls back to her stated confidence alone when rank is unavailable.
                 conviction=(float(conf) if not isinstance(score_rank, (int, float))
-                            else 0.5 * float(conf) + 0.5 * score_rank)))
+                            else 0.5 * float(conf) + 0.5 * score_rank),
+                order_type=otype, limit_price=lpx))
             exiting.add(sym)
         return out
 

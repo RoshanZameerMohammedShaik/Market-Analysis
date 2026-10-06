@@ -90,7 +90,8 @@ DEFAULTS = {
     # 'cash' is the default because it is the stricter, more honest simulation: no
     # leverage means the P/L cannot be flattered by borrowed money, and settlement
     # limits churn. Switch to 'margin' to see leverage, interest and PDT in action.
-    'accountType': CASH,
+    'accountType': CASH,
+
     # $0 per order. This is not a favour to the backtest -- it is what US retail actually
     # pays, and has since October 2019. Pro Tiered ($0.0035/share, $0.35 minimum) was the
     # wrong default for a retail simulation: it charged $17.50 across 41 fills, almost all
@@ -107,7 +108,8 @@ DEFAULTS = {
     # never day-trade restricted. It also matters for measurement: IBKR's $0.35 per-order
     # minimum is 0.11% each way on a $310 position, so at a $10k seed a real slice of the
     # reported P/L would be commission-minimum friction rather than strategy. At $25k the
-    # positions are ~$780 and total drag falls to about 0.22% per round trip.
+    # positions are ~$780 and total drag falls to about 0.22% per round trip.
+
     # NO seedUSD. There is deliberately no default starting amount anywhere in this file.
     #
     # A 'seedUSD': 25_000.0 used to live here, and load_or_create used it whenever it found
@@ -199,15 +201,42 @@ DEFAULTS = {
         'temperature': 0.2,              # low: we want consistency, not creativity
     },
 
-    # NEVER book a loss. A position is held until it is above its cost basis net of the exit
-    # cost. Measured: 99.8% of SPY entries over 20 years recover (median 2 trading days), and
-    # 97.8% of entries in the crypto majors this desk is allowed to trade.
+    # OFF since 2026-10-06. "Never book a loss" is what put the whole drawdown in open
+    # positions: five names bought on 2026-09-08 were still held a month later, -$335
+    # unrealised, while every CLOSED trade was profitable (+$127 realised on 2 exits).
+    # The rule has no way to distinguish a dip that recovers from a trade that is simply
+    # wrong, so capital sat in the wrong names and could not be used.
+    'neverSellAtLoss': False,
+
+    # ── exits, Roshan 2026-10-06: "at least 5% profit, not more than 2% loss if a sharp
+    # decline is analyzed" ───────────────────────────────────────────────────────────────
     #
-    # SAFE ONLY BECAUSE OF maxRoundTripCostPct. In names that never come back the rule is
-    # ruinous: LUNC -100%, FTT -99.7%, MOVR -99.8%, BEAM -99.0%, ILV -99.8%, GOAT -98.5%.
-    # The cost cap excludes every one of them. Raise the cap and this rule becomes dangerous
-    # again -- they are a pair, not two independent settings.
-    'neverSellAtLoss': True,
+    # Both halves are measured on 85,464 simulated trades over 14 years with entries held
+    # identical across arms (tools/_exp5/exit_rules.py), because the wording decides whether
+    # this rule makes money or destroys the book:
+    #
+    #   rule                        momentum avg/trade   dip avg/trade   worst trade
+    #   current (never sell)              +0.91%            +1.65%          -489%
+    #   +5% / BLIND -2% stop              +0.04%            +0.14%           -24%
+    #   +5% / -2% on CONFIRMED decline    +0.99%            +1.25%          -163%
+    #
+    # A blind 2% stop is inside one day's noise for most of this universe: it fired on 69%
+    # of trades and took the edge to zero. The CONFIRMED version is what "if a sharp decline
+    # is analyzed" asks for, and it beats the old rule on momentum entries while cutting the
+    # worst case by two thirds. requireConfirmedDecline is therefore NOT a preference; set it
+    # false and the measured result above is what you get.
+    'exits': {
+        'profitTargetPct': 5.0,          # floor under the band target, never sell for less
+        'maxLossPct': 2.0,               # cut here, but only when the decline is confirmed
+        'requireConfirmedDecline': True,
+        # Entry side of the same promise: do not buy a name whose own volatility cannot
+        # plausibly reach +5% inside the window, instead of hanging an unreachable target on
+        # a 0.9%-sigma large cap. 1.2 = the target may be up to 1.2 window-sigmas away.
+        'maxTargetSigmas': 1.2,
+        # 'market' fills at the spread-crossed price now; 'limit' rests at the signal price
+        # and only fills if the market comes to it. 'mia' lets her choose per trade.
+        'orderType': 'mia',
+    },
 
     'enabled': True,
     'notes': 'Paper money. No broker connection exists and none is planned.',
@@ -266,7 +295,8 @@ def validate(cfg):
     if cfg.get('commissionPlan') not in (PLAN_LITE, PLAN_PRO_TIERED, PLAN_PRO_FIXED):
         print(f"[config] unknown commissionPlan; using {PLAN_PRO_TIERED}")
         cfg['commissionPlan'] = PLAN_PRO_TIERED
-
+
+
     clamp('maxCandidates', 5, 500)
     clamp('risk.maxPositionPct', 1.0, 50.0)
     clamp('risk.maxPositions', 1, 50)

@@ -54,10 +54,11 @@ from bot.broker import CASH, BrokerAccount, broker_fees_usd            # noqa: E
 from bot.config import BOT_DIR, CONFIG_PATH, load_config, sleeve_defs  # noqa: E402
 from bot.portfolio import MIN_TRADE_USD, BotAccount, Sleeve, utc_now_iso  # noqa: E402
 from bot.sessions import CRYPTO, market_of, open_markets, describe_week, minutes_to_close  # noqa: E402
-import bot.strategies as strategies                                    # noqa: E402
+import bot.strategies as strategies
+from bot.strategies import confirmed_decline                            # noqa: E402                                    # noqa: E402
 from bot.learn import learn, load_learned                              # noqa: E402
 from bot.dynamic import (CrossSection, exposure_scale, expected_move_pct,  # noqa: E402
-                         expected_value_pct, is_tradeable, risk_parity_size_usd)
+                         expected_value_pct, is_tradeable, risk_parity_size_usd, target_reachable)
 from trading_costs import round_trip_cost_pct                          # noqa: E402
 import ledger_store                                                    # noqa: E402
 
@@ -213,7 +214,7 @@ def breadth_history(limit=60):
 MIN_ALLOCATION_USD = 400.0
 
 
-def set_armed(armed, allocation_usd, positions=None):
+def set_armed(armed, allocation_usd, positions=None, account_type=None):
     """Persist the arm state into model/bot/config.json.
 
     Written to the CONFIG rather than to state.json because it is a user decision, not
@@ -226,6 +227,18 @@ def set_armed(armed, allocation_usd, positions=None):
     cfg['armed'] = bool(armed)
     cfg['allocationUSD'] = round(float(allocation_usd), 2) if allocation_usd else None
     cfg['armedAt'] = utc_now_iso() if armed else None
+    # CASH OR MARGIN IS THE USER'S CALL, AT ARM TIME, AND ONLY THEN.
+    #
+    # Roshan: "the type of account whether margin or cash account is a manual control that
+    # user can give at the time of setting up/turning on autotrade." Margin changes what the
+    # desk may do (leverage, no T+1 settlement wait) and therefore how much can be lost, so
+    # it is never derived from a signal and never changed mid-book: the broker rails and every
+    # recorded trade carry the type they executed under.
+    if account_type:
+        t = str(account_type).strip().lower()
+        if t not in ('cash', 'margin'):
+            raise SystemExit(f"accountType must be 'cash' or 'margin', got {account_type!r}")
+        cfg['accountType'] = t
     if positions:
         n = max(1, int(positions))
         cfg.setdefault('risk', {})['maxPositions'] = n
@@ -378,6 +391,20 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     if not isinstance(px, (int, float)) or px <= 0:
         return False, 0.0, 'no usable price'
 
+    # LIMIT ORDERS. Mia picks market or limit per trade; a limit only transacts at her price
+    # or better. Nothing rests in a book here -- the order lives for this cycle and she
+    # re-places it next cycle if she still wants it -- so an unfilled limit is recorded as a
+    # refusal with its distance, never as a fill that did not happen.
+    if intent.order_type == 'limit' and intent.limit_price:
+        lp = intent.limit_price
+        away = (px / lp - 1.0) * 100.0
+        if intent.action == 'BUY' and px > lp:
+            return False, 0.0, (f'limit BUY at ${lp:,.4f} not reached: market is ${px:,.4f}, '
+                                f'{away:+.2f}% away. Order expires this cycle.')
+        if intent.action == 'SELL' and px < lp:
+            return False, 0.0, (f'limit SELL at ${lp:,.4f} not reached: market is ${px:,.4f}, '
+                                f'{away:+.2f}% away. Order expires this cycle.')
+
     if intent.action == 'SELL':
         if sleeve.units(sym) <= 0:
             return False, 0.0, 'no position to sell'
@@ -401,7 +428,18 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
         #
         # Enforced HERE rather than in each strategy so no exit path can bypass it: signal
         # decay, take-profit, reversion release and the AI's own change of mind all land here.
-        if cfg.get('neverSellAtLoss', True):
+        # A LOSS IS BOOKED ONLY WHEN THE DECLINE IS CONFIRMED.
+        #
+        # neverSellAtLoss used to refuse every losing sale here, from any rule. Off on its own
+        # that would let ANY exit book a loss -- signal decay, reversion release, the AI
+        # changing its mind -- and none of those were in the 85,464-trade comparison that
+        # justified the change. Only the confirmed-decline case was. So the guard stays and
+        # confirmation is what opens it: a real break (below the 200-day average, or next
+        # week's volatility forecast sharply higher) can be cut; an ordinary dip cannot, which
+        # is what Roshan's "if a sharp decline is analyzed" asks for.
+        cand_here = ((snapshot or {}).get('candidates') or {}).get(sym) or {}
+        decline_ok, decline_why = confirmed_decline(cand_here, cfg.get('exits'))
+        if cfg.get('neverSellAtLoss', True) or not decline_ok:
             units_held = sleeve.units(sym)
             basis = sleeve.cost_basis_usd(sym)
             if units_held > 0 and basis > 0:
@@ -411,8 +449,9 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
                 if net_px <= avg:
                     loss_pct = (net_px / avg - 1.0) * 100.0
                     return False, 0.0, (f'holding: selling now realises {loss_pct:+.2f}% '
-                                        f'(net ${net_px:.6g} vs ${avg:.6g} cost). This desk '
-                                        f'does not sell at a loss.')
+                                        f'(net ${net_px:.6g} vs ${avg:.6g} cost) and '
+                                        f'{decline_why}. A loss is only booked when the '
+                                        f'decline is confirmed.')
 
         held_since = state_meta.get('openedAt', {}).get(f'{sleeve.id}:{sym}')
         # STOP-LOSS may always fire: it is a risk control, not an opinion. TAKE-PROFIT no
@@ -480,6 +519,25 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     if cross is not None and not cross.rankable:
         return False, 0.0, (f'only {cross.n} tradeable names this run, too few to rank; '
                             f'no new entries until the cross-section is meaningful')
+
+    # THE PROFIT TARGET, ENFORCED AT ENTRY.
+    #
+    # Roshan asked for "at least 5% profit in every trade". The honest way to keep that promise
+    # is to not buy what cannot deliver it: a 0.9%-sigma large cap travels about 4% in 20
+    # sessions, so a +5% target on it is a target that never fires and the position just sits
+    # there -- which is exactly the failure that put the whole drawdown in open positions.
+    # Judged on the symbol's OWN volatility (bot/dynamic.target_reachable), not a category.
+    #
+    # CONSEQUENCE, stated plainly because it is a real cost of the rule: this excludes the
+    # calmest large caps. Demanding 5% means trading names that can move 5%, and those are
+    # more volatile by construction. maxLossPct is what bounds the downside of that.
+    cand_for_sym = ((snapshot or {}).get('candidates') or {}).get(sym) or {}
+    reach_ok, reach_ev = target_reachable(cand_for_sym, cfg.get('exits'))
+    if not reach_ok:
+        return False, 0.0, (f'cannot reach the +{cfg.get("exits", {}).get("profitTargetPct", 5)}% target: '
+                            f'{reach_ev.get("windowMovePct")}% is its typical 20-session move, so the '
+                            f'target is {reach_ev.get("targetSigmas")} sigmas away '
+                            f'(cap {reach_ev.get("maxTargetSigmas")})')
 
     # EXECUTION-COST CAP, enforced again HERE and not only when picking the universe.
     # Held positions are deliberately exempt from the universe screen so she can always SELL
@@ -593,6 +651,9 @@ def main():
     ap.add_argument('--arm', type=float, metavar='USD',
                     help='START the desk with this allocation, in USD. Until this is run '
                          'the desk does nothing at all.')
+    ap.add_argument('--account-type', choices=('cash', 'margin'), default=None,
+                    help="with --arm: cash (no leverage, T+1 settled funds) or margin "
+                         "(leverage allowed). The user's decision, never the desk's.")
     ap.add_argument('--positions', type=int, default=None, metavar='N',
                     help='how many stocks she may hold at once, per strategy. With N=1 she holds one name and cannot buy another until it is sold.')
     ap.add_argument('--disarm', action='store_true',
@@ -643,9 +704,10 @@ def main():
             log('refusing to arm: the desk already has an account. Use --reset first if you '
                 'really want to start over, which permanently discards the trade history.')
             sys.exit(1)
-        set_armed(True, amount, args.positions)
-        log(f'ARMED with ${amount:,.2f}. The desk will begin trading on its next scheduled '
-            f'run.')
+        set_armed(True, amount, args.positions, args.account_type)
+        at = (args.account_type or load_config().get('accountType') or 'cash')
+        log(f'ARMED with ${amount:,.2f} in a {at.upper()} account. The desk will begin '
+            f'trading on its next scheduled run.')
         return
 
     if not cfg.get('enabled', True):
@@ -946,6 +1008,11 @@ def main():
 def execute(acct, sleeve, broker, cfg, intent, size, prices, meta, today):
     """Apply the fill and return the timeline row, or None if the sleeve refused it."""
     px = prices[intent.symbol]
+    # A filled limit transacts at HER price, not the market's: approve() has already
+    # established the market is at or through it, and the whole point of the limit was to cap
+    # what she pays. The spread model still applies on top, as it would on a real venue.
+    if intent.order_type == 'limit' and intent.limit_price:
+        px = float(intent.limit_price)
     if intent.action == 'BUY':
         fill, why = sleeve.buy(intent.symbol, size, px)
     else:
@@ -983,6 +1050,8 @@ def execute(acct, sleeve, broker, cfg, intent, size, prices, meta, today):
         'sleeve': sleeve.id, 'sleeveName': sleeve.name,
         'action': intent.action, 'symbol': intent.symbol,
         'market': market_of(intent.symbol),
+        'orderType': intent.order_type,
+        'limitPriceUSD': (round(intent.limit_price, 6) if intent.limit_price else None),
         'units': round(fill['units'], 8),
         'refPriceUSD': round(fill['refPrice'], 6),
         'fillPriceUSD': round(fill['fillPrice'], 6),

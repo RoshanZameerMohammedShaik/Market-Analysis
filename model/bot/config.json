@@ -32,9 +32,16 @@
     "temperature": 0.2
   },
   "enabled": true,
-  "notes": "Paper money. No broker connection exists and none is planned. Thresholds are computed per run (bot/dynamic.py), not configured here; only risk RAILS are settings. The hold and cost rails come from a 12-year non-overlapping replay: at 1-day holds SPY nets -18.9% annualised after costs, at 60-day holds +14.0%. Cost tier decides the sign, holding period amplifies it. A position is never sold below its cost basis: measured recovery is 99.8% on SPY over 20 years and 97.8% on the crypto majors the cost cap admits. That rule is only safe BECAUSE of maxRoundTripCostPct, which excludes the names that go to zero (LUNC, FTT, MOVR, BEAM, ILV, GOAT all fell 98-100% and never recovered). Loosening the cost cap re-arms this rule.",
+  "notes": "Paper money. No broker connection exists and none is planned. Thresholds are computed per run (bot/dynamic.py), not configured here; only risk RAILS are settings. The hold and cost rails come from a 12-year non-overlapping replay: at 1-day holds SPY nets -18.9% annualised after costs, at 60-day holds +14.0%. Cost tier decides the sign, holding period amplifies it. A position is never sold below its cost basis: measured recovery is 99.8% on SPY over 20 years and 97.8% on the crypto majors the cost cap admits. That rule is only safe BECAUSE of maxRoundTripCostPct, which excludes the names that go to zero (LUNC, FTT, MOVR, BEAM, ILV, GOAT all fell 98-100% and never recovered). Loosening the cost cap re-arms this rule. 2026-10-06: neverSellAtLoss OFF and exits added (profitTargetPct 5, maxLossPct 2 armed only on a CONFIRMED decline). Measured on 85,464 simulated trades, identical entries: a BLIND -2% stop fired on 69% of trades and cut momentum returns from +0.91% to +0.04% per trade; the confirmed version returned +0.99% and cut the worst trade from -489% to -163%. The old rule left five positions untouched for a month at -$335 unrealised while every closed trade was profitable.",
   "armed": true,
   "allocationUSD": 10000.0,
   "armedAt": "2026-09-08T16:47:57Z",
-  "neverSellAtLoss": true
+  "neverSellAtLoss": false,
+  "exits": {
+    "profitTargetPct": 5.0,
+    "maxLossPct": 2.0,
+    "requireConfirmedDecline": true,
+    "maxTargetSigmas": 1.2,
+    "orderType": "mia"
+  }
 }

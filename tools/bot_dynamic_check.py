@@ -216,7 +216,14 @@ from bot.strategies import Intent as _Intent  # noqa: E402
 from bot.config import load_config as _load  # noqa: E402
 import bot.run as _R  # noqa: E402
 _cfg2 = _load()
-ck('neverSellAtLoss is on by default', _cfg2.get('neverSellAtLoss') is True)
+# Was "neverSellAtLoss is on by default". It is now OFF: holding every loser is what put the
+# desk's whole drawdown into open positions. What replaces it is a stop that fires only on a
+# CONFIRMED decline, so these assert the pair rather than the old flag.
+ck('neverSellAtLoss is off', _cfg2.get('neverSellAtLoss') is False)
+_ex = _cfg2.get('exits') or {}
+ck('a profit target floor is configured', float(_ex.get('profitTargetPct') or 0) > 0)
+ck('a max loss is configured', float(_ex.get('maxLossPct') or 0) > 0)
+ck('the stop requires a confirmed decline', _ex.get('requireConfirmedDecline') is True)
 _s = _Sleeve('engine', 'The Engine', cash_usd=1000.0)
 _s.buy('BTC-USD', 500.0, 100.0)
 _br = _Broker.from_dict({'accountType': 'cash', 'plan': 'ibkr-pro-tiered',
@@ -227,14 +234,32 @@ _today = _dt.date.today()
 def _try(px):
     it = _Intent('SELL', 'BTC-USD', 'signal decayed', {'rule': 'engine-exit'}, conviction=0.7)
     return _R.approve(it, _s, _br, _cfg2, {'BTC-USD': px}, {'openedAt': {}}, _today, 0, _snap)
+# A LOSS NEEDS A CONFIRMED DECLINE. The snapshot above carries no trend and no volatility
+# forecast, so nothing is confirmed and a losing sale must still be refused.
 _down_ok, _, _down_why = _try(95.0)
 _up_ok, _, _ = _try(112.0)
-ck('a losing sale is REFUSED', _down_ok is False, _down_why)
-ck('the refusal names the loss it avoided', 'realises' in _down_why, _down_why)
+ck('a losing sale on an UNconfirmed dip is refused', _down_ok is False, _down_why)
+ck('the refusal says why', 'realises' in _down_why and 'confirmed' in _down_why, _down_why)
 ck('a profitable sale is allowed', _up_ok is True)
 # Exiting exactly AT cost still loses the exit-side spread, so it must be refused too.
 _flat_ok, _, _ = _try(100.1)
 ck('selling at break-even before costs is refused', _flat_ok is False)
+# Same price, but now the name is below its 200-day average: the decline IS confirmed and the
+# loss may be cut. This is the pair that replaced "never sell at a loss".
+_snap_brk = {'candidates': {'BTC-USD': {'indicators': {'atrPct': 2.0}, 'trend': {'above200': False}}},
+             'breadth': 50, 'breadthHistory': []}
+_brk_ok, _, _brk_why = _R.approve(
+    _Intent('SELL', 'BTC-USD', 'stop', {'rule': 'stop-loss'}, conviction=0.95),
+    _s, _br, _cfg2, {'BTC-USD': 95.0}, {'openedAt': {}}, _today, 0, _snap_brk)
+ck('a losing sale IS allowed once the decline is confirmed', _brk_ok is True, _brk_why)
+# And the forecast is the other confirmation.
+_snap_vol = {'candidates': {'BTC-USD': {'indicators': {'atrPct': 2.0}, 'trend': {'above200': True},
+                                        'volForecast': {'call': 'choppier', 'confidence': 0.86}}},
+             'breadth': 50, 'breadthHistory': []}
+_vol_ok, _, _ = _R.approve(
+    _Intent('SELL', 'BTC-USD', 'stop', {'rule': 'stop-loss'}, conviction=0.95),
+    _s, _br, _cfg2, {'BTC-USD': 95.0}, {'openedAt': {}}, _today, 0, _snap_vol)
+ck('a sharply rising volatility forecast also confirms it', _vol_ok is True)
 # THE PAIRING. The rule is only safe because the cost cap removes names that go to zero:
 # LUNC -100%, FTT -99.7%, MOVR -99.8%, BEAM -99.0%, ILV -99.8%, GOAT -98.5%, none recovered.
 # If the cap ever admits them again, never-selling becomes ruinous.

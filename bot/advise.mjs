@@ -132,13 +132,67 @@ async function analyse(symbol) {
             band: r.forecastBand
                 ? { calibrated: r.forecastBand.calibrated, tier: r.forecastBand.volTier,
                     confidence: r.forecastBand.confidence,
+                    sigmaDaily: r.forecastBand.sigmaDaily ?? null,
                     day1: r.forecastBand.days?.[0] ?? null }
+                : null,
+            sigmaDailyPct: r.forecastBand?.sigmaDaily ?? ind.atrPct ?? null,
+            // The two measured mechanics the desk's exits depend on. Both were computed on
+            // every run already and thrown away here, so the stop had nothing to confirm a
+            // decline WITH and Mia could not see the one forecast with a real track record.
+            trend: r.trend
+                ? { above200: r.trend.above200 ?? null, ma200: r.trend.ma200 ?? null,
+                    dollarVol20: r.trend.dollarVol20 ?? null }
+                : null,
+            volForecast: r.volForecast
+                ? { sigmaPct: +(r.volForecast.sigma * 100).toFixed(2),
+                    past20Pct: +(r.volForecast.past20 * 100).toFixed(2),
+                    call: r.volForecast.call, confidence: +r.volForecast.confidence.toFixed(2),
+                    earningsThisWeek: !!r.volForecast.earnIn }
+                : null,
+            setup: r.reversionSetup?.active && r.reversionSetup?.reliable
+                ? { trigger: r.reversionSetup.trigger, recoveredPct: r.reversionSetup.cell?.hitRate ?? null }
                 : null,
             reasons: (r.reasons || []).slice(0, 5),
         };
     } catch (e) {
         return { symbol, error: `${e.constructor.name}: ${String(e.message).slice(0, 120)}` };
     }
+}
+
+/**
+  * Mia's own research pass: the headlines themselves, for the names she is about to decide on.
+  *
+  * Roshan asked that she "do her own research on which one to buy, google it, find
+  * information" before deciding. js/news.js already queries Google News RSS through the
+  * Worker proxy and scores each headline, so this reuses it rather than adding a second
+  * news path. What changes is what reaches her: she used to get `sentiment: 52` and no way
+  * to know whether that was an earnings beat or a fraud investigation.
+  *
+  * Best-effort by design. A dead feed returns no headlines and she decides on price evidence,
+  * which is what she did before this existed.
+  */
+async function research(symbols, limit = 6) {
+    let fetchStockNews, analyzeNewsSentiment;
+    try {
+        ({ fetchStockNews } = await import(pathToFileURL(join(REPO, 'js/news.js')).href));
+        ({ analyzeNewsSentiment } = await import(pathToFileURL(join(REPO, 'js/sentiment.js')).href));
+    } catch (e) {
+        return {};
+    }
+    const out = {};
+    for (const sym of symbols.slice(0, limit)) {
+        try {
+            const items = await fetchStockNews(sym);
+            if (!Array.isArray(items) || !items.length) continue;
+            const scored = await analyzeNewsSentiment(items.slice(0, 6), { bulkScan: true }).catch(() => null);
+            out[sym] = (scored?.items || items.slice(0, 6)).slice(0, 4).map((it) => ({
+                title: String(it.title || '').slice(0, 160),
+                tone: it.sentiment?.label ?? null,
+                ageHours: it.date ? Math.round((Date.now() - new Date(it.date).getTime()) / 36e5) : null,
+            }));
+        } catch (_) { /* one symbol's feed failing is not a run failure */ }
+    }
+    return out;
 }
 
 // BOUNDED CONCURRENCY.
@@ -210,6 +264,10 @@ async function miaDecides(holdings, cashUSD) {
     // Always include what she already owns, or she cannot decide to sell it.
     for (const c of ranked) if (held.has(c.symbol) && !shortlist.includes(c)) shortlist.push(c);
 
+    // Research before deciding, not after: the shortlist is known here, so the headlines for
+    // exactly those names are fetched before the prompt is built.
+    const news = await research(shortlist.map((c) => c.symbol), 8).catch(() => ({}));
+
     const brief = shortlist.map((c) => ({
         symbol: c.symbol, price: +c.price.toFixed(4), engineScore: +(c.score ?? 0).toFixed(1),
         signal: c.signal, engineConfidence: c.confidence,
@@ -218,10 +276,20 @@ async function miaDecides(holdings, cashUSD) {
         aiProbUp: c.ai.probability != null ? +c.ai.probability.toFixed(3) : null,
         sentiment: c.sources.sentiment, market: c.sources.market,
         bandDay1: c.band?.day1 ? [c.band.day1.low, c.band.day1.high] : null,
+        sigmaDailyPct: c.sigmaDailyPct ?? null,
+        aboveMA200: c.trend?.above200 ?? null,
+        volNextWeek: c.volForecast
+            ? { expectedDailyPct: c.volForecast.sigmaPct, recentDailyPct: c.volForecast.past20Pct,
+                call: c.volForecast.call, confidence: c.volForecast.confidence,
+                earningsThisWeek: c.volForecast.earningsThisWeek }
+            : null,
+        pullbackSetup: c.setup ?? null,
+        headlines: news[c.symbol] ?? null,
         held: held.has(c.symbol) ? holdings[c.symbol] : null,
     }));
 
     const rules = cfg.risk || {};
+    const ex = cfg.exits || {};
     const sysPrompt = [
         'You are Mia, a Market Intelligence Analyst running a small PAPER trading book.',
         'The money is simulated. Your job is to make the best decisions you can and to',
@@ -247,9 +315,39 @@ async function miaDecides(holdings, cashUSD) {
         `${rules.maxPositionPct || 12}% of the book per name, no more than`,
         `${rules.maxTradesPerRun || 3} trades this run. You cannot short. Cash: $${(cashUSD || 0).toFixed(2)}.`,
         '',
+        'THE EXIT RULES YOUR BUYS WILL BE HELD TO (the desk enforces these, not you):',
+        `  * Target +${ex.profitTargetPct ?? 5}% from your average cost. Nothing is sold for less.`,
+        `  * Cut at -${ex.maxLossPct ?? 2}%, but ONLY when the decline is confirmed: the name is`,
+        '    below its 200-day average, or next week\'s volatility is forecast sharply higher.',
+        '    A blind stop at this distance was measured firing on 69% of trades and taking the',
+        '    edge to zero, so a normal dip does NOT close your position.',
+        `  * So only buy something that can plausibly travel +${ex.profitTargetPct ?? 5}% in a few weeks.`,
+        '    sigmaDailyPct is its typical daily move; over 20 sessions it travels about',
+        '    sigmaDailyPct x 4.5. A 0.9% name cannot reach 5% and the desk will refuse it.',
+        '',
+        'WHAT YOU ARE BEING GIVEN, and which parts have a measured track record:',
+        '  * volNextWeek: the volatility model. Its calmer/choppier call is RIGHT 84% of the',
+        '    time at 80-90% confidence and 94% above 90%, scored on years it never trained on.',
+        '    This is the most reliable number on your desk. It tells you SIZE, never direction.',
+        '  * pullbackSetup: present only when this name is in the measured dip setup (about 68%',
+        '    of those recovered to their 5-day average over 12 years).',
+        '  * aboveMA200: false is the regime where this engine\'s own calls ran 49.5% and lost',
+        '    money over 417,612 historical calls. Treat a buy below the 200-day average as',
+        '    needing a much better reason than a buy above it.',
+        '  * headlines: the current news for the name, with each one\'s tone. READ THEM. A',
+        '    score of 52 can be an earnings beat or a fraud probe; the text is how you tell.',
+        '    Say in your reason if a headline is why you acted.',
+        '  * engineScore / signal / aiProbUp: NO measured directional skill. Ranking only.',
+        '',
+        `Order type is yours per trade. "market" fills now at the spread-crossed price.`,
+        '"limit" rests at your price and may never fill, which costs you the trade but not money.',
+        'Use limit when you want a better entry than the current print and are willing to miss it.',
+        '',
         'Reply with ONLY a JSON array, no prose and no code fence:',
-        '[{"symbol":"XYZ","action":"BUY|SELL|HOLD","confidence":0.0-1.0,"reason":"one sentence"}]',
+        '[{"symbol":"XYZ","action":"BUY|SELL|HOLD","confidence":0.0-1.0,"orderType":"market|limit",'
+            + '"limitPrice":null,"reason":"one sentence"}]',
         'Omit anything you would HOLD. Confidence is your own, not the engine\'s.',
+        'limitPrice is required when orderType is "limit", and must be within 2% of the price given.',
     ].join('\n');
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -290,6 +388,8 @@ async function miaDecides(holdings, cashUSD) {
         .map((d) => ({ symbol: String(d.symbol).toUpperCase(),
                        action: String(d.action).toUpperCase(),
                        confidence: Number(d.confidence),
+                       orderType: /^limit$/i.test(d.orderType || '') ? 'limit' : 'market',
+                       limitPrice: Number.isFinite(Number(d.limitPrice)) ? Number(d.limitPrice) : null,
                        reason: String(d.reason || '').slice(0, 300) }));
     return { decisions, brain: 'gemini', model,
              note: `Gemini returned ${decisions.length} actionable decision(s) from `

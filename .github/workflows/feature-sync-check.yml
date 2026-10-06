@@ -490,6 +490,10 @@ jobs:
       # The thresholds are derived rather than configured. The load-bearing assertion is
       # that the SAME engine score is a buy in a weak tape and not a buy in a strong one,
       # which no fixed threshold can satisfy.
+      # The exit rails Roshan asked for, and the measurement that decided their shape.
+      - name: Check the desk's exit rails
+        run: python tools/bot_exits_check.py
+
       - name: Check the thresholds are dynamic
         run: python tools/bot_dynamic_check.py
 
