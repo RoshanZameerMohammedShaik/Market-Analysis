@@ -10,7 +10,7 @@ Tests, in order of cheapness-to-fix:
      - mean-reversion bets (BUY when RSI oversold / %b low; SELL when overbought)
        vs momentum bets (BUY when strong/overbought; SELL when weak)
      If mean-reversion bets are the losers, the engine is a contrarian in a
-     trending tape — a strategy mismatch, not a code bug.
+     trending tape, a strategy mismatch, not a code bug.
   E. MACD alignment: does signal agree or fight MACD, and which wins?
 Pure stdlib.
 """
@@ -61,7 +61,7 @@ def main():
         hz = (r.get('horizons') or {}).get('1')
         if hz and hz.get('directionMatch') is not None:
             R.append((r, hz))
-    print(f"=== INVERSION HUNT — {len(R)} resolved 1d directional calls ===\n")
+    print(f"=== INVERSION HUNT, {len(R)} resolved 1d directional calls ===\n")
 
     # A. Contrarian flip
     hits = sum(1 for _, hz in R if hz['directionMatch'])

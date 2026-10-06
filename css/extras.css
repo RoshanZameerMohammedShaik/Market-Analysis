@@ -44,7 +44,7 @@ html[data-dev="1"] body { padding-top: 22px; }
 /* Legacy sticky-rail rule kept for back-compat. The newer fixed-overlay
    .glossary-rail in style.css uses 100dvh + safe-area inset and
    overrides this when the rail is mounted as a side panel. Keeping
-   typography only — geometry comes from the newer rule. */
+   typography only, geometry comes from the newer rule. */
 /* Compacted resources panel: tighter section rhythm, and each section's
    items grouped on a subtle card so the list reads as clean grouped rows
    rather than a cramped run of hairline-divided text. */
@@ -68,7 +68,7 @@ html[data-dev="1"] body { padding-top: 22px; }
 .glos-item[open] .glos-chev { transform: rotate(90deg); }
 .glos-def { font-size: 0.77rem; line-height: 1.5; color: var(--text-secondary); padding: 2px 0 9px; }
 
-/* Did-You-Know card at the top of the Resources panel — frosted glass to
+/* Did-You-Know card at the top of the Resources panel, frosted glass to
    match the toast/chip family, distinct from the glossary cards below. */
 .res-dyk {
     margin-bottom: 16px;
@@ -76,7 +76,7 @@ html[data-dev="1"] body { padding-top: 22px; }
     /* Theme-matched accent-tinted surface (NOT the dark glass plate, which
        read as near-black over the rail's --bg-card). color-mix blends a touch
        of the theme accent into the secondary surface so the card recolours
-       with the theme — subtle blue/violet wash on dark/aurora, pale blue on
+       with the theme, subtle blue/violet wash on dark/aurora, pale blue on
        light. No backdrop-filter (nothing meaningful to blur inside the rail). */
     background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
     border: 1px solid var(--border-strong);
@@ -87,10 +87,10 @@ html[data-dev="1"] body { padding-top: 22px; }
 .res-dyk-head { font-size: 0.64rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
 .res-dyk-body { font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
 
-/* ── P&L Calculator — full polish pass ──────────────────────────────────
+/* ── P&L Calculator, full polish pass ──────────────────────────────────
    The HTML markup uses .pl-sidebar-header, .pl-body, .pl-field, .pl-input-wrap,
    .pl-prefix, .pl-btn, .pl-result-* but no rules existed for them. That's why
-   the panel looked raw — no breathing room, labels and values colliding,
+   the panel looked raw, no breathing room, labels and values colliding,
    profit not green-tinted.
 */
 .pl-sidebar-header { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
@@ -151,12 +151,12 @@ html[data-dev="1"] body { padding-top: 22px; }
     text-transform: none; letter-spacing: 0;
     display: inline-flex; align-items: center; gap: 0;
     /* Override cinematic.css's `overflow: hidden` (added for ripple
-       containment on every button) — that was clipping our ring. */
+       containment on every button), that was clipping our ring. */
     overflow: visible !important;
 }
 .pl-use-current:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Ring overlay — pill-shaped, hugs the chip's actual horizontal bounds
+/* Ring overlay, pill-shaped, hugs the chip's actual horizontal bounds
    instead of being a tiny circle in the middle. Invisible at rest;
    fills clockwise during a 500ms long-press, mirroring the Mia send
    button's gesture vocabulary.
@@ -199,7 +199,7 @@ html[data-dev="1"] body { padding-top: 22px; }
     to   { stroke-dashoffset: 0; }
 }
 
-/* Pulse the chip the moment a fill fires — short, punchy, then back to
+/* Pulse the chip the moment a fill fires, short, punchy, then back to
    default. Confirms the action without lingering. */
 .pl-use-current.pl-uc-fired {
     animation: pl-uc-fire 0.45s cubic-bezier(0.22, 1, 0.36, 1);
@@ -260,7 +260,7 @@ html[data-dev="1"] body { padding-top: 22px; }
 .pl-error.show { display: block; animation: pl-fadeIn 0.18s ease; }
 @keyframes pl-fadeIn { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Result card — initially hidden until Calculate is clicked */
+/* Result card, initially hidden until Calculate is clicked */
 .pl-result {
     display: none;
     padding: 18px 18px 16px;
@@ -382,7 +382,7 @@ html[data-dev="1"] body { padding-top: 22px; }
 
 .chart-placeholder { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; position: relative; overflow: hidden; }
 /* Glow div is kept in markup (chart.js still emits it) for backward
-   compat, but neutralized — Roshan asked for a single stable colour
+   compat, but neutralized. Roshan asked for a single stable colour
    instead of the breathing radial-gradient. The .chart-container
    below already paints --bg-primary which tracks the active theme. */
 .chart-ph-glow { display: none; }
@@ -620,7 +620,7 @@ html[data-dev="1"] body { padding-top: 22px; }
 }
 
 /* "live now" beside Confidence Sources: the bars are recomputed while the call above them is held
-   from earlier, so they can legitimately disagree. Quiet but present — the alternative was a card
+   from earlier, so they can legitimately disagree. Quiet but present, the alternative was a card
    that looked like it was arguing with itself. */
 .breakdown-live {
     margin-left: 8px; padding: 1px 6px; border-radius: 999px;

@@ -1,4 +1,4 @@
-/* Agentic stage overlay — the centered glass card with aurora + white
+/* Agentic stage overlay, the centered glass card with aurora + white
    rising particles that appears when Mia performs an agentic action
    (P&L calc, future tools). Driven by js/ui/agentic-stage.js.
 
@@ -52,7 +52,7 @@
     pointer-events: auto;     /* clicking the bg dismisses the stage */
 }
 
-/* Aurora ribbon — radial gradients in violet/blue/teal that swim
+/* Aurora ribbon, radial gradients in violet/blue/teal that swim
    slowly across the bg. Three layered radials at different positions
    and speeds give the multi-band aurora feel. */
 .agentic-aurora {
@@ -72,7 +72,7 @@
     66%      { transform: translate(5%, -3%) scale(1.08); }
 }
 
-/* White particles rising — small dots traveling bottom→top with
+/* White particles rising, small dots traveling bottom→top with
    randomized delays/durations from the JS. Each particle starts
    below the viewport and ends above it, fading in then out. */
 .agentic-particles {
@@ -219,12 +219,11 @@
     background: rgba(15, 23, 42, 0.08);
 }
 
-/* Host slot — the relocated card lives here. Drop the original
+/* Host slot, the relocated card lives here. Drop the original
    sidebar/panel chrome since the agentic-stage-card already provides
    the frame. */
 .agentic-stage-host {
-    /* Card classes that get relocated apply .agentic-stage-mounted
-       — see CSS overrides below. */
+    /* Card classes that get relocated apply .agentic-stage-mounted, see CSS overrides below. */
 }
 
 /* When .pl-sidebar (the P&L calculator card) is hosted inside the
@@ -244,7 +243,7 @@
     max-height: none !important;
 }
 #pl-sidebar.agentic-stage-mounted .pl-sidebar-header {
-    /* Header is provided by .agentic-stage-header — hide the host's
+    /* Header is provided by .agentic-stage-header, hide the host's
        own duplicate. */
     display: none;
 }
@@ -253,8 +252,8 @@
 
    When voice is NOT minimized but an agentic stage IS active, we
    don't have a real <canvas> orb running (that's voice-only). So
-   we paint a CSS-only "agentic orb" — accent-tinted gradient disc
-   with a slow breath pulse + multi-color glow — to communicate
+   we paint a CSS-only "agentic orb", accent-tinted gradient disc
+   with a slow breath pulse + multi-color glow, to communicate
    "Mia is actively working" without needing audio data. The
    real voice canvas takes over if voice ALSO happens to be on.
 
@@ -302,7 +301,7 @@ body.mia-agentic-active .mia-launcher:not(.mia-launcher-orb) {
     }
 }
 
-/* P&L variant — Roshan's spec: a compact MID-SCREEN card, not a tall
+/* P&L variant. Roshan's spec: a compact MID-SCREEN card, not a tall
    full-height sheet. Narrower + content-height so it reads as a focused
    floating calculator the user watches Mia fill, centered in the
    viewport. The inputs get a touch more breathing room so the slow
@@ -317,7 +316,7 @@ body.mia-agentic-active .mia-launcher:not(.mia-launcher-orb) {
     letter-spacing: 0.5px;
 }
 
-/* Mia "typing into a field" cue — a glowing focus ring + a blinking
+/* Mia "typing into a field" cue, a glowing focus ring + a blinking
    caret edge while typeIntoInput() streams characters in. */
 .mia-typing {
     box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.55), 0 0 14px rgba(124, 58, 237, 0.4) !important;
@@ -352,7 +351,7 @@ body.mia-agentic-active .mia-launcher:not(.mia-launcher-orb) {
     .mia-typing, .mia-field-filled, .mia-agent-target { animation: none !important; }
 }
 
-/* Reduced motion — strip the aurora drift, particle rise, and
+/* Reduced motion, strip the aurora drift, particle rise, and
    card spring; keep the static layout so it's still readable. */
 @media (prefers-reduced-motion: reduce) {
     .agentic-stage,

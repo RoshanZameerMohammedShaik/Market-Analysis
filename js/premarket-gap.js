@@ -21,6 +21,6 @@ export function gapCap(gap) {
     if (!gap || !gap.big) return { cap: 100, reason: null };
     return {
         cap: 60,
-        reason: `Gap ${gap.gapPct > 0 ? '+' : ''}${gap.gapPct}% on open — news-driven, capping confidence until gap resolves`,
+        reason: `Gap ${gap.gapPct > 0 ? '+' : ''}${gap.gapPct}% on open, news-driven, capping confidence until gap resolves`,
     };
 }

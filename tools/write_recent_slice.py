@@ -17,7 +17,7 @@ Consequences measured on the live site:
 
 So the app was designed to anchor the day's call on the cron's market-open row,
 and it silently degraded to "whenever the user happened to open the page" purely
-because the ledger outgrew a single fetch. The design was right; the transport
+because the ledger outgrew a single fetch. The design was right, the transport
 broke it.
 
 This writes model/ledger/recent.json holding only the last N days, which is all

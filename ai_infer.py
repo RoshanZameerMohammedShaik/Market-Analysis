@@ -73,7 +73,7 @@ def _sigmoid(x):
 def lstm_cell(x, h_prev, c_prev, w, b):
     """Mirror of lstmCell in js/ai-model.js.
 
-    Gate order is PyTorch's: input, forget, cell, output — the weights were
+    Gate order is PyTorch's: input, forget, cell, output, the weights were
     exported from torch, so reordering here would silently produce a working but
     wrong model rather than an error.
     """
@@ -132,7 +132,7 @@ def run_lstm(features, model_data):
 
 # ── gradient-boosted trees ───────────────────────────────────────────────────
 def _traverse(tree, row):
-    """Mirror of traverseTree in js/xgb-model.js. Flat node list; a node with 'v'
+    """Mirror of traverseTree in js/xgb-model.js. Flat node list, a node with 'v'
     is a leaf. The 1000-step safety bound is kept so a malformed export cannot
     spin forever."""
     idx = 0

@@ -1,9 +1,9 @@
-// Radial confidence gauge — a 270° SVG arc that sweeps from the floor
+// Radial confidence gauge, a 270° SVG arc that sweeps from the floor
 // to the confidence value with eased animation, color-graded by tier.
 // Replaces (well, augments) the flat confidence bar in the signal card.
 //
 // Pure presentational + dependency-free so it can be reused anywhere a
-// 0–100 confidence needs a visceral readout (signal card, earnings
+// 0 to 100 confidence needs a visceral readout (signal card, earnings
 // calendar pre-reads, options scanner rows).
 //
 // Usage:
@@ -53,7 +53,7 @@ function headXY(frac) {
 }
 
 // A per-dial unique-ish id so multiple dials on one page don't share a
-// gradient/filter def. No Math.random (banned in some sandboxes) — derived
+// gradient/filter def. No Math.random (banned in some sandboxes), derived
 // from value + a module-scoped counter.
 let _dialSeq = 0;
 
@@ -101,9 +101,9 @@ export function renderConfidenceDial({ value, signal, label = 'confidence', size
 // Prefers GSAP (motion.js) when available: DrawSVG sweeps the arc and a single
 // eased tween counts the number, both on the shared `premium` ease so the arc
 // and the number land in perfect sync. Falls back to the original CSS-transition
-// + rAF counter when GSAP isn't loaded or the user prefers reduced motion — so
+// + rAF counter when GSAP isn't loaded or the user prefers reduced motion, so
 // behaviour is identical-or-better everywhere, never worse.
-const DIAL_DUR = 1.05;   // seconds — slightly longer so the head travel reads
+const DIAL_DUR = 1.05;   // seconds, slightly longer so the head travel reads
 
 export function animateDials(root = document) {
     const dials = root.querySelectorAll('[data-conf-dial]');
@@ -131,7 +131,7 @@ export function animateDials(root = document) {
         };
         const landPulse = () => {
             if (head) head.style.opacity = '0';
-            // one-shot landing pulse on the whole dial — CSS animation class.
+            // one-shot landing pulse on the whole dial. CSS animation class.
             dial.classList.remove('conf-dial-landed');
             // force reflow so re-adding restarts the animation
             void dial.offsetWidth;
@@ -181,7 +181,7 @@ function runCountAndHead(numEl, target, placeHead, landPulse, durationMs) {
     const startTs = performance.now();
     function frame(now) {
         const t = Math.min(1, (now - startTs) / durationMs);
-        // easeOutCubic — fast then settle, matches the arc's cubic-bezier.
+        // easeOutCubic, fast then settle, matches the arc's cubic-bezier.
         const eased = 1 - Math.pow(1 - t, 3);
         if (numEl) numEl.textContent = Math.round(target * eased).toString();
         placeHead(eased);

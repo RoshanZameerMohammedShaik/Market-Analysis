@@ -1,14 +1,14 @@
-// P&L Calculator — standalone right-edge slide-in side panel.
+// P&L Calculator, standalone right-edge slide-in side panel.
 //
 // Previously the calculator lived inside the Portfolio panel (a collapsed
 // <details>). Roshan asked for it to be its own panel. The calculator fields
 // + math still live in js/ui/pl.js (operating on #pl-sidebar / #pl-* ids);
-// this module just owns the PANEL CHROME — registering #pl-panel with the
+// this module just owns the PANEL CHROME, registering #pl-panel with the
 // side-panel-stack coordinator (so it stacks alongside Mia + Portfolio),
 // wiring the #pl-launcher button, and the close button.
 //
 // The agentic-stage P&L demo (controlPLCalculate in mia/ui-bridge.js) still
-// relocates #pl-sidebar into the centered glass stage — opening this panel
+// relocates #pl-sidebar into the centered glass stage, opening this panel
 // first is the non-agentic path the launcher + Mia's open_pl_panel use.
 
 import { registerSidePanel, openSidePanel, closeSidePanel, isSidePanelOpen } from './side-panel-stack.js';

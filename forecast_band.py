@@ -105,7 +105,7 @@ def _z_tables(c, mode, earnings_day):
 
     None  -> the pooled table, fitted over every window: exactly the band before this existed.
     0 / r -> the ordinary-week table before day r, the earnings table from day r on. Only when
-             the calibration carries both; an older file keeps the pooled table throughout.
+             the calibration carries both, an older file keeps the pooled table throughout.
     """
     cumulative = mode == 'cumulative'
     pooled = c['z'] if cumulative else c.get('zPerDay') or c['z']

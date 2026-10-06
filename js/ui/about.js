@@ -4,30 +4,30 @@
 const SECTIONS = [
     {
         title: 'What is Market Analyzer?',
-        body: `<p>A real-time stock & crypto prediction engine. Multi-timeframe technicals, AI pattern recognition, news headline sentiment, macro regime, sector-relative scoring, earnings-aware confidence — blended into a single calibrated <strong>BUY / SELL / NEUTRAL</strong> signal.</p>
+        body: `<p>A real-time stock & crypto prediction engine. Multi-timeframe technicals, AI pattern recognition, news headline sentiment, macro regime, sector-relative scoring, earnings-aware confidence, blended into a single calibrated <strong>BUY / SELL / NEUTRAL</strong> signal.</p>
             <p>Runs in your browser. No backend. <em>Not financial advice.</em></p>`,
     },
     {
         title: 'Reading a signal card',
         body: `<ul>
-            <li><strong>Signal</strong> — BUY / SELL / NEUTRAL.</li>
-            <li><strong>Confidence %</strong> — calibrated to backtested empirical hit rate when calibration data is loaded.</li>
-            <li><strong>Range</strong> — [low, high] interval. Wider = more uncertainty.</li>
-            <li><strong>Trend regime</strong> — trending / ranging / transitional, from ADX.</li>
-            <li><strong>Macro regime</strong> — risk-on / risk-off / transition / neutral, from VIX + S&P + DXY.</li>
-            <li><strong>Source breakdown</strong> — AI, technicals, sentiment, market, each shown 0-100.</li>
-            <li><strong>Price targets</strong> — ATR-derived, bounded by Bollinger and recent S/R.</li>
-            <li><strong>Reasons</strong> — plain-English bullets explaining the score.</li>
+            <li><strong>Signal</strong>. BUY / SELL / NEUTRAL.</li>
+            <li><strong>Confidence %</strong>, calibrated to backtested empirical hit rate when calibration data is loaded.</li>
+            <li><strong>Range</strong>, [low, high] interval. Wider = more uncertainty.</li>
+            <li><strong>Trend regime</strong>, trending / ranging / transitional, from ADX.</li>
+            <li><strong>Macro regime</strong>, risk-on / risk-off / transition / neutral, from VIX + S&P + DXY.</li>
+            <li><strong>Source breakdown</strong>. AI, technicals, sentiment, market, each shown 0-100.</li>
+            <li><strong>Price targets</strong>. ATR-derived, bounded by Bollinger and recent S/R.</li>
+            <li><strong>Reasons</strong>, plain-English bullets explaining the score.</li>
         </ul>`,
     },
     {
-        title: 'Mia — your in-app analyst',
+        title: 'Mia, your in-app analyst',
         body: `<p>Floating launcher (bottom-right). She reads the live signal data so her numbers always match yours.</p>
             <ul>
                 <li><strong>Two backends</strong>: <em>WebLLM</em> (runs in your browser, private, desktop only) or <em>API key</em> (free Groq / Cloudflare, mobile-friendly).</li>
                 <li><strong>Tools she can call</strong>: analyze a symbol, fetch hot picks, read market conditions, compare stocks, look up calibration.</li>
                 <li><strong>Thinking mode</strong> toggle for deeper reasoning (slower).</li>
-                <li><strong>Send button</strong> morphs into <em>stop</em> while streaming — click to abort.</li>
+                <li><strong>Send button</strong> morphs into <em>stop</em> while streaming, click to abort.</li>
                 <li><strong>Clear chat</strong> button right next to send.</li>
                 <li><strong>Usage meter</strong> shows the closest-to-exhaustion API rate-limit as a percentage.</li>
             </ul>`,
@@ -35,7 +35,7 @@ const SECTIONS = [
     {
         title: 'Hot picks',
         body: `<p>Top 20 dynamic picks scanned from real-time market sources every refresh. Tap a card to load full analysis. Cards show signal, confidence, sparkline, and current price.</p>
-            <p>Filtered strictly to equities / ETFs in the stocks tab — no crypto leakage.</p>`,
+            <p>Filtered strictly to equities / ETFs in the stocks tab, no crypto leakage.</p>`,
     },
     {
         title: 'P&L Calculator',

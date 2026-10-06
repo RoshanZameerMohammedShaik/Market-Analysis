@@ -163,7 +163,7 @@ function wireUseCurrent(btn) {
         // Punchy "this field just got filled" pulse on the wrapper.
         input.classList.add('flash');
         setTimeout(() => input.classList.remove('flash'), 700);
-        // Quick fire-pulse on the chip — confirms the action without
+        // Quick fire-pulse on the chip, confirms the action without
         // lingering for 1.4s like before.
         textEl.textContent = `→ ${label}`;
         btn.classList.remove('pl-uc-fired'); // restart if rapid-fire
@@ -195,7 +195,7 @@ function wireUseCurrent(btn) {
     };
     const end = () => {
         if (holdState === 'pressing' && !armed) {
-            // Quick tap — original behavior.
+            // Quick tap, original behavior.
             fillInto('pl-currentPrice', 'Current');
         }
         if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
@@ -212,7 +212,7 @@ function wireUseCurrent(btn) {
 
     // Pointer events handle mouse + touch + pen with one code path. We
     // capture the pointer on press so we keep getting events even if the
-    // cursor strays off the chip during the 3-second hold — otherwise a
+    // cursor strays off the chip during the 3-second hold, otherwise a
     // small wobble would cancel the press, which is brutal UX for a long
     // target.
     btn.addEventListener('pointerdown', (e) => {
@@ -318,7 +318,7 @@ export function renderPLResult(r) {
     const plan = PLANS[r.plan];
     const notes = [];
     if (r.crypto) {
-        notes.push('Stock commission plans and SEC/FINRA fees do not apply to crypto; check your venue fee.');
+        notes.push('Stock commission plans and SEC/FINRA fees do not apply to crypto, check your venue fee.');
     } else {
         notes.push(`${plan.label}: ${plan.note}.`);
         if (r.plan.startsWith('ibkr-pro')) {

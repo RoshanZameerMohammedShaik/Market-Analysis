@@ -37,7 +37,7 @@ function saveLog(log) {
  */
 export function logPrediction({ mode, symbol, signal, confidence, price, timeframe, breakdown }) {
     if (!symbol || !signal || price == null) return;
-    // NEUTRAL and NO_TRADE are non-directional — there's nothing to score
+    // NEUTRAL and NO_TRADE are non-directional, there's nothing to score
     // against, so we don't log them. NO_TRADE is the engine deliberately
     // abstaining; NEUTRAL is "trend is flat".
     if (signal === 'NEUTRAL' || signal === 'NO_TRADE') return;

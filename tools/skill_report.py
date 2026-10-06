@@ -22,8 +22,7 @@ This tool refuses both failure modes:
     observations and inflates significance enormously. IC is also far more
     statistically efficient than a binary hit rate at the same sample size.
   * TRIAL COUNT is printed. Per Bailey and Lopez de Prado's False Strategy Theorem,
-    no t-statistic is meaningful without knowing how many variants were tried;
-    roughly 20 attempts manufacture a false p<0.05 discovery. This report cannot
+    no t-statistic is meaningful without knowing how many variants were tried, roughly 20 attempts manufacture a false p<0.05 discovery. This report cannot
     know the count, so it says so rather than implying a clean p-value.
 
 Usage:

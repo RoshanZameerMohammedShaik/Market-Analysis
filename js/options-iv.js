@@ -12,7 +12,7 @@
 //     <0.90 + our SELL -> +2 (calls bid up = euphoria; contrarian SELL)
 //
 // Total options effect capped at +/-4.
-// Crypto and many small-caps have illiquid options — fail gracefully.
+// Crypto and many small-caps have illiquid options, fail gracefully.
 
 import { fetchWithProxy } from './data.js';
 
@@ -26,7 +26,7 @@ export async function fetchOptionsPositioning(symbol) {
     if (cached && Date.now() - cached.ts < TTL_MS) return cached.data;
 
     try {
-        // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+        // Raw symbol, fetchWithProxy encodes once at the proxy layer.
         const url = `https://query1.finance.yahoo.com/v7/finance/options/${key}`;
         const res = await fetchWithProxy(url);
         const json = await res.json();
@@ -93,22 +93,22 @@ export function optionsAdjustment(signal, options) {
     const pcr = options.pcr;
     if (Number.isFinite(pcr)) {
         if (signal === 'BUY' && pcr > 1.5) {
-            adjust += 3; reasons.push(`PCR ${pcr.toFixed(2)} — puts crowded, contrarian for BUY`);
+            adjust += 3; reasons.push(`PCR ${pcr.toFixed(2)}, puts crowded, contrarian for BUY`);
         } else if (signal === 'BUY' && pcr < 0.6) {
-            adjust -= 2; reasons.push(`PCR ${pcr.toFixed(2)} — calls already crowded, less BUY room`);
+            adjust -= 2; reasons.push(`PCR ${pcr.toFixed(2)}, calls already crowded, less BUY room`);
         } else if (signal === 'SELL' && pcr < 0.6) {
-            adjust += 3; reasons.push(`PCR ${pcr.toFixed(2)} — calls crowded, contrarian for SELL`);
+            adjust += 3; reasons.push(`PCR ${pcr.toFixed(2)}, calls crowded, contrarian for SELL`);
         } else if (signal === 'SELL' && pcr > 1.5) {
-            adjust -= 2; reasons.push(`PCR ${pcr.toFixed(2)} — puts already crowded, less SELL room`);
+            adjust -= 2; reasons.push(`PCR ${pcr.toFixed(2)}, puts already crowded, less SELL room`);
         }
     }
 
     const skew = options.skew;
     if (Number.isFinite(skew)) {
         if (signal === 'BUY' && skew > 1.10) {
-            adjust += 2; reasons.push(`IV skew ${skew.toFixed(2)} — downside hedging bid, BUY supported`);
+            adjust += 2; reasons.push(`IV skew ${skew.toFixed(2)}, downside hedging bid, BUY supported`);
         } else if (signal === 'SELL' && skew < 0.90) {
-            adjust += 2; reasons.push(`IV skew ${skew.toFixed(2)} — upside calls bid, contrarian SELL`);
+            adjust += 2; reasons.push(`IV skew ${skew.toFixed(2)}, upside calls bid, contrarian SELL`);
         }
     }
 
@@ -118,7 +118,7 @@ export function optionsAdjustment(signal, options) {
 }
 
 // Score how UNUSUAL a symbol's options positioning is, for the options
-// activity scanner. Independent of any engine signal — this is "is the
+// activity scanner. Independent of any engine signal, this is "is the
 // options market doing something notable here?", not "does this agree
 // with our BUY". Returns { score, flags } or null when options are too
 // illiquid to read. Higher score = more anomalous positioning.
@@ -138,16 +138,16 @@ export function unusualOptionsScore(options) {
     let score = 0;
 
     if (Number.isFinite(pcr)) {
-        if (pcr >= 2.0) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)} — puts heavily crowded`, bias: 'bearish' }); }
-        else if (pcr >= 1.5) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)} — elevated put activity`, bias: 'bearish' }); }
-        else if (pcr <= 0.35) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)} — calls heavily crowded`, bias: 'bullish' }); }
-        else if (pcr <= 0.6) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)} — elevated call activity`, bias: 'bullish' }); }
+        if (pcr >= 2.0) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)}, puts heavily crowded`, bias: 'bearish' }); }
+        else if (pcr >= 1.5) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)}, elevated put activity`, bias: 'bearish' }); }
+        else if (pcr <= 0.35) { score += 3; flags.push({ label: `PCR ${pcr.toFixed(2)}, calls heavily crowded`, bias: 'bullish' }); }
+        else if (pcr <= 0.6) { score += 2; flags.push({ label: `PCR ${pcr.toFixed(2)}, elevated call activity`, bias: 'bullish' }); }
     }
     if (Number.isFinite(skew)) {
-        if (skew >= 1.20) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)} — downside heavily bid (fear)`, bias: 'bearish' }); }
-        else if (skew >= 1.10) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)} — downside hedging bid`, bias: 'bearish' }); }
-        else if (skew <= 0.85) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)} — upside calls bid (euphoria)`, bias: 'bullish' }); }
-        else if (skew <= 0.90) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)} — upside calls bid`, bias: 'bullish' }); }
+        if (skew >= 1.20) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)}, downside heavily bid (fear)`, bias: 'bearish' }); }
+        else if (skew >= 1.10) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)}, downside hedging bid`, bias: 'bearish' }); }
+        else if (skew <= 0.85) { score += 2; flags.push({ label: `IV skew ${skew.toFixed(2)}, upside calls bid (euphoria)`, bias: 'bullish' }); }
+        else if (skew <= 0.90) { score += 1; flags.push({ label: `IV skew ${skew.toFixed(2)}, upside calls bid`, bias: 'bullish' }); }
     }
     if (!flags.length) return null;  // nothing unusual
     return { score, flags, pcr, skew, totalVol };

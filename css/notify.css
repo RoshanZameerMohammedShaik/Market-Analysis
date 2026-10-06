@@ -21,7 +21,7 @@
 }
 .ma-notify {
     pointer-events: auto;
-    /* Frosted-glass card matching the "Did you know?" chip — translucent
+    /* Frosted-glass card matching the "Did you know?" chip, translucent
        plate + backdrop blur instead of a flat solid card. */
     background: var(--bg-glass);
     -webkit-backdrop-filter: blur(14px) saturate(140%);
@@ -47,7 +47,7 @@
     to { transform: translateX(-110%); opacity: 0; }
 }
 
-/* Kind tints: only the left accent border changes — the auto-drain
+/* Kind tints: only the left accent border changes, the auto-drain
    bar always reads green per Roshan's spec ("a green liner animation
    that reduces over 5 seconds"). The bar communicates time, not
    sentiment. */
@@ -93,7 +93,7 @@
     border-color: var(--accent);
 }
 
-/* Drain bar — green that reduces left-to-right over the lifetime of
+/* Drain bar, green that reduces left-to-right over the lifetime of
    the notification. The fill width is updated by JS (rAF-driven) so
    pause-on-hover and pin-on-click can manipulate it precisely. */
 .ma-notify-bar {
@@ -106,7 +106,7 @@
     width: 100%;
     background: var(--green);
     transform-origin: left center;
-    /* No transition — JS sets width directly each frame. */
+    /* No transition. JS sets width directly each frame. */
 }
 
 /* Pinned: hide the drain bar entirely so the user knows the timer

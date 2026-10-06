@@ -1,4 +1,4 @@
-// Closed-tab Web Push price alerts — Cloudflare Worker.
+// Closed-tab Web Push price alerts. Cloudflare Worker.
 //
 // Two responsibilities:
 //   1. HTTP API (CORS JSON) the browser calls to register/update/remove
@@ -9,20 +9,17 @@
 //        GET  /health
 //   2. A cron (every minute) that walks every stored subscription, fetches
 //      the live price for each armed symbol, and sends a Web Push when a
-//      threshold crosses — then disarms that side (one-shot) so it doesn't
+//      threshold crosses, then disarms that side (one-shot) so it doesn't
 //      re-fire every minute.
 //
 // KV layout: key = `sub:<endpoint-hash>`, value = JSON
 //   { subscription, alerts: { "BTC-USD": {above, below}, ... }, updatedAt }
 //
-// Web Push (VAPID + aes128gcm) is implemented with WebCrypto only — no npm
-// push library — so it runs on the Workers runtime as-is.
+// Web Push (VAPID + aes128gcm) is implemented with WebCrypto only, no npm
+// push library, so it runs on the Workers runtime as-is.
 
 const JSON_HEADERS = {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type',
 };
 
 function json(body, status = 200) {
@@ -69,7 +66,7 @@ export default {
         }
     },
 
-    // Cron entrypoint — fires on the schedule in wrangler.toml.
+    // Cron entrypoint, fires on the schedule in wrangler.toml.
     async scheduled(event, env, ctx) {
         ctx.waitUntil(checkAllAlerts(env));
     },
@@ -78,8 +75,7 @@ export default {
 // ── subscription registry (ONE KV key) ────────────────────────────────
 // All subscriptions live under a single key so the per-minute cron costs
 // exactly ONE read (and a write only when something fires), instead of a
-// list() + N gets. KV free tier: 100K reads/day but only 1K LIST/day —
-// the original list()-every-minute design blew the LIST quota (1,440/day)
+// list() + N gets. KV free tier: 100K reads/day but only 1K LIST/day, // the original list()-every-minute design blew the LIST quota (1,440/day)
 // regardless of subscriber count. Single-key get() avoids list() entirely.
 // Map shape: { [endpointHash]: { subscription, alerts, updatedAt } }.
 const REGISTRY_KEY = 'registry';
@@ -119,7 +115,7 @@ async function fetchLivePrice(symbol) {
         const text = await r.text();
         const lines = text.trim().split('\n');
         if (lines.length < 2) return null;
-        const cols = lines[1].split(',');
+        const cols = lines[1].split('-');
         const close = parseFloat(cols[6]);
         return Number.isFinite(close) && close > 0 ? close : null;
     } catch (_) { return null; }
@@ -128,7 +124,7 @@ async function fetchLivePrice(symbol) {
 // ── cron: check every subscription's armed thresholds ──────────────────
 
 async function checkAllAlerts(env) {
-    // ONE read per tick — the whole registry under a single key. No list().
+    // ONE read per tick, the whole registry under a single key. No list().
     const reg = await loadRegistry(env);
     const ids = Object.keys(reg);
     if (!ids.length) return;
@@ -181,7 +177,7 @@ async function checkAllAlerts(env) {
 }
 
 function formatPrice(p) {
-    if (!Number.isFinite(p)) return '—';
+    if (!Number.isFinite(p)) return '';
     if (p >= 1000) return '$' + p.toFixed(2);
     if (p >= 1) return '$' + p.toFixed(3);
     if (p >= 0.01) return '$' + p.toFixed(4);
@@ -202,10 +198,7 @@ async function sendPush(env, subscription, payloadObj) {
         const res = await fetch(subscription.endpoint, {
             method: 'POST',
             headers: {
-                'TTL': '86400',
-                'Content-Encoding': 'aes128gcm',
-                'Content-Type': 'application/octet-stream',
-                'Authorization': `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
+                'TTL': '86400', 'Content-Encoding': 'aes128gcm', 'Content-Type': 'application/octet-stream', 'Authorization': `vapid t=${jwt}, k=${env.VAPID_PUBLIC_KEY}`,
             },
             body: encrypted,
         });

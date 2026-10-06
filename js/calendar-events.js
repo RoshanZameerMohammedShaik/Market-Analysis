@@ -3,7 +3,7 @@
 // and OPEX positioning, not signal-driven moves.
 //
 // Approach: cap confidence to 55 on event days, regardless of signal strength.
-// This is defensive hygiene — it doesn't make signals smarter, it stops us
+// This is defensive hygiene, it doesn't make signals smarter, it stops us
 // from claiming high confidence when the market itself is in coin-flip mode.
 //
 // All dates are NYC market days. UTC handling done at call site.
@@ -73,5 +73,5 @@ export function getCalendarEvent(date = new Date()) {
 export function calendarCap(date = new Date()) {
     const ev = getCalendarEvent(date);
     if (!ev) return { cap: 100, reason: null };
-    return { cap: ev.capConfidence, reason: `${ev.name} — confidence capped at ${ev.capConfidence} (macro flow dominates)` };
+    return { cap: ev.capConfidence, reason: `${ev.name}, confidence capped at ${ev.capConfidence} (macro flow dominates)` };
 }

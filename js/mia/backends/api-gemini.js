@@ -1,4 +1,4 @@
-// Gemini backend — Google AI Studio API, streaming via SSE.
+// Gemini backend. Google AI Studio API, streaming via SSE.
 //
 // Two tiers, both free:
 //   default  → gemini-2.5-flash-lite  (30 RPM / 250K TPM / 1000 RPD)
@@ -8,13 +8,12 @@
 // 3.3 70B but with 42× the per-minute token headroom of Groq's free tier
 // (the killer constraint that kept tripping mid-stream 429s).
 //
-// Thinking mode escalates to Flash for genuinely deep questions —
-// better reasoning + math precision when it matters.
+// Thinking mode escalates to Flash for genuinely deep questions, // better reasoning + math precision when it matters.
 //
 // API note: Google's REST endpoint is /v1beta/models/{model}:streamGenerateContent
 // with ?alt=sse appended (the key travels in the x-goog-api-key header). SSE format is "data: {json}\n\n", same shape
 // our existing parser knows. Mid-stream errors arrive as a final SSE chunk
-// containing {"error":{...}} — we throw a typed error so mia.js preserves
+// containing {"error":{...}}, we throw a typed error so mia.js preserves
 // the partial reply instead of wiping it.
 
 import { markCooling, isCooling, msUntilHealthy } from './tier-cooldown.js';
@@ -33,7 +32,7 @@ export { isCooling, msUntilHealthy } from './tier-cooldown.js';
 export { getCooldownState } from './tier-cooldown.js';
 
 // Silent retry on transient errors. 5xx = Gemini-side overload (very
-// common, usually clears in <2s). 429 is NOT retried here — quota
+// common, usually clears in <2s). 429 is NOT retried here, quota
 // exhaustion means "use a different model", which is the chain
 // walker's job in llm-client.js. Retrying 429 in-place would burn
 // RPM on an already-exhausted model and never recover.
@@ -122,8 +121,8 @@ function parseGeminiError(status, body, retryAfterSec) {
         return `Gemini rate-limited.${wait}`;
     }
     if (status >= 500 && status < 600) {
-        // 503 is the common one — Google-side overload. Friendly message.
-        return `Gemini is busy right now (${status}). Try again in a few seconds — this is a Google-side load issue, not your account.`;
+        // 503 is the common one. Google-side overload. Friendly message.
+        return `Gemini is busy right now (${status}). Try again in a few seconds, this is a Google-side load issue, not your account.`;
     }
     return `Gemini error ${status}: ${(typeof msg === 'string' ? msg : JSON.stringify(msg)).slice(0, 200)}`;
 }
@@ -142,13 +141,12 @@ async function postOnce({ model, system, messages, key, signal }) {
     body.generationConfig = {
         temperature: 0.3,
         maxOutputTokens: 1500,
-        // Halt as soon as the model tries to write a tool RESULT block —
-        // that's the agent's job, not the model's. Without these stops
+        // Halt as soon as the model tries to write a tool RESULT block, // that's the agent's job, not the model's. Without these stops
         // Gemini will fabricate fake tool results inline and then write
         // an answer based on hallucinated data.
         stopSequences: ['\nRESULT:', 'RESULT (from'],
     };
-    console.log('[mia/gemini] POST', model, '— request shape:', { msgs: messages.length, sysChars: system.length });
+    console.log('[mia/gemini] POST', model, ', request shape:', { msgs: messages.length, sysChars: system.length });
     const res = await fetch(url, {
         method: 'POST',
         headers: geminiHeaders(key),
@@ -289,7 +287,7 @@ export async function* stream({ system, messages, key, signal, tier = 'default',
                     e.status = status;
                     e.midStream = true;
                     if (status === 429) {
-                        // Mid-stream quota exhaustion — mark the tier as
+                        // Mid-stream quota exhaustion, mark the tier as
                         // cooling so the next call skips it. retryAfter
                         // hint isn't usually present in mid-stream errors,
                         // so we let markCooling default to 60s.
@@ -304,7 +302,7 @@ export async function* stream({ system, messages, key, signal, tier = 'default',
                 for (const p of parts) {
                     if (p.text) { yieldCount++; yield p.text; }
                 }
-                // Log finishReason if present — explains zero-text returns.
+                // Log finishReason if present, explains zero-text returns.
                 const finish = json.candidates?.[0]?.finishReason;
                 if (finish && finish !== 'STOP') {
                     console.warn('[mia/gemini] non-STOP finishReason:', finish, 'safetyRatings:', json.candidates?.[0]?.safetyRatings);

@@ -11,14 +11,14 @@
 //     not the same walkthrough;
 //   - every stop performs a genuine control action (switch tab, load a
 //     symbol, run analysis, open a panel, cycle theme…) via the same
-//     ui-bridge controls Mia uses for any other request — so the user is
+//     ui-bridge controls Mia uses for any other request, so the user is
 //     watching the real app drive itself.
 //
 // It narrates through the launcher caption (the floating glass pill next to
 // the orb) + the agent toast, and pulses/scrolls each target so the user's
 // eye follows along. Mia's orb stays visible the whole time.
 //
-// Nothing here mutates a signal number — it only navigates and triggers the
+// Nothing here mutates a signal number, it only navigates and triggers the
 // same handlers a user could click. Honest by construction.
 
 import {
@@ -94,7 +94,7 @@ function buildStops() {
     stops.push({
         id: 'intro', fixed: 'start',
         run: async () => {
-            await caption("Let me show you around — I'll drive, you watch.");
+            await caption("Let me show you around. I'll drive, you watch.");
             const hero = document.querySelector('.app-title, header, .hero-title') || document.body;
             scrollIntoViewIfNeeded(hero);
             await sleep(1400);
@@ -106,7 +106,7 @@ function buildStops() {
         stops.push({
             id: 'hotpicks',
             run: async () => {
-                await caption(`These are today's Hot Picks — the engine's strongest reads right now. ${picks.length} of them.`);
+                await caption(`These are today's Hot Picks, the engine's strongest reads right now. ${picks.length} of them.`);
                 await controlScrollTo({ section: 'hotpicks' });
                 // Pulse the top few cards in sequence so the eye sweeps the grid.
                 for (const p of picks.slice(0, 3)) {
@@ -124,7 +124,7 @@ function buildStops() {
             id: 'analyze',
             run: async () => {
                 const conf = featured.confidence ? ` at ${featured.confidence}% confidence` : '';
-                await caption(`Let's open ${featured.symbol} — a ${featured.signal}${conf}. Watch the full analysis build.`);
+                await caption(`Let's open ${featured.symbol}, a ${featured.signal}${conf}. Watch the full analysis build.`);
                 pulseElement(featured.el);
                 await sleep(600);
                 // Use the proven direct loader (sets state + chart + analysis + scroll).
@@ -132,14 +132,14 @@ function buildStops() {
                     window.__loadSymbolDirect(featured.symbol);
                 }
                 await sleep(2600);   // let the chart + signal card render
-                await caption("Here's the signal, the confidence dial, the price targets, and the technicals — each explained for THIS symbol.");
+                await caption("Here's the signal, the confidence dial, the price targets, and the technicals, each explained for THIS symbol.");
                 await controlScrollTo({ section: 'signal' });
                 await sleep(2200);
             },
         });
     }
 
-    // ── Optional tour stops — order shuffled each run ──────────────────
+    // ── Optional tour stops, order shuffled each run ──────────────────
     const optional = [];
 
     // Switch market mode (only show if a mode tab pair exists)
@@ -149,7 +149,7 @@ function buildStops() {
             run: async () => {
                 const onCrypto = document.querySelector('[data-tab="crypto"]')?.classList.contains('active');
                 const to = onCrypto ? 'stock' : 'crypto';
-                await caption(`You can flip between Stocks and Crypto any time — like this.`);
+                await caption(`You can flip between Stocks and Crypto any time, like this.`);
                 await controlSwitchMode(to);
                 await sleep(1500);
             },
@@ -161,7 +161,7 @@ function buildStops() {
         optional.push({
             id: 'heatmap',
             run: async () => {
-                await caption("This is the Sector Heatmap — where money is rotating across the market today.");
+                await caption("This is the Sector Heatmap, where money is rotating across the market today.");
                 try { await controlOpenSectorHeatmap(); } catch (_) {}
                 await sleep(2600);
                 try { await controlCloseSectorHeatmap(); } catch (_) {}
@@ -169,15 +169,15 @@ function buildStops() {
         });
     }
 
-    // Full Ledger (the honesty surface — show the engine's real track record)
+    // Full Ledger (the honesty surface, show the engine's real track record)
     if (document.querySelector('#scanner-section .scanner-details')) {
         optional.push({
             id: 'ledger',
             run: async () => {
                 const sym = featured?.symbol || null;
                 await caption(sym
-                    ? `And here's the receipts — the Full Ledger of every past call${sym ? `, filtered to ${sym}` : ''}. I never hide the misses.`
-                    : "And here's the receipts — the Full Ledger of every past call. I never hide the misses.");
+                    ? `And here's the receipts, the Full Ledger of every past call${sym ? `, filtered to ${sym}` : ''}. I never hide the misses.`
+                    : "And here's the receipts, the Full Ledger of every past call. I never hide the misses.");
                 try { await controlOpenFullLedger(sym ? { symbol: sym } : {}); } catch (_) {}
                 await sleep(3000);
                 try { await controlCloseFullLedger(); } catch (_) {}
@@ -210,8 +210,8 @@ function buildStops() {
         });
     }
 
-    // Pick a varying subset (3–4) of the optional stops, shuffled, so no two
-    // walkthroughs are the same sequence — satisfies "dynamic, not one static
+    // Pick a varying subset (3 to 4) of the optional stops, shuffled, so no two
+    // walkthroughs are the same sequence, satisfies "dynamic, not one static
     // sequence". If there are few optional stops, take them all.
     const shuffled = shuffle(optional);
     const take = Math.min(shuffled.length, 3 + Math.floor(Math.random() * 2)); // 3 or 4

@@ -1,4 +1,4 @@
-// Phase 7 — OpenInsider net insider buy/sell signal.
+// Phase 7. OpenInsider net insider buy/sell signal.
 //
 // Insider buying on penny stocks is a HUGE signal because:
 //   - Officers/directors have material non-public info on small companies
@@ -52,20 +52,20 @@ export function openInsiderAdjustment(signal, oi, currentTier) {
 
     if (oi.buyCount >= 3 && signal === 'BUY') {
         adjust += 5;
-        reasons.push(`OpenInsider: ${oi.buyCount} insider buys in last 30d — cluster-buy pattern, BUY tailwind`);
+        reasons.push(`OpenInsider: ${oi.buyCount} insider buys in last 30d, cluster-buy pattern, BUY tailwind`);
     } else if (oi.netBuyValue > 100000 && signal === 'BUY') {
         adjust += 3;
-        reasons.push(`OpenInsider: net insider buys $${formatUsd(oi.netBuyValue)} — BUY supported`);
+        reasons.push(`OpenInsider: net insider buys $${formatUsd(oi.netBuyValue)}. BUY supported`);
     }
 
     if (oi.sellCount >= 3 && signal === 'BUY') {
         adjust -= 3;
-        reasons.push(`OpenInsider: ${oi.sellCount} insider sells in last 30d — BUY confidence reduced`);
+        reasons.push(`OpenInsider: ${oi.sellCount} insider sells in last 30d. BUY confidence reduced`);
     }
 
     if (oi.netBuyValue < -500000) {
         adjust -= 2;
-        reasons.push(`OpenInsider: net insider sells $${formatUsd(-oi.netBuyValue)} — caution`);
+        reasons.push(`OpenInsider: net insider sells $${formatUsd(-oi.netBuyValue)}, caution`);
     }
 
     if (adjust > 6) adjust = 6;

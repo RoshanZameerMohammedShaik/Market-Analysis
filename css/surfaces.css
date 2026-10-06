@@ -213,7 +213,7 @@
 .sector-tile-name { font-size: 0.72rem; margin: 3px 0 6px; line-height: 1.2; }
 .sector-tile-pct { font-family: var(--num-font); font-weight: 900; font-size: 1.05rem; }
 
-/* Diverging heat scale — red (weak) → neutral → green (strong). Tints
+/* Diverging heat scale, red (weak) → neutral → green (strong). Tints
    use rgba over the card bg so it reads in both light and dark themes. */
 .heat-strong-up   { background: rgba(45, 210, 139, 0.30); border-color: rgba(45, 210, 139, 0.5); }
 .heat-up          { background: rgba(45, 210, 139, 0.15); }

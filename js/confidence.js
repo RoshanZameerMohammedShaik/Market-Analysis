@@ -58,7 +58,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const tier = computeTier(multiData);
 
     // For the "Today" horizon, prefer the intraday (1h-candle) LSTM and
-    // feed it the raw 1h series — it predicts the next intraday move,
+    // feed it the raw 1h series, it predicts the next intraday move,
     // which is what "Today" actually asks. For "Tomorrow" (or when no 1h
     // data is available) we keep the daily model on daily candles. The
     // intraday model self-heals: if its weights file hasn't shipped yet,
@@ -190,7 +190,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     const deviation = Math.abs(weightedScore - 50) / 50;
     // Map raw [0, 50] deviation to the [commitFloor, 88] confidence
-    // band — anything below commitFloor doesn't commit anyway.
+    // band, anything below commitFloor doesn't commit anyway.
     let rawConfidence = Math.round(thresh.commitFloorConfidence +
         deviation * (88 - thresh.commitFloorConfidence));
 
@@ -206,7 +206,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     const sourceScores = liveSources.map(s => s.score);
     const dispersion = sourceScores.length > 1
         ? Math.max(...sourceScores) - Math.min(...sourceScores) : 0;
-    // Dispersion penalty bands learned from the ledger — see
+    // Dispersion penalty bands learned from the ledger, see
     // calibration-thresholds.js. Previously hardcoded as
     // 50/35/25 → 12/7/3, those numbers were guesses. The learner
     // now derives the actual relationship between source dispersion
@@ -236,7 +236,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     // Ensemble consensus. Dispersion (above) measures the SPREAD of
     // source scores; consensus measures how many sources actually
-    // point the SAME DIRECTION as the committed signal — a different
+    // point the SAME DIRECTION as the committed signal, a different
     // axis. Two sources at 55 and 88 have high dispersion but full
     // agreement; a source at 30 against a BUY is a true contradiction
     // that the spread metric under-weights. We surface the vote tally
@@ -265,11 +265,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
 
     // ── Ensemble-agreement abstain gate ──────────────────────────────────
     // The engine commits BUY/SELL off the weighted SCORE, but a call the
-    // ensemble actively splits on is a coin flip dressed as conviction —
-    // exactly the kind of low-edge call that dragged 1-day accuracy toward
+    // ensemble actively splits on is a coin flip dressed as conviction, // exactly the kind of low-edge call that dragged 1-day accuracy toward
     // 50%. So when a committed directional call has a genuine ensemble
-    // SPLIT — fewer than half its available sources agree directionally AND
-    // at least one actively contradicts — we ABSTAIN to NEUTRAL rather than
+    // SPLIT, fewer than half its available sources agree directionally AND
+    // at least one actively contradicts, we ABSTAIN to NEUTRAL rather than
     // emit it. This trades volume for hit-rate on the calls we DO make.
     // Conservative by design: a unanimous-but-modest call is untouched
     // (against === 0 → never abstains); only true internal disagreement
@@ -277,7 +276,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // there too), so Hot Picks and the detail card agree.
     let abstainedFromEnsemble = false;
     // Use the SOFT lean (vs 50), not the strong-conviction cutoff, so we only
-    // abstain on a genuine ensemble SPLIT — more sources leaning AGAINST the
+    // abstain on a genuine ensemble SPLIT, more sources leaning AGAINST the
     // call than for it, with at least one strong contradiction. A modest
     // call where most sources lean the right way (even if below the 55
     // conviction cutoff) is NOT abstained. Requires ≥3 sources so a single
@@ -288,7 +287,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         && consensus.leansAgainst > consensus.leansFor) {
         abstainedFromEnsemble = true;
         finalSignal = 'NEUTRAL';
-        // Abstaining means "no conviction" — so the displayed confidence
+        // Abstaining means "no conviction", so the displayed confidence
         // must drop to the floor, not keep the high value the BUY/SELL
         // score earned. Otherwise the card shows "DON'T BUY · 74%", a
         // contradiction. (priceTargets are nulled at return time so an
@@ -315,7 +314,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // a meaningful number of resolved predictions on THIS exact
     // symbol (>=5) AND its 1d hit rate on this symbol is above the
     // engine-wide average, we have evidence the engine reads this
-    // particular name well — boost up to +5pts. If the symbol's
+    // particular name well, boost up to +5pts. If the symbol's
     // track record is BELOW average, dock up to -3pts. Skipped on
     // bulkScan to keep Hot Picks scan fast (the ledger fetch is
     // small but adds up across 60 symbols). Skipped for crypto
@@ -343,9 +342,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
                     hitRatePct: symHitRate,
                     adjust: trAdj,
                     reason: trAdj > 0
-                        ? `Engine has ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls — track-record bonus`
+                        ? `Engine has ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls, track-record bonus`
                         : trAdj < 0
-                            ? `Engine has only ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls — track-record penalty`
+                            ? `Engine has only ${symHitRate}% hit rate on ${symbolOrCoinId} over ${lh.resolved1d} resolved calls, track-record penalty`
                             : null,
                 };
             }
@@ -607,7 +606,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (_pt && forecastBand?.calibrated && forecastBand.days?.length) {
         // The row for the session being asked about: Tomorrow's headline is day 2 of the band.
         // It was always day 1, so the Tomorrow view printed TODAY's range under
-        // "Expected Price Range — Tomorrow" while the table right below it showed tomorrow's.
+        // "Expected Price Range. Tomorrow" while the table right below it showed tomorrow's.
         const dayIdx = timeframe === 'tomorrow' && forecastBand.days.length > 1 ? 1 : 0;
         const d1 = forecastBand.days[dayIdx];
         const cp = _pt.currentPrice;
@@ -628,9 +627,9 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         }
     }
 
-    // Confidence band (the "63–71%" shown by the number). Previously this
+    // Confidence band (the "63 to 71%" shown by the number). Previously this
     // was a pure heuristic guess-stack (+2 for transition, +dispersion/6,
-    // …) — a made-up width presented as engine uncertainty. Now it's
+    // …), a made-up width presented as engine uncertainty. Now it's
     // ANCHORED to the binomial standard error of the calibrated hit-rate:
     // half-width = 1·SE where SE = sqrt(p(1-p)/n) in percentage points,
     // using the sample size n behind the calibration answer. Few samples →
@@ -644,12 +643,11 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         const sePts = Math.sqrt((p * (1 - p)) / calN) * 100;   // 1σ in conf-points
         halfWidth = sePts;
     } else {
-        // Not enough calibration samples to ground a band statistically —
-        // fall back to the prior dispersion-based heuristic so we still
+        // Not enough calibration samples to ground a band statistically, // fall back to the prior dispersion-based heuristic so we still
         // show *something*, but this is the un-grounded path.
         halfWidth = 2 + Math.min(4, dispersion / 12);
     }
-    // Small event-risk widener (bounded) — binary events genuinely widen
+    // Small event-risk widener (bounded), binary events genuinely widen
     // the outcome distribution regardless of historical calibration.
     let eventWiden = 0;
     if (earnings?.daysUntil != null && earnings.daysUntil <= 5) eventWiden += 1.5;
@@ -668,7 +666,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     sentiment.reasons.forEach(r => allReasons.push(`[Sentiment] ${r}`));
     market.reasons.slice(0, 2).forEach(r => allReasons.push(`[Market] ${r}`));
     if (regime?.regime && regime.regime !== 'neutral') allReasons.push(`[Macro] Market regime: ${regime.regime}`);
-    if (sectorMeta && sectorAdj !== 0) { const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat'; allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d) — ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`); }
+    if (sectorMeta && sectorAdj !== 0) { const dir = sectorMeta.rising ? 'rising' : sectorMeta.falling ? 'falling' : 'flat'; allReasons.push(`[Sector] ${sectorMeta.name} sector ${dir} (${sectorMeta.pct5d?.toFixed(1)}% 5d), ${sectorAdj > 0 ? 'aligned' : 'conflicting'}`); }
     if (rotationResult?.reason) allReasons.push(`[Rotation] ${rotationResult.reason}`);
     if (peerResult?.reason) allReasons.push(`[Peers] ${peerResult.reason}`);
     if (tfResult?.reason) allReasons.push(`[Timeframes] ${tfResult.reason}`);
@@ -689,12 +687,12 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     if (finraResult?.reasons?.length) finraResult.reasons.forEach(r => allReasons.push(`[FINRA] ${r}`));
     if (insiderResult?.reasons?.length) insiderResult.reasons.forEach(r => allReasons.push(`[Insiders] ${r}`));
     if (socialResult?.reasons?.length) socialResult.reasons.forEach(r => allReasons.push(`[Social] ${r}`));
-    if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts) — confidence reduced by ${disagreementPenalty}`);
-    if (unanimousBonus > 0) allReasons.push(`[Engine] All sources agree directionally — confidence boosted by ${unanimousBonus}`);
+    if (disagreementPenalty > 0) allReasons.push(`[Engine] Sources disagree (range ${dispersion.toFixed(0)} pts), confidence reduced by ${disagreementPenalty}`);
+    if (unanimousBonus > 0) allReasons.push(`[Engine] All sources agree directionally, confidence boosted by ${unanimousBonus}`);
     if (abstainedFromEnsemble) {
-        allReasons.push(`[Consensus] Sat out — only ${consensus.for}/${consensus.total} sources agreed and ${consensus.against} pushed the other way. The ensemble is split, so the engine declines to call it.`);
+        allReasons.push(`[Consensus] Sat out, only ${consensus.for}/${consensus.total} sources agreed and ${consensus.against} pushed the other way. The ensemble is split, so the engine declines to call it.`);
     } else if (consensus && (finalSignal === 'BUY' || finalSignal === 'SELL') && consensus.total > 0) {
-        if (consensus.against > 0) allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} — ${consensus.against} pointing the other way${contradictionPenalty > 0 ? `, confidence reduced by ${contradictionPenalty}` : ''}`);
+        if (consensus.against > 0) allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal}, ${consensus.against} pointing the other way${contradictionPenalty > 0 ? `, confidence reduced by ${contradictionPenalty}` : ''}`);
         else if (consensus.for === consensus.total) allReasons.push(`[Consensus] All ${consensus.total} sources agree on ${finalSignal}`);
         else allReasons.push(`[Consensus] ${consensus.for}/${consensus.total} sources back this ${finalSignal} (rest neutral)`);
     }
@@ -704,7 +702,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // so the signal card's Technical Indicators panel can explain each reason
     // with the actual numbers (RSI 27.4, %B −0.06, MACD hist +0.42, price vs
     // its own bands) instead of a textbook blurb. Pure read of what the engine
-    // already computed — no recompute. Null-safe: any missing piece just omits
+    // already computed, no recompute. Null-safe: any missing piece just omits
     // that field and the UI falls back to its generic explanation.
     const indSnap = (() => {
         const ind = technicalPred?.indicators;
@@ -792,11 +790,10 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         insider: insider ? { ...insider, ...insiderResult } : null,
         socialVelocity: socialVel ? { ...socialVel, ...socialResult } : null,
         reasons: allReasons.slice(0, 24),
-        // On an ensemble abstain, suppress the directional predicted range —
-        // showing "Possible High +X% / Possible Low −Y%" for a call the
+        // On an ensemble abstain, suppress the directional predicted range, // showing "Possible High +X% / Possible Low −Y%" for a call the
         // engine just declined to make is contradictory. NEUTRAL → no range.
         priceTargets: abstainedFromEnsemble ? null : technicalPred.priceTargets,
-        // Top features that drove the technical signal — Mia uses this to
+        // Top features that drove the technical signal. Mia uses this to
         // answer "why did the model say this?" without re-running anything.
         attribution: summarizeAttribution(technicalPred, 5),
         breakdown: {
@@ -838,7 +835,7 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
             abstainedFrom: gatedFrom,
             trendGate: gatedWhy,
         } : abstainedFromEnsemble ? {
-            abstainReason: `The ensemble is split — only ${consensus.for} of ${consensus.total} sources agreed and ${consensus.against} pushed the other way. Better to wait for a cleaner setup than force a coin-flip.`,
+            abstainReason: `The ensemble is split, only ${consensus.for} of ${consensus.total} sources agreed and ${consensus.against} pushed the other way. Better to wait for a cleaner setup than force a coin-flip.`,
             abstainedFrom: weightedScore > 50 ? 'BUY' : 'SELL',
         } : undefined,
         // Long-term trend and liquidity, for the pullback setup and the UI (js/trend-gate.js).
@@ -860,12 +857,12 @@ function computeConsensus(scores, signal, thresh) {
     const bearCut = thresh?.sellAgreementCutoff ?? 45;
     const votes = {};
     let forN = 0, against = 0, neutral = 0, total = 0;
-    // Soft directional lean (relative to the true neutral, 50) — used by the
-    // abstain gate. The strong cutoffs above create a 45–55 dead zone that's
+    // Soft directional lean (relative to the true neutral, 50), used by the
+    // abstain gate. The strong cutoffs above create a 45 to 55 dead zone that's
     // right for the DISPLAY ("which sources took a strong stand") but too
     // strict for abstaining: a source at 53 on a BUY genuinely backs the
     // direction, it's just not highly convicted. leansFor/leansAgainst count
-    // that softer agreement so the gate doesn't nuke the modest 50–60 band.
+    // that softer agreement so the gate doesn't nuke the modest 50 to 60 band.
     let leansFor = 0, leansAgainst = 0;
     for (const [src, score] of Object.entries(scores)) {
         if (score == null || !Number.isFinite(score)) { votes[src] = 'n/a'; continue; }
@@ -942,7 +939,7 @@ function regimeStrengthFromAdx(adx, trendRegime) {
         // ADX 20 → 0, ADX 8 → 1 (lower ADX = more firmly ranging).
         return Math.max(0, Math.min(1, (20 - adx) / 12));
     }
-    return 0; // transitional/unknown — no trend tilt
+    return 0; // transitional/unknown, no trend tilt
 }
 
 // Map VIX to a 0..1 macro-strength multiplier scaled by distance from

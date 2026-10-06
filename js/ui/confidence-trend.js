@@ -3,12 +3,12 @@
 // Plots the engine's confidence on ONE symbol over its recent ledger
 // history as a line, dotting each resolved prediction green (hit) or
 // red (miss). It answers "has the engine's conviction on this name been
-// earned?" — a flat-high line full of red dots is overconfidence; a
+// earned?", a flat-high line full of red dots is overconfidence; a
 // line that rises as green dots accumulate is the engine learning.
 //
 // Data comes from readSymbolConfidenceTrend (live ledger). The signal
 // card renders a placeholder synchronously and calls mountConfidenceTrend
-// after paint to fill it async — so a cold ledger fetch never blocks the
+// after paint to fill it async, so a cold ledger fetch never blocks the
 // card render.
 
 import { readSymbolConfidenceTrend } from '../ledger-reader.js';
@@ -43,7 +43,7 @@ function buildSvg(points) {
     }
     const dots = xy.map(d => {
         const cls = d.p.outcome === 'hit' ? 'hit' : d.p.outcome === 'miss' ? 'miss' : 'pending';
-        const title = `${d.p.date}: ${d.p.confidence}% ${d.p.signal}${d.p.outcome ? ` — ${d.p.outcome.toUpperCase()}` : ' — unresolved'}`;
+        const title = `${d.p.date}: ${d.p.confidence}% ${d.p.signal}${d.p.outcome ? `, ${d.p.outcome.toUpperCase()}` : ', unresolved'}`;
         return `<circle cx="${d.x.toFixed(1)}" cy="${d.y.toFixed(1)}" r="3" class="ct-dot ${cls}"><title>${title}</title></circle>`;
     }).join('');
 
@@ -59,7 +59,7 @@ function buildSvg(points) {
 export function renderConfidenceTrendPlaceholder(symbol) {
     if (!symbol) return '';
     return `<div class="ct-block" data-ct-symbol="${symbol}" hidden>
-        <div class="ct-title">Confidence on ${symbol} — recent track</div>
+        <div class="ct-title">Confidence on ${symbol}, recent track</div>
         <div class="ct-host"></div>
         <div class="ct-legend">
             <span class="ct-legend-dot hit"></span> hit

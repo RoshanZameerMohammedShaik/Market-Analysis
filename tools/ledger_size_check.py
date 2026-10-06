@@ -4,7 +4,7 @@ WHY
 ---
 model/ledger/2026.jsonl reached 101.30 MB and GitHub rejected every push:
 
-    remote: error: File model/ledger/2026.jsonl is 101.30 MB; this exceeds
+    remote: error: File model/ledger/2026.jsonl is 101.30 MB, this exceeds
     remote: error: GitHub's file size limit of 100.00 MB
 
 That limit is hard. It cannot be raised, and the rejection happens at push time, which is

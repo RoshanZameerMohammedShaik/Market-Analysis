@@ -79,6 +79,6 @@ export function squeezeAdjustment(signal, squeeze) {
     const adjust = +3;
     return {
         adjust,
-        reason: `BB squeeze ${squeeze.daysInSqueeze}d (bandwidth ${squeeze.bandwidthPctile}th pctile) — coiled, ${signal} bias supported`,
+        reason: `BB squeeze ${squeeze.daysInSqueeze}d (bandwidth ${squeeze.bandwidthPctile}th pctile), coiled, ${signal} bias supported`,
     };
 }

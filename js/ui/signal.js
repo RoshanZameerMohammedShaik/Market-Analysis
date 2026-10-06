@@ -28,12 +28,12 @@ let lastShownSymbol = null;
 export async function renderSignal(prediction, newsData = [], sentiment = null) {
     const section = document.getElementById('signal-section');
 
-    // TODAY'S LOCKED CALL — anchored to the MARKET OPEN, not the page visit.
+    // TODAY'S LOCKED CALL, anchored to the MARKET OPEN, not the page visit.
     // The day's prediction of record is the one the Python cron committed at
     // market open (open price = entry), read from the ledger via
     // getEffectiveLock. The on-screen engine still recomputes live, but the
     // LOCKED signal / confidence / target band is what's displayed as the hero
-    // — stable all day, identical regardless of when the user opens the page.
+    //, stable all day, identical regardless of when the user opens the page.
     // The live price drives only the STATUS line below ("on track" / "target
     // reached" / "stopped"), never a competing call. If the symbol isn't in the
     // cron universe (or the market hasn't opened yet today), getEffectiveLock
@@ -41,7 +41,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // call. (Skip when the live prediction has no signal.)
     const lockSym = state.currentSymbol;
     // Today only. The lock is THIS session's committed call; applying it to the Tomorrow view
-    // printed today's range under "Expected Price Range — Tomorrow", and a first visit in
+    // printed today's range under "Expected Price Range. Tomorrow", and a first visit in
     // Tomorrow mode stored the tomorrow prediction as today's local lock.
     const locked = (lockSym && state.timeframe === 'today') ? await getEffectiveLock(lockSym, prediction) : null;
     // Build the view object: locked values win for the decision fields
@@ -74,7 +74,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     //   BUY      → BUY     (clear bullish edge)
     //   SELL     → SELL    (clear bearish edge)
     //   NEUTRAL  → DON'T BUY  (no edge, sit out)
-    //   NO_TRADE → AVOID   (hard event-risk cap — earnings, gap, etc)
+    //   NO_TRADE → AVOID   (hard event-risk cap, earnings, gap, etc)
     const signalDisplay = signal === 'NO_TRADE' ? 'AVOID'
         : signal === 'NEUTRAL' ? "DON'T BUY"
         : signal;
@@ -95,7 +95,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
         const hasProbable = priceTargets.probableHigh != null && priceTargets.probableLow != null;
         const probableStrip = hasProbable
-            ? `<div class="probable-strip" title="The narrower target zone — where the price most likely lands">
+            ? `<div class="probable-strip" title="The narrower target zone, where the price most likely lands">
                     <span class="probable-label">Probable</span>
                     <span class="probable-low">${fmtPriceTag(priceTargets.probableLow, co)}</span>
                     <span class="probable-arrow">→</span>
@@ -105,7 +105,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             : '';
         priceTargetHTML = `
             <div class="price-targets">
-                <div class="price-targets-title">Expected Price Range — ${tfLabel}${priceTargets.source === "calibrated-band" ? `<span class="pt-cal-badge" title="Derived from the calibrated 7-day band, not an ATR heuristic. Coverage is measured, not assumed.">${priceTargets.bandConfidence}% band</span>` : ""}</div>
+                <div class="price-targets-title">Expected Price Range, ${tfLabel}${priceTargets.source === "calibrated-band" ? `<span class="pt-cal-badge" title="Derived from the calibrated 7-day band, not an ATR heuristic. Coverage is measured, not assumed.">${priceTargets.bandConfidence}% band</span>` : ""}</div>
                 ${probableStrip}
                 <div class="price-targets-grid">
                     <div class="price-target-card high">
@@ -132,19 +132,19 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     }
 
     // `view`, not `prediction`. This took the LIVE signal while the headline showed the LOCKED one,
-    // so a locked SELL was captioned "No clear direction. Indicators are conflicting" — the branch
+    // so a locked SELL was captioned "No clear direction. Indicators are conflicting", the branch
     // was correct, it was just describing a different call from the one on screen.
     const insightSummary = generateHumanInsight(view, sentiment);
     const newsHTML = renderNews(newsData, sentiment);
     const pennyDashboardHTML = renderPennyDashboard(prediction);
     const attributionHTML = renderAttribution(view.attribution);
-    // Horizon-bands strip removed — the per-symbol Prediction Accuracy
+    // Horizon-bands strip removed, the per-symbol Prediction Accuracy
     // column in the Full Ledger already shows past hit rate, and it's
     // per-symbol rather than pooled across the whole universe like the
     // strip was. Keeping the renderHorizonBands() function in case we
     // ever want to bring it back, but not wiring it in.
 
-    // Live indicator snapshot chips — the actual computed values for THIS
+    // Live indicator snapshot chips, the actual computed values for THIS
     // symbol, shown at a glance above the explanations. Each chip is tinted by
     // whether the value reads bull / bear / neutral, so the panel is concretely
     // symbol-specific even before you expand a row. Omitted entirely when the
@@ -176,7 +176,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                     // Try for a textbook explanation; fall back to the
                     // raw reason if no rule matches. The engine's reason
                     // strings are already specific ("Sector: Tech rising
-                    // 1.2%/5d — aligned"), so showing them verbatim is
+                    // 1.2%/5d, aligned"), so showing them verbatim is
                     // far better than rendering an identical generic
                     // placeholder ten times in a row.
                     const explanation = generateTechnicalExplanation(r, signal, state.currentSymbol, prediction.indicatorSnapshot);
@@ -222,7 +222,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             <div class="source-breakdown">
                 <div class="breakdown-title">Confidence Sources${
                     // When the bars are LIVE beside a locked call they can genuinely disagree with
-                    // it — the call was committed earlier and the inputs have moved since. Saying so
+                    // it, the call was committed earlier and the inputs have moved since. Saying so
                     // is the only honest option: silently showing bullish bars under a locked SELL
                     // reads as the card contradicting itself, and quietly hiding them would throw
                     // away real information. A ledger-locked card takes the cron's own breakdown and
@@ -234,7 +234,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 <div class="breakdown-bars">
                     ${/* Optional-chained on purpose. These were bare bd.x.score reads, and one null
                           source took down the ENTIRE signal card with "Cannot read properties of
-                          null (reading 'score')" — the user saw "Analysis failed", not a missing
+                          null (reading 'score')", the user saw "Analysis failed", not a missing
                           bar. A source that cannot be read should cost its own row and nothing
                           more. */''}
                     ${bd.ai?.available && Number.isFinite(bd.ai?.score) ? row(aiLabel, bd.ai.score, bd.ai.weight, 'var(--accent)') : ''}
@@ -259,7 +259,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     const calibrationBadge = isDev()
         ? (calibrationApplied
             ? `<span class="cal-badge ${isLive ? 'live' : 'calibrated'}" title="${isLive ? 'Confidence from LIVE ledger (real-world outcomes)' : 'Confidence from backtest calibration (historical replay)'}">${isLive ? '◉ live' : '✓ calibrated'}</span>`
-            : `<span class="cal-badge raw" title="No calibration data yet — confidence is heuristic, not empirical">! raw</span>`)
+            : `<span class="cal-badge raw" title="No calibration data yet, confidence is heuristic, not empirical">! raw</span>`)
         : '';
     const calibrationDelta = (isDev() && calibrationApplied && rawConfidence !== confidence)
         ? `<span class="cal-delta">heuristic ${rawConfidence}% → historical ${confidence}%</span>` : '';
@@ -275,7 +275,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         ? `<span class="trend-chip ${regime === 'risk-on' ? 'trending' : regime === 'risk-off' ? 'ranging' : 'transitional'}" title="Market-wide macro regime, not this symbol's own trend">macro: ${regime}</span>` : '';
 
     const rangeHTML = confidenceRange
-        ? `<span class="conf-range" title="Confidence range reflects engine uncertainty">${confidenceRange.lo}–${confidenceRange.hi}%</span>`
+        ? `<span class="conf-range" title="Confidence range reflects engine uncertainty">${confidenceRange.lo}, ${confidenceRange.hi}%</span>`
         : '';
 
     // What the reader can use: how much history stands behind the confidence number. This line
@@ -289,7 +289,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
 
     // Live status of today's locked call (on-track / target-reached /
     // stopped), computed from the current price vs the LOCKED targets. This
-    // is how the prediction "moves" now — as a status of the held call, not
+    // is how the prediction "moves" now, as a status of the held call, not
     // a new prediction. Only when we have a lock + a live price to compare.
     let statusHTML = '';
     if (locked && Number.isFinite(state.currentPrice)) {
@@ -354,7 +354,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             const sliceProblem = fromLedger ? null : recentSliceProblem();
             let lockTitle;
             if (fromLedger && locked.atOpen) {
-                lockTitle = 'Locked by the engine at this market’s open — the same baseline for everyone.';
+                lockTitle = 'Locked by the engine at this market’s open, the same baseline for everyone.';
             } else if (fromLedger) {
                 lockTitle = `The engine committed this call ${lateText || 'after the open'}, not at it. `
                     + 'GitHub Actions queues scheduled jobs and can delay them by hours, so the '
@@ -364,7 +364,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 lockTitle = `The engine has no committed row for this session${sliceProblem ? ` (${sliceProblem})` : ''}, `
                     + 'so this call was computed when you opened the symbol. Its baseline is this '
                     + 'session’s OPENING price, which is the same for everyone, but the call itself '
-                    + 'reflects the moment you looked — someone opening it later could see a '
+                    + 'reflects the moment you looked, someone opening it later could see a '
                     + 'different one.';
             } else if (sliceProblem) {
                 lockTitle = `No market-open lock could be loaded: ${sliceProblem}. This baseline is `
@@ -389,7 +389,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
 
     const dialHTML = renderConfidenceDial({ value: confidence, signal, label: 'confidence' });
 
-    // ── Suggested Decision — the HERO takeaway of the analysis section ──
+    // ── Suggested Decision, the HERO takeaway of the analysis section ──
     // Plain-language, real-numbers "what should I do" framing that replaces a
     // cold one-word signal. Dynamic per symbol (stocks + crypto): predicted
     // move % and the symbol's own "usual move" come straight from priceTargets.
@@ -401,10 +401,10 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     try {
         const sym = state.currentSymbol;
         const headerTxt = document.getElementById('chart-symbol')?.textContent || '';
-        // "AAPL — Apple Inc. · NASDAQ — USA" → ticker before " — ", name between.
-        let ticker = sym || (headerTxt.split('—')[0] || '').trim();
+        // "AAPL. Apple Inc. · NASDAQ. USA" → ticker before "-", name between.
+        let ticker = sym || (headerTxt.split('')[0] || '').trim();
         let name = '';
-        const m = headerTxt.match(/^[^—]+—\s*([^·]+?)\s*(?:·|$)/);
+        const m = headerTxt.match(/^[^, ]+, \s*([^·]+?)\s*(?:·|$)/);
         if (m) name = m[1].trim();
         let owned = null;
         try {
@@ -421,7 +421,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         });
     } catch (_) { suggestedDecisionHTML = ''; }
 
-    // Justify the LOCKED number the dial shows, not the live recompute — the
+    // Justify the LOCKED number the dial shows, not the live recompute, the
     // trust panel header literally says "Why trust this {confidence}%?", so
     // it must reason about the same confidence/consensus the user sees.
     const trustHTML = renderTrustPanel(view);
@@ -451,7 +451,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             cryptoMode: state.mode === 'crypto',
         });
     } catch (_) { bandHTML = ''; }
-    // Per-symbol confidence-trend placeholder — filled async after paint
+    // Per-symbol confidence-trend placeholder, filled async after paint
     // from the live ledger (removed if there isn't enough history).
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
 
@@ -521,7 +521,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             </div>
         </div>`;
 
-    // GSAP entrance — the card lifts in, the signal label resolves word-by-word,
+    // GSAP entrance, the card lifts in, the signal label resolves word-by-word,
     // and the secondary sections cascade in just behind the dial sweep. Sets
     // [data-gsap] on the box (only inside canAnimate()) so premium.css's CSS
     // card-rise doesn't double-run; revealUp's clearProps:'transform' default
@@ -536,12 +536,12 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const secondary = [...section.querySelectorAll('.price-targets, .trust-panel, .insight-summary, .attribution-section, .technical-section')];
         if (secondary.length) revealStagger(secondary, { y: 12, duration: 0.45, stagger: 0.07, delay: 0.30 });
     }
-    // "Signal landed" chord — distinct per direction, once per analysis.
+    // "Signal landed" chord, distinct per direction, once per analysis.
     signalLanded(signal);
 
     // The radial dial owns the confidence readout now. Sweep the arc +
     // count up the number on every render (also covers re-runs where the
-    // value changed — the dial always animates from 0 to the new value,
+    // value changed, the dial always animates from 0 to the new value,
     // which reads as a deliberate "recomputing" beat).
     animateDials(section);
     // Fill the confidence-trend chart from the live ledger (async; the
@@ -563,7 +563,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     lastShownSymbol = state.currentSymbol;
 
     // Pulse the chart-price ring to match the signal direction. Pulse rate
-    // scales with confidence — high-conviction signals breathe faster, the
+    // scales with confidence, high-conviction signals breathe faster, the
     // engine literally feels more excited about the call.
     const priceEl = document.getElementById('chart-price');
     if (priceEl) {
@@ -598,7 +598,7 @@ function generateHumanInsight(prediction, sentiment) {
         else insight = `<strong>Weak sell signal.</strong> Slight bearish edge but uncertain. `;
         if (priceTargets) insight += `Price may drop to <span class="highlight-red">${fmtPrice(priceTargets.predictedLow, co)}</span> ${tfWord} (${priceTargets.lowPercent}%). Upside capped around ${fmtPrice(priceTargets.predictedHigh, co)} (+${priceTargets.highPercent}%).`;
     } else {
-        insight = `<strong>No clear direction.</strong> Indicators are conflicting — the market is undecided. Consider waiting for a clearer setup before entering a position.`;
+        insight = `<strong>No clear direction.</strong> Indicators are conflicting, the market is undecided. Consider waiting for a clearer setup before entering a position.`;
     }
     if (sentiment && sentiment.overall !== 'neutral') {
         if (sentiment.overall === 'positive' && signal === 'BUY') insight += ` <span class="highlight-green">News sentiment confirms bullish bias.</span>`;
@@ -662,7 +662,7 @@ function renderAttribution(attribution) {
         //
         // The arrow is the NET contribution across Daily/Weekly/4H; the evidence was the single
         // heaviest source regardless of sign. So INTC rendered "▲ Moving Avg Cross / Short MA below
-        // long MA — bearish trend": net bullish, evidence bearish, in one row. The same gap made
+        // long MA, bearish trend": net bullish, evidence bearish, in one row. The same gap made
         // the drivers quote "ADX 29.0" and "+12.9% over 5 periods" while the Technical Indicators
         // panel below showed ADX 13.9 and Mom 5p +0.73% -- both correct, from different timeframes,
         // with nothing on screen saying so.
@@ -685,7 +685,7 @@ function renderAttribution(attribution) {
     }).join('');
     return `
         <div class="attribution-section" title="Which indicators pushed the score most. Bullish in green, bearish in red.">
-            <div class="attribution-title">Why this signal — top drivers</div>
+            <div class="attribution-title">Why this signal, top drivers</div>
             ${rows}
         </div>`;
 }

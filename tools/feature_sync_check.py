@@ -6,8 +6,7 @@ The approach: shell out to node, run a tiny harness that imports the REAL
 computeFeatures from js/ai-model.js (passing a config that declares 11
 features) and prints JSON. Compare to the Python output cell-by-cell.
 
-Calling the real computeFeatures — instead of the old inlined duplicate —
-means this test actually exercises the shipping code path, including the
+Calling the real computeFeatures, instead of the old inlined duplicate, means this test actually exercises the shipping code path, including the
 new ADX/MFI/ATR helpers. If the JS and Python implementations of those
 drift, this fails.
 """

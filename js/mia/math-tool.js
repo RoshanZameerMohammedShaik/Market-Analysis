@@ -1,7 +1,7 @@
 // One tool, one job: evaluate any arithmetic expression Mia gives it.
 //
 // The LLM is good at SETUP and EXPLANATION, bad at COMPUTATION.
-// This is the missing primitive — a general-purpose calculator she
+// This is the missing primitive, a general-purpose calculator she
 // can call as many times as she needs to work through ANY problem.
 //
 // We deliberately do NOT bake in domain-specific solvers ("break-even",
@@ -12,7 +12,7 @@
 //
 // Generality comes from:
 //   1. Full operator precedence: + - * / ^ and parens
-//   2. Named variables — Mia can store intermediate results and reuse
+//   2. Named variables. Mia can store intermediate results and reuse
 //      them across calls without re-typing. e.g.
 //        compute({ expression: "974 / 8.80", as: "shares" })       → 110.68
 //        compute({ expression: "shares * 8.80", as: "valueAtEntry" }) → 974

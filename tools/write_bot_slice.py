@@ -8,7 +8,7 @@ is a sane thing to hand a phone browser, and both will be megabytes within month
 mirrors tools/write_recent_slice.py, which exists for exactly the same reason on the
 ledger: without it the browser fetched an 85 MB year file to read three days.
 
-The slice is DERIVED and disposable. Delete it and the next run rebuilds it; nothing here
+The slice is DERIVED and disposable. Delete it and the next run rebuilds it, nothing here
 is a source of truth, so it is safe to change its shape whenever the UI needs something
 different.
 

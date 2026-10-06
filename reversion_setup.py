@@ -1,9 +1,9 @@
-"""The pullback setup, Python side. MIRRORS js/reversion-setup.js; tools/reversion_sync_check.py
+"""The pullback setup, Python side. MIRRORS js/reversion-setup.js, tools/reversion_sync_check.py
 holds them together. The rule and every number behind it are in tools/calibrate_reversion.py.
 
   ENTRY  at the close of a session where RSI(2) < 10, price is above its 200-day average, and the
          name trades $50M+ a day (US listings)
-  EXIT   at the open after the first close above the 5-day average, at most 10 sessions; no stop
+  EXIT   at the open after the first close above the 5-day average, at most 10 sessions, no stop
 """
 from __future__ import annotations
 

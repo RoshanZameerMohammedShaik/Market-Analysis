@@ -12,7 +12,7 @@ export function applyLockToPrediction(prediction, locked) {
     if (locked.priceTargets && Number.isFinite(locked.priceTargets.predictedHigh)) {
         // BEST CASE: the cron locked a FULL band at market open (possible +
         // probable high/low, anchored to the open entry). Use it wholesale
-        // — this is the engine's own committed band, identical for everyone
+        //, this is the engine's own committed band, identical for everyone
         // all day. Keep only the LIVE currentPrice so the card still shows
         // where price is NOW relative to the locked band.
         pinnedTargets = {

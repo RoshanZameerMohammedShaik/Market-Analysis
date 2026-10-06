@@ -4,7 +4,7 @@
 //   - Android / desktop Chrome/Edge fire `beforeinstallprompt`; we capture
 //     it, suppress the default mini-infobar, and show our own tasteful
 //     button that calls prompt() on click.
-//   - iOS Safari has NO beforeinstallprompt — the only way to install is
+//   - iOS Safari has NO beforeinstallprompt, the only way to install is
 //     Share → Add to Home Screen. So for iOS we show a one-line
 //     instruction card instead of a button.
 //
@@ -59,7 +59,7 @@ function showAndroidCard() {
             <div class="install-prompt-icon">📈</div>
             <div class="install-prompt-text">
                 <div class="install-prompt-title">Install Market Analyzer</div>
-                <div class="install-prompt-sub">Add it to your home screen — full-screen, faster, and enables price alerts.</div>
+                <div class="install-prompt-sub">Add it to your home screen, full-screen, faster, and enables price alerts.</div>
             </div>
             <button class="install-prompt-btn" id="install-prompt-go">Install</button>
         </div>`);
@@ -68,7 +68,7 @@ function showAndroidCard() {
         deferredPrompt.prompt();
         try { await deferredPrompt.userChoice; } catch (_) {}
         deferredPrompt = null;
-        rememberDismiss();  // installed or declined — either way don't re-nag
+        rememberDismiss();  // installed or declined, either way don't re-nag
         el.classList.add('leaving');
         setTimeout(() => el.remove(), 240);
     });
@@ -96,7 +96,7 @@ export function initInstallPrompt() {
         if (!dismissed()) setTimeout(showAndroidCard, SHOW_DELAY_MS);
     });
 
-    // iOS Safari (not standalone): no event — show the manual hint card.
+    // iOS Safari (not standalone): no event, show the manual hint card.
     if (isIos()) {
         setTimeout(() => { if (!isStandalone() && !dismissed()) showIosCard(); }, SHOW_DELAY_MS);
     }

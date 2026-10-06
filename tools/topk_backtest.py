@@ -5,7 +5,7 @@ THE PROBLEM THIS TESTS
 The engine has a real but small ranking ability: mean IC per date is about +0.03 to
 +0.05 in several slices, with t-stats of 3 to 4. IC measures how well the score ORDERS
 tomorrow's returns. But the strategy as deployed takes essentially everything it
-scores above 50 — 33,684 of 33,958 NYSE observations — which throws the ordering away
+scores above 50 to 33,684 of 33,958 NYSE observations, which throws the ordering away
 and collects the average, not the top.
 
 If the ranking is real, the top K names by score on each date should out-return the
@@ -129,7 +129,7 @@ def run(by_date, k, min_names, mode, neutral=False):
     This switch matters more than any other here. Over a rising sample window every
     forward return is positive, so "buy everything" shows a profit and every top-K
     inherits that beta and looks skilful. On this ledger, holding ALL names for 20
-    days returned +1.125% net at t=2.93 — that is the market, not the engine. Excess
+    days returned +1.125% net at t=2.93, that is the market, not the engine. Excess
     return asks the only question the score can answer: did the names it ranked
     highest beat the ones it ranked lower, on the same day?
     """

@@ -1,9 +1,9 @@
-// Mia's voice-mode sound design — synthesized entirely in the browser
+// Mia's voice-mode sound design, synthesized entirely in the browser
 // with the Web Audio API. No sample files: every sound is built from
 // oscillators + envelopes, so it stays free, dependency-free, and in
 // keeping with the dynamic-only rule (nothing pre-recorded shipped).
 //
-// Character (Roshan's pick): "soft organic bubbles" — rounded sine
+// Character (Roshan's pick): "soft organic bubbles", rounded sine
 // blips, low-pass filtered, with a gentle random pitch wobble. The
 // ChatGPT-voice-mode "dubudbudbud" thinking feel.
 //
@@ -16,11 +16,11 @@
 //     listening.
 //
 // HARD GATES (both must pass for any sound to play):
-//   1. soundEnabled (Mia settings, default ON, persisted) — the mute.
-//   2. NOT speaking — while Mia's TTS / Live voice is actually playing
+//   1. soundEnabled (Mia settings, default ON, persisted), the mute.
+//   2. NOT speaking, while Mia's TTS / Live voice is actually playing
 //      audio, we stay silent so we never talk over her. Sounds resume
 //      between utterances (thinking, ticks, listening all still fire
-//      during voice mode — just not while she's mid-sentence).
+//      during voice mode, just not while she's mid-sentence).
 //
 // Browser autoplay policy: the AudioContext can't start until a user
 // gesture. Mia is always invoked by a click, so ensure() lazily creates
@@ -33,7 +33,7 @@ let masterGain = null;   // master volume / hard-mute node
 let speaking = false;    // TTS/Live voice currently playing → suppress
 let thinkingHandle = null; // { stop() } for the active thinking loop
 
-const MASTER_VOLUME = 0.30;   // bumped from 0.18 — action sounds were too quiet to notice
+const MASTER_VOLUME = 0.30;   // bumped from 0.18, action sounds were too quiet to notice
 
 // ── enable/mute state (persisted in Mia settings) ────────────────────
 
@@ -41,7 +41,7 @@ export function isSoundEnabled() {
     // Default ON. settings.soundEnabled is undefined on stores written
     // before this feature → treat undefined as true. The master soundAllOff
     // (Settings → Sounds → "Turn off all sounds") silences Mia's ACTION sounds
-    // too — but NOT her voice/responses, which never read this flag.
+    // too, but NOT her voice/responses, which never read this flag.
     const s = loadSettings();
     if (s.soundAllOff === true) return false;
     return s.soundEnabled !== false;
@@ -64,7 +64,7 @@ export function setSoundEnabled(on) {
 // Called by the voice layer so we know when Mia's actual voice is
 // playing. While true, every sound is suppressed; a running thinking
 // loop is paused (its blips just don't emit) and resumes when she
-// stops. We DON'T tear the loop down here — the generation lifecycle
+// stops. We DON'T tear the loop down here, the generation lifecycle
 // owns start/stop; this only gates emission.
 export function setSpeaking(isSpeaking) {
     speaking = !!isSpeaking;
@@ -114,7 +114,7 @@ function blip(freq, t0, peak = 0.6, dur = 0.16) {
     lp.type = 'lowpass';
     lp.frequency.setValueAtTime(Math.min(1800, freq * 3), t0);
     // A gentle downward filter sweep rounds the tail so it "closes" softly
-    // instead of holding a bright edge — much less "beepy".
+    // instead of holding a bright edge, much less "beepy".
     lp.frequency.exponentialRampToValueAtTime(Math.max(180, freq * 1.4), t0 + dur);
     lp.Q.value = 0.5;
 
@@ -148,13 +148,13 @@ function blip(freq, t0, peak = 0.6, dur = 0.16) {
 export function tick() {
     if (!canEmit()) return;
     const t = now() + 0.001;
-    // Two stacked partials, low + a quiet octave, very short — reads as
+    // Two stacked partials, low + a quiet octave, very short, reads as
     // a rounded "bup" rather than a click.
     blip(560 + Math.random() * 60, t, 0.5, 0.12);
     blip(280 + Math.random() * 30, t, 0.28, 0.14);
 }
 
-// Soft three-note rising "done" chime — fires when an answer finishes or
+// Soft three-note rising "done" chime, fires when an answer finishes or
 // a key result lands (P&L total, equity curve). A gentle resolve, not a
 // fanfare: warm rounded blips up a major triad. Gated like everything else.
 export function complete() {
@@ -162,10 +162,10 @@ export function complete() {
     const t = now() + 0.001;
     blip(523, t, 0.42, 0.16);          // C5
     blip(659, t + 0.10, 0.42, 0.18);   // E5
-    blip(784, t + 0.20, 0.46, 0.30);   // G5 — slightly longer tail to "settle"
+    blip(784, t + 0.20, 0.46, 0.30);   // G5, slightly longer tail to "settle"
 }
 
-// Soft "powering up" cue when voice mode begins connecting — a warm,
+// Soft "powering up" cue when voice mode begins connecting, a warm,
 // slow upward swell of two overlapping low blips (think a device gently
 // waking, not a dial tone). Replaces the abrupt thinking-loop start the
 // user found "weird and shitty" at connect time. Short + low so it sits
@@ -173,17 +173,17 @@ export function complete() {
 export function connecting() {
     if (!canEmit()) return;
     const t = now() + 0.001;
-    blip(196, t, 0.34, 0.34);          // G3 — low warm root, long soft tail
-    blip(294, t + 0.14, 0.30, 0.32);   // D4 — a fifth above, overlapping rise
+    blip(196, t, 0.34, 0.34);          // G3, low warm root, long soft tail
+    blip(294, t + 0.14, 0.30, 0.32);   // D4, a fifth above, overlapping rise
 }
 
 // Gentle two-note "ready" resolve once the connection is live and Mia is
-// actually listening — a soft confirmation the link is up.
+// actually listening, a soft confirmation the link is up.
 export function connected() {
     if (!canEmit()) return;
     const t = now() + 0.001;
     blip(392, t, 0.40, 0.16);          // G4
-    blip(587, t + 0.10, 0.42, 0.22);   // D5 — clean upward resolve
+    blip(587, t + 0.10, 0.42, 0.22);   // D5, clean upward resolve
 }
 
 // Two-note rising cue when voice starts listening; falling when it stops.
@@ -203,7 +203,7 @@ export function listeningOff() {
 // Start the looping "dubudbudbud" thinking shimmer. Schedules a short
 // run of randomized blips, then re-arms via setTimeout so the loop can
 // be cancelled cleanly. Each tick re-checks canEmit(), so the loop goes
-// silent the instant Mia starts speaking or the user mutes — without
+// silent the instant Mia starts speaking or the user mutes, without
 // being torn down (it resumes between utterances). Idempotent: calling
 // it while already running is a no-op.
 export function startThinking() {
@@ -221,7 +221,7 @@ export function startThinking() {
         // so it picks back up the moment the gate clears.
         if (canEmit()) {
             const t = now();
-            // 2–4 soft blips per burst at slightly random spacing →
+            // 2 to 4 soft blips per burst at slightly random spacing →
             // the irregular "dubud-bud-bud" cadence.
             const count = 2 + Math.floor(Math.random() * 3);
             let offset = 0;

@@ -13,7 +13,7 @@
 //      Pure structural grammar, not a content list.
 //
 // We deliberately don't enumerate "example phrases" or any prose
-// blacklist — the equation/structure checks above are enough; a
+// blacklist, the equation/structure checks above are enough; a
 // number without grounding deserves the gentle nudge.
 
 const NUM_RE = /(\$?[-+]?\d{1,5}(?:,\d{3})*(?:\.\d+)?\s*(?:%|x|tokens|kudos)?)/g;
@@ -39,7 +39,7 @@ function applyOp(a, op, b) {
 }
 
 // Tolerance for "computed matches asserted result." 1% relative or 0.01
-// absolute, whichever is larger — covers rounding to 2 decimal places on
+// absolute, whichever is larger, covers rounding to 2 decimal places on
 // dollar amounts and 4 decimals on share counts.
 function withinTolerance(computed, asserted) {
     if (computed == null || !Number.isFinite(asserted)) return false;
@@ -94,7 +94,7 @@ function harvestVerifiedFromEquations(reply, seen) {
 }
 
 // Range syntax: numbers connected by a range token ("0 to 100", "0-100",
-// "0–100", "between 5 and 10"). Pure structural pattern — closed-class
+// "0 to 100", "between 5 and 10"). Pure structural pattern, closed-class
 // grammatical connectors, not an enumeration of prose. Numbers inside
 // such patterns are illustrative.
 //
@@ -104,8 +104,8 @@ function harvestVerifiedFromEquations(reply, seen) {
 // matches "0" and "-100"; the "-100" match's preceding char is a digit,
 // which is the structural giveaway for "this hyphen is a range, not a
 // sign").
-const SIBLING_NUM_AFTER = /^\s*(?:to|through|until|–|—|-)\s*\d/i;
-const SIBLING_NUM_BEFORE = /\d\s*(?:to|through|until|–|—|-)\s*$/i;
+const SIBLING_NUM_AFTER = /^\s*(?:to|through|until|, |, |-)\s*\d/i;
+const SIBLING_NUM_BEFORE = /\d\s*(?:to|through|until|, |, |-)\s*$/i;
 
 function isRangeContext(reply, idx, len) {
     const before = reply.slice(Math.max(0, idx - 24), idx);
@@ -161,14 +161,14 @@ export function flagUnverifiedNumbers(reply, sources) {
         const norm = normalize(match);
         const trimmed = match.trim();
 
-        // Allow single-digit ordinals (1., 2., 3.) — common in lists.
+        // Allow single-digit ordinals (1., 2., 3.), common in lists.
         if (/^\d{1,2}$/.test(trimmed) && !match.includes('%')) return match;
 
         // Already grounded in CONTEXT or tool RESULT (exact or ~1% fuzzy).
         if (seenNumbers.has(norm)) return match;
         if (fuzzyMatchVerified(norm, seenNumbers)) return match;
 
-        // Range patterns ("0 to 100") — illustrative, not factual.
+        // Range patterns ("0 to 100"), illustrative, not factual.
         if (isRangeContext(reply, offset, match.length)) return match;
 
         unverified.push(match.trim());

@@ -1,5 +1,5 @@
 /* ============================================================================
-   VAULT — design foundation for Market Analyzer
+   VAULT, design foundation for Market Analyzer
    ============================================================================
 
    Loaded LAST, after premium-3d.css, so equal-specificity token overrides win
@@ -103,7 +103,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: DARK / "Obsidian"  — true black page, graphite glass, electric blue
+   THEME: DARK / "Obsidian", true black page, graphite glass, electric blue
 --------------------------------------------------------------------------- */
 [data-theme="dark"] {
     --bg-primary: #000000;
@@ -181,7 +181,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: LIGHT / "Daylight" — warm neutral paper, true-white cards
+   THEME: LIGHT / "Daylight", warm neutral paper, true-white cards
    The old light theme was a cool lavender-grey with white cards that barely
    separated from it. This warms the page, deepens the text, and gives cards a
    real shadow so they lift.
@@ -259,7 +259,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: AURORA — near-black violet, orchid accent over a teal undertone
+   THEME: AURORA, near-black violet, orchid accent over a teal undertone
 --------------------------------------------------------------------------- */
 [data-theme="aurora"] {
     --bg-primary: #06050d;
@@ -334,7 +334,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: MIDNIGHT — deep navy, indigo accent. Softer than true black.
+   THEME: MIDNIGHT, deep navy, indigo accent. Softer than true black.
 --------------------------------------------------------------------------- */
 [data-theme="midnight"] {
     --bg-primary: #060911;
@@ -409,7 +409,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: EMBER — warm charcoal, amber accent. Reads well at night.
+   THEME: EMBER, warm charcoal, amber accent. Reads well at night.
    Amber and the semantic red sit close on the wheel, so red is pushed toward
    crimson here to stay unmistakably "down" next to an amber accent.
 --------------------------------------------------------------------------- */
@@ -486,7 +486,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   THEME: FOREST — deep green-black, mint accent. The calmest of the darks.
+   THEME: FOREST, deep green-black, mint accent. The calmest of the darks.
 --------------------------------------------------------------------------- */
 [data-theme="forest"] {
     --bg-primary: #050a08;
@@ -599,8 +599,8 @@ body {
    Two very wide, very low-alpha radials; never a visible band.
    z-index -1 puts it above <html>'s background colour but below every element in
    body, which is why the colour had to move to <html> and body had to go
-   transparent. The alternative — z-index 0 plus `body > * { position: relative }`
-   to lift content over it — silently overrode `position: fixed` on the three side
+   transparent. The alternative, z-index 0 plus `body > * { position: relative }`
+   to lift content over it, silently overrode `position: fixed` on the three side
    panels and the splash overlay, dropping them into normal flow and inflating the
    document from ~950px to 4010px tall. Verified by screenshot; do not reintroduce. */
 body::before {

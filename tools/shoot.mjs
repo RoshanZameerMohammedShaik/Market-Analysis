@@ -42,9 +42,9 @@ const ONLY = flag('viewport', '');
 const PAGE = flag('page', 'index.html');
 
 const MIME = {
-    '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-    '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
+    '.html': 'text/html, charset=utf-8', '.js': 'text/javascript, charset=utf-8',
+    '.mjs': 'text/javascript, charset=utf-8', '.css': 'text/css, charset=utf-8',
+    '.json': 'application/json, charset=utf-8', '.svg': 'image/svg+xml',
     '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json',
     '.woff2': 'font/woff2', '.ico': 'image/x-icon',
 };
@@ -152,7 +152,7 @@ server.close();
 if (consoleErrors.length) {
     const uniq = [...new Set(consoleErrors)];
     await writeFile(join(OUT, `${TAG}-console.txt`), uniq.join('\n'), 'utf8');
-    console.log(`\n  ${uniq.length} console error(s) — see tools/_shots/${TAG}-console.txt`);
+    console.log(`\n  ${uniq.length} console error(s), see tools/_shots/${TAG}-console.txt`);
     for (const e of uniq.slice(0, 8)) console.log('   ! ' + e);
 } else {
     console.log('\n  no console errors');

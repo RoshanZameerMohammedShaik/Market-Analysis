@@ -45,7 +45,7 @@
 .dbg-chip[data-alert="warn"] .dbg-chip-counts { color: #fcd34d; }
 
 /* When expanded, the chip stays visible AT THE TOP of the panel as
-   the close affordance — but we tuck the standalone chip behind
+   the close affordance, but we tuck the standalone chip behind
    the panel since the panel has its own header. Cleaner: just hide
    the chip when expanded. */
 #debug-panel-root[data-expanded="true"] .dbg-chip { display: none; }

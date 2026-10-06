@@ -1,11 +1,11 @@
-// "Why should I trust this %?" — turns the confidence number into a
+// "Why should I trust this %?", turns the confidence number into a
 // defensible claim by showing the evidence behind it:
 //   1. Ensemble consensus: how many sources back the committed signal
 //      (and which ones point the other way).
 //   2. Live track record: this confidence band's historical hit rate
 //      per horizon, with sample size, straight from the ledger.
 //   3. The honest caveat when the ledger is still too thin to prove
-//      anything — we say so rather than implying empirical backing.
+//      anything, we say so rather than implying empirical backing.
 //
 // All inputs come off the prediction object already computed by the
 // engine (confidence.js): prediction.consensus and prediction.horizonBands.
@@ -24,19 +24,19 @@ const HORIZON_LABEL = { 1: '1 day', 3: '3 days', 5: '5 days', 10: '10 days', 20:
 
 function renderConsensus(consensus, signal) {
     if (!consensus || !consensus.total) return '';
-    // Order: agree first, then neutral, then against — reads like a tally.
+    // Order: agree first, then neutral, then against, reads like a tally.
     const order = { agree: 0, neutral: 1, against: 2, 'n/a': 3 };
     const chips = Object.entries(consensus.votes)
         .filter(([, v]) => v !== 'n/a')
         .sort((a, b) => order[a[1]] - order[b[1]])
         .map(([src, v]) => {
             const label = SOURCE_LABEL[src] || src;
-            const icon = v === 'agree' ? '✓' : v === 'against' ? '✕' : '–';
+            const icon = v === 'agree' ? '✓' : v === 'against' ? '✕' : '';
             return `<span class="trust-vote ${v}" title="${label} ${v === 'agree' ? 'agrees with' : v === 'against' ? 'contradicts' : 'is neutral on'} this ${signal}">${icon} ${label}</span>`;
         }).join('');
 
     const headline = consensus.against > 0
-        ? `${consensus.for} of ${consensus.total} sources back this call — ${consensus.against} disagree`
+        ? `${consensus.for} of ${consensus.total} sources back this call, ${consensus.against} disagree`
         : consensus.for === consensus.total
             ? `All ${consensus.total} sources agree`
             : `${consensus.for} of ${consensus.total} sources back this call`;
@@ -59,14 +59,14 @@ function renderTrackRecord(bands, confidence) {
         // improved and is rebuilding its record under the new logic, vs
         // (b) a genuinely fresh ledger. Both are truthful; (a) is the right
         // story right after a scoring change so we don't imply the new
-        // engine has no edge — only that it hasn't re-proven it YET.
+        // engine has no edge, only that it hasn't re-proven it YET.
         const status = getTrackRecordStatus();
         if (status && status.rebuilding) {
             return `
             <div class="trust-block">
                 <div class="trust-block-title">Live track record</div>
-                <div class="trust-headline thin">The engine was just improved — rebuilding its track record under the updated logic.</div>
-                <div class="trust-note">Older predictions came from the previous engine, so they no longer reflect how it calls now and are set aside. Verified hit-rates reappear here as fresh calls resolve (1-day fills within days; longer horizons take longer). Until then this % is the engine's calibrated estimate, not yet a measured rate.</div>
+                <div class="trust-headline thin">The engine was just improved, rebuilding its track record under the updated logic.</div>
+                <div class="trust-note">Older predictions came from the previous engine, so they no longer reflect how it calls now and are set aside. Verified hit-rates reappear here as fresh calls resolve (1-day fills within days, longer horizons take longer). Until then this % is the engine's calibrated estimate, not yet a measured rate.</div>
             </div>`;
         }
         return `
@@ -89,7 +89,7 @@ function renderTrackRecord(bands, confidence) {
     }).join('');
     return `
         <div class="trust-block">
-            <div class="trust-block-title">Live track record — this confidence band</div>
+            <div class="trust-block-title">Live track record, this confidence band</div>
             <div class="trust-note">How often the engine has actually been right at each horizon when this confident, from real resolved outcomes:</div>
             <div class="trust-bands">${rows}</div>
             ${edgeHorizonNote(bands)}
@@ -98,7 +98,7 @@ function renderTrackRecord(bands, confidence) {
 
 // Honest "trust it more at the horizon where it has edge" note. When the
 // 1-day read is at/near coin-flip but a longer horizon is meaningfully
-// better on the same confidence band, say so — instead of letting the
+// better on the same confidence band, say so, instead of letting the
 // displayed (often 1-day-anchored) call imply equal strength across
 // horizons. Only fires when the data actually supports it (both horizons
 // resolved at n>=30, already guaranteed by getHorizonCalibrations).
@@ -115,7 +115,7 @@ function edgeHorizonNote(bands) {
     const combinedSe = Math.sqrt(se(best.hitRate, best.n) ** 2 + se(oneDay.hitRate, oneDay.n) ** 2);
     if ((best.hitRate - oneDay.hitRate) < combinedSe) return '';
     const bestLabel = HORIZON_LABEL[best.horizonDays] || `${best.horizonDays}d`;
-    return `<div class="trust-note trust-edge-note">⏳ The engine reads this band best at <b>${bestLabel}</b> (${best.hitRate}% historically) — its <b>1-day</b> read here is near coin-flip (${oneDay.hitRate}%). Lean on the longer horizon.</div>`;
+    return `<div class="trust-note trust-edge-note">⏳ The engine reads this band best at <b>${bestLabel}</b> (${best.hitRate}% historically), its <b>1-day</b> read here is near coin-flip (${oneDay.hitRate}%). Lean on the longer horizon.</div>`;
 }
 
 // Returns the full <details> HTML for the trust panel, or '' when

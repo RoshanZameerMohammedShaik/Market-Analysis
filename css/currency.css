@@ -1,10 +1,10 @@
 /* Currency toggle is now a row in the settings-gear menu (not a
    standalone pill in the header). All layout/padding comes from
-   .header-menu-item in style.css — overriding it here used to zero
+   .header-menu-item in style.css, overriding it here used to zero
    out the row padding and misalign it from the other settings items.
    What remains: only the loading-state polish, since that's a
    currency-row-specific behaviour. */
 #currency-toggle:disabled { opacity: 0.5; cursor: wait; }
 
-/* The price spans we mark up — keeps numerics on the same monospace baseline. */
+/* The price spans we mark up, keeps numerics on the same monospace baseline. */
 .price { font-family: var(--num-font); font-variant-numeric: tabular-nums; }

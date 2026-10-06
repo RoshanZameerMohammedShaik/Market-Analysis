@@ -4,7 +4,7 @@
 // rates are within a fraction of a percent of intraday.
 //
 // We originally used Yahoo's chart endpoint but Yahoo blocks browser-
-// direct fetches via CORS in production — every page open spammed
+// direct fetches via CORS in production, every page open spammed
 // CORS errors and silently broke the FX cache. Frankfurter is the
 // drop-in replacement.
 //
@@ -15,10 +15,10 @@
 // hammering it more frequently buys nothing.
 
 const CACHE_KEY = 'ma-fx-cache-v1';
-const CACHE_MS = 6 * 60 * 60 * 1000; // 6 hours — Frankfurter refreshes once a day
+const CACHE_MS = 6 * 60 * 60 * 1000; // 6 hours. Frankfurter refreshes once a day
 
 // Common currencies the dropdown will offer. Limited to what Frankfurter
-// supports (ECB-published rates) — we dropped AED/SAR/CNY-from-the-old-
+// supports (ECB-published rates), we dropped AED/SAR/CNY-from-the-old-
 // Yahoo-list because Frankfurter doesn't carry them. Any 3-letter code
 // passed in will still get a fetch attempt, but the dropdown surfaces
 // only the ones we know work.
@@ -61,7 +61,7 @@ export async function getRateToUSD(currency) {
     try {
         res = await fetch(url);
     } catch (e) {
-        // Network error — return stale cache if we have one rather than
+        // Network error, return stale cache if we have one rather than
         // throwing. Practice-trading display can keep showing yesterday's
         // rate; the alternative (blocking the panel) is worse UX.
         if (hit) return hit.rate;
@@ -91,7 +91,7 @@ export async function fromUSD(amountUSD, currency) {
     return amountUSD / rate;
 }
 
-// Synchronous variant for hot UI render paths — uses cached rate or
+// Synchronous variant for hot UI render paths, uses cached rate or
 // returns null if not cached. Caller decides what to do with null
 // (typically: render in USD with a "fx loading…" hint).
 export function fromUSDCached(amountUSD, currency) {

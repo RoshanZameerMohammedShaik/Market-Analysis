@@ -1,4 +1,4 @@
-// Penny-stock universe — STABLE list of ~500 curated US-listed
+// Penny-stock universe. STABLE list of ~500 curated US-listed
 // (NYSE/Nasdaq/AMEX) symbols that the engine tracks every day. The
 // stable list provides continuous historical coverage so per-symbol
 // track records, ledger calibration, and the LSTM all have dense

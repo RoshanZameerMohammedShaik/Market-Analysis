@@ -13,7 +13,7 @@ Static thresholds are wrong in two directions at once:
     "be fully invested" one month and "do nothing" the next. The number stopped describing
     the market the day after it was chosen.
   * A FIXED percentage ignores the instrument. +8% take-profit on a name whose daily sigma
-    is 0.9% is a four-sigma wish; the same +8% on a 6% sigma altcoin is intraday noise. One
+    is 0.9% is a four-sigma wish, the same +8% on a 6% sigma altcoin is intraday noise. One
     number cannot be right for both, and this universe contains both.
 
 The fix is not to TUNE the numbers. Fitting them on our own ledger is how this project

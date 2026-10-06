@@ -1,4 +1,4 @@
-// Phase 7 — FINRA daily short-volume signal.
+// Phase 7. FINRA daily short-volume signal.
 //
 // FINRA publishes consolidated short-sale volume one day after the trade
 // date. We pull yesterday's number through our Worker and compare to a
@@ -49,16 +49,16 @@ export function finraShortAdjustment(signal, finra, currentTier, priceChange1d) 
     if (ratio > 0.55) {
         if (signal === 'BUY') {
             adjust -= 3;
-            reasons.push(`FINRA short volume ratio ${(ratio * 100).toFixed(0)}% — aggressive shorting today, BUY confidence reduced`);
+            reasons.push(`FINRA short volume ratio ${(ratio * 100).toFixed(0)}%, aggressive shorting today, BUY confidence reduced`);
         } else if (signal === 'SELL') {
             adjust += 2;
-            reasons.push(`FINRA short volume ratio ${(ratio * 100).toFixed(0)}% — shorts pressing, SELL alignment`);
+            reasons.push(`FINRA short volume ratio ${(ratio * 100).toFixed(0)}%, shorts pressing, SELL alignment`);
         }
     } else if (ratio < 0.30) {
         // Low short share with rising price = covering / capitulation
         if (signal === 'BUY' && Number.isFinite(priceChange1d) && priceChange1d > 1.5) {
             adjust += 3;
-            reasons.push(`FINRA short volume ratio low (${(ratio * 100).toFixed(0)}%) with price up ${priceChange1d.toFixed(1)}% — short covering, BUY tailwind`);
+            reasons.push(`FINRA short volume ratio low (${(ratio * 100).toFixed(0)}%) with price up ${priceChange1d.toFixed(1)}%, short covering, BUY tailwind`);
         }
     }
 

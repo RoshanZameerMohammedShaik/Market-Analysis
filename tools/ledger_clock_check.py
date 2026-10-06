@@ -1,8 +1,7 @@
 """workers/ledger-clock must fire exactly the Live ledger's slots, with the same tasks.
 
 The Worker carries its own copy of the schedule (it cannot read the YAML at runtime). A slot
-added to the workflow but not the Worker would silently fall back to GitHub's late delivery;
-a task renamed in one place would dispatch something the workflow rejects. Both sides are
+added to the workflow but not the Worker would silently fall back to GitHub's late delivery, a task renamed in one place would dispatch something the workflow rejects. Both sides are
 read from source here, and a few dueSlot() cases are run through Node against real clocks.
 
 Run: python tools/ledger_clock_check.py

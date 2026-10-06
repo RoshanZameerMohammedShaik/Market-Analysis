@@ -1,4 +1,4 @@
-// Market Conditions Module — Fear & Greed, VIX, Macro Data
+// Market Conditions Module. Fear & Greed, VIX, Macro Data
 // All free APIs, no keys required
 
 import { fetchWithProxy } from './data.js';
@@ -51,7 +51,7 @@ export async function fetchCryptoFearGreed() {
 
 export async function fetchVIX() {
     try {
-        // Use Yahoo Finance for VIX data. Pass raw '^VIX' — fetchWithProxy
+        // Use Yahoo Finance for VIX data. Pass raw '^VIX', fetchWithProxy
         // encodes the whole URL once when routing through the worker /
         // CORS proxy. Pre-encoding to %5E here would get encoded again
         // to %255E and Yahoo would 404. (Same bug we fixed in regime.js
@@ -151,20 +151,20 @@ export async function getMarketConditionsScore(mode = 'stock') {
     // Fear & Greed: used DIRECTLY as a 0-100 bullish score (momentum reading:
     // fear = risk-off/bearish, greed = risk-on/bullish). NOTE: the reason text
     // below is written to MATCH that scoring direction so the card never
-    // contradicts itself. (A 'contrarian' reading — extreme fear = buy
-    // opportunity — would require FLIPPING the score to 100-fg.value, which
+    // contradicts itself. (A 'contrarian' reading, extreme fear = buy
+    // opportunity, would require FLIPPING the score to 100-fg.value, which
     // changes every prediction and is being validated via backtest before any
     // change; do not flip the value here without that.)
     if (fg) {
         scores.push({ value: fg.value, weight: 0.35 });
         if (fg.value <= 25) {
-            reasons.push(`Extreme Fear (${fg.value}/100) — risk-off, weighs bearish`);
+            reasons.push(`Extreme Fear (${fg.value}/100), risk-off, weighs bearish`);
         } else if (fg.value <= 40) {
-            reasons.push(`Fear (${fg.value}/100) — market cautious, mildly bearish`);
+            reasons.push(`Fear (${fg.value}/100), market cautious, mildly bearish`);
         } else if (fg.value >= 75) {
-            reasons.push(`Extreme Greed (${fg.value}/100) — risk-on, but stretched`);
+            reasons.push(`Extreme Greed (${fg.value}/100), risk-on, but stretched`);
         } else if (fg.value >= 60) {
-            reasons.push(`Greed (${fg.value}/100) — bullish sentiment`);
+            reasons.push(`Greed (${fg.value}/100), bullish sentiment`);
         } else {
             reasons.push(`Neutral sentiment (${fg.value}/100)`);
         }
@@ -177,13 +177,13 @@ export async function getMarketConditionsScore(mode = 'stock') {
         scores.push({ value: vixScore, weight: 0.30 });
 
         if (vixData.level === 'extreme') {
-            reasons.push(`VIX at ${vixData.value} — extreme fear/panic in market`);
+            reasons.push(`VIX at ${vixData.value}, extreme fear/panic in market`);
         } else if (vixData.level === 'elevated') {
-            reasons.push(`VIX at ${vixData.value} — elevated uncertainty`);
+            reasons.push(`VIX at ${vixData.value}, elevated uncertainty`);
         } else if (vixData.level === 'low') {
-            reasons.push(`VIX at ${vixData.value} — low volatility, calm market`);
+            reasons.push(`VIX at ${vixData.value}, low volatility, calm market`);
         } else {
-            reasons.push(`VIX at ${vixData.value} — normal volatility`);
+            reasons.push(`VIX at ${vixData.value}, normal volatility`);
         }
     }
 

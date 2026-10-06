@@ -1,14 +1,14 @@
 // Yahoo Finance crumb-protected endpoint proxy + auxiliary penny-stock data routes.
 //
 // Endpoints:
-//   GET /key-stats?symbol=BBAI       — Yahoo defaultKeyStatistics (float, short interest)
-//   GET /finra-short?symbol=BBAI     — FINRA daily short volume / total volume ratio
-//   GET /openinsider?symbol=BBAI     — OpenInsider recent insider buy/sell rows
-//   GET /extract-article?url=...     — server-side article extraction (Readability-style)
-//   GET /source-tier?domain=...      — credibility tier (1-4) for a known news source
-//   GET /news-rss?q=...&hl=&gl=      — Google News RSS search (origin-restricted)
-//   GET /stocktwits?symbol=AAPL      — StockTwits message timestamps (origin-restricted)
-//   GET /health                       — health probe
+//   GET /key-stats?symbol=BBAI. Yahoo defaultKeyStatistics (float, short interest)
+//   GET /finra-short?symbol=BBAI. FINRA daily short volume / total volume ratio
+//   GET /openinsider?symbol=BBAI. OpenInsider recent insider buy/sell rows
+//   GET /extract-article?url=..., server-side article extraction (Readability-style)
+//   GET /source-tier?domain=..., credibility tier (1-4) for a known news source
+//   GET /news-rss?q=...&hl=&gl=. Google News RSS search (origin-restricted)
+//   GET /stocktwits?symbol=AAPL. StockTwits message timestamps (origin-restricted)
+//   GET /health, health probe
 //
 // All endpoints return CORS-friendly JSON. Errors NEVER cache (we learned).
 //
@@ -17,8 +17,8 @@
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const FINRA_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // FINRA updates once a day
 const INSIDER_CACHE_TTL_MS = 30 * 60 * 1000;
-const ARTICLE_CACHE_TTL_MS = 5 * 60 * 1000;     // 5 min — articles update fast
-const PUBLIC_QUOTE_CACHE_TTL_MS = 10 * 1000;    // 10s — Public is realtime; don't hammer the quota
+const ARTICLE_CACHE_TTL_MS = 5 * 60 * 1000;     // 5 min, articles update fast
+const PUBLIC_QUOTE_CACHE_TTL_MS = 10 * 1000;    // 10s. Public is realtime; don't hammer the quota
 
 const keyStatsCache = new Map();
 const finraCache = new Map();
@@ -30,7 +30,7 @@ const CRUMB_TTL_MS = 30 * 60 * 1000;
 
 // ── Public.com realtime-quote state ──────────────────────────────────────
 // The secret lives ONLY as a Cloudflare Worker secret (`wrangler secret put
-// PUBLIC_API_SECRET`) — never in the repo, never sent to the browser. The
+// PUBLIC_API_SECRET`), never in the repo, never sent to the browser. The
 // browser only ever calls our /stock-quote route; this Worker brokers the
 // short-lived bearer token and returns just the price JSON.
 const PUBLIC_API_BASE = 'https://api.public.com';
@@ -38,10 +38,10 @@ const publicQuoteCache = new Map();      // sym -> { ts, body }
 let publicTokenCache = null;             // { token, expEpochMs }
 const PUBLIC_TOKEN_VALIDITY_MIN = 30;    // mint 30-min tokens; refresh ~2min early
 
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64, x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // ============================================================================
-// /key-stats — Yahoo defaultKeyStatistics
+// /key-stats. Yahoo defaultKeyStatistics
 // ============================================================================
 
 async function getCrumb() {
@@ -127,7 +127,7 @@ function extractKeyStats(json) {
 }
 
 // ============================================================================
-// /finra-short — FINRA daily short-volume CSV
+// /finra-short. FINRA daily short-volume CSV
 // ============================================================================
 
 let finraDayCache = null;
@@ -195,7 +195,7 @@ async function fetchFinraShort(symbol) {
 }
 
 // ============================================================================
-// /openinsider — recent insider buy/sell rows scraped from OpenInsider HTML
+// /openinsider, recent insider buy/sell rows scraped from OpenInsider HTML
 // ============================================================================
 
 async function fetchOpenInsider(symbol) {
@@ -272,7 +272,7 @@ function stripHtml(s) {
 }
 
 // ============================================================================
-// /stock-quote — REAL-TIME stock price via the Public.com brokerage API
+// /stock-quote. REAL-TIME stock price via the Public.com brokerage API
 // ============================================================================
 //
 // Public.com gives realtime equity quotes (vs. our 5-15min delayed Stooq).
@@ -286,11 +286,11 @@ function stripHtml(s) {
 //        → { "quotes": [ { "outcome": "SUCCESS", "last": "<string>",
 //                          "previousClose": "<string>", "bid", "ask", ... } ] }
 //   All gateway calls send Authorization: Bearer <token>.
-//   NOTE: price fields are STRINGS in the response — parse to Number.
+//   NOTE: price fields are STRINGS in the response, parse to Number.
 //
 // The SECRET is read from env.PUBLIC_API_SECRET (a Cloudflare Worker secret).
 // If it's not set, /stock-quote returns {configured:false} so the app cleanly
-// falls back to Stooq/Yahoo — deploying this Worker without the secret is safe.
+// falls back to Stooq/Yahoo, deploying this Worker without the secret is safe.
 
 const PUBLIC_UA = 'market-analysis-worker';
 
@@ -404,13 +404,13 @@ async function fetchPublicQuote(symbol, env) {
 // ============================================================================
 
 // ============================================================================
-// /yahoo?u=<encoded URL> — generic pass-through proxy for public Yahoo Finance
+// /yahoo?u=<encoded URL>, generic pass-through proxy for public Yahoo Finance
 // endpoints (chart, quote, screener, trending, search). Same Worker so we
 // don't burn a second deployment; same UA + cookies so we don't 401.
 // ============================================================================
 
 // ============================================================================
-// /extract-article — server-side full-text extraction
+// /extract-article, server-side full-text extraction
 // ============================================================================
 //
 // Fetches a news article URL server-side (avoiding browser CORS), strips
@@ -560,7 +560,7 @@ async function extractArticle(targetUrl) {
 }
 
 // ============================================================================
-// /source-tier — credibility classification
+// /source-tier, credibility classification
 // ============================================================================
 //
 // Static taxonomy, ~150 outlets. Tier 1 = newswire/regulator/gov, Tier 2 =
@@ -569,12 +569,12 @@ async function extractArticle(targetUrl) {
 // Tier 4 = blog/social/unknown. Unknown domains default to Tier 4.
 
 const SOURCE_TIERS = {
-    // Tier 1 — primary sources, regulators, exchanges
+    // Tier 1, primary sources, regulators, exchanges
     'sec.gov': 1, 'investor.gov': 1, 'finra.org': 1, 'federalreserve.gov': 1,
     'bls.gov': 1, 'bea.gov': 1, 'treasury.gov': 1, 'ecb.europa.eu': 1,
     'rbi.org.in': 1, 'sebi.gov.in': 1, 'nasdaq.com': 1, 'nyse.com': 1,
     'cmegroup.com': 1, 'cboe.com': 1,
-    // Tier 2 — top-tier global newswires/outlets
+    // Tier 2, top-tier global newswires/outlets
     'reuters.com': 2, 'bloomberg.com': 2, 'wsj.com': 2, 'ft.com': 2,
     'apnews.com': 2, 'nytimes.com': 2, 'bbc.com': 2, 'bbc.co.uk': 2,
     'cnbc.com': 2, 'economist.com': 2, 'ap.org': 2, 'cnn.com': 2,
@@ -584,7 +584,7 @@ const SOURCE_TIERS = {
     'business-standard.com': 2, 'thehindubusinessline.com': 2, 'moneycontrol.com': 2,
     'scmp.com': 2, 'nikkei.com': 2, 'asia.nikkei.com': 2, 'handelsblatt.com': 2,
     'lesechos.fr': 2, 'afr.com': 2,
-    // Tier 3 — aggregators / secondary financial press
+    // Tier 3, aggregators / secondary financial press
     'finance.yahoo.com': 3, 'yahoo.com': 3, 'marketwatch.com': 3,
     'investing.com': 3, 'investopedia.com': 3, 'fool.com': 3,
     'seekingalpha.com': 3, 'benzinga.com': 3, 'thestreet.com': 3,
@@ -593,11 +593,11 @@ const SOURCE_TIERS = {
     'gurufocus.com': 3, 'streetinsider.com': 3, 'pymnts.com': 3,
     'theinformation.com': 3, 'theverge.com': 3, 'techcrunch.com': 3,
     'engadget.com': 3, 'arstechnica.com': 3, 'wired.com': 3,
-    // Tier 3.5 — crypto press
+    // Tier 3.5, crypto press
     'coindesk.com': 3, 'cointelegraph.com': 3, 'theblock.co': 3,
     'decrypt.co': 3, 'cryptoslate.com': 3, 'bitcoinmagazine.com': 3,
     'cryptobriefing.com': 3,
-    // Tier 4 — blogs, content farms, low-credibility (default)
+    // Tier 4, blogs, content farms, low-credibility (default)
     'medium.com': 4, 'substack.com': 4, 'twitter.com': 4, 'x.com': 4,
     'reddit.com': 4, 'youtube.com': 4, 'tiktok.com': 4, 'facebook.com': 4,
     'instagram.com': 4, 'discord.com': 4,
@@ -613,7 +613,7 @@ function classifySource(domain) {
         const candidate = parts.slice(i).join('.');
         if (SOURCE_TIERS[candidate] != null) return { tier: SOURCE_TIERS[candidate], domain: candidate, matchedAs: 'parent' };
     }
-    return { tier: 4, domain: norm, reason: 'unknown source — default tier 4' };
+    return { tier: 4, domain: norm, reason: 'unknown source, default tier 4' };
 }
 
 const ALLOWED_HOSTS = new Set([
@@ -686,7 +686,7 @@ async function proxyYahoo(targetUrl) {
 }
 
 // ============================================================================
-// /news-rss and /stocktwits — two public feeds a browser cannot read directly
+// /news-rss and /stocktwits, two public feeds a browser cannot read directly
 // ============================================================================
 //
 // Google News RSS and StockTwits both answer a server-side fetch with 200 and send no
@@ -725,7 +725,7 @@ async function fetchNewsRss(params) {
     ];
     const cacheKey = targets[0];
     const hit = newsRssCache.get(cacheKey);
-    if (hit && Date.now() - hit.ts < NEWS_RSS_CACHE_TTL_MS) return { status: 200, body: hit.body, type: 'application/rss+xml; charset=utf-8' };
+    if (hit && Date.now() - hit.ts < NEWS_RSS_CACHE_TTL_MS) return { status: 200, body: hit.body, type: 'application/rss+xml, charset=utf-8' };
     let lastStatus = 0;
     // Bing sheds requests when a scan sends a burst of them, so it gets one quick second try
     // before falling through to Google. Waiting costs wall time, not the free plan's CPU budget.
@@ -742,7 +742,7 @@ async function fetchNewsRss(params) {
             // A consent page or a captcha is HTML with a 200. Only real RSS is worth returning.
             if (upstream.ok && /<rss[\s>]/i.test(text.slice(0, 2000))) {
                 boundedSet(newsRssCache, cacheKey, { ts: Date.now(), body: text });
-                return { status: 200, body: text, type: 'application/rss+xml; charset=utf-8' };
+                return { status: 200, body: text, type: 'application/rss+xml, charset=utf-8' };
             }
         } catch (_) { /* next source */ }
     }
@@ -803,10 +803,10 @@ function corsJson(body, status = 200) {
     });
 }
 
-// Origin-restricted JSON response — used for the Public.com quote route so our
+// Origin-restricted JSON response, used for the Public.com quote route so our
 // brokerage key's quota can't be used as a free feed by arbitrary callers.
 // Allows ONLY the deployed app + CF preview deploys + localhost dev. A missing
-// Origin is REJECTED (curl/scripts/bots have no Origin) — the Capacitor app
+// Origin is REJECTED (curl/scripts/bots have no Origin), the Capacitor app
 // loads the same market-ai.pages.dev URL in a WebView, so it DOES send that
 // Origin and is covered. Closing the missing-Origin hole is what stops an
 // anonymous script from burning the brokerage key's quota.
@@ -884,8 +884,7 @@ export default {
             }
             if (url.pathname === '/stock-quote') {
                 // Realtime stock price via Public.com (origin-restricted so the
-                // brokerage key's quota isn't a free public feed). Read-only —
-                // we NEVER expose any order/write endpoint through this Worker.
+                // brokerage key's quota isn't a free public feed). Read-only, // we NEVER expose any order/write endpoint through this Worker.
                 if (!originAllowed(origin)) return restrictedJson({ error: 'origin not allowed' }, origin, 403);
                 const symbol = url.searchParams.get('symbol');
                 if (!symbol) return restrictedJson({ error: 'symbol required' }, origin, 400);

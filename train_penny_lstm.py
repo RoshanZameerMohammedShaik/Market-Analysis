@@ -2,7 +2,7 @@
 Penny-stock-only LSTM trainer.
 
 The main LSTM (train_model.py) is dominated by mid/large-cap data.
-Penny stocks have wholly different dynamics — low-float spike-and-dump,
+Penny stocks have wholly different dynamics, low-float spike-and-dump,
 short squeezes, manipulation patterns. We train a SECOND LSTM exclusively
 on penny-tier symbols so the engine has a model that's seen these patterns.
 
@@ -13,8 +13,7 @@ right model based on tier.
 
 Note on calendar time: yfinance's bulk download is rate-limited. With ~2,000
 penny tickers and 5y history, expect ~1-2 weeks of slow-drip GitHub Actions
-runs to complete a full retrain. The script is designed to be re-runnable
-— it accumulates samples across runs and trains on whatever's available.
+runs to complete a full retrain. The script is designed to be re-runnable, it accumulates samples across runs and trains on whatever's available.
 """
 import torch
 import torch.nn as nn
@@ -24,13 +23,13 @@ import json
 import os
 import sys
 
-# Single source of truth for feature math — penny LSTM uses the SAME
+# Single source of truth for feature math, penny LSTM uses the SAME
 # 11-feature definition as the main model so the browser's tier-aware
 # inference (js/ai-model.js) sends identical features to both.
 from shared_features import compute_sequences, robust_download, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
 
-# Penny universe — expanded by sector and known low-float / squeeze names.
-# Survivorship bias is a real concern; we mitigate by including delisted-by-now
+# Penny universe, expanded by sector and known low-float / squeeze names.
+# Survivorship bias is a real concern, we mitigate by including delisted-by-now
 # tickers that yfinance still has historical data for.
 _PENNY_TECH = ['BBAI', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'POET', 'NVTS', 'SOUN', 'AISP', 'SES', 'PRSO', 'BBIG', 'INPX', 'AKAN', 'CRKN', 'INVZ', 'BLNK', 'IBRX', 'RIGL', 'INDI']
 _PENNY_HEALTH = ['SAVA', 'IMAB', 'NVAX', 'OCGN', 'INO', 'CYTH', 'OCEA', 'SLNO', 'CRBP', 'AGEN', 'ANIX', 'CYBN', 'MIRA', 'OPGN', 'CDXC', 'BIOR', 'HOTH', 'NMTR', 'CRMD', 'ADXN']
@@ -47,8 +46,8 @@ SYMBOLS = list(set(
 ))
 
 PERIOD = '5y'
-SEQUENCE_LENGTH = SHARED_SEQLEN   # 20 — from shared_features
-FEATURES = SHARED_FEATURES        # 11 — from shared_features (was hard-coded 8)
+SEQUENCE_LENGTH = SHARED_SEQLEN   # 20, from shared_features
+FEATURES = SHARED_FEATURES        # 11, from shared_features (was hard-coded 8)
 HIDDEN_SIZE = 32
 NUM_LAYERS = 2
 EPOCHS = 50
@@ -61,7 +60,7 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'lstm_weights_penny.json')
 
 
 def compute_features(df):
-    """Delegates to shared_features — single source of truth, 11 features
+    """Delegates to shared_features, single source of truth, 11 features
     (8 original + ADX + MFI + ATR%). Was a hand-copied duplicate that
     risked drifting from the main model and the JS runtime."""
     return compute_sequences(df, SEQUENCE_LENGTH)
@@ -105,7 +104,7 @@ class PennyLSTM(nn.Module):
 def train_and_export():
     X, y = fetch_and_prepare_data()
     if len(X) < 500:
-        print("Not enough samples — skipping export to avoid overwriting good weights.")
+        print("Not enough samples, skipping export to avoid overwriting good weights.")
         return None
     split = int(len(X) * 0.8)
     X_train, X_test = X[:split], X[split:]
@@ -133,7 +132,7 @@ def train_and_export():
             with torch.no_grad():
                 preds = (model(X_test_t) > 0.5).float()
                 acc = (preds == y_test_t).float().mean().item()
-                print(f"  Epoch {epoch+1}/{EPOCHS} — Loss: {total_loss/len(loader):.4f} — Test Acc: {acc*100:.1f}%")
+                print(f"  Epoch {epoch+1}/{EPOCHS}. Loss: {total_loss/len(loader):.4f}. Test Acc: {acc*100:.1f}%")
 
     model.eval()
     with torch.no_grad():

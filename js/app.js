@@ -8,9 +8,9 @@ import { initScanner } from './ui/scanner.js';
 import { initWatchlist } from './ui/watchlist.js';
 import { initSectorHeatmap } from './ui/sector-heatmap.js';
 import { initEarningsCalendar } from './ui/earnings-calendar.js';
-// Removed per user: Unusual Options Activity (no data — Yahoo crumb-walled),
+// Removed per user: Unusual Options Activity (no data. Yahoo crumb-walled),
 // "Did following the engine pay off" (equity curve), and "Which setups does
-// the engine read best" (accuracy report) — all judged low-value.
+// the engine read best" (accuracy report), all judged low-value.
 // Also removed per user: the "Install Market Analyzer" PWA prompt card
 // (js/ui/install-prompt.js stays on disk, just no longer initialized).
 import { initPortfolioPanel } from './ui/portfolio-panel.js';
@@ -26,15 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
     initCurrencyToggle();
     initScanner();
     initWatchlist();
-    // Coverage surfaces — collapsed by default, lazy-load on open.
+    // Coverage surfaces, collapsed by default, lazy-load on open.
     initSectorHeatmap();
     initEarningsCalendar();
     initPortfolioPanel();
-    // Floating Debug App panel — only mounts when dev mode is on.
+    // Floating Debug App panel, only mounts when dev mode is on.
     // Reads from the always-on debug-capture buffer that's already
     // running by the time we get here (loaded inline in <head>).
     initDebugPanel();
-    // General UI sound layer — delegated hover/click/tab cues across the app.
+    // General UI sound layer, delegated hover/click/tab cues across the app.
     // Shares Mia's mute + speaking gate; success/error fire from notify.js.
     initUiSound();
     // Background pre-warm of the user's watchlist. Runs after a short
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // analyzed sequentially with a small gap so we don't saturate the
     // network. Subsequent clicks on a watched symbol then render
     // instantly from cache (stale-while-revalidate, 2 min freshness).
-    // Silent on failure — a broken upstream just means the symbol
+    // Silent on failure, a broken upstream just means the symbol
     // loads cold on click instead of warm.
     prewarmWatchlist().catch(() => {});
     initSpikers({

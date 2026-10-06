@@ -1,4 +1,4 @@
-// "If you'd followed the engine" — hypothetical equity curve.
+// "If you'd followed the engine", hypothetical equity curve.
 //
 // The credibility centerpiece: instead of an abstract hit-rate %, this
 // shows the money. It compounds the return of every resolved directional
@@ -8,7 +8,7 @@
 //
 // Honest framing baked into the UI: this is a simplified equal-weight,
 // no-cost, no-slippage simulation of taking EVERY directional call in
-// sequence — a directional-edge proof, not a brokerage backtest. The
+// sequence, a directional-edge proof, not a brokerage backtest. The
 // caption says so plainly so it never over-promises.
 
 import { readEngineEquityCurve } from '../ledger-reader.js';
@@ -73,14 +73,14 @@ function renderResult(data) {
         ${buildSvg(data.points, data.startBalance)}
         <div class="eq-edge ${edgeUp ? 'up' : 'down'}">
             Average edge per signal: <b>${edgeUp ? '+' : ''}${data.avgTradePct}%</b>
-            <span class="eq-edge-note">(this is the sizing-independent number — positive means a real directional edge)</span>
+            <span class="eq-edge-note">(this is the sizing-independent number, positive means a real directional edge)</span>
         </div>
         <div class="eq-caption">
             Hypothetical: takes every resolved ${data.horizonDays}-day BUY/SELL call in sequence
             (BUY earns the move, SELL earns the inverse), risking a fixed ${fracPct}% of the running
-            balance per trade — no fees or slippage. Fixed-fractional sizing avoids the volatility
+            balance per trade, no fees or slippage. Fixed-fractional sizing avoids the volatility
             drag of betting the whole account each time. A directional-edge proof from real outcomes,
-            not a brokerage backtest. Not financial advice.${data.retiredTrades ? ` The curve starts at the current engine's first call — ${data.retiredTrades} earlier trades from a prior engine are excluded so this reflects how it calls now.` : ''}
+            not a brokerage backtest. Not financial advice.${data.retiredTrades ? ` The curve starts at the current engine's first call, ${data.retiredTrades} earlier trades from a prior engine are excluded so this reflects how it calls now.` : ''}
         </div>`;
 }
 
@@ -123,7 +123,7 @@ export function initEquityCurve() {
             <details class="equity-curve-details">
                 <summary class="equity-curve-summary">
                     <span class="equity-curve-title">💰 Did Following the Engine Pay Off?</span>
-                    <span class="equity-curve-hint">A hypothetical $10k taking every signal — the proof in dollars</span>
+                    <span class="equity-curve-hint">A hypothetical $10k taking every signal, the proof in dollars</span>
                     <button class="equity-curve-refresh" id="equity-curve-refresh" title="Recompute">↻</button>
                 </summary>
                 <div class="equity-curve-controls">

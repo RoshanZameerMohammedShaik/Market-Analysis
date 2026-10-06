@@ -1,4 +1,4 @@
-/* Market selector — small pill row beside the tabs. */
+/* Market selector, small pill row beside the tabs. */
 .market-selector { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
 .ms-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
 .ms-btn {

@@ -1,5 +1,5 @@
 /* ============================================================================
-   tilt-3d.js — cursor-reactive 3D tilt + parallax for Market-Analysis (final).
+   tilt-3d.js, cursor-reactive 3D tilt + parallax for Market-Analysis (final).
 
    Pairs with css/premium-3d.css. The CSS owns ALL geometry (perspective, the
    translateZ parallax tiers, the specular gradient, the directional shadows).
@@ -9,7 +9,7 @@
        --rx          rotateX in deg  (tilt up/down)
        --ry          rotateY in deg  (tilt left/right)
        --mx, --my    pointer position as a % within the element (specular spot)
-       --engage      0→1 eased — CSS multiplies tilt/lift/parallax/spec by this
+       --engage      0→1 eased. CSS multiplies tilt/lift/parallax/spec by this
 
    It also injects a single <div class="tilt-spec"> into the engaged element so
    the moving highlight has its own layer (won't collide with premium.css's
@@ -32,7 +32,7 @@
      • --tilt-max cached and recomputed only on theme change (no per-hover style
        flush).
      • Capability gate also excludes narrow viewports (≤540px) so JS work matches
-       the CSS flatten — no orphan spec nodes on narrow touch laptops.
+       the CSS flatten, no orphan spec nodes on narrow touch laptops.
      • :focus-visible undetectable → fail to NO engage (never tilt on touch tap).
 
    No-ops under prefers-reduced-motion / touch / coarse / narrow. Delegated
@@ -52,7 +52,7 @@ export function initTilt3d() {
   const narrow = window.matchMedia('(max-width: 540px)');
 
   // NOTE: .signal-box (the main analysis card) is intentionally NOT a tilt
-  // stage — cursor-tilt on that large card read as cheap/distracting, so it's
+  // stage, cursor-tilt on that large card read as cheap/distracting, so it's
   // removed. It keeps its static resting depth + GSAP entrance, just no tilt.
   const STAGES = [
     { root: '#hotpicks-grid', card: '.hot-pick-card', spec: true },
@@ -62,7 +62,7 @@ export function initTilt3d() {
 
   const LERP = 0.18;          // fraction of remaining tilt distance / frame
   const ENGAGE_LERP = 0.16;   // ramp speed for --engage
-  const SETTLE_EPS = 0.02;    // deg — below this on every axis we stop the loop
+  const SETTLE_EPS = 0.02;    // deg, below this on every axis we stop the loop
 
   // --- cached --tilt-max (recomputed on theme change only) ------------------
   let cachedMax = 8;
@@ -108,7 +108,7 @@ export function initTilt3d() {
   let rafId = 0;
   let pointerX = 0, pointerY = 0;
 
-  // current (rendered) vs target — lerped each frame
+  // current (rendered) vs target, lerped each frame
   let curRx = 0, curRy = 0, curMx = 50, curMy = 50, curEng = 0;
   let tgtRx = 0, tgtRy = 0, tgtMx = 50, tgtMy = 50, tgtEng = 0;
 
@@ -190,7 +190,7 @@ export function initTilt3d() {
     const cx = Math.min(Math.max((pointerX - activeRect.left) / activeRect.width, 0), 1);
     const cy = Math.min(Math.max((pointerY - activeRect.top) / activeRect.height, 0), 1);
     // PICASA-STYLE LIFT (user request, fixed direction): the card lifts and
-    // tips so its RIGHT edge swings toward the viewer — like Picasa lifting an
+    // tips so its RIGHT edge swings toward the viewer, like Picasa lifting an
     // image off the wall. The rotation is CONSTANT (does NOT chase the cursor),
     // so every card lifts the same way every time. CSS pairs this with a zoom
     // (scale via --engage) and blurs the sibling cards to focus the lifted one.
@@ -339,7 +339,7 @@ export function initTilt3d() {
     bound.push({ t: window, ty: 'resize', fn: refreshRect });
 
     // If the active card is detached by an innerHTML re-render (esp. while
-    // keyboard-focused — removal often fires no blur), release immediately.
+    // keyboard-focused, removal often fires no blur), release immediately.
     const grid = document.getElementById('hotpicks-grid');
     if (grid && 'MutationObserver' in window) {
       gridObserver = new MutationObserver(() => {

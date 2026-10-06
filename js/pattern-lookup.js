@@ -78,10 +78,10 @@ export function patternAdjustment(pattern) {
     if (!entry || entry.n < 30) return { adjust: 0 };
     const hr = entry.hit_rate;
     if (hr < 0.50) {
-        return { adjust: 0, cap: 55, reason: `Setup historically weak — ${(hr * 100).toFixed(0)}% hit rate over ${entry.n} similar bars` };
+        return { adjust: 0, cap: 55, reason: `Setup historically weak, ${(hr * 100).toFixed(0)}% hit rate over ${entry.n} similar bars` };
     }
     if (hr > 0.60) {
-        return { adjust: 3, reason: `Setup historically strong — ${(hr * 100).toFixed(0)}% hit rate over ${entry.n} similar bars` };
+        return { adjust: 3, reason: `Setup historically strong, ${(hr * 100).toFixed(0)}% hit rate over ${entry.n} similar bars` };
     }
     return { adjust: 0 };
 }

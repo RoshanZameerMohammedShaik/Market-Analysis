@@ -5,7 +5,7 @@
 // Search itself goes through Yahoo's /v1/finance/search, which already
 // resolves any global symbol with its proper exchange suffix
 // (RELIANCE.NS, 0700.HK, 7203.T, AZN.L, BMW.DE, CBA.AX). So we don't need
-// to qualify symbols ourselves — Yahoo hands them back ready-to-fetch.
+// to qualify symbols ourselves. Yahoo hands them back ready-to-fetch.
 //
 // The pool below is the union of all previously-curated liquid pools
 // (NIFTY 50, FTSE 100, Hang Seng, Nikkei 225, DAX 40, ASX 200) MINUS the
@@ -47,7 +47,7 @@ export const GLOBAL_POOL = [
 // US picks come from Yahoo's live predefined screeners in hotpicks.js
 // (day_gainers / most_actives / etc.) so we don't need a static US list.
 // Setting `useUSScreeners: true` keeps that codepath active alongside the
-// global pool — the two streams are unioned in scanStockHotPicks.
+// global pool, the two streams are unioned in scanStockHotPicks.
 //
 // Penny pool is curated separately in js/penny-universe.js because
 // Yahoo's "aggressive_small_caps" screener under-represents the true

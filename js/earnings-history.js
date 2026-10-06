@@ -19,7 +19,7 @@ export async function getEarningsReactionHistory(symbol, candles) {
     if (c && Date.now() - c.ts < TTL_MS) return c.value;
 
     try {
-        // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+        // Raw symbol, fetchWithProxy encodes once at the proxy layer.
         const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${key}?modules=earningsHistory`;
         const res = await fetchWithProxy(url);
         const json = await res.json();
@@ -74,10 +74,10 @@ export function earningsHistoryCap(history, daysUntilEarnings, signal) {
     if (daysUntilEarnings == null || daysUntilEarnings < 0 || daysUntilEarnings > 5) return { cap: 100, reason: null };
     const avg = history.avgReactionPct;
     if (signal === 'BUY' && avg < -3) {
-        return { cap: 55, reason: `Last ${history.count}q avg post-earnings move ${avg}% — historically negative, BUY capped tighter` };
+        return { cap: 55, reason: `Last ${history.count}q avg post-earnings move ${avg}%, historically negative, BUY capped tighter` };
     }
     if (signal === 'SELL' && avg > 3) {
-        return { cap: 55, reason: `Last ${history.count}q avg post-earnings move +${avg}% — historically positive, SELL capped tighter` };
+        return { cap: 55, reason: `Last ${history.count}q avg post-earnings move +${avg}%, historically positive, SELL capped tighter` };
     }
     return { cap: 100, reason: null };
 }

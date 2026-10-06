@@ -10,7 +10,7 @@
 //   - a star button on the chart header to toggle watch on the current symbol
 //   - a panel showing all watched symbols with their current signal/conf
 //   - browser notifications when a watched signal changes (BUY → SELL,
-//     NEUTRAL → BUY, etc.) — only fires once per change
+//     NEUTRAL → BUY, etc.), only fires once per change
 //
 // The watchlist is persisted in localStorage; alerts only trigger
 // while the tab is open. Future upgrade: replace polling + browser
@@ -106,7 +106,7 @@ async function getCurrentSignals() {
     return map;
 }
 
-// Display vocabulary — mirror signal.js so toasts read like the cards.
+// Display vocabulary, mirror signal.js so toasts read like the cards.
 function sigLabelFor(sig) {
     return sig === 'NO_TRADE' ? 'AVOID'
         : sig === 'NEUTRAL' ? "DON'T BUY"
@@ -114,8 +114,8 @@ function sigLabelFor(sig) {
 }
 
 // "The engine changed its mind" moment. Fires TWO channels:
-//   1. An in-app toast (notify.js) — always works, no permission needed.
-//   2. A browser Notification — only if the user granted permission, so
+//   1. An in-app toast (notify.js), always works, no permission needed.
+//   2. A browser Notification, only if the user granted permission, so
 //      they get pinged even when the tab is backgrounded.
 // Also pulses the watchlist row so the change is visible in-context.
 function notifyChange(sym, oldSig, newSig, conf) {
@@ -127,12 +127,12 @@ function notifyChange(sym, oldSig, newSig, conf) {
         : newSig === 'SELL' ? 'warn'
         : newSig === 'NO_TRADE' ? 'error' : 'info';
     try {
-        notify(`${sym}: ${from} → ${to} @ ${conf}% — the engine changed its mind`, { kind, autoCloseMs: 9000 });
+        notify(`${sym}: ${from} → ${to} @ ${conf}%, the engine changed its mind`, { kind, autoCloseMs: 9000 });
     } catch (_) {}
     pulseRow(sym, newSig);
 
     // Honour the app-level notifications switch (Enable / Turn Off), not just
-    // the OS permission — turning notifications off in-app silences these.
+    // the OS permission, turning notifications off in-app silences these.
     if (!notificationsEnabled()) return;
     try {
         const body = `${from} → ${to} @ ${conf}% confidence`;
@@ -145,7 +145,7 @@ function notifyChange(sym, oldSig, newSig, conf) {
 }
 
 // Flash the watchlist row for a flipped symbol. The class is removed
-// after the animation so a later flip can re-trigger it. Guarded — the
+// after the animation so a later flip can re-trigger it. Guarded, the
 // row may not be mounted yet on the very first poll.
 function pulseRow(sym, newSig) {
     const run = () => {
@@ -170,8 +170,7 @@ async function pollOnce() {
     for (const [sym, info] of Object.entries(cur)) {
         const last = lastSeenSignal[sym];
         if (last !== info.signal) {
-            // First time we see the symbol after subscribing also fires —
-            // that's fine, it shows current state. Subsequent runs only
+            // First time we see the symbol after subscribing also fires, // that's fine, it shows current state. Subsequent runs only
             // notify on actual changes.
             if (last !== undefined) notifyChange(sym, last, info.signal, info.confidence);
             lastSeenSignal[sym] = info.signal;
@@ -254,7 +253,7 @@ function renderAlertRow(sym) {
     if (!isCryptoSymbol(sym)) {
         return `
             <div class="watchlist-alert-row stocks-disabled">
-                <span class="watchlist-alert-note">Realtime price alerts available on crypto only — free stock-data feeds are 5–15 min delayed.</span>
+                <span class="watchlist-alert-note">Realtime price alerts available on crypto only, free stock-data feeds are 5 to 15 min delayed.</span>
             </div>`;
     }
     const a = getAlert(sym) || {};
@@ -267,11 +266,11 @@ function renderAlertRow(sym) {
             ${livePart}
             <label class="watchlist-alert-field">
                 <span>Above</span>
-                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="above" data-symbol="${sym}" placeholder="—" value="${a.above != null ? a.above : ''}">
+                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="above" data-symbol="${sym}" placeholder="-" value="${a.above != null ? a.above : ''}">
             </label>
             <label class="watchlist-alert-field">
                 <span>Below</span>
-                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="below" data-symbol="${sym}" placeholder="—" value="${a.below != null ? a.below : ''}">
+                <input type="number" inputmode="decimal" step="any" min="0" class="watchlist-alert-input" data-direction="below" data-symbol="${sym}" placeholder="-" value="${a.below != null ? a.below : ''}">
             </label>
         </div>`;
 }
@@ -279,7 +278,7 @@ function renderAlertRow(sym) {
 // Adaptive precision: prices > $1000 show as integer-friendly; small-cap
 // alts down to fractions of a cent need lots of decimals to be useful.
 function formatPrice(p) {
-    if (!Number.isFinite(p)) return '—';
+    if (!Number.isFinite(p)) return '';
     if (p >= 1000) return p.toFixed(2);
     if (p >= 1) return p.toFixed(3);
     if (p >= 0.01) return p.toFixed(4);
@@ -288,7 +287,7 @@ function formatPrice(p) {
 
 function ensureWatchlistPanel() {
     // Guard against re-mounting. The injected element is
-    // #watchlist-section, NOT #watchlist-panel — the previous guard
+    // #watchlist-section, NOT #watchlist-panel, the previous guard
     // checked the wrong id, so refreshUI() / star-toggle / permission
     // grant could each call ensureWatchlistPanel and stack a second
     // (third, fourth) copy of the whole panel. That's what produced
@@ -313,7 +312,7 @@ function ensureWatchlistPanel() {
                     <div class="watchlist-notif-row" id="watchlist-notif-row">
                         <button class="watchlist-perm-btn" id="watchlist-perm-btn">Enable browser notifications</button>
                         <!-- "Notify even when app is closed" is now a CHECKBOX beside
-                             Enable; it fades out while the button is docked in the header. -->
+                             Enable, it fades out while the button is docked in the header. -->
                         <label class="watchlist-closed-check" id="watchlist-closed-check" hidden>
                             <input type="checkbox" id="watchlist-closed-toggle">
                             <span>🔔 Notify even when app is closed</span>
@@ -343,7 +342,7 @@ function ensureWatchlistPanel() {
                 pushState.classList.toggle('on', r.ok);
                 if (r.ok) {
                     setClosedAppOn(true);
-                    // Show the confirmation briefly, then fade it out — the
+                    // Show the confirmation briefly, then fade it out, the
                     // checkbox stays checked as the persistent state; the text
                     // shouldn't linger below (user: it should disappear).
                     setTimeout(() => {
@@ -397,8 +396,7 @@ function ensureWatchlistPanel() {
         }
         // Mirror the full alert set to the push backend so the alert also
         // fires when the tab is CLOSED (cron + Web Push). Tab-open delivery
-        // via the Binance WS in price-alerts.js keeps working regardless —
-        // this is purely additive. No-op until push is configured + enabled.
+        // via the Binance WS in price-alerts.js keeps working regardless, // this is purely additive. No-op until push is configured + enabled.
         syncPushAlerts();
     });
     // Live price tick → patch the row's price label in place. Avoids
@@ -433,7 +431,7 @@ export function notificationsEnabled() {
     return isNotifOn() && ('Notification' in window) && Notification.permission === 'granted';
 }
 
-// The Enable/Turn-Off button click — a single toggle.
+// The Enable/Turn-Off button click, a single toggle.
 async function onPermBtnClick() {
     if (!('Notification' in window)) {
         alert('This browser does not support notifications.');
@@ -521,11 +519,11 @@ async function syncPushAlerts() {
 // sync current alerts. Returns a short status the UI can surface.
 async function enableClosedTabPush() {
     if (!isPushConfigured()) return { ok: false, msg: 'Closed-tab alerts aren\'t set up on this deployment yet.' };
-    if (iosNeedsInstall()) return { ok: false, msg: 'On iPhone, add this app to your Home Screen first — then enable closed-tab alerts.' };
+    if (iosNeedsInstall()) return { ok: false, msg: 'On iPhone, add this app to your Home Screen first, then enable closed-tab alerts.' };
     try {
         const sub = await enablePush();
         await syncAlerts(sub, listAlerts());
-        return { ok: true, msg: 'Closed-tab alerts on — you\'ll be notified even with the app closed.' };
+        return { ok: true, msg: 'Closed-tab alerts on, you\'ll be notified even with the app closed.' };
     } catch (e) {
         return { ok: false, msg: e.message || 'Couldn\'t enable closed-tab alerts.' };
     }

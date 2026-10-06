@@ -1,4 +1,4 @@
-// Currency conversion layer — multi-currency, no hardcoded pair list.
+// Currency conversion layer, multi-currency, no hardcoded pair list.
 //
 // Architecture:
 //   - One module, one source of truth.
@@ -122,7 +122,7 @@ export async function fetchRates(force = false) {
     inflightFetch = (async () => {
         try {
             // Frankfurter.app: free, ECB-backed, all major currencies in one call.
-            const symbols = SUPPORTED_CODES.filter(c => c !== 'USD').join(',');
+            const symbols = SUPPORTED_CODES.filter(c => c !== 'USD').join(', ');
             const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${symbols}`;
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
@@ -179,7 +179,7 @@ function convert(value, srcCurrency, dstCurrency, ratesObj) {
  *   - srcCurrency unsupported (no FX rate) → render in native (don't fabricate)
  */
 export function format(value, opts = {}) {
-    if (value == null || !Number.isFinite(Number(value))) return '—';
+    if (value == null || !Number.isFinite(Number(value))) return '';
     const num = Number(value);
     const mode = getMode();
     const src = (opts.srcCurrency || 'USD').toUpperCase();
@@ -227,7 +227,7 @@ export function format(value, opts = {}) {
  */
 export function priceTag(value, opts = {}) {
     const n = Number(value);
-    if (!Number.isFinite(n)) return '<span class="price" data-usd="">—</span>';
+    if (!Number.isFinite(n)) return '<span class="price" data-usd="">-</span>';
     const src = (opts.srcCurrency || 'USD').toUpperCase();
     const txt = format(n, opts);
     const dg = Number.isInteger(opts.digits) ? ` data-digits="${opts.digits}"` : '';

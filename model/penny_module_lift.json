@@ -10,6 +10,6 @@
   "caveats": [
     "FINRA-only replay; OpenInsider + Social velocity historical replay pending.",
     "Backtest accuracy != live accuracy due to penny survivorship bias.",
-    "Penny LSTM not in this comparison \u2014 measured separately."
+    "Penny LSTM not in this comparison, measured separately."
   ]
 }

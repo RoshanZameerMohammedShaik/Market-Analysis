@@ -15,7 +15,7 @@ function stopHeroParticles() { if (_heroParticlesStop) { try { _heroParticlesSto
 
 // "Engine Signals" mode: when ON, EVERY symbol (incl. US) renders on our
 // own lightweight-charts chart so we can draw the engine's past BUY/SELL
-// calls as markers on the price — colored by whether each one hit. When
+// calls as markers on the price, colored by whether each one hit. When
 // OFF, US tickers keep the richer TradingView embed (which gives us no
 // marker API). Persisted so the user's choice sticks across reloads.
 const ENGINE_SIGNALS_KEY = 'ma-engine-signals-on';
@@ -76,7 +76,7 @@ function toTradingViewSymbol(yahooSymbol) {
 }
 
 // Free TradingView embed paywalls most non-US exchanges (NSE, BSE,
-// HKEX, TSE, ASX, TSX, LSE small caps, SSE, SZSE…) — symbol resolves
+// HKEX, TSE, ASX, TSX, LSE small caps, SSE, SZSE…), symbol resolves
 // but the user sees an "only available on TradingView" upgrade prompt
 // instead of the chart. Rather than maintain a piecemeal allowlist
 // that breaks on the next user-reported gap, the rule is simple:
@@ -128,7 +128,7 @@ function initChartShield() {
 
 export function loadChart() {
     if (!state.currentSymbol && !state.currentCoinId) return;
-    // A real chart is about to replace the placeholder — stop the hero
+    // A real chart is about to replace the placeholder, stop the hero
     // particle field so its canvas + rAF loop are released.
     stopHeroParticles();
     initChartShield();
@@ -152,7 +152,7 @@ export function loadChart() {
     // Engine-signals mode: route through our own lightweight-charts chart so we
     // can draw the engine's past calls as markers. Now enabled for CRYPTO too
     // (the in-app chart renders crypto candles fine). Markers come from the
-    // ledger, which is currently stock-only — for crypto the chart renders
+    // ledger, which is currently stock-only, for crypto the chart renders
     // cleanly with no markers yet (honest: we don't fabricate crypto history).
     const signalsMode = engineSignalsOn();
 
@@ -271,7 +271,7 @@ async function renderLocalChart(symbol, container, opts = {}) {
             color: c.close >= c.open ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)',
         })));
 
-        // 20-period moving-average overlay — gives the trend an instant read
+        // 20-period moving-average overlay, gives the trend an instant read
         // (price above the MA = up-trend, below = down-trend) without the user
         // doing the eyeballing. Thin accent line, drawn under the candles.
         try {
@@ -299,7 +299,7 @@ async function renderLocalChart(symbol, container, opts = {}) {
         // the call, color = whether it HIT (green) or MISSED (red) at the
         // 1-day horizon (grey = not yet resolved). This is the engine's
         // track record rendered directly on the price the user is looking
-        // at — the most honest "was it right?" view in the app.
+        // at, the most honest "was it right?" view in the app.
         if (withMarkers) {
             try {
                 const firstBar = data.candles[0]?.time ?? 0;
@@ -391,11 +391,11 @@ function paintEngineSignalsToggle(btn) {
     btn.classList.remove('disabled');
     // The chart works for both; markers are ledger-backed (stock-only today),
     // so on crypto we tell the user the chart shows but historical calls are
-    // stock-only for now — honest, not a hard disable.
+    // stock-only for now, honest, not a hard disable.
     btn.title = on
         ? (crypto
             ? 'Engine chart ON for this coin. Past-call markers are stock-only for now.'
-            : 'Engine signals ON — showing past calls on the chart. Click to hide.')
+            : 'Engine signals ON, showing past calls on the chart. Click to hide.')
         : 'Show the engine chart' + (crypto ? ' for this coin' : ' with past BUY/SELL calls');
     btn.innerHTML = `
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -408,7 +408,7 @@ export function showChartPlaceholder() {
     const container = document.getElementById('tradingview-widget');
     if (!container) return;
     // Roshan: text-only empty state, centered. The candle animation
-    // wasn't pulling its weight here — it competed with the title
+    // wasn't pulling its weight here, it competed with the title
     // instead of supporting it. Just the title + subtitle now,
     // anchored vertically and horizontally by .chart-placeholder's
     // existing flex layout.
@@ -431,18 +431,17 @@ export function updateChartHeader(data) {
     const symbolEl = document.getElementById('chart-symbol');
     const priceEl = document.getElementById('chart-price');
     if (symbolEl) {
-        // Display ticker WITHOUT Yahoo's '.NS'/'.HK'/'.T' suffix —
-        // those are Yahoo's internal disambiguation tags, not part of
+        // Display ticker WITHOUT Yahoo's '.NS'/'.HK'/'.T' suffix, // those are Yahoo's internal disambiguation tags, not part of
         // the real exchange ticker. The exchange label after the dot
         // already tells the user which listing they're looking at, so
         // showing both is redundant.
         const ticker = displayTicker(data.symbol);
         // Resolve the exchange + country label. Prefer Yahoo's
-        // meta.exchangeName code (more specific — e.g. NMS = NASDAQ vs.
+        // meta.exchangeName code (more specific, e.g. NMS = NASDAQ vs.
         // NYQ = NYSE for US tickers); fall back to the suffix mapping
         // for anything Yahoo didn't tag (rare).
         const exLabel = fullLabelForCode(data.exchange) || fullLabelForSymbol(data.symbol);
-        const namePart = data.name ? ` — ${data.name}` : '';
+        const namePart = data.name ? `, ${data.name}` : '';
         const exPart = exLabel ? ` · ${exLabel}` : '';
         symbolEl.textContent = `${ticker}${namePart}${exPart}`;
     }
@@ -457,7 +456,7 @@ export function updateChartHeader(data) {
                 ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                 : 0;
             const looksReal = Number.isFinite(change) && Math.abs(change) <= 50;
-            // data.currency comes from Yahoo's meta.currency — INR for
+            // data.currency comes from Yahoo's meta.currency. INR for
             // .NS/.BO, GBP for .L, HKD for .HK, JPY for .T, etc. Pass
             // it as srcCurrency so the formatter doesn't FX-convert a
             // ₹230 price as if it were $230.

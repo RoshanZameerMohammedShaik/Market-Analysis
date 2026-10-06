@@ -1,4 +1,4 @@
-/* Portfolio Simulation — slide-in side panel from the right edge.
+/* Portfolio Simulation, slide-in side panel from the right edge.
    Coordinates with Mia's panel via side-panel-stack.js: first-opened
    stays at right:0, second-opened sits to its left. */
 
@@ -20,7 +20,7 @@
     background: var(--bg-hover);
     transform: translateY(-1px);
 }
-/* Inline icon — sits flush against the trailing 'o' of "Portfolio".
+/* Inline icon, sits flush against the trailing 'o' of "Portfolio".
    Roshan wants the candle animation tight to the LAST 'o', not in the
    middle of the word. 1px margin so it doesn't kiss the glyph. */
 .portfolio-launcher-icon {
@@ -73,7 +73,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     background: var(--bg-hover);
 }
 
-/* Animated portfolio icon — three rising bars + a trend line that rises
+/* Animated portfolio icon, three rising bars + a trend line that rises
    to a dot in the upper right. Each bar grows from its bottom edge
    slightly out of phase, giving the icon a constant "the portfolio is
    alive" pulse. The trend line redraws via stroke-dasharray. */
@@ -147,7 +147,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
     z-index: 600;
     padding-bottom: env(safe-area-inset-bottom, 0);
     /* Translate fully off-screen when closed. Earlier the panel used
-       `right: -440px` which was hard-coded to a single px value — when
+       `right: -440px` which was hard-coded to a single px value, when
        the user opened browser dev tools on the right (squeezing the
        viewport), `width: min(420, 96vw)` could exceed 440px the panel
        was pushed by, leaving a thin slice visible. translateX(100%) is
@@ -173,7 +173,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 .portfolio-panel-title {
     display: inline-flex;
     align-items: baseline;
-    gap: 4px; /* tight — icon sits close to the trailing "n" of Simulation */
+    gap: 4px; /* tight, icon sits close to the trailing "n" of Simulation */
     font-weight: 800;
     color: var(--text-primary);
     font-size: 0.95rem;
@@ -237,7 +237,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 
 .portfolio-summary-row {
     display: grid;
-    /* 2 columns in the side panel — fits 4 stats in a tidy 2x2 grid. */
+    /* 2 columns in the side panel, fits 4 stats in a tidy 2x2 grid. */
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 14px;
@@ -318,7 +318,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
     color: var(--text-primary);
     grid-column: 1;
     grid-row: 1;
-    /* Now a button — strip native button styling and make it read as
+    /* Now a button, strip native button styling and make it read as
        a strong inline link. Hover surfaces the accent color so the
        user knows it's clickable without us adding an icon. */
     background: transparent;
@@ -478,7 +478,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 }
 .portfolio-modal-btn.primary:hover { box-shadow: 0 8px 22px var(--brand-grad-shadow); }
 
-/* Toast — shared by trade success/failure messages. Slides up from
+/* Toast, shared by trade success/failure messages. Slides up from
    the bottom-left so it doesn't fight Mia's launcher in the bottom-right. */
 .portfolio-toast {
     position: fixed;
@@ -507,7 +507,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 
 
 /* Pointer link to the P&L Calculator, which is now its OWN side panel
-   (js/ui/pl-panel.js) — it used to live here as a <details>. */
+   (js/ui/pl-panel.js), it used to live here as a <details>. */
 .portfolio-pl-pointer {
     margin: 14px 0 0;
     font-size: 0.84rem;
@@ -517,7 +517,7 @@ body.side-panel-portfolio-open .portfolio-icon-dot {
 
 /* Mobile: panel goes full-width if both panels would overflow. The
    stack still works (second-opened sits to the left of first), but at
-   small viewports there's no room for two — second push will scroll
+   small viewports there's no room for two, second push will scroll
    the first off-screen. Acceptable for phones.
    The old rule here also did `display: none` on .portfolio-launcher-label
    but the icon span used to be NESTED INSIDE the label, so hiding the

@@ -168,7 +168,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 
 .mia-send-btn:active { transform: scale(0.92); }
 
-/* (Removed the old body.pl-open .pl-sidebar bottom-sheet entrance — the P&L
+/* (Removed the old body.pl-open .pl-sidebar bottom-sheet entrance, the P&L
    calculator is now its own #pl-panel that slides in from the right via its
    own translateX transition; a translateY keyframe here would fight it.) */
 
@@ -220,13 +220,13 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
        breathing room. */
     display: flex; align-items: center; gap: 0;
 }
-/* MARKET ANALYZER — glowing light flows INSIDE the letters from M → R.
+/* MARKET ANALYZER, glowing light flows INSIDE the letters from M → R.
    Technique: the title is filled (not outlined). A moving gradient is
    masked to the letter shapes via background-clip:text, so the bright
    spot is only visible WHERE the letters are. The base color stays
    solid so the title is always readable; the gradient just adds a
    highlight that travels through the letter bodies. Theme-tinted. */
-/* Static title, no gradient flow — replaced by the live candle
+/* Static title, no gradient flow, replaced by the live candle
    animation sibling next to it. Cleaner read, faster paint, plus the
    candles match the rest of the app's market-data identity. */
 .app-title-static {
@@ -237,7 +237,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* Header portfolio mark — three growing candles (small/medium/tall)
+/* Header portfolio mark, three growing candles (small/medium/tall)
    with a rising arrow that traces along their tops. Roshan asked for
    "an arrow going upwards, as the arrow goes from bottom to top 3
    candles should grow along the arrow's height". The arrow draws from
@@ -245,33 +245,49 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
    sequence. The whole staircase reads as a "trend up" mark beside
    MARKET ANALYZER. */
 .app-title-bull {
-    /* Tucked in against the R of ANALYZER. The traced artwork carries ~1.5 units of padding
-       on each side plus the bull's own left-leaning mass, so a small NEGATIVE pull is what
-       actually closes the optical gap; 0 looked detached. margin-top centres the artwork's
-       mass on the title's cap height rather than its box. */
+    /* BOTTOM-ALIGNED TO THE TEXT, not centred.
+       Centred put the hooves and the shortest candle below the word's baseline, which reads as
+       the mark sagging out of the line (Roshan: "the logo is in the middle still the legs and
+       some candles are below the alignment of the name"). The traced viewBox is cropped to the
+       ink, so the SVG's bottom edge IS the artwork's bottom; align-self: baseline puts that
+       edge on the text baseline, which is exactly "bottoms line up". The 1px nudge accounts for
+       the font's own baseline sitting a hair above the glyph bottoms. */
     display: inline-flex;
-    align-items: center;
-    height: 38px;
     margin-left: -6px;
-    margin-top: -2px;
+}
+/* BOTTOMS LINE UP. The wrap centres its children everywhere else in the app, which put the
+   hooves and the shortest candle below the word (Roshan: "the logo is in the middle still the
+   legs and some candles are below the alignment of the name"). flex-end bottom-aligns the two
+   boxes, and because .app-title's line-height equals its font-size there is no descender
+   leading, so the mark's bottom edge lands on the glyph bottoms. align-self: baseline was
+   tried first and does not do this: an inline-flex span wrapping a block SVG synthesises its
+   baseline from its own bottom edge, which left it 11.5px low. Measured, not assumed. */
+/* Specificity deliberately raised: .app-title-wrap { align-items: center } is set in BOTH
+   style.css and components.css, and components.css loads after this file, so a bare
+   .app-title-wrap here loses. */
+.header-content .app-title-wrap {
+    align-items: flex-end;
 }
 .bull-svg {
     /* 73.4 x 51.56 viewBox = 1.42:1, so a square box would letterbox the bull. */
     width: 54px;
     height: 38px;
     overflow: visible;
+    display: block;
 }
 
 /* NOTHING ANIMATES UNTIL .play IS ADDED, and the resting state is the FINISHED mark.
    The first version animated on CSS parse, which is the one moment nobody can see it: the
-   splash overlay covers the header until window.load + 1.6s, so the bars had grown, the arrow
-   had wiped and the bull had landed before the header was ever on screen. Roshan saw a static
-   logo and said so. The splash script now adds .play as the overlay fades, and because the
-   resting state is the end state, a browser that never runs that script still shows a correct
-   logo rather than an invisible one. */
+   splash overlay covers the header until window.load + 1.6s, so the whole sequence had already
+   finished before the header was ever on screen. The splash script adds .play as the overlay
+   fades, and because the resting state is the end state, a browser that never runs that script
+   still shows a correct logo rather than an invisible one. */
 .bull-bar  { fill: rgb(var(--accent-rgb)); }
 .bull-arrow { fill: var(--green); }
 .bull-bull { fill: var(--text-primary); }
+/* The mane line is the reference's page colour showing THROUGH the bull. Filling it like the
+   body loses the detail; filling it with the header background restores it. */
+.bull-mane { fill: var(--bg-secondary, #0f131a); }
 
 .app-title-bull.play .bull-bar {
     transform-origin: center bottom;
@@ -281,7 +297,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-bull.play .bull-bar.bar-1 { animation-delay: 0.02s; }
 .app-title-bull.play .bull-bar.bar-2 { animation-delay: 0.11s; }
 .app-title-bull.play .bull-bar.bar-3 { animation-delay: 0.20s; }
-.app-title-bull.play .bull-bar.bar-4 { animation-delay: 0.29s; }
 @keyframes bull-bar-grow {
     from { transform: scaleY(0); opacity: 0.5; }
     to   { transform: scaleY(1); opacity: 1; }
@@ -295,23 +310,42 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     from { clip-path: inset(0 100% 0 0); }
     to   { clip-path: inset(0 0 0 0); }
 }
+/* THE GALLOP.
+   The bull is a single traced outline, so its legs are not separate shapes and cannot be
+   swung individually -- claiming otherwise would mean splitting the silhouette and it would
+   look broken. What IS separate is the front hoof (navy[4] in the trace), and a body that
+   pitches and drives while that hoof reaches is what actually reads as running. The leap
+   plays once on arrival, then the gallop idles. */
 .app-title-bull.play .bull-bull {
-    transform-origin: 30% 80%;
+    transform-origin: 30% 85%;
     transform-box: fill-box;
     animation: bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) 0.34s both,
-               bull-idle 6s ease-in-out 1.6s infinite;
+               bull-gallop 1.15s ease-in-out 1.25s infinite;
 }
 @keyframes bull-leap {
     from { transform: translate(-18%, 16%) rotate(-12deg) scale(0.8); opacity: 0; }
     55%  { opacity: 1; }
     to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
 }
-/* Idle: a breath, not a bounce. 1.5% every 6 seconds, easy to stop noticing. */
-@keyframes bull-idle {
-    0%, 100% { translate: 0 0; }
-    50%      { translate: 0 -1.5%; }
+@keyframes bull-gallop {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    25%      { transform: translate(0.8%, -5%) rotate(-2.6deg); }   /* gather and rise */
+    50%      { transform: translate(0, -1.5%) rotate(0.4deg); }     /* extend */
+    75%      { transform: translate(-0.8%, -4%) rotate(2.2deg); }   /* drive */
 }
-/* Hover the title and the whole sequence runs again. */
+/* The front hoof reaches on the opposite half of the stride to the body's rise, which is what
+   stops the two motions reading as one rigid wobble. */
+.app-title-bull.play .bull-hoof {
+    transform-origin: 50% 0%;
+    transform-box: fill-box;
+    animation: bull-hoof-step 1.15s ease-in-out 1.25s infinite;
+}
+@keyframes bull-hoof-step {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    30%      { transform: translate(-6%, 10%) rotate(-11deg); }
+    60%      { transform: translate(4%, -4%) rotate(7deg); }
+}
+/* Hover the title and the arrival sequence runs again. */
 .app-title-wrap:hover .bull-bar {
     transform-origin: center bottom; transform-box: fill-box;
     animation: bull-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -320,13 +354,15 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     animation: bull-arrow-wipe 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
 }
 .app-title-wrap:hover .bull-bull {
-    transform-origin: 30% 80%; transform-box: fill-box;
-    animation: bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) both;
+    transform-origin: 30% 85%; transform-box: fill-box;
+    animation: bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) both,
+               bull-gallop 1.15s ease-in-out 0.9s infinite;
 }
 @media (prefers-reduced-motion: reduce) {
     .app-title-bull.play .bull-bar,
     .app-title-bull.play .bull-arrow,
     .app-title-bull.play .bull-bull,
+    .app-title-bull.play .bull-hoof,
     .app-title-wrap:hover .bull-bar,
     .app-title-wrap:hover .bull-arrow,
     .app-title-wrap:hover .bull-bull {
@@ -350,7 +386,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 
 .mia-launcher .mia-launcher-logo .mia-ecg-trace,
 .mia-launcher .mia-launcher-logo .mia-ecg-blip {
-    /* Black ECG on the new white disc — Roshan's spec was "Mia's
+    /* Black ECG on the new white disc. Roshan's spec was "Mia's
        toggle in white, the ECG M animation in black inside it". */
     stroke: #000000;
 }

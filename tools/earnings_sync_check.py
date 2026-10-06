@@ -8,7 +8,7 @@ The fixtures deliberately cover the cases that are easy to get wrong:
   * one just before the close (moves that session)
   * one on a Friday evening (moves Monday)
   * ASX, whose session's UTC date is the day before its own local date
-  * TYO's 15:30 close (extended in Nov 2024; a 15:00 table puts a 15:15 release a day late)
+  * TYO's 15:30 close (extended in Nov 2024, a 15:00 table puts a 15:15 release a day late)
   * a symbol absent from the slice (unknown, NOT "no earnings")
   * crypto (known-none, never unknown)
   * exchange HOLIDAYS (a synthetic calendar, so the check does not depend on today's file):

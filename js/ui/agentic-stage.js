@@ -1,4 +1,4 @@
-// Agentic stage — full-screen overlay that pulls a target card into
+// Agentic stage, full-screen overlay that pulls a target card into
 // the center of the screen, blurs the background with an aurora
 // animation, and rains white particles. Used when Mia is performing
 // an agentic action (P&L calc, future: alert setup, screenshot, etc.)
@@ -86,7 +86,7 @@ function buildOverlay({ title, subtitle }) {
  * body.mia-agentic-active so the launcher orb stays visible.
  */
 export async function openAgenticStage({ host, title, subtitle, variant } = {}) {
-    closeAgenticStage();   // idempotent — close any prior stage first
+    closeAgenticStage();   // idempotent, close any prior stage first
     const hostEl = (typeof host === 'string') ? document.getElementById(host) : host;
     if (!hostEl) throw new Error(`agentic stage: host element not found (${host})`);
 
@@ -105,7 +105,7 @@ export async function openAgenticStage({ host, title, subtitle, variant } = {}) 
     hostEl.classList.add('agentic-stage-mounted');
 
     // Body class drives the backdrop dim. Launcher visibility is
-    // owned by launcher-vis.js — capture the prior state so we can
+    // owned by launcher-vis.js, capture the prior state so we can
     // restore it on close, then force orb mode so the user always
     // sees Mia "working" while the agentic stage is up.
     document.body.classList.add('mia-agentic-active');
@@ -156,7 +156,7 @@ export function closeAgenticStage() {
     priorLauncherVis = null;
 
     // Put the host element back where it came from, BEFORE removing
-    // the overlay — otherwise the hostEl reference becomes orphaned.
+    // the overlay, otherwise the hostEl reference becomes orphaned.
     if (activeHost && activeOriginParent) {
         activeHost.classList.remove('agentic-stage-mounted');
         if (activeOriginNext && activeOriginNext.parentNode === activeOriginParent) {

@@ -106,7 +106,7 @@ def main():
     weak_5plus.sort(key=lambda x: x[3])
 
     print('=' * 65)
-    print('ENGINE PREDICTION TRACK RECORD — full ledger to date')
+    print('ENGINE PREDICTION TRACK RECORD, full ledger to date')
     print('=' * 65)
     print(f'\nTotal ledger rows (all signal types):     {total_rows:>6}')
     print(f'Unique symbols seen by engine:             {len(unique_symbols):>6}')

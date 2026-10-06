@@ -42,12 +42,12 @@ function sharedStats(setups, rec) {
     const nets = setups.map(x => x.netBps).filter(Number.isFinite);
     const recent = setups.map(x => x.heldOutHitRate).filter(Number.isFinite);
     if (!hits.length) return '';
-    // Figures within `tight` of each other are one number to a reader ("67%", not "67%–68%"),
+    // Figures within `tight` of each other are one number to a reader ("67%", not "67%, 68%"),
     // so print their mean; a real spread prints as a range.
     const span = (xs, f, tight) => {
         const lo = Math.min(...xs), hi = Math.max(...xs);
         if (f(lo) === f(hi) || hi - lo <= tight) return f(xs.reduce((a, b) => a + b, 0) / xs.length);
-        return `${f(lo)}–${f(hi)}`;
+        return `${f(lo)}, ${f(hi)}`;
     };
     const signed = (b) => `${b >= 0 ? '+' : '−'}${Math.abs(b / 100).toFixed(1)}%`;
     const o = rec?.overall;
@@ -72,14 +72,14 @@ export async function renderSetupsList(onPick) {
         const needs = Number.isFinite(x.trigger) && x.close > 0 ? (x.trigger / x.close - 1) * 100 : null;
         const run = Number.isFinite(x.downDays) && x.downDays > 0
             ? `−${Math.abs(x.downPct).toFixed(1)}%<span class="su-sub">${x.downDays} day${x.downDays === 1 ? '' : 's'}</span>`
-            : '—';
+            : '';
         return `
         <tr class="su-row" data-symbol="${escapeHtml(x.symbol)}" tabindex="0">
             <td class="su-sym">${escapeHtml(x.symbol)}</td>
             <td class="su-num">${fmtPriceTag(x.close, { srcCurrency: 'USD' })}</td>
             <td class="su-num su-run">${run}</td>
             <td class="su-num">${fmtPriceTag(x.trigger, { srcCurrency: 'USD' })}</td>
-            <td class="su-num su-need">${needs != null ? `+${needs.toFixed(1)}%` : '—'}</td>
+            <td class="su-num su-need">${needs != null ? `+${needs.toFixed(1)}%` : '-'}</td>
         </tr>`;
     }).join('');
     host.innerHTML = `
@@ -87,8 +87,7 @@ export async function renderSetupsList(onPick) {
             <h2 class="section-title">↺ Pullback setups · from the ${escapeHtml(sessionLabel(s.sessionDate))} close${s.confirmed === false ? ' (forming, not final)' : ''}</h2>
         </div>
         <div class="su-intro">
-            Stocks in an uptrend that just fell several days running. The rule: <strong>buy at the next open</strong>,
-            <strong>sell at the open after it closes above its 5-day average</strong>, or after 10 trading days at most. No stop-loss.
+            Stocks in an uptrend that just fell several days running. The rule: <strong>buy at the next open</strong>-<strong>sell at the open after it closes above its 5-day average</strong>, or after 10 trading days at most. No stop-loss.
         </div>
         ${sharedStats(s.setups, rec)}
         ${s.setups.length ? `

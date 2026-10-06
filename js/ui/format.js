@@ -7,13 +7,13 @@
 import { format as fmtCurrency, priceTag, getMode, getRates } from '../currency.js';
 
 export const fmt = (n, digits = 2) => {
-    if (n == null || Number.isNaN(n)) return '—';
+    if (n == null || Number.isNaN(n)) return '';
     return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 };
 
 // Returns currency-aware formatted price text (no markup).
 // `opts.srcCurrency` lets callers that fetched a non-USD-native price
-// (Indian / London / Tokyo / Hong Kong listings — Yahoo returns them
+// (Indian / London / Tokyo / Hong Kong listings. Yahoo returns them
 // in native currency, not USD) skip the FX conversion. Default USD.
 export const fmtPrice = (value, opts) => fmtCurrency(value, opts);
 
@@ -21,7 +21,7 @@ export const fmtPrice = (value, opts) => fmtCurrency(value, opts);
 export const fmtPriceTag = (value, opts) => priceTag(value, opts);
 
 export const fmtCompact = n => {
-    if (n == null) return '—';
+    if (n == null) return '';
     if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2) + 'B';
     if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(2) + 'M';
     if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(2) + 'K';

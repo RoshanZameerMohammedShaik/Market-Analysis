@@ -17,7 +17,7 @@ except ImportError:
         'BTC-USD', 'ETH-USD', 'SOL-USD',
     ]
 
-# Penny universe — separate file (penny_universe.py) mirrors
+# Penny universe, separate file (penny_universe.py) mirrors
 # js/penny-universe.js. Pennies are added to ALL_SYMBOLS so the daily
 # cron records and resolves predictions on them too. They also feed
 # the main LSTM (added to train_model.SYMBOLS in a separate edit).
@@ -26,7 +26,7 @@ try:
 except ImportError:
     _PENNIES = []
 
-# Crypto universe — same hybrid pattern as pennies. crypto_universe.py
+# Crypto universe, same hybrid pattern as pennies. crypto_universe.py
 # mirrors js/crypto-universe.js (~250 stable curated symbols across
 # majors / L1s / L2s / DeFi / meme / AI-DePIN / gaming / RWA-privacy).
 # train_model.SYMBOLS already had a 38-coin _CRYPTO list; this adds
@@ -37,7 +37,7 @@ try:
 except ImportError:
     _CRYPTO_EXTRA = []
 
-# Mirror of js/markets.GLOBAL_POOL — kept in sync manually since the JS
+# Mirror of js/markets.GLOBAL_POOL, kept in sync manually since the JS
 # file is the authoritative list for the browser.
 _GLOBAL_POOL = [
     # India (NSE)

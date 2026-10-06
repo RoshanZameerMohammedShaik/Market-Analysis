@@ -25,6 +25,6 @@ export function recentSpikeCap(spike) {
     if (spike.daysAgo > 5) return { cap: 100, reason: null };
     return {
         cap: 55,
-        reason: `${spike.pct}% spike ${spike.daysAgo}d ago — mean reversion zone, signal capped`,
+        reason: `${spike.pct}% spike ${spike.daysAgo}d ago, mean reversion zone, signal capped`,
     };
 }

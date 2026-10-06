@@ -106,7 +106,7 @@ export const HIT_LABELS_SHORT = {
     strong: 'Strong',
     hit: 'Hit',
     partial: 'Partial',
-    none: '—',
+    none: '',
 };
 
 /**
@@ -310,5 +310,5 @@ export function describeBandHistory(hist) {
     }
     // n=7 cannot separate a real calibration error from chance. Say so.
     return `${parts.join(', ')}. ${scored} sessions is too few to judge the ${claimedPct ?? 80}% `
-        + `claim — expect swings of roughly ±15 points on this few samples.`;
+        + `claim, expect swings of roughly ±15 points on this few samples.`;
 }

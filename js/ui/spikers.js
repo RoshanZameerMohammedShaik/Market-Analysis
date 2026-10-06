@@ -1,4 +1,4 @@
-// Spikers UI — button on hot-picks header (Today only), bucket selector,
+// Spikers UI, button on hot-picks header (Today only), bucket selector,
 // results modal, calls into js/spike-detector.js. Caches results for 5 min.
 
 import { state } from './state.js';
@@ -41,7 +41,7 @@ function openModal(onPickSymbol) {
             </div>
             <div class="spikers-intro">
                 Candidates the engine thinks have <strong>above-baseline probability</strong> of moving by the chosen amount <strong>today</strong>.
-                Most won't hit — treat this as a watchlist, not a prediction. ATR-feasibility filtered, earnings-imminent skipped.
+                Most won't hit, treat this as a watchlist, not a prediction. ATR-feasibility filtered, earnings-imminent skipped.
             </div>
             <div class="spikers-buckets">
                 ${BUCKETS.map(b => `<button class="sp-bucket" data-bucket="${b.id}">${b.label}</button>`).join('')}
@@ -100,7 +100,7 @@ async function runScan(bucket, onPickSymbol) {
         const results = await findSpikers(candidates, bucket, onProgress, { mode: state.mode });
 
         if (results.length === 0) {
-            body.innerHTML = `<div class="sp-empty">No candidates pass ATR-feasibility for ${bucket.label} today. That's a feature, not a bug — try a smaller bucket.</div>`;
+            body.innerHTML = `<div class="sp-empty">No candidates pass ATR-feasibility for ${bucket.label} today. That's a feature, not a bug, try a smaller bucket.</div>`;
             return;
         }
         body.innerHTML = `

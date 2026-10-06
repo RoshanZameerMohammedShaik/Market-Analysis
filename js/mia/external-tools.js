@@ -1,6 +1,6 @@
 // External / internet tools Mia can call to fill gaps the app doesn't
 // already cover. All free, all keyless. Each function returns a small
-// JSON-friendly payload — these are designed to fit through the LLM's
+// JSON-friendly payload, these are designed to fit through the LLM's
 // 4kb tool-result truncation in agent.js.
 
 import { fetchWithProxy } from '../data.js';
@@ -36,7 +36,7 @@ export async function fetchNewsAndSentiment({ symbol, mode = 'stock', companyNam
 // ---- FRED macro series (no key needed for fred-public json) ----------------
 //
 // We use the unofficial json mirror via stlouisfed.org's CSV endpoint.
-// Series whitelist keeps the surface tight — no arbitrary-URL fetch via Mia.
+// Series whitelist keeps the surface tight, no arbitrary-URL fetch via Mia.
 
 const FRED_ALLOWED = new Set([
     'DFF',     // Effective Fed Funds Rate

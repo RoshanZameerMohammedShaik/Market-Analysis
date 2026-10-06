@@ -205,7 +205,7 @@ def main():
             and isinstance(r.get('entry'), (int, float))
             and (only is None or str(r.get('symbol')).upper() in only)]
 
-    print(f'\nDAILY PREDICTION SCORECARD — {date_iso}')
+    print(f'\nDAILY PREDICTION SCORECARD, {date_iso}')
     print('=' * 100)
     print(f'  Analysis ran            : YES, {len(rows):,} rows written')
     print(f'  Stocks/cryptos analysed : {len({r["symbol"] for r in rows}):,} '

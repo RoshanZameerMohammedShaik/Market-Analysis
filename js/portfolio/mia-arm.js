@@ -271,7 +271,7 @@ export async function armDesk(amountUSD, positions, onProgress = () => {}) {
     }
     if (Math.abs(Number(after.allocationUSD) - usd) > 0.01) {
         throw new Error(`The desk armed with $${after.allocationUSD} but $${usd} was `
-            + `requested. Nothing was taken from your portfolio; stop the desk and retry.`);
+            + `requested. Nothing was taken from your portfolio, stop the desk and retry.`);
     }
 
     // Confirmed. Now, and only now, move the cash.

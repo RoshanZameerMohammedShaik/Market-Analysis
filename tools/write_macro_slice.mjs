@@ -67,7 +67,7 @@ for (const id of ids) {
 // that a day-old file is still a useful reading, and getMacroScore reports its own asOf
 // dates so staleness is visible rather than hidden.
 if (!Object.keys(series).length) {
-    console.error('refusing to write an empty macro slice; leaving the existing file alone');
+    console.error('refusing to write an empty macro slice, leaving the existing file alone');
     process.exitCode = 1;
 } else {
     // Merge over what is already published so one series failing does not delete it.

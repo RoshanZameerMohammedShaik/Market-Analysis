@@ -11,11 +11,11 @@ let _ledgerCacheTs = 0;
 const LEDGER_CACHE_MS = 5 * 60 * 1000;
 
 // Normalise a chart/UI symbol to the key the LEDGER uses. The Python cron
-// stores crypto in Yahoo style — "BTC-USD", "ETH-USD" — but the crypto chart
+// stores crypto in Yahoo style, "BTC-USD", "ETH-USD", but the crypto chart
 // passes a bare ticker ("BTC") or a CoinGecko coinId ("bitcoin"). Without this
 // mapping the per-symbol readers filter for "BTC", find no "BTC-USD" rows, and
 // crypto looks ledger-less even though it isn't (this was the real reason
-// crypto signals didn't show — NOT a missing ledger). We map known coinIds to
+// crypto signals didn't show. NOT a missing ledger). We map known coinIds to
 // their ticker, then append -USD when the ledger has a -USD row for it.
 const COINID_TO_TICKER = {
     bitcoin: 'BTC', ethereum: 'ETH', binancecoin: 'BNB', solana: 'SOL',
@@ -42,18 +42,17 @@ function ledgerKeyCandidates(symbol) {
 // (record_predictions.py), and model/live_calibration.json carries the
 // engineVersion that's running NOW. The "how accurate / how profitable is
 // the engine" surfaces (equity curve, accuracy-by-setup, history hit-rate)
-// must describe the CURRENT engine — not blend in a retired engine's record,
+// must describe the CURRENT engine, not blend in a retired engine's record,
 // which would either inherit its losses (defaming a fix) or its wins
 // (inflating a regression). So we scope those reads to current-engine rows.
 //
 // Self-contained: we read the authoritative current version from
 // live_calibration.json (Python-written, static-cached). If it's missing or
 // carries no engineVersion (older deploys), we DEGRADE GRACEFULLY to "no
-// gate" (show all rows) rather than blanking the app on an infra hiccup —
-// honesty without fragility.
+// gate" (show all rows) rather than blanking the app on an infra hiccup, // honesty without fragility.
 // Cache ONLY a successful, non-empty version (truthy). The unavailable
 // state ('') is deliberately NOT cached: a transient 404 / network blip
-// must NOT lock the gate open for the full TTL — that would ungate every
+// must NOT lock the gate open for the full TTL, that would ungate every
 // surface and surface the RETIRED engine's record (e.g. the pre-rebalance
 // 46.7%) as if it were current, the exact dishonesty this gate prevents.
 // So on failure we return '' (fail-open for THIS call only) and retry on
@@ -91,14 +90,14 @@ async function currentEngineVersion() {
 // recently started stamping engineVersion, so only ~171 of ~7,400 rows match
 // the current version). Gating hard left the equity curve + accuracy report
 // permanently stuck on "rebuilding" with zero data. So: if the current-engine
-// subset is too thin to be useful (< MIN_KEPT), we DON'T gate — we return all
+// subset is too thin to be useful (< MIN_KEPT), we DON'T gate, we return all
 // rows ungated. The gate only "bites" once the new engine has actually
 // accumulated a meaningful record, which is exactly when retiring the old one
 // is the honest thing to do. Until then, showing the full history (clearly the
 // engine's real track record) beats showing nothing.
 // Gate only once the current engine has a RESOLVED, directional record big
 // enough to stand alone. We count kept rows that are actually resolved at the
-// 1-day horizon (the product horizon) — raw row count isn't enough because the
+// 1-day horizon (the product horizon), raw row count isn't enough because the
 // newest rows are mostly unresolved, which would gate to a 0-trade surface.
 const MIN_KEPT_RESOLVED = 120;
 function isResolvedDirectional(r) {
@@ -371,7 +370,7 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
     return { available: true, symbol: String(symbol).toUpperCase(), markers };
 }
 
-// "If you'd followed the engine" — a hypothetical equity curve.
+// "If you'd followed the engine", a hypothetical equity curve.
 //
 // Walks the resolved ledger in chronological order and accrues the
 // return of every directional call at the chosen horizon, as if each
@@ -382,12 +381,12 @@ export async function readSymbolSignalMarkers({ symbol, directionalOnly = true }
 // stored per row. directionMatch is the engine's own hit flag; we don't
 // rely on it for P&L (we use the signed move) but expose hit stats too.
 //
-// POSITION SIZING — fixed fractional. Each trade deploys a constant
+// POSITION SIZING, fixed fractional. Each trade deploys a constant
 // `fraction` of the *current* balance (default 25%), so the curve
 // reflects the engine's directional EDGE without the volatility-drag
 // artifact you get from betting 100% of the account on every one of
 // ~2,000 sequential near-coinflip trades (that pins any such series to
-// ~zero and tells you nothing about edge — it's a sizing pathology, not
+// ~zero and tells you nothing about edge, it's a sizing pathology, not
 // a verdict on the signals). Fixed-fractional is the standard, honest
 // way to visualize a signal's cumulative edge; the per-trade average
 // return (avgTradePct, sizing-independent) is also returned as the
@@ -421,7 +420,7 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 1, st
     scoped.sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.predictedAt).localeCompare(String(b.predictedAt)));
     if (scoped.length < 3) {
         // Distinguish "engine just changed, rebuilding" from "genuinely empty"
-        // so the UI can say which — see trust-panel's rebuilding copy.
+        // so the UI can say which, see trust-panel's rebuilding copy.
         return { available: false, points: [], trades: scoped.length, rebuilding: gated && retired >= 3, retiredTrades: retired, engineVersion: version };
     }
 
@@ -461,13 +460,13 @@ export async function readEngineEquityCurve({ symbol = null, horizonDays = 1, st
     };
 }
 
-// Accuracy broken down by SETUP CONTEXT — the indicator conditions
+// Accuracy broken down by SETUP CONTEXT, the indicator conditions
 // stored on each ledger row at prediction time. Answers "which setups
 // does the engine read well?" honestly, using only data we actually
 // logged (rsi, macd histogram, bb %b, signal direction).
 //
 // NOTE on regime: we deliberately do NOT claim a trending/ranging or
-// risk-on/off breakdown — ADX and the macro regime aren't stored per
+// risk-on/off breakdown. ADX and the macro regime aren't stored per
 // row, so reconstructing them retroactively would be a guess. The
 // dimensions below are all derived from real logged fields.
 //
@@ -570,7 +569,7 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
 // This is the AUTHORITATIVE daily lock. record_predictions.py runs at each
 // market's open and writes a row with the OPEN price as `entry` plus the
 // signal / confidence / expectedMove the engine committed to at open. The
-// browser must surface THAT as the day's locked call — not a lock invented
+// browser must surface THAT as the day's locked call, not a lock invented
 // at page-visit time (which pins whatever price happened to be live when the
 // tab was opened, e.g. mid-afternoon, instead of the morning open). The UI
 // (daily-lock.getEffectiveLock) falls back to a visit-time lock only when
@@ -580,7 +579,7 @@ export async function readAccuracyBySetup({ horizonDays = 1, minN = 20 } = {}) {
 // Target band: the ledger stores `entry` + `expectedMove` (ATR-derived) but
 // not the high/low band, so we derive it here from entry + expectedMove +
 // signal + confidence using the SAME core formula as
-// analysis.calculatePriceTargets — specifically its clamp-free part; the BB /
+// analysis.calculatePriceTargets, specifically its clamp-free part; the BB /
 // recent-high clamps there need candle data the ledger row doesn't carry.
 // Anchored to the locked OPEN entry, so the band is STABLE all day instead of
 // drifting with the live recompute. Date match is UTC (the cron writes UTC
@@ -644,7 +643,7 @@ export async function readTodayLock(symbol, anchor = null) {
     const entry = row.entry;
     // PREFER the full price-target band the cron LOCKED at open (possible +
     // probable high/low, anchored to the open entry). This is the engine's own
-    // committed band — one engine, one number, no re-derivation. Older rows
+    // committed band, one engine, one number, no re-derivation. Older rows
     // (predating priceTargets storage) won't have it; for those we fall back to
     // deriving the possible band from the stored expectedMove so the lock still
     // shows a band rather than nothing.
@@ -727,7 +726,7 @@ export async function readSymbolRowsFromSlice(symbol) {
 export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
-        return { available: false, note: 'Ledger not seeded yet — needs at least one cron run.' };
+        return { available: false, note: 'Ledger not seeded yet, needs at least one cron run.' };
     }
     let scoped = rows;
     if (symbol) {
@@ -738,8 +737,7 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
     const recent = scoped.slice(-lim);
     // The recent-rows LOG is factual history (any engine genuinely predicted
     // these), so we show it as-is. But the headline HIT-RATE is an
-    // engine-accuracy claim, so we compute it over CURRENT-engine rows only —
-    // mixing a retired engine's outcomes into "how accurate is it" would be
+    // engine-accuracy claim, so we compute it over CURRENT-engine rows only, // mixing a retired engine's outcomes into "how accurate is it" would be
     // dishonest right after a scoring change.
     const ver = await currentEngineVersion();
     let resolvedN = 0, hits = 0;
@@ -761,7 +759,7 @@ export async function readLedgerHistory({ symbol, limit = 10 } = {}) {
         totalForSymbol: scoped.length,
         engineVersion: ver || null,
         // True when the hit-rate is blank only because recent resolved rows
-        // belong to a retired engine — i.e. the record is rebuilding, not absent.
+        // belong to a retired engine, i.e. the record is rebuilding, not absent.
         rebuilding: !!ver && resolvedN === 0 && retiredResolved >= 3,
         resolved1d: resolvedN,
         hits1d: hits,

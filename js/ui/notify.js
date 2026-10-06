@@ -8,9 +8,9 @@
 //   - The notification auto-dismisses when the bar reaches 0.
 //   - Hovering the notification pauses the drain (timer accumulates
 //     active non-hovered time, so a hover at 2s elapsed resumes from
-//     2s when the user leaves — not a 5s reset).
+//     2s when the user leaves, not a 5s reset).
 //   - Clicking the body of the notification removes the bar and
-//     pins the notification — it stays until the user clicks ×.
+//     pins the notification, it stays until the user clicks ×.
 //   - × button always closes the notification immediately.
 //
 // API:
@@ -67,8 +67,7 @@ export function notify(message, opts = {}) {
     container.insertBefore(el, container.firstChild);
 
     // Semantic sound cue. success → warm rise, error/warn → soft low two-tone.
-    // info stays silent (it fires constantly — "Calculating…", "Loading…" —
-    // and a sound on every one would be noise). Lazy import so notify.js has
+    // info stays silent (it fires constantly, "Calculating…", "Loading…", // and a sound on every one would be noise). Lazy import so notify.js has
     // no hard dependency on the audio layer and works if it's absent.
     if (kind === 'success' || kind === 'error' || kind === 'warn') {
         import('./ui-sound.js').then(s => {
@@ -77,7 +76,7 @@ export function notify(message, opts = {}) {
         }).catch(() => {});
     }
 
-    // Drain logic — track `elapsed` in active (non-hovered) ms.
+    // Drain logic, track `elapsed` in active (non-hovered) ms.
     const fill = el.querySelector('.ma-notify-bar-fill');
     let elapsed = 0;
     let lastTick = performance.now();
@@ -112,7 +111,7 @@ export function notify(message, opts = {}) {
     }
 
     // Pause on hover. Use pointer events so we cover mouse + pen +
-    // touch hold. Mobile tap is treated as a click below — no hover.
+    // touch hold. Mobile tap is treated as a click below, no hover.
     el.addEventListener('pointerenter', () => { paused = true; });
     el.addEventListener('pointerleave', () => { paused = false; });
 

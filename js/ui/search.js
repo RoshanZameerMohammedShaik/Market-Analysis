@@ -5,7 +5,7 @@ import { escapeHtml } from './escape.js';
 
 let searchTimeout = null;
 
-// Resolve "NMS" / "NSE" / etc. → "NASDAQ — USA" / "NSE — India".
+// Resolve "NMS" / "NSE" / etc. → "NASDAQ. USA" / "NSE. India".
 // Falls back to suffix-based lookup if Yahoo didn't tag an
 // exchangeName for this row, then to the raw code as a last resort.
 function prettyExchange(code, symbol) {
@@ -53,7 +53,7 @@ async function performSearch(query, onSelect) {
         results.innerHTML = items.map(item => {
             if (state.mode === 'stock') {
                 // data-symbol stays as the FULL Yahoo ticker
-                // (CORDSCABLE.NS) — that's what fetchStockData /
+                // (CORDSCABLE.NS), that's what fetchStockData /
                 // analyze use. The displayed ticker drops the suffix
                 // since the exchange chip on the right already covers
                 // disambiguation.
@@ -88,6 +88,6 @@ export function updatePlaceholder() {
     const input = document.getElementById('search-input');
     if (!input) return;
     input.placeholder = state.mode === 'stock'
-        ? 'Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T...'
+        ? 'Search any global symbol. AAPL, RELIANCE.NS, 0700.HK, 7203.T...'
         : 'Search crypto by name (e.g., Bitcoin, Solana)...';
 }

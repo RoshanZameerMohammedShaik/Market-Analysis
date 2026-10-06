@@ -18,7 +18,7 @@
     display: flex; align-items: center; justify-content: center;
     padding: 0;
     border: none; border-radius: 50%;
-    /* Transparent button — the live aura orb (.mia-aura) is the whole visual.
+    /* Transparent button, the live aura orb (.mia-aura) is the whole visual.
        No white dome, no disc fill. */
     background: transparent;
     color: var(--text-primary);
@@ -102,7 +102,7 @@
     stroke-width: 1.1;
 }
 .mia-aura-ecg .mia-ecg-blip {
-    /* Bright vital-signs green blip — thinner stroke, sweeps along the trace. */
+    /* Bright vital-signs green blip, thinner stroke, sweeps along the trace. */
     stroke: #4ade80;
     stroke-width: 1.5;
     stroke-dasharray: 90;
@@ -121,18 +121,18 @@
     .mia-aura-core, .mia-aura-ring, .mia-aura-halo { animation: none !important; }
     .mia-aura-ecg .mia-ecg-blip { animation: none !important; stroke-dashoffset: 0; }
 }
-/* Hide the launcher while Mia's own panel is open — there's no point
+/* Hide the launcher while Mia's own panel is open, there's no point
    in clicking the launcher to "open Mia" when she's already open in
    front of you, and the launcher visually competes with the panel
    header. Stays visible when only Portfolio is open (so user can
    still tap to launch Mia from there). */
-/* Launcher visibility — driven by the data-launcher-vis attribute on
+/* Launcher visibility, driven by the data-launcher-vis attribute on
    body, NOT by the body.side-panel-mia-open class chain.
 
    Why we changed: the old "hide on side-panel-mia-open / show on
    voice-minimized OR agentic-active" CSS exception chain was brittle.
    When the agentic stage closed but voice or panel state was mid-
-   transition, the cascade left the launcher hidden — Roshan caught
+   transition, the cascade left the launcher hidden. Roshan caught
    this in a real session ("I see the main screen but not your panel
    or toggle"). Now JS owns visibility via a single attribute:
      data-launcher-vis="hidden"   → hide (panel open + chat mode)
@@ -151,13 +151,13 @@ body[data-launcher-vis="orb"] .mia-launcher {
     transform: scale(1);
 }
 /* The aura orb (.mia-aura) now owns the ring/halo motion, so the old
-   ::before conic spinner is removed — keeping it would double the rings. */
+   ::before conic spinner is removed, keeping it would double the rings. */
 .mia-launcher:hover { transform: scale(1.08); }
 .mia-launcher:hover .mia-aura-halo { opacity: 1; }
 .mia-launcher:active { transform: scale(0.96); }
 /* Hold-to-voice arming feedback. Ramps up over the hold duration to
    tell the user "keep holding, voice is about to fire". Lifts on
-   release before the threshold without any extra wiring — the JS
+   release before the threshold without any extra wiring, the JS
    removes the class. */
 .mia-launcher-arming {
     box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.55), 0 0 22px rgba(var(--accent-rgb), 0.65);
@@ -241,13 +241,13 @@ body[data-launcher-vis="orb"] .mia-launcher {
     transition: right 0.32s cubic-bezier(0.22, 1, 0.36, 1);
     padding-bottom: env(safe-area-inset-bottom, 0);
 }
-/* When open, position based on the side-panel stack — first-opened sits
+/* When open, position based on the side-panel stack, first-opened sits
    at right:0, second-opened slides to right:width-of-first. The CSS var
    is set by side-panel-stack.js via document.documentElement.style. */
 .mia-panel.open { right: var(--mia-stack-right, 0px); }
 
 /* iPhone Dynamic Island clearance MUST live in this shorthand, not a
-   separate padding-top rule above it — a later `padding:` shorthand
+   separate padding-top rule above it, a later `padding:` shorthand
    silently resets padding-top, which is exactly what hid the close
    button + title behind the pill on a PWA install. So the top inset is
    baked directly into the shorthand here (the authoritative, last rule). */
@@ -338,7 +338,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-usage.bad .mia-usage-bar i.on { background: var(--red); }
 @keyframes usage-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* Cooldown badge — shown when a Gemini tier is rate-limited and we're
+/* Cooldown badge, shown when a Gemini tier is rate-limited and we're
    waiting for it to reset. Distinct from the regular usage tone so the
    user reads it as "we're auto-falling-back, not broken." */
 .mia-cooldown-badge {
@@ -389,7 +389,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-suggest-list { display: flex; flex-direction: column; gap: 6px; }
 .mia-suggest { text-align: left; padding: 8px 12px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-primary); border-radius: var(--radius-sm); cursor: pointer; font-size: 0.82rem; transition: all 0.15s; }
 .mia-suggest:hover { border-color: var(--accent); color: var(--accent); }
-/* "Brief me" is the hero proactive action — gradient-tinted so it reads as
+/* "Brief me" is the hero proactive action, gradient-tinted so it reads as
    the primary thing to try, distinct from the example prompts below it. */
 .mia-suggest-brief {
     font-weight: 700;
@@ -557,7 +557,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 }
 
 /* ======================================================================
-   Agentic action feedback — fires on the actual page element Mia just
+   Agentic action feedback, fires on the actual page element Mia just
    touched, plus a top-center toast so the user can see the action even
    when the chat panel covers part of the screen.
    ====================================================================== */
@@ -690,7 +690,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
     position: absolute;
     inset: 0;
     z-index: 5;
-    /* Light translucent veil over the chat — the chat messages should
+    /* Light translucent veil over the chat, the chat messages should
        still be readable underneath as the user holds the conversation
        in voice mode. The orb sits on top in clear focus thanks to its
        own glow + canvas, not because we hide the chat. */
@@ -758,7 +758,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-voice-stage {
     flex: 1;
     display: flex; flex-direction: column; align-items: center; gap: 18px;
-    /* Top inset clears the iPhone Dynamic Island — the voice overlay is
+    /* Top inset clears the iPhone Dynamic Island, the voice overlay is
        absolute/inset:0 over the panel, so its min/close buttons sit at the
        very top and would otherwise hide behind the pill on a PWA install
        (same class of bug as .mia-head). */
@@ -770,7 +770,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
     position: relative;
     /* Bigger orb so it carries the panel visually rather than feeling
        like a small accent above the captions. Roshan asked for "a
-       little bigger" — went from 120px / 140px cap to 180px / 220px. */
+       little bigger", went from 120px / 140px cap to 180px / 220px. */
     width: min(180px, 48vw); height: min(180px, 48vw);
     max-width: 220px; max-height: 220px;
     flex-shrink: 0;
@@ -792,7 +792,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-voice-canvas {
     /* Canvas oversizes the button by 50% so the petals + halo have plenty
        of room to extend past the visual orb radius. The halo cap
-       inside drawOrb is canvasHalf * 0.97 — without this oversize, that
+       inside drawOrb is canvasHalf * 0.97, without this oversize, that
        cap kicks in near the visible orb radius, painting a soft-but-
        distinct edge exactly where the OLD hard ring used to be. With a
        larger canvas, the halo fades naturally before reaching its cap. */
@@ -835,7 +835,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
     50%      { transform: scale(1.02); }
 }
 /* Listening: slow gentle breath so the user can SEE that Mia's mic is
-   live and waiting for them — earlier the orb sat completely static
+   live and waiting for them, earlier the orb sat completely static
    in the listening state, which made it ambiguous whether voice was
    actually capturing. The breath is bigger + slower than the thinking
    pulse so the two states are visually distinct. */
@@ -880,12 +880,12 @@ body[data-launcher-vis="orb"] .mia-launcher {
 }
 /* Shimmer: ChatGPT-style left-to-right light sweep over the text while
    a tool is running. Implemented as a moving linear-gradient clipped to
-   the text — so only the glyphs catch the highlight, no rectangle bg.
+   the text, so only the glyphs catch the highlight, no rectangle bg.
    Drops the text-shadow during shimmer so the gradient reads cleanly. */
 .shimmer {
     /* PERFECTLY SEAMLESS shimmer. Earlier attempts flickered on the
        2nd loop because the animation moved the gradient from 110% to
-       -110% (a 220% travel) over a 280% gradient — the start frame and
+       -110% (a 220% travel) over a 280% gradient, the start frame and
        end frame showed DIFFERENT positions inside the gradient, so the
        cycle wrap exposed a visible jump.
        Fix: make the travel distance equal exactly one full period of
@@ -896,8 +896,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
        versions had the gradient going dark → bright → dark, so as the
        peak passed the user saw the trailing dark trough as a "dark
        shimmer" chasing the bright one. By keeping all non-peak stops
-       at the same dark alpha (0.30), there's no trough to follow —
-       just a single bright sweep on a flat dark text base.
+       at the same dark alpha (0.30), there's no trough to follow, just a single bright sweep on a flat dark text base.
        Wider plateau on either side of the peak so the bright band
        reads as a focused highlight, not a soft glow. */
     background-image: linear-gradient(
@@ -946,7 +945,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
     .shimmer { animation: none; background-position: 50% 0; }
 }
 
-/* One-shot shimmer — same look as the looping .shimmer used on the
+/* One-shot shimmer, same look as the looping .shimmer used on the
    empty-chart placeholder, but runs one sweep and stays bright at
    the end. Roshan's exact spec: text stays a little faded dark, a
    bright peak sweeps right→left across the glyphs, after the peak
@@ -960,14 +959,13 @@ body[data-launcher-vis="orb"] .mia-launcher {
 
    Travel direction is deliberately right→left (background-position
    animates 100% → 0% which slides the gradient leftward, so the
-   bright region appears to sweep from right edge to left edge —
-   matches the looping .shimmer's reading direction). */
+   bright region appears to sweep from right edge to left edge, matches the looping .shimmer's reading direction). */
 .flash-shimmer {
     /* Wider gradient (300% = 3x box width) so the final animation
        frame can land the box ENTIRELY in the bright region. Earlier
        this was 200% with stops dim 0-50% / bright 65-100%, which
        meant the final frame's leftmost ~30% of the box sat in the
-       dim→bright transition zone — making the first letters ("Por"
+       dim→bright transition zone, making the first letters ("Por"
        in "Portfolio Simulation") never reach full brightness.
 
        New math (bg-size 300%, box = 33.3% of gradient width):
@@ -975,7 +973,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
          bg-position 50%  → box samples gradient stops  [33%, 67%] → transition
          bg-position 100% → box samples gradient stops  [67%, 100%] → ALL BRIGHT
        So at the end, every letter in the box is covered by the
-       bright region — no dim leftmost letters. */
+       bright region, no dim leftmost letters. */
     background-image: linear-gradient(
         100deg,
         rgba(255, 255, 255, 0.30)  0%,
@@ -998,7 +996,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
     /* Light theme: dim end is a faded slate (matches --text-primary
        on light = #0f172a). Bright end is the accent blue. The previous
        version started at 45%-alpha blue which on white panel backgrounds
-       looked washed out / barely visible — the text seemed broken
+       looked washed out / barely visible, the text seemed broken
        rather than dim-on-purpose. Slate→accent reads as a clear
        transition the user can actually see. */
     background-image: linear-gradient(
@@ -1016,7 +1014,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 @media (prefers-reduced-motion: reduce) {
     .flash-shimmer { animation: none; background-position: 100% 0; }
 }
-/* Pre-shimmer dim state — same gradient as .flash-shimmer parked at
+/* Pre-shimmer dim state, same gradient as .flash-shimmer parked at
    0% position (fully dim region over the text). Used to hold the
    label dim BEFORE the shimmer animation runs, so we don't get a
    white→dim flash at the start of the sweep. The P&L Calculator
@@ -1078,7 +1076,7 @@ body[data-launcher-vis="orb"] .mia-launcher {
 .mia-voice-tx-pending {
     color: rgba(255,255,255,0.45);
 }
-/* Live API caption layout — one growing row per speaker per turn,
+/* Live API caption layout, one growing row per speaker per turn,
    completed turns archived above as static rows. Captions flow as
    normal sentences (left to right, soft wrap) instead of stacking
    one fragment per row. */
@@ -1130,19 +1128,19 @@ body.mia-voice-minimized .mia-launcher {
 /* Minimized: launcher hosts a real canvas-rendered orb (the same
    drawOrb pipeline as the main voice surface, just smaller and with
    a Siri-style multi-hue palette). All visuals come from the canvas
-   itself — the launcher button just sizes it and adds the listening-
+   itself, the launcher button just sizes it and adds the listening-
    pulse box-shadow ring around the outside. */
 .mia-launcher.mia-launcher-orb {
     width: 72px; height: 72px;
     background: transparent;
-    /* No box-shadow at all on the orb — translucent color shadows on
+    /* No box-shadow at all on the orb, translucent color shadows on
        dark pages read as a dark shady halo behind the orb (Roshan
        called it out). Bloom now comes entirely from the canvas itself
        (halo gradient inside drawOrb) so the orb sits cleanly on any
        background without a circle behind it. */
     box-shadow: none;
     overflow: visible;
-    /* Cancel the chat-mode breath/pulse animations — the canvas now
+    /* Cancel the chat-mode breath/pulse animations, the canvas now
        drives all visual motion, and stacking the two would make the
        orb jitter unnaturally. Specific state animations below override
        this when in listening/speaking/thinking states. */
@@ -1153,7 +1151,7 @@ body.mia-voice-minimized .mia-launcher {
        the canvas + box-shadow ring carry the visuals now. */
     display: none;
 }
-/* In voice-orb mode the canvas owns the visual — hide the chat-mode aura's
+/* In voice-orb mode the canvas owns the visual, hide the chat-mode aura's
    rings/halo/core so they don't overlap the canvas orb. BUT keep the aura
    element itself displayed and reveal ONLY its M-ECG heartbeat glyph layered
    over the canvas, so the minimized orb still carries Mia's brand mark (the
@@ -1195,7 +1193,7 @@ body.mia-voice-minimized .mia-launcher {
 .mia-launcher.mia-launcher-orb[data-orb-state="thinking"] {
     animation: mia-orb-launch-think 1.5s ease-in-out infinite;
 }
-/* Listening: scale-only breathing pulse — no box-shadow rings, since
+/* Listening: scale-only breathing pulse, no box-shadow rings, since
    they paint a dark halo on light/dark backgrounds. The canvas-drawn
    ribbons + halo gradient inside drawOrb already make "listening"
    visually obvious, and amplitude modulates them in real time. */
@@ -1212,7 +1210,7 @@ body.mia-voice-minimized .mia-launcher {
     50%      { transform: scale(1.06); }
 }
 
-/* Keep the ECG-mark logo visible in orb mode — it sits on top of the
+/* Keep the ECG-mark logo visible in orb mode, it sits on top of the
    canvas so the brand is preserved while ribbons flow around it. The
    SVG strokes get a soft white drop-shadow so the mark stays legible
    against the iridescent canvas underneath. */
@@ -1236,8 +1234,7 @@ body.mia-voice-minimized .mia-launcher {
 /* Soft backdrop-blur "glass plate" that activates only when the launcher
    caption is visible, covering the orb + caption area so the page
    underneath reads softer behind the active conversation. Edges fade to
-   transparent via radial mask so it doesn't paint a visible rectangle —
-   just a gentle blurred halo around the active region. Pointer-events
+   transparent via radial mask so it doesn't paint a visible rectangle, just a gentle blurred halo around the active region. Pointer-events
    off; orb stays clickable through it. */
 .mia-launcher-glass {
     position: fixed;
@@ -1276,7 +1273,7 @@ body.mia-caption-forced .mia-launcher-glass.visible {
 
 /* Floating mini-caption next to the minimized launcher orb. Shows the
    user's spoken text while listening, then Mia's spoken words as she
-   speaks. The text pill itself is now transparent — the .mia-launcher-glass
+   speaks. The text pill itself is now transparent, the .mia-launcher-glass
    plate handles the backdrop blur underneath it. Hidden by default; only
    shown while voice is minimized (or a walkthrough forces it) AND there's
    recent text to display. */
@@ -1322,7 +1319,7 @@ body.mia-caption-forced .mia-launcher-caption.visible {
     color: rgba(255, 255, 255, 0.97);
 }
 /* Subtle role-tinted left border so the user can tell at a glance who's
-   talking — soft cyan tint for user, soft pink for Mia. */
+   talking, soft cyan tint for user, soft pink for Mia. */
 .mia-launcher-caption[data-role="user"] {
     border-left: 3px solid rgba(56, 189, 248, 0.65);
 }

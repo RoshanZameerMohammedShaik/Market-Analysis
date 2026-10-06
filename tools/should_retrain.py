@@ -4,7 +4,7 @@ Daily-conditional retrain gate.
 The LSTM trains on RESOLVED predictions (label = did the 1d horizon hit).
 A new candle adds ~nothing; a new RESOLUTION is a labeled training sample.
 So we only retrain when enough new resolutions have accumulated since the
-last retrain — otherwise we'd burn ~90 min of cron to nudge weights by
+last retrain, otherwise we'd burn ~90 min of cron to nudge weights by
 sub-noise.
 
 Gate (exit 0 = retrain, exit 1 = skip):
@@ -16,7 +16,7 @@ Gate (exit 0 = retrain, exit 1 = skip):
 State marker: model/.last_retrain.json  { "at": ISO, "resolved_total": N }.
 We compare the current resolved-horizon count to the count at last retrain.
 
-MIN_NEW_RESOLUTIONS = 64 — one LSTM training batch. Below a batch, the
+MIN_NEW_RESOLUTIONS = 64, one LSTM training batch. Below a batch, the
 gradient signal is statistically meaningless.
 
 Run from repo root:
@@ -73,7 +73,7 @@ def main():
     marker = load_marker()
 
     if marker is None:
-        print(f'[should_retrain] no marker — first run, retrain. resolved={current}')
+        print(f'[should_retrain] no marker, first run, retrain. resolved={current}')
         sys.exit(0)
 
     prev = marker.get('resolved_total', 0)
@@ -91,13 +91,13 @@ def main():
           f'days_since={days_since}')
 
     if new_resolutions >= MIN_NEW_RESOLUTIONS:
-        print(f'[should_retrain] {new_resolutions} >= {MIN_NEW_RESOLUTIONS} new resolutions — RETRAIN')
+        print(f'[should_retrain] {new_resolutions} >= {MIN_NEW_RESOLUTIONS} new resolutions. RETRAIN')
         sys.exit(0)
     if days_since is not None and days_since >= MAX_DAYS_BETWEEN:
-        print(f'[should_retrain] {days_since} >= {MAX_DAYS_BETWEEN} days since last — RETRAIN (staleness floor)')
+        print(f'[should_retrain] {days_since} >= {MAX_DAYS_BETWEEN} days since last. RETRAIN (staleness floor)')
         sys.exit(0)
 
-    print(f'[should_retrain] not enough new ground truth — SKIP')
+    print(f'[should_retrain] not enough new ground truth. SKIP')
     sys.exit(1)
 
 

@@ -1,4 +1,4 @@
-// Mia toggle ↔ send-button morph — bouncy ball trajectory.
+// Mia toggle ↔ send-button morph, bouncy ball trajectory.
 //
 // Roshan's spec: "user clicks Mia toggle, the toggle immediately
 // becomes a small dot like ball, falls and jumps toward the position
@@ -15,8 +15,8 @@
 //        a. Compress the disc to a small dot (~35% scale) with a
 //           tiny downward "drop" so it reads as a ball loading the
 //           jump (Roshan's "falls" beat).
-//        b. Two parabolic arcs forward — first arc reaches a high
-//           peak, second arc smaller — landing at the send-button
+//        b. Two parabolic arcs forward, first arc reaches a high
+//           peak, second arc smaller, landing at the send-button
 //           position. Background colour fades white → accent across
 //           the journey.
 //        c. Expand the dot to send-button dimensions while staying
@@ -31,7 +31,7 @@
 // Per-segment easing: each arc uses cubic-bezier with negative tail
 // values to give the ball a slight "anticipation" before each jump
 // (loads), and positive ease-out at peaks so the ball lingers
-// momentarily at the top of each arc — the bouncy feel.
+// momentarily at the top of each arc, the bouncy feel.
 
 const CLONE_ID = 'mia-morph-clone';
 const FORWARD_MS = 700;
@@ -89,7 +89,7 @@ function runAnimation(el, keyframes, durationMs) {
                 resolve();
             }, { once: true });
         } catch (_) {
-            // Element.animate not supported — just resolve so the
+            // Element.animate not supported, just resolve so the
             // caller can clean up. The morph will be invisible but
             // the panel still opens correctly.
             clearTimeout(fallback);
@@ -135,7 +135,7 @@ export async function morphToggleToSend() {
 
     // Ball diameter during flight ≈ 35% of toggle size ≈ 18px.
     // Two arcs: first peaks high above the linear path, second
-    // smaller. The "fall" beat is offset 0.08 — a 14px downward
+    // smaller. The "fall" beat is offset 0.08, a 14px downward
     // squish that loads the jump (Roshan's "falls and jumps").
     const BALL = 0.35;
     const keyframes = [
@@ -150,22 +150,22 @@ export async function morphToggleToSend() {
           background: '#ffffff',
           boxShadow: '0 4px 10px rgba(0, 0, 0, 0.28)',
           easing: 'cubic-bezier(0.30, 0, 0.20, 1)' },
-        // 2. First (big) arc peak — high above the linear path.
+        // 2. First (big) arc peak, high above the linear path.
         { offset: 0.24,
           transform: `translate(${dx * 0.30}px, ${dy * 0.45 - 72}px) scale(${BALL})`,
           background: '#f0f3fa',
           easing: 'cubic-bezier(0.55, 0, 0.55, 1)' },
-        // 3. First landing — slight squish below the path.
+        // 3. First landing, slight squish below the path.
         { offset: 0.44,
           transform: `translate(${dx * 0.60}px, ${dy * 0.92 + 6}px) scaleX(${BALL * 1.08}) scaleY(${BALL * 0.92})`,
           background: '#dbe6ff',
           easing: 'cubic-bezier(0.30, 0, 0.20, 1)' },
-        // 4. Second (smaller) arc peak — colour shifts to accent blue.
+        // 4. Second (smaller) arc peak, colour shifts to accent blue.
         { offset: 0.62,
           transform: `translate(${dx * 0.82}px, ${dy * 0.70 - 32}px) scale(${BALL})`,
           background: '#a8c1ff',
           easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        // 5. Settles directly into the send-button rect — no extra
+        // 5. Settles directly into the send-button rect, no extra
         //    landing-bob keyframe (the previous "land then expand"
         //    sequence read as a third small jump after the user
         //    expected the motion to end). One smooth descent + scale.
@@ -237,12 +237,12 @@ export async function morphSendToToggle() {
           transform: `translate(${dx * 0.50}px, ${dy * 0.72 + 4}px) scaleX(${BALL * 1.08}) scaleY(${BALL * 0.92})`,
           background: '#dbe6ff',
           easing: 'cubic-bezier(0.55, 0, 0.55, 1)' },
-        // 4. Second (bigger) arc peak — colour fades to white.
+        // 4. Second (bigger) arc peak, colour fades to white.
         { offset: 0.64,
           transform: `translate(${dx * 0.78}px, ${dy * 0.50 - 56}px) scale(${BALL})`,
           background: '#f0f3fa',
           easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
-        // 5. Settles directly into the toggle disc — same fix as the
+        // 5. Settles directly into the toggle disc, same fix as the
         //    forward direction: dropped the extra landing-bob keyframe
         //    that was reading as a third tiny jump.
         { offset: 1,

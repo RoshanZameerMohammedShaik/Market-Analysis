@@ -57,7 +57,7 @@ export function renderVolPanel(vf, { currency = 'USD', price = null, record = nu
               all in years the model never trained on).` : '';
     const earn = vf.earnIn
         ? `<div class="vp-earn">Earnings land inside these 5 sessions. That is most of the expected jump, and the range is wider for it.</div>`
-        : (vf.earnKnown === false ? `<div class="vp-note">This stock's earnings date could not be checked; if it reports this week, expect more than this.</div>` : '');
+        : (vf.earnKnown === false ? `<div class="vp-note">This stock's earnings date could not be checked, if it reports this week, expect more than this.</div>` : '');
     return `
         <div class="vp-panel">
             <div class="rv-head"><span class="rv-title">Volatility · next 5 sessions</span>${chip(vf)}</div>

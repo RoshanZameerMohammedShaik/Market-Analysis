@@ -6,7 +6,7 @@
 //   - js/mia/tools.js: Mia's evaluate_news_for_symbol tool.
 //
 // Per Roshan's architecture: ON-DEMAND ONLY. We fetch full text for
-// the symbol the user actually clicks/queries — never for the whole
+// the symbol the user actually clicks/queries, never for the whole
 // universe. Keeps the worker request budget small (50-100 fetches
 // per active session vs. thousands).
 //
@@ -42,8 +42,7 @@ export async function fetchFullArticle(url) {
         }
         const data = await res.json();
         if (data?.error || !data?.mainText) {
-            // Don't trip the breaker for per-article extraction failures —
-            // one bad URL shouldn't kill all extractions site-wide.
+            // Don't trip the breaker for per-article extraction failures, // one bad URL shouldn't kill all extractions site-wide.
             return null;
         }
         recordSuccess('article-extractor');

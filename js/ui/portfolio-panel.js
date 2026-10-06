@@ -1,4 +1,4 @@
-// Portfolio Simulation panel — practice trading platform.
+// Portfolio Simulation panel, practice trading platform.
 //
 // UX flow:
 //   Empty state  → "Instantiate" button → modal asks (currency, amount)
@@ -32,7 +32,7 @@ const PANEL_WIDTH = 420;
 // Two-candle mark used in BOTH the launcher button AND the panel
 // header so the two icons animate identically. Earlier the panel
 // header had a separate 3-bar+trend SVG that ran on its own keyframe
-// — visibly out of step with the launcher's 2-candle animation.
+//, visibly out of step with the launcher's 2-candle animation.
 // One SVG, one keyframe, perfect sync.
 const LAUNCHER_ICON_SVG = `
 <span class="portfolio-icon-candles" aria-hidden="true">
@@ -69,7 +69,7 @@ export function initPortfolioPanel() {
     });
     // FX rate pre-warming used to run unconditionally here, fetching 20
     // currencies the user might never look at. Now we defer the warm
-    // until the user actually opens the Instantiate modal — that's when
+    // until the user actually opens the Instantiate modal, that's when
     // the dropdown is the hot UI path. No portfolio = no FX calls, no
     // stock snapshots, no portfolio math. The bare empty-state panel
     // renders fine without any of that.
@@ -151,7 +151,7 @@ export function openPortfolioPanel(opts = {}) {
     // pulled to the destination right after the slide-in. The gear-
     // menu's "P&L Calculator" path passes shimmerTitle: false because
     // it shimmers a different label (the P&L Calculator header inside
-    // the panel) — running both at once was the "shimmering twice"
+    // the panel), running both at once was the "shimmering twice"
     // glitch Roshan reported.
     if (shimmerTitle) {
         requestAnimationFrame(() => {
@@ -240,7 +240,7 @@ function renderPanel() {
     document.getElementById('portfolio-open-pl-2')?.addEventListener('click', openPLPanelFromPortfolio);
 
     // After full re-render, paint live prices into rows from whatever
-    // ticks we already have cached so the UI doesn't sit on '—'.
+    // ticks we already have cached so the UI doesn't sit on '-'.
     for (const [sym, sub] of subs) {
         if (sub.price != null) updateRow(sym, sub.price);
     }
@@ -265,9 +265,9 @@ function renderHoldings(p, cur) {
                 <div class="portfolio-holding-main">
                     <button class="portfolio-holding-sym" data-symbol="${sym}" data-action="load" title="Load ${sym} on the chart and run analysis">${sym}</button>
                     <span class="portfolio-holding-units">${fmtUnits(pos.units)} units</span>
-                    <span class="portfolio-holding-price" data-role="price">—</span>
-                    <span class="portfolio-holding-value" data-role="value">—</span>
-                    <span class="portfolio-holding-pnl" data-role="pnl">—</span>
+                    <span class="portfolio-holding-price" data-role="price">-</span>
+                    <span class="portfolio-holding-value" data-role="value">-</span>
+                    <span class="portfolio-holding-pnl" data-role="pnl">-</span>
                     <button class="portfolio-sell-btn" data-symbol="${sym}" data-mode="all" title="Sell entire position">Sell all</button>
                 </div>
             </div>`;
@@ -353,7 +353,7 @@ function updateTotals() {
     const stats = body.querySelectorAll('.portfolio-stat .portfolio-stat-value');
     if (stats.length >= 4) {
         stats[0].textContent = fmtMoney(totalUSD, cur);
-        // stats[1] is cash — doesn't change on tick, leave it.
+        // stats[1] is cash, doesn't change on tick, leave it.
         stats[2].textContent = fmtMoney(heldUSD, cur);
         stats[3].textContent = `${pnlUSD >= 0 ? '+' : ''}${fmtMoney(pnlUSD, cur)} (${pnlPct.toFixed(2)}%)`;
         stats[3].classList.toggle('pos', pnlUSD >= 0);
@@ -366,7 +366,7 @@ function updateTotals() {
 
 // ── click handlers ────────────────────────────────────────────────────
 
-// Manual refresh — fires when user clicks the ↻ Refresh button. Spins the
+// Manual refresh, fires when user clicks the ↻ Refresh button. Spins the
 // button while fetching so the user has feedback that something's
 // happening. Crypto positions don't need this (Binance WS streams them
 // live); refreshStockPrices internally only touches stock subs.
@@ -436,7 +436,7 @@ function onHoldingsClick(e) {
             const realized = r.realizedUSD;
             const cur = getPortfolio().currency;
             const sign = realized >= 0 ? '+' : '';
-            toast(`Sold ${fmtUnits(r.units)} ${sym} @ ${fmtMoney(r.fillPriceUSD, cur)} — realized ${sign}${fmtMoney(realized, cur)}`, realized >= 0 ? 'pos' : 'neg');
+            toast(`Sold ${fmtUnits(r.units)} ${sym} @ ${fmtMoney(r.fillPriceUSD, cur)}, realized ${sign}${fmtMoney(realized, cur)}`, realized >= 0 ? 'pos' : 'neg');
         })
         .catch(err => {
             toast(`Sell failed: ${err.message}`, 'neg');
@@ -449,7 +449,7 @@ function onHoldingsClick(e) {
 
 function openInstantiateModal() {
     // Warm FX rates in the background while the user is typing in the
-    // modal — by the time they pick a non-USD currency, the rate is
+    // modal, by the time they pick a non-USD currency, the rate is
     // already cached and the FX hint renders without a flash. Best-
     // effort; failures are silent (the explicit fetch on Load will
     // surface a real error if needed).
@@ -458,7 +458,7 @@ function openInstantiateModal() {
         <div class="portfolio-modal-backdrop" id="portfolio-modal-backdrop">
             <div class="portfolio-modal" role="dialog" aria-label="Instantiate portfolio">
                 <h3 class="portfolio-modal-title">Load Portfolio</h3>
-                <p class="portfolio-modal-desc">Pick a currency and the amount you want to practice with. This is simulated money — nothing real changes hands.</p>
+                <p class="portfolio-modal-desc">Pick a currency and the amount you want to practice with. This is simulated money, nothing real changes hands.</p>
                 <div class="portfolio-modal-row">
                     <label>
                         <span>Currency</span>
@@ -516,7 +516,7 @@ function openInstantiateModal() {
             const rate = await getRateToUSD(currency);
             instantiatePortfolio({ currency, amount, fxRateToUSD: rate });
             close();
-            toast(`Portfolio loaded — ${currency} ${amount} (≈ $${(amount * rate).toFixed(2)} USD)`, 'pos');
+            toast(`Portfolio loaded, ${currency} ${amount} (≈ $${(amount * rate).toFixed(2)} USD)`, 'pos');
         } catch (err) {
             toast(`Couldn't load portfolio: ${err.message}`, 'neg');
         }
@@ -572,7 +572,7 @@ function confirmReset() {
 
 function doExport() {
     const json = exportPortfolio();
-    // Download as a file rather than dumping into clipboard — feels more
+    // Download as a file rather than dumping into clipboard, feels more
     // like a "save" action and works on mobile.
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -608,14 +608,14 @@ function openImportPrompt() {
 // ── helpers ───────────────────────────────────────────────────────────
 
 function fmtUnits(n) {
-    if (!Number.isFinite(n)) return '—';
+    if (!Number.isFinite(n)) return '';
     if (n >= 100) return n.toFixed(2);
     if (n >= 1) return n.toFixed(4);
     return n.toFixed(8);
 }
 
 function fmtMoney(usd, currency) {
-    if (!Number.isFinite(usd)) return '—';
+    if (!Number.isFinite(usd)) return '';
     const local = currency === 'USD' ? usd : fromUSDCached(usd, currency);
     if (local == null) return `$${usd.toFixed(2)} (USD)`; // fx not cached yet
     const sym = currencySymbol(currency);
@@ -629,7 +629,7 @@ function currencySymbol(c) {
 
 // Portfolio messaging routes through the unified top-left notification
 // stack (see js/ui/notify.js). Earlier this had its own bottom-anchored
-// .portfolio-toast div with a fixed 4.5s timeout — Roshan asked for
+// .portfolio-toast div with a fixed 4.5s timeout. Roshan asked for
 // every notification across the app to use the same top-left pattern
 // with a green drain bar.
 function toast(msg, kind) {

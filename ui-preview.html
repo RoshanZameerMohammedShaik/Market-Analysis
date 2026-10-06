@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vault — UI reference</title>
+<title>Vault. UI reference</title>
 <!--
   Static style reference for the Vault design layer.
 
   Why this exists: the live app populates its cards from a 70-symbol network scan
   that takes tens of seconds and depends on third-party proxies, so during design
-  work every surface that matters — cards, badges, tables, prices, empty states —
-  renders as a skeleton. Tuning them from CSS alone is guesswork.
+  work every surface that matters, cards, badges, tables, prices, empty states, renders as a skeleton. Tuning them from CSS alone is guesswork.
 
   This page carries the SAME class names and the SAME stylesheets as index.html
   with representative static content, so every theme can be checked against real
@@ -63,12 +62,12 @@
         <div class="pv-type">
             <h1 style="font-size:var(--fs-3xl)">Market Analyzer</h1>
             <h2 style="font-size:var(--fs-xl)">Select a stock or crypto to start</h2>
-            <h3 style="font-size:var(--fs-lg)">Hot Picks — Top 20 Global Predictions</h3>
+            <h3 style="font-size:var(--fs-lg)">Hot Picks. Top 20 Global Predictions</h3>
             <p style="font-size:var(--fs-base);color:var(--text-primary)">Body copy at 15px. The engine's one-day
                 directional accuracy is 51.5% against 48.8% for always-buy.</p>
             <p style="font-size:var(--fs-sm);color:var(--text-secondary)">Secondary at 13px, used for
                 supporting detail and card meta rows.</p>
-            <p style="font-size:var(--fs-xs);color:var(--text-muted)">Muted 12px caption — timestamps,
+            <p style="font-size:var(--fs-xs);color:var(--text-muted)">Muted 12px caption, timestamps,
                 provenance, disclaimers.</p>
             <p class="label" style="font-size:var(--fs-2xs);color:var(--text-muted);text-transform:uppercase">
                 Uppercase label with tracking</p>
@@ -121,7 +120,7 @@
         </div>
         <div class="search-container" style="margin-top:12px">
             <span class="search-icon">🔍</span>
-            <input type="text" class="search-input" placeholder="Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T...">
+            <input type="text" class="search-input" placeholder="Search any global symbol. AAPL, RELIANCE.NS, 0700.HK, 7203.T...">
         </div>
     </div>
 
@@ -161,7 +160,7 @@
                 <div class="hot-pick-spark"><svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none"><polyline points="0,5 12,8 24,7 36,13 48,12 60,18 72,17 84,23 100,25" fill="none" stroke="var(--red)" stroke-width="1.6"/></svg></div>
                 <div class="hot-pick-signal-badge sell">SELL</div>
                 <div class="hot-pick-confidence sell"><span class="hot-pick-arrow">▼</span> <span class="hot-pick-conf-num">54</span>% Confidence</div>
-                <div class="hot-pick-lowtrust">⚠ low track record — exploratory</div>
+                <div class="hot-pick-lowtrust">⚠ low track record, exploratory</div>
                 <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">$0.00001283</span></div>
             </div>
             <div class="hot-pick-card neutral">
@@ -195,7 +194,7 @@
     </div>
 
     <div class="pv-block">
-        <div class="pv-h">Table — Full Ledger</div>
+        <div class="pv-h">Table. Full Ledger</div>
         <div class="scanner-section" style="overflow:hidden">
             <table>
                 <thead><tr>
@@ -205,8 +204,8 @@
                 <tbody>
                     <tr><td>NVDA</td><td><span class="badge badge-buy">BUY</span></td><td>54</td><td>309.90</td><td>300.49</td><td>319.61</td><td>HIT</td><td>HIGH</td></tr>
                     <tr><td>0027.HK</td><td><span class="badge badge-buy">BUY</span></td><td>54</td><td>34.56</td><td>34.26</td><td>35.38</td><td>HIT</td><td>BOTH</td></tr>
-                    <tr><td>AVXL</td><td><span class="badge badge-sell">SELL</span></td><td>51</td><td>3.55</td><td>3.37</td><td>3.62</td><td>NOT HIT</td><td>—</td></tr>
-                    <tr><td>SHIB-USD</td><td><span class="badge badge-neutral">NEUTRAL</span></td><td>50</td><td>0.00001283</td><td>0.00001141</td><td>0.00001449</td><td>NOT HIT</td><td>—</td></tr>
+                    <tr><td>AVXL</td><td><span class="badge badge-sell">SELL</span></td><td>51</td><td>3.55</td><td>3.37</td><td>3.62</td><td>NOT HIT</td><td></td></tr>
+                    <tr><td>SHIB-USD</td><td><span class="badge badge-neutral">NEUTRAL</span></td><td>50</td><td>0.00001283</td><td>0.00001141</td><td>0.00001449</td><td>NOT HIT</td><td></td></tr>
                 </tbody>
             </table>
         </div>
@@ -215,7 +214,7 @@
     <div class="pv-block">
         <div class="pv-h">Section header + disclosure</div>
         <div class="section-header">
-            <h2 class="section-title">🔥 Hot Picks — Top Stocks for Today</h2>
+            <h2 class="section-title">🔥 Hot Picks. Top Stocks for Today</h2>
             <div class="pv-row" style="margin:0">
                 <button class="spikers-btn">🚀 Spikers</button>
                 <button class="refresh-btn"><span class="rb-label">Refresh</span></button>

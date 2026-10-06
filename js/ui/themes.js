@@ -1,4 +1,4 @@
-// Theme registry — the SINGLE source of truth for which themes exist.
+// Theme registry, the SINGLE source of truth for which themes exist.
 //
 // state.js needs it to validate a saved preference, theme.js needs it to build
 // the picker, and neither can own it: state.js is imported BY theme.js, so a

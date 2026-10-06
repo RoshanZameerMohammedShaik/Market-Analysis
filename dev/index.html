@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Market Analyzer — Dev Hub</title>
+<title>Market Analyzer. Dev Hub</title>
 <link rel="stylesheet" href="../css/style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛠</text></svg>">
-<!-- Capture starts before anything else — same contract as the main
+<!-- Capture starts before anything else, same contract as the main
      page, so the dev console mirrors the same buffer style. -->
 <script src="../js/debug-capture.js"></script>
 <style>
@@ -33,7 +33,7 @@
     .dev-back { color: var(--accent); text-decoration: none; font-size: 0.86rem; }
     .dev-back:hover { text-decoration: underline; }
 
-    /* Single toggle button — color reflects current state. Off = green
+    /* Single toggle button, color reflects current state. Off = green
        (you can turn it ON), on = red (you can turn it OFF). */
     .dev-btn-toggle { background: linear-gradient(135deg, #22c55e, #15803d); color: white; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4); }
     .dev-btn-toggle:hover { box-shadow: 0 6px 20px rgba(34, 197, 94, 0.55); }
@@ -51,7 +51,7 @@
 <div class="dev-hub">
     <a class="dev-back" href="../">← Back to app</a>
     <h1>🛠 Dev Hub <span class="dev-status" id="dev-status" data-on="false">off</span></h1>
-    <p class="dev-sub">Path-based dev mode. Visiting <code>/dev</code> turns it on for this browser; visiting <code>/dev/off</code> turns it off. Tools below are noise reduction, not security — anyone reading the source can flip them on.</p>
+    <p class="dev-sub">Path-based dev mode. Visiting <code>/dev</code> turns it on for this browser, visiting <code>/dev/off</code> turns it off. Tools below are noise reduction, not security, anyone reading the source can flip them on.</p>
 
     <div class="dev-tile">
         <h2>Mode toggle</h2>
@@ -66,8 +66,8 @@
         <ol class="dev-steps">
             <li>Click <strong>Turn ON</strong> above. The page button updates to show the new state.</li>
             <li>Open the main app at <a href="../" class="dev-back">/</a>. A small <strong>🛠 chip</strong> appears in the bottom-left corner of the app.</li>
-            <li>Use the app normally. The chip silently captures every console message, uncaught error, promise rejection, and fetch failure — even ones that happen during page load.</li>
-            <li>The chip's count badge (<code>0E / 0W</code>) updates live; border turns red on errors, yellow on warnings, so you'll see when something goes wrong without watching it.</li>
+            <li>Use the app normally. The chip silently captures every console message, uncaught error, promise rejection, and fetch failure, even ones that happen during page load.</li>
+            <li>The chip's count badge (<code>0E / 0W</code>) updates live, border turns red on errors, yellow on warnings, so you'll see when something goes wrong without watching it.</li>
             <li>Click the chip to expand the panel. Search by substring, filter by level or source, copy the whole buffer (URLs and tokens auto-redacted), or clear to start fresh.</li>
             <li>To turn dev mode off, come back here and click <strong>Turn OFF</strong>. Or visit <code>/dev/off</code> as a shortcut.</li>
         </ol>

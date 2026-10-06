@@ -1,10 +1,10 @@
-# Mia tool audit — 2026-06-03
+# Mia tool audit, 2026-06-03
 
 Honest review of every tool wired to Mia's agent loop, what works, what doesn't, and what's missing.
 
 ## Currently wired (45 tools)
 
-### Read tools — engine state
+### Read tools, engine state
 - `get_app_state` ✅ working
 - `get_live_price` ✅ working
 - `get_current_signal` ✅ working
@@ -20,7 +20,7 @@ Honest review of every tool wired to Mia's agent loop, what works, what doesn't,
 - `get_market_conditions` ✅ working
 - `get_hot_picks` ✅ working
 
-### Read tools — external sources
+### Read tools, external sources
 - `get_news_and_sentiment` ✅ FinBERT-rated headlines
 - `get_macro_series` ✅ FRED 11 indicators
 - `get_reddit_sentiment` ✅ working
@@ -61,34 +61,34 @@ Honest review of every tool wired to Mia's agent loop, what works, what doesn't,
 ## Missing wirings (audit findings)
 
 ### Critical gaps
-1. **`open_resources`** — Mia can't open the Resources panel. Useful for "explain RSI" → opens the rail showing the RSI definition.
-2. **`open_full_ledger`** — Mia can't expand the Full Ledger panel programmatically.
-3. **`expand_ledger_row`** — Mia can't open a specific symbol's analysis drawer in the Full Ledger.
-4. **`set_accuracy_window`** — Mia can't set the time-window filter. Would let her answer "how accurate has the engine been on AAPL in the last 30 days?" by setting window to 30d, reading the per-symbol cell, replying.
-5. **`add_to_watchlist`** / **`remove_from_watchlist`** — no watchlist control. Users must manually star.
-6. **`set_price_alert`** — watchlist supports above/below threshold alerts but Mia can't set them.
+1. **`open_resources`**. Mia can't open the Resources panel. Useful for "explain RSI" → opens the rail showing the RSI definition.
+2. **`open_full_ledger`**. Mia can't expand the Full Ledger panel programmatically.
+3. **`expand_ledger_row`**. Mia can't open a specific symbol's analysis drawer in the Full Ledger.
+4. **`set_accuracy_window`**. Mia can't set the time-window filter. Would let her answer "how accurate has the engine been on AAPL in the last 30 days?" by setting window to 30d, reading the per-symbol cell, replying.
+5. **`add_to_watchlist`** / **`remove_from_watchlist`**, no watchlist control. Users must manually star.
+6. **`set_price_alert`**, watchlist supports above/below threshold alerts but Mia can't set them.
 
 ### UX gaps in existing tools
 1. **`pl_calculate`** runs the calculation but doesn't follow up. Roshan's spec: "respond with profit or loss → ask if user wants to do more → if no, close the calc and return to Mia panel; if yes, run more."
-2. **`select_symbol`** loads symbol but doesn't return Mia to focus afterward — user has to manually switch back if Mia chat got pushed.
+2. **`select_symbol`** loads symbol but doesn't return Mia to focus afterward, user has to manually switch back if Mia chat got pushed.
 3. **`refresh_hot_picks`** doesn't say what's new compared to previous scan.
 
 ## New tool ideas Roshan asked me to brainstorm
 
 ### Conversational flows that span multiple tools
-- **"Recommend a portfolio allocation"** — Mia reads top-10 hot picks + user's risk profile (asks if not known) + computes sample allocation. Tool: `suggest_allocation`.
-- **"What's the worst 5 symbols today?"** — already covered by `get_top_losers`.
-- **"Set me an alert if BTC drops below $60k"** — Mia parses, calls `set_price_alert` with above/below. Already supported by the data layer; just needs the tool.
-- **"Compare my portfolio's last 30d performance to the engine"** — read portfolio P&L vs ledger hit rate. New tool: `portfolio_vs_engine_performance`.
+- **"Recommend a portfolio allocation"**. Mia reads top-10 hot picks + user's risk profile (asks if not known) + computes sample allocation. Tool: `suggest_allocation`.
+- **"What's the worst 5 symbols today?"**, already covered by `get_top_losers`.
+- **"Set me an alert if BTC drops below $60k"**. Mia parses, calls `set_price_alert` with above/below. Already supported by the data layer; just needs the tool.
+- **"Compare my portfolio's last 30d performance to the engine"**, read portfolio P&L vs ledger hit rate. New tool: `portfolio_vs_engine_performance`.
 
 ### Browser-action / app-control
 - **`take_screenshot`** of the current chart card for sharing (clipboard image). Useful when user says "screenshot this and copy".
 - **`open_external_link`** in a new tab for news/sec filings/research-bundle URLs. Currently Mia replies with the URL but the user has to click; sometimes friction.
-- **`scroll_to_symbol_in_ledger`** — given a ticker, scroll the Full Ledger panel to the row for that symbol.
-- **`set_filter_in_ledger`** — apply text + signal filters to the Full Ledger.
+- **`scroll_to_symbol_in_ledger`**, given a ticker, scroll the Full Ledger panel to the row for that symbol.
+- **`set_filter_in_ledger`**, apply text + signal filters to the Full Ledger.
 
 ### Smart suggestion
-- **`smart_default_currency`** — detect user's locale (timezone, currency from Yahoo) and offer to switch. "It looks like you're in India — want to switch display currency to INR?"
+- **`smart_default_currency`**, detect user's locale (timezone, currency from Yahoo) and offer to switch. "It looks like you're in India, want to switch display currency to INR?"
 
 ## Recommendations priority
 

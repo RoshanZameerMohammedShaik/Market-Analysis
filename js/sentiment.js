@@ -1,4 +1,4 @@
-// News sentiment — word-based headline scoring, weighted by recency and source tier so stale or
+// News sentiment, word-based headline scoring, weighted by recency and source tier so stale or
 // low-grade news doesn't dominate.
 //
 // There used to be a HuggingFace FinBERT call in front of this. It could never have worked: the

@@ -1,5 +1,5 @@
 // User settings: API keys for Gemini (primary) and/or Cloudflare (fallback).
-// Groq has been retired — its 6,000 TPM cap on Llama 3.3 70B kept tripping
+// Groq has been retired, its 6,000 TPM cap on Llama 3.3 70B kept tripping
 // mid-stream rate-limits even on routine deep-dives. Gemini 2.5 Flash-Lite
 // gives 250K TPM (42× the headroom) for free.
 //
@@ -20,7 +20,7 @@ const DEFAULT = {
     // voice path. Web Speech is the auto-fallback if Live fails (no
     // mic permission, model unavailable, reconnect cap exceeded). Live
     // has unlimited RPD/RPM on free tier so there's no quota reason
-    // to default-off — Roshan flipped this to true once we confirmed
+    // to default-off. Roshan flipped this to true once we confirmed
     // the dashboard limits. Setting still exists in storage so a future
     // power-user "force browser TTS" toggle has somewhere to land.
     voiceLive: true,
@@ -33,7 +33,7 @@ const DEFAULT = {
     // hover/click/tab-switch/panel-open/success/error across the whole app.
     // Separate toggle from Mia's voice-mode sounds so a user can keep tactile
     // UI feedback while muting Mia (or vice-versa). Default ON; shares Mia's
-    // "never play while she's speaking" gate. Synthesized in-browser — no
+    // "never play while she's speaking" gate. Synthesized in-browser, no
     // sample files (dynamic-only rule).
     // NOTE: kept for back-compat; the granular per-category flags below are the
     // current model and supersede it for the new Sounds settings submenu.
@@ -42,8 +42,7 @@ const DEFAULT = {
     soundClick: true,        // click / tap / tab-switch / panel open-close cues
     soundHover: true,        // hover ticks
     soundNotify: true,       // notification + signal-landed + success/error cues
-    // soundEnabled (above) = Mia's ACTION sounds (thinking loop, tool ticks) —
-    // NOT her voice/responses, which are never gated by sound settings.
+    // soundEnabled (above) = Mia's ACTION sounds (thinking loop, tool ticks), // NOT her voice/responses, which are never gated by sound settings.
     // Master kill: when true, ALL synthesized sounds are silenced (UI cues AND
     // Mia's action sounds) EXCEPT Mia's voice/responses. Off by default.
     soundAllOff: false,

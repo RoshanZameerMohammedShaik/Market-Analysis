@@ -144,7 +144,7 @@ def commission_usd(units, price, plan=PLAN_PRO_TIERED):
 
 
 def regulatory_usd(units, price, side):
-    """SEC Section 31 + FINRA TAF. Sells only; a buy pays neither."""
+    """SEC Section 31 + FINRA TAF. Sells only, a buy pays neither."""
     if str(side).upper() != 'SELL':
         return 0.0
     shares = abs(float(units))
@@ -168,8 +168,7 @@ def _is_business_day(d):
 
 def add_business_days(d, n):
     """Settlement dates skip weekends. Market holidays are NOT modelled, so a
-    settlement can land one session early around a holiday. Stated rather than hidden;
-    the effect is at most one day of buying power."""
+    settlement can land one session early around a holiday. Stated rather than hidden, the effect is at most one day of buying power."""
     cur = d
     added = 0
     while added < n:
@@ -254,7 +253,7 @@ class BrokerAccount:
     def buying_power(self, settled_cash, equity):
         """What the bot may actually spend right now.
 
-        CASH: settled cash only. Unsettled proceeds are deliberately excluded; see the
+        CASH: settled cash only. Unsettled proceeds are deliberately excluded, see the
         free-riding note in the module docstring.
         MARGIN: Reg T gives 2x equity, but never more than settled cash plus the
         remaining margin loan capacity.
@@ -321,7 +320,7 @@ class BrokerAccount:
     def pdt_blocks(self, symbol, today, equity):
         """Reason string if the PDT rule blocks closing `symbol` today, else None.
 
-        Only bites in a MARGIN account under $25k. A cash account has no PDT rule; it
+        Only bites in a MARGIN account under $25k. A cash account has no PDT rule, it
         is constrained by settlement instead, which is stricter in practice.
         """
         if self.account_type != MARGIN:

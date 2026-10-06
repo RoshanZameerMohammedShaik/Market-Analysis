@@ -9,7 +9,7 @@ Writes:
 
 A forecast enters the record the night it is made, before the outcome exists, and is graded
 with the model's own definitions: realized = sqrt(mean r^2) over the next 5 closes; "in range"
-= inside its 80% range; a call is right when realized landed on the called side of the last 20
+= inside its 80% range, a call is right when realized landed on the called side of the last 20
 sessions' volatility. See vol_forecast.py.
 
 Run nightly after the US close: python tools/write_vol_slice.py
@@ -82,7 +82,7 @@ def grade(p, sub):
 
 
 def aggregate(rec, graded):
-    """Fold newly graded forecasts into the running record. Counts only; nothing is re-fit."""
+    """Fold newly graded forecasts into the running record. Counts only, nothing is re-fit."""
     o = rec.setdefault('overall', {'n': 0, 'inRange': 0, 'absLogErr': 0.0, 'calls': 0, 'right': 0})
     buckets = {b['key']: b for b in rec.setdefault('byConfidence', [])}
     earn = rec.setdefault('earnings', {'n': 0, 'inRange': 0})

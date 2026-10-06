@@ -90,7 +90,7 @@ def already_predicted_today(path: str, date_iso: str, symbol: str) -> bool:
     return False
 
 
-# Yahoo intermittently rate-limits / times out a batch of symbols — most
+# Yahoo intermittently rate-limits / times out a batch of symbols, most
 # often on the back-to-back XETRA+LSE combined cron, where the second leg
 # hits Yahoo while it's still throttling the first. A throttled call returns
 # an empty DataFrame (or raises), indistinguishable per-call from a symbol
@@ -109,7 +109,7 @@ def fetch_recent_candles(symbol: str, period='1y'):
     """Pull the trailing window needed to compute indicators (RSI, MACD, BB, etc.).
 
     Retries on a transient empty/raising response with exponential backoff
-    before giving up — see module note above.
+    before giving up, see module note above.
     """
     last_why = 'empty-df'
     for attempt in range(_FETCH_RETRIES):
@@ -123,7 +123,7 @@ def fetch_recent_candles(symbol: str, period='1y'):
                 ohlcv = extract_ohlcv(df)
             except Exception as e:
                 # An extract failure is deterministic (data-shape issue), not
-                # transient — don't waste retries on it.
+                # transient, don't waste retries on it.
                 return None, f'extract-failed: {e}'
             return ohlcv, None
         # Transient empty/raise: back off and retry, except after the last try.
@@ -264,11 +264,11 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         'dispersion': pred.get('dispersion'),
         # Minimal source breakdown the JS source-weight learner reads. The
         # Python cron is TECHNICALS-ONLY (it has no AI/sentiment/market
-        # sources — those live only in the browser engine), so we honestly
+        # sources, those live only in the browser engine), so we honestly
         # populate ONLY the technical source with the engine's own 0-100
         # score and leave the others null. source-weights.js skips null
         # sources, so it learns the technical source's real hit-rate and
-        # holds the rest at baseline — grounded, not faked. (A full 4-source
+        # holds the rest at baseline, grounded, not faked. (A full 4-source
         # breakdown would require the browser engine to write the ledger,
         # which isn't possible against a git-committed file on free infra.)
         # The cron used to hardcode ai/sentiment/market to null, so the LOCKED and
@@ -294,7 +294,7 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         },
         # Directional expected-move distance (price) this call implies, so
         # record_outcomes can grade capturedPct against the row's OWN stored
-        # target — no JS<->Python re-derivation. None for non-directional /
+        # target, no JS<->Python re-derivation. None for non-directional /
         # ATR-unavailable rows; those simply get capturedPct=null.
         'expectedMove': pred.get('expectedMove'),
         # Why a directional call was withheld (None when it stands), and the trend it read. Stored
@@ -305,7 +305,7 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # Full possible + probable price-target bands the engine LOCKED at this
         # symbol's market open, anchored to the open entry. The browser
         # (daily-lock via ledger-reader.readTodayLock) reads these directly so
-        # the displayed band is the one committed at open, held all day — not a
+        # the displayed band is the one committed at open, held all day, not a
         # re-derivation that could drift from the engine. None for
         # NEUTRAL/NO_TRADE (no directional band) or when ATR was unavailable.
         'priceTargets': pred.get('priceTargets'),
@@ -349,7 +349,7 @@ def main():
     symbols = symbols_for_region(args.region)
 
     # Union the static list with everything Yahoo's four predefined screeners
-    # surface today — the SAME four the browser's Hot Picks uses. US stocks only
+    # surface today, the SAME four the browser's Hot Picks uses. US stocks only
     # (NYSE region); other regions have no predefined screeners and crypto is its
     # own thing. Failure is non-fatal: if the screener call 503s the cron continues
     # with the static list.
@@ -357,7 +357,7 @@ def main():
     # This used to cap at $5, which made the ledger universe and the Hot Picks
     # universe disagree. Hot Picks would show DY at $309.61 with a full prediction
     # while the cron had never analysed it, so daily-lock.js fell through to its
-    # visit-time fallback and the card read "today's call · locked 11:18 AM" — the
+    # visit-time fallback and the card read "today's call · locked 11:18 AM", the
     # moment the USER opened the page rather than the market open. Seven of the
     # twelve Hot Picks on that screen were in the same state. The open lock is the
     # thing that makes "did today's call reach its target?" answerable, because the
@@ -380,7 +380,7 @@ def main():
 
     if not symbols:
         print(f'No symbols for region {args.region}')
-        # Empty universe is a config bug, not a runtime issue — fail loud.
+        # Empty universe is a config bug, not a runtime issue, fail loud.
         sys.exit(1)
 
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -409,7 +409,7 @@ def main():
     print(f'Done: {counts}')
 
     # Show diagnostic samples for whatever bucket dominated. This is what
-    # makes the silent-failure mode loud — without these lines the workflow
+    # makes the silent-failure mode loud, without these lines the workflow
     # would just say "success" with no rows written.
     for reason in ('skipped-no-data', 'skipped-thin', 'skipped-no-pred', 'error'):
         if reason in _diag_samples and _diag_samples[reason]:
@@ -451,7 +451,7 @@ def main():
     if counts['ok'] == 0 and no_data_ratio >= 0.95:
         # Likely a market-closed / holiday day, OR yfinance is down across
         # the board. Either way, the script can't do its job today.
-        # Exit 1 so the workflow shows red — if it's a holiday the next
+        # Exit 1 so the workflow shows red, if it's a holiday the next
         # cron clears it; if yfinance is really down we want to see it.
         print(f'\nERROR: zero rows written and {no_data} of {total} symbols had no data. Likely market-closed or yfinance-unavailable.', file=sys.stderr)
         sys.exit(1)
@@ -461,7 +461,7 @@ def main():
     if real_failures > 0 and real_failures / total > 0.30:
         # > 30% of the universe failed with real errors. Suspect a systemic
         # issue (yfinance API change, generate_prediction crash on a new
-        # data shape, etc.) — surface it.
+        # data shape, etc.), surface it.
         print(f'\nERROR: {real_failures} of {total} symbols hit real failures (errors+no-pred+thin). Likely systemic.', file=sys.stderr)
         sys.exit(1)
 

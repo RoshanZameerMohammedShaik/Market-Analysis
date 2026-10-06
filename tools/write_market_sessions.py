@@ -6,7 +6,7 @@ of them used to count weekdays, so a holiday shifted every later row by one: Tok
 2026-10-12 (Sports Day), NSE on 2026-10-02 (Gandhi Jayanti), HKEX on 2026-10-01 (National Day).
 
 Holidays come from the exchange_calendars library (maintained upstream, regenerated here every
-night), not from a list in this repo; bot/sessions.py explains why a bundled list is avoided.
+night), not from a list in this repo, bot/sessions.py explains why a bundled list is avoided.
 Readers fall back to the weekday rule outside the published window, and say so.
 
 Run: python tools/write_market_sessions.py

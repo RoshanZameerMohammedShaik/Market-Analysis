@@ -10,15 +10,15 @@ JavaScript. Both sides MUST stay in sync.
 
 The LSTM now uses 11 features (FEATURES, compute_features_at):
   0-7  original 8 (price change, range, RSI, vol ratio, MA9, MA21, BB pos, momentum)
-  8    ADX/100         — trend STRENGTH (real trend vs chop)
-  9    MFI/100         — volume-weighted RSI (institutional flow)
-  10   ATR%            — smoothed volatility regime (normalized)
+  8    ADX/100, trend STRENGTH (real trend vs chop)
+  9    MFI/100, volume-weighted RSI (institutional flow)
+  10   ATR%, smoothed volatility regime (normalized)
 
 VERSION SAFETY: the browser reads the model's config.features and only
 sends as many features as the deployed model declares. An 8-feature
-model file → JS sends 8; an 11-feature model → JS sends 11. So bumping
+model file → JS sends 8, an 11-feature model → JS sends 11. So bumping
 this file to 11 does NOT break inference against an still-deployed
-8-feature model — the new dims only flow once the retrain ships an
+8-feature model, the new dims only flow once the retrain ships an
 11-feature lstm_weights.json. Self-healing, no mismatch window.
 """
 import math
@@ -28,16 +28,16 @@ import numpy as np
 SEQUENCE_LENGTH = 20
 FEATURES = 11
 
-# Engine logic version — a PROVENANCE MARKER, not a config knob. Lives here
+# Engine logic version, a PROVENANCE MARKER, not a config knob. Lives here
 # (the dependency-light shared module) so both the engine (backtest.py) and
 # the lightweight calibration aggregator (recalibrate_from_ledger.py) import
 # the SAME constant without pulling in torch. BUMP THIS (date-stamp + short
 # tag) whenever the directional scoring in backtest.generate_prediction
 # changes: new/removed signals, reweighting, regime gating, the mean-
 # reversion/momentum tilt, etc. Every ledger row is stamped with the version
-# that produced it; the live calibration + trust panel aggregate ONLY rows
+# that produced it, the live calibration + trust panel aggregate ONLY rows
 # whose version matches the engine running now. Without this, a logic change
-# silently inherits the OLD engine's hit-rate — so the 1-day rebalance would
+# silently inherits the OLD engine's hit-rate, so the 1-day rebalance would
 # keep being judged by the 2,700 inverted-engine rows (46.7%) it replaced,
 # defaming the fix for weeks. The version filter makes the displayed track
 # record self-heal: it rebuilds under the new logic and only ever reflects
@@ -58,7 +58,7 @@ ENGINE_VERSION = '2026.09.29-trend-gate'
 # Why this is better than binary next-bar: the old label rewarded a +0.01%
 # tick identically to a clean +5% run and called a setup that dipped 4% then
 # closed +0.1% a "win". Triple-barrier teaches the model the difference
-# between a setup that actually went somewhere and noise — directly targeting
+# between a setup that actually went somewhere and noise, directly targeting
 # the magnitude-blindness that kept 1-day accuracy near coin-flip.
 LABEL_HORIZON = 5        # bars to look forward for a barrier touch
 LABEL_BARRIER_ATR = 1.5  # barrier distance in ATRs (symmetric)
@@ -81,9 +81,9 @@ def triple_barrier_label(close, high, low, i,
                          horizon=LABEL_HORIZON, k=LABEL_BARRIER_ATR):
     """Label for the setup AT bar i, using only bars i+1..i+horizon (no
     lookahead beyond the horizon). 1 = up-barrier touched first, 0 = down
-    first; if neither, sign of the terminal close vs entry. Returns None
+    first, if neither, sign of the terminal close vs entry. Returns None
     when there aren't enough forward bars OR ATR is unavailable (caller
-    should skip — these are the last few bars per symbol)."""
+    should skip, these are the last few bars per symbol)."""
     n = len(close)
     if i + 1 >= n:
         return None
@@ -123,11 +123,11 @@ def robust_download(symbol, *, period=None, interval='1d', start=None, end=None,
     call so each symbol gets at most `retries` attempts with exponential
     backoff, and a tiny `throttle` sleep BETWEEN symbols spreads the request
     rate so we trip the limiter far less often. Returns an empty DataFrame-ish
-    None on persistent failure; callers already handle empties by skipping.
+    None on persistent failure, callers already handle empties by skipping.
 
     Imported lazily so non-training code paths don't require yfinance.
     """
-    import yfinance as yf  # lazy — only training/backtest scripts need it
+    import yfinance as yf  # lazy, only training/backtest scripts need it
     last_err = None
     for attempt in range(retries):
         try:
@@ -137,14 +137,14 @@ def robust_download(symbol, *, period=None, interval='1d', start=None, end=None,
             else:
                 df = yf.download(symbol, period=period, interval=interval,
                                  progress=False, **kwargs)
-            # Polite spacing between symbols — the single biggest lever for
+            # Polite spacing between symbols, the single biggest lever for
             # not getting rate-limited across a 500-symbol sweep.
             if throttle:
                 time.sleep(throttle)
             return df
-        except Exception as e:  # noqa: BLE001 — yfinance raises a grab-bag
+        except Exception as e:  # noqa: BLE001, yfinance raises a grab-bag
             last_err = e
-            # Exponential backoff: 1s, 2s, 4s — gives a transient throttle
+            # Exponential backoff: 1s, 2s, 4s, gives a transient throttle
             # time to clear without the multi-hour pileup the old loop hit.
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
@@ -170,7 +170,7 @@ def extract_ohlcv(df):
 
 def _adx_at(high, low, close, j, period=14):
     """Wilder ADX over the trailing window ending at bar j. Returns 0..100.
-    Needs ~2*period bars of history; returns neutral 20 before that.
+    Needs ~2*period bars of history, returns neutral 20 before that.
     Mirrors js/ai-model.js adxAt exactly."""
     start = j - (2 * period)
     if start < 1:
@@ -365,7 +365,7 @@ def compute_sequences(df, sequence_length=SEQUENCE_LENGTH):
     labels = []
     start_i = max(sequence_length, LOOKBACK)
     # Stop LABEL_HORIZON bars before the end so EVERY label has its full
-    # forward window — no shorter-horizon (inconsistent) labels on the tail.
+    # forward window, no shorter-horizon (inconsistent) labels on the tail.
     # max(..., start_i) guards tiny series so the range can't go negative.
     end_i = max(start_i, len(close) - LABEL_HORIZON)
     for i in range(start_i, end_i):
@@ -393,7 +393,7 @@ def compute_flat_features(df):
     for i in range(start_i, end_i):
         # Features are computed AT bar i-1 (the last bar the model "sees");
         # the triple-barrier label is for the setup AT i-1 too, so feature
-        # and label share the same decision bar — no lookahead.
+        # and label share the same decision bar, no lookahead.
         label = triple_barrier_label(close, high, low, i - 1)
         if label is None:
             continue

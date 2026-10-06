@@ -1,12 +1,11 @@
 /* ============================================================================
-   PREMIUM LAYER — loaded LAST (see index.html, after style.css) so its
+   PREMIUM LAYER, loaded LAST (see index.html, after style.css) so its
    equal-specificity rules win as a clean enhancement layer over the base.
    NON-DESTRUCTIVE: this file only elevates; it never restructures layout.
 
    Philosophy: the base app is already well-tokenized and tasteful. This layer
-   adds the "expensive" feel — refined easing, depth on motion, focus polish,
-   smooth theme cross-fades, spring micro-interactions, entrance staggers —
-   coherently across all three themes (dark / light / aurora). Everything is
+   adds the "expensive" feel, refined easing, depth on motion, focus polish,
+   smooth theme cross-fades, spring micro-interactions, entrance staggers, coherently across all three themes (dark / light / aurora). Everything is
    gated on prefers-reduced-motion. Nothing here changes engine behaviour or
    the streaming surgical-patch render path (entrances only fire on freshly
    inserted nodes, never on in-place text patches).
@@ -16,7 +15,7 @@
     /* ── Motion vocabulary ────────────────────────────────────────────────
        A small, named easing + duration scale so every animation in the app
        can speak the same language instead of one-off cubic-beziers. */
-    --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);    /* the app's existing favourite — momentum-out */
+    --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);    /* the app's existing favourite, momentum-out */
     --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);     /* long, luxurious settle */
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* overshoot pop */
     --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1); /* symmetric glide */
@@ -35,13 +34,12 @@
                   0 0 0 1px rgba(var(--accent-rgb), 0.55);
 
     /* Frosted-glass surface for floating cards (Did-You-Know chip,
-       notification toasts). Was referenced by .dyk-chip but never defined —
-       so the chip had no real fill. Now a translucent dark plate that the
+       notification toasts). Was referenced by .dyk-chip but never defined, so the chip had no real fill. Now a translucent dark plate that the
        backdrop-filter blurs behind. Overridden per theme below. */
     --bg-glass: rgba(20, 20, 22, 0.72);
 }
 
-/* Crisper text rendering across the app — the cheap-to-add premium tell. */
+/* Crisper text rendering across the app, the cheap-to-add premium tell. */
 html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -79,7 +77,7 @@ html {
    surfaces glide between palettes instead of hard-cutting. PERF NOTE: the
    previous version transitioned EVERY element (`html.theme-transition *`)
    including box-shadow, which animated a 400ms shadow recalc across hundreds
-   of cards/rows — that was the theme-switch DELAY the user felt. Now scoped to
+   of cards/rows, that was the theme-switch DELAY the user felt. Now scoped to
    the big background/text surfaces only, cheap props only (no box-shadow), and
    a shorter duration, so the swap is snappy. Body/header/cards still cross-fade;
    the long tail of tiny elements just snaps (imperceptible). */
@@ -102,7 +100,7 @@ html.theme-transition .watchlist-section {
 
 /* ── Universal focus-visible ring ────────────────────────────────────────
    Keyboard users get a clear, branded ring; mouse users don't (focus-visible
-   only). Applied broadly but harmlessly — elements with their own focus
+   only). Applied broadly but harmlessly, elements with their own focus
    styling still get the ring layered consistently. */
 a:focus-visible,
 button:focus-visible,
@@ -117,17 +115,17 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   HEADER — deeper glass + living brand title
+   HEADER, deeper glass + living brand title
    ========================================================================== */
 
 .app-header {
-    /* Add saturation to the backdrop blur — the trick that makes glass read
+    /* Add saturation to the backdrop blur, the trick that makes glass read
        as real frosted glass over colourful content rather than a grey wash.
        Keep the existing blur radius the base file set. */
     -webkit-backdrop-filter: blur(16px) saturate(160%);
     backdrop-filter: blur(16px) saturate(160%);
 }
-/* Hairline light line along the header's bottom edge — a single bright pixel
+/* Hairline light line along the header's bottom edge, a single bright pixel
    that reads as a polished bevel. */
 .app-header::after {
     content: '';
@@ -142,7 +140,7 @@ summary:focus-visible {
     pointer-events: none;
 }
 
-/* Slow, ever-so-subtle sheen drifting across the gradient title — alive but
+/* Slow, ever-so-subtle sheen drifting across the gradient title, alive but
    never distracting. Disabled under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
     .app-title.app-title-static {
@@ -157,7 +155,7 @@ summary:focus-visible {
 
 /* Settings gear: the rotation belongs to OPENING the menu, not hovering.
    style.css rotates .settings-gear on [aria-expanded="true"] (the click/open
-   state) — that's the desired behavior, so we do NOT add a hover rotate here
+   state), that's the desired behavior, so we do NOT add a hover rotate here
    (an earlier rule did, which the user flagged as wrong). Hover just does the
    button's lift/press like every other header button. */
 .header-btn { transition: transform var(--dur-fast) var(--ease-spring),
@@ -174,7 +172,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   TABS — spring pill with an accent glow
+   TABS, spring pill with an accent glow
    ========================================================================== */
 
 .tab-group { position: relative; }
@@ -194,7 +192,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   SEARCH — focus glow + icon lift
+   SEARCH, focus glow + icon lift
    ========================================================================== */
 
 .search-input {
@@ -216,7 +214,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   CARDS & ROWS — hover lift + accent glow
+   CARDS & ROWS, hover lift + accent glow
    ========================================================================== */
 
 .hot-pick-card {
@@ -232,13 +230,13 @@ summary:focus-visible {
     box-shadow: var(--shadow-card-hover), var(--glow-accent) !important;
 }
 .hot-pick-card:active { transform: translateY(-1px) scale(0.998); }
-/* Signal-coloured hover glow — BUY lifts on green, SELL on red, NEUTRAL on
-   amber — so the card's energy matches its call instead of a generic accent.
+/* Signal-coloured hover glow. BUY lifts on green, SELL on red, NEUTRAL on
+   amber, so the card's energy matches its call instead of a generic accent.
    Layered over --shadow-card-hover for depth. */
 .hot-pick-card.buy:hover    { box-shadow: var(--shadow-card-hover), 0 10px 30px var(--green-bg), 0 0 0 1px rgba(45,210,139,0.35) !important; }
 .hot-pick-card.sell:hover   { box-shadow: var(--shadow-card-hover), 0 10px 30px var(--red-bg),   0 0 0 1px rgba(239,68,68,0.35)  !important; }
 .hot-pick-card.neutral:hover{ box-shadow: var(--shadow-card-hover), 0 10px 30px var(--yellow-bg),0 0 0 1px rgba(251,191,36,0.35) !important; }
-/* A faint sheen that wipes across the card on hover — the "expensive" tell.
+/* A faint sheen that wipes across the card on hover, the "expensive" tell.
    Pure pseudo-element, no layout impact, motion-gated. */
 @media (prefers-reduced-motion: no-preference) {
     .hot-pick-card::after {
@@ -269,7 +267,7 @@ summary:focus-visible {
                 border-color var(--dur-base) ease !important;
 }
 
-/* Section titles get a subtle accent bar to their left — a small editorial
+/* Section titles get a subtle accent bar to their left, a small editorial
    touch that reads as "designed" rather than default. */
 .section-title {
     position: relative;
@@ -297,7 +295,7 @@ summary:focus-visible {
 .options-scan-row:hover { box-shadow: var(--glow-accent) !important; }
 
 /* ============================================================================
-   BUTTONS — universal press physics
+   BUTTONS, universal press physics
    A light touch: every primary/pill button dips on press for tactile feel.
    ========================================================================== */
 
@@ -328,12 +326,12 @@ summary:focus-visible {
 .spikers-btn:hover { transform: translateY(-1px); }
 
 /* ============================================================================
-   ENTRANCES — staggered reveal on fresh insertion
+   ENTRANCES, staggered reveal on fresh insertion
    Reduced-motion-safe: base opacity is the natural 1; only the keyframe's
    from{} drops to 0, and the animation is removed entirely under reduced
    motion (so those users simply see the final state). Because CSS animations
    only fire on insertion / animation-name change, in-place surgical text
-   patches on existing cards do NOT re-trigger these — the streaming render
+   patches on existing cards do NOT re-trigger these, the streaming render
    path is untouched.
    ========================================================================== */
 
@@ -379,7 +377,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   LOADERS — shimmer sweep over skeletons (premium "content is coming" feel)
+   LOADERS, shimmer sweep over skeletons (premium "content is coming" feel)
    ========================================================================== */
 
 @media (prefers-reduced-motion: no-preference) {
@@ -409,12 +407,12 @@ summary:focus-visible {
     100% { transform: translateX(100%); }
 }
 
-/* MIA LAUNCHER — the live aura orb (css/mia.css .mia-aura) now owns the
+/* MIA LAUNCHER, the live aura orb (css/mia.css .mia-aura) now owns the
    breathing/halo presence, so the old ::before pulse ring here is removed to
    avoid a doubled halo. */
 
 /* ============================================================================
-   AURORA — living background wash (theme-specific flourish)
+   AURORA, living background wash (theme-specific flourish)
    A barely-there drifting radial gradient behind everything, so the aurora
    theme actually feels auroral. Fixed, behind content, motion-gated.
    ========================================================================== */
@@ -442,7 +440,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   EMPTY-STATE HERO — the first thing a user sees. Kept RESTRAINED: Roshan
+   EMPTY-STATE HERO, the first thing a user sees. Kept RESTRAINED: Roshan
    explicitly chose a stable chart background over a breathing glow, so this
    only adds a gentle one-feel icon float + soft entrance, never a pulsing
    halo. (See extras.css note on .chart-ph-glow.)
@@ -452,7 +450,7 @@ summary:focus-visible {
         animation: hero-float 5.5s var(--ease-in-out-soft) infinite;
         will-change: transform;
     }
-    /* NOTE: do NOT put card-rise on .chart-ph-title — it carries the looping
+    /* NOTE: do NOT put card-rise on .chart-ph-title, it carries the looping
        .shimmer animation (mia.css), and an element runs only ONE `animation`
        property, so card-rise here silently overrode the shimmer (the bug where
        "Select a stock or crypto to start" stopped shimmering). The sub-line
@@ -465,7 +463,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   MODALS / OVERLAYS — deeper blur + spring card entrance
+   MODALS / OVERLAYS, deeper blur + spring card entrance
    ========================================================================== */
 .spikers-overlay,
 .kbd-help-overlay {
@@ -484,7 +482,7 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   INSTALL PROMPT — premium accent edge so it reads as a first-class card
+   INSTALL PROMPT, premium accent edge so it reads as a first-class card
    ========================================================================== */
 .install-prompt {
     box-shadow: var(--shadow-card-hover),
@@ -492,8 +490,8 @@ summary:focus-visible {
 }
 
 /* ============================================================================
-   SCANNER / LEDGER ROWS — subtle hover tint lift (the table is data-dense;
-   keep it light — just a left accent edge + faint background on hover).
+   SCANNER / LEDGER ROWS, subtle hover tint lift (the table is data-dense;
+   keep it light, just a left accent edge + faint background on hover).
    ========================================================================== */
 .scanner-row {
     transition: background var(--dur-fast) ease,

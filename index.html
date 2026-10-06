@@ -11,18 +11,18 @@
     <meta name="apple-mobile-web-app-title" content="Market Analyzer">
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#ecf0f6" media="(prefers-color-scheme: light)">
-    <title>Market Analyzer — Stock & Crypto Predictions</title>
-    <meta name="description" content="Calibrated BUY/SELL signals with multi-timeframe technicals, news sentiment, market context, macro regime, sector-relative scoring, and Mia — your in-app Market Intelligence Analyst.">
+    <title>Market Analyzer: Stock & Crypto Predictions</title>
+    <meta name="description" content="Calibrated BUY/SELL signals with multi-timeframe technicals, news sentiment, market context, macro regime, sector-relative scoring, and Mia, your in-app Market Intelligence Analyst.">
     <link rel="stylesheet" href="css/style.css">
-    <!-- Premium enhancement layer — loaded LAST so its equal-specificity
+    <!-- Premium enhancement layer, loaded LAST so its equal-specificity
          rules win cleanly over the base. Non-destructive: motion, focus,
          depth, theme cross-fades only; no layout restructuring. -->
     <link rel="stylesheet" href="css/premium.css">
-    <!-- 3D depth layer — MUST load after premium.css (equal-specificity wins).
+    <!-- 3D depth layer. MUST load after premium.css (equal-specificity wins).
          Cursor-tilt + parallax + per-theme depth; degrades to a static
          dimensional extrusion with no JS / reduced-motion / touch. -->
     <link rel="stylesheet" href="css/premium-3d.css">
-    <!-- VAULT design layer — MUST be the LAST stylesheet. It redefines the
+    <!-- VAULT design layer. MUST be the LAST stylesheet. It redefines the
          design tokens (colour, type, radius, elevation, motion) that every
          earlier file already reads, so it moves the whole app at once; and
          components.css then restyles real surfaces using the existing class
@@ -52,7 +52,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📈</text></svg>">
     <!-- Splash overlay styles. Inline so they render BEFORE the
-         external stylesheet loads — without this the user sees a
+         external stylesheet loads, without this the user sees a
          flash of unstyled content on first paint. The shimmer class
          that the splash title uses IS defined in css/mia.css and
          will only become available once that file loads, so we
@@ -89,7 +89,7 @@
             text-shadow: 0 1px 0 rgba(255,255,255,0.18), 0 2px 6px rgba(0,0,0,0.6);
         }
         /* Looping shimmer while the page is loading. Identical gradient
-           to the .shimmer class in css/mia.css — duplicated inline so
+           to the .shimmer class in css/mia.css, duplicated inline so
            it works on first paint, before css/mia.css has loaded. */
         #splash-overlay .splash-title.shimmer {
             background-image: linear-gradient(
@@ -124,7 +124,7 @@
                 inset 0 -1px 0 rgba(0, 0, 0, 0.4);
             animation: none;
         }
-        /* Candle icon — hidden initially, fades + slides in after the
+        /* Candle icon, hidden initially, fades + slides in after the
            title settles, then both fly up to the header position. */
         #splash-overlay .splash-icon {
             display: inline-flex;
@@ -146,6 +146,9 @@
         #splash-overlay .splash-bull-bar  { fill: #4a9eff; }
         #splash-overlay .splash-bull-arrow { fill: #2dd28b; }
         #splash-overlay .splash-bull-bull  { fill: #eef2f7; }
+        /* The mane line is the reference's page colour showing through the bull, so on a dark
+           overlay it is knocked out rather than filled. */
+        #splash-overlay .splash-bull-mane  { fill: #0a0c10; }
         #splash-overlay .splash-icon.visible .splash-bull-bar {
             transform-origin: center bottom; transform-box: fill-box;
             animation: splash-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -171,7 +174,7 @@
             55%  { opacity: 1; }
             to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
         }
-        /* The "BAMM" — splash content flies up to where the real
+        /* The "BAMM", splash content flies up to where the real
            header sits. translateY -45vh moves it from screen center
            to roughly the header band; the small scale-down makes it
            feel like the title is "throwing itself" into place. */
@@ -212,13 +215,13 @@
                     <g class="splash-bull-bars">
                         <path class="splash-bull-bar bar-1" d="M54.51 74.28L51.08 74.28L50.9 74.1L49.46 74.28L49.01 73.83L49.1 62L54.78 64.8L54.78 74.01L54.51 74.28Z"/>
                         <path class="splash-bull-bar bar-2" d="M64.62 74.28L59.3 74.19L59.12 73.83L59.12 67.15L59.57 67.06L60.47 67.6L64.8 63.99L64.89 74.01L64.62 74.28Z"/>
-                        <path class="splash-bull-bar bar-3" d="M69.13 54.78L68.59 54.78L67.51 53.52L66.61 53.7L65.7 53.16L63.81 53.25L64.62 49.55L67.69 50.45L69.86 50.63L70.76 50.99L71.93 51.99L69.13 54.78Z"/>
-                        <path class="splash-bull-bar bar-4" d="M74.55 74.28L70.4 74.28L70.22 74.1L69.68 74.28L69.22 73.83L69.22 60.47L74.91 55.51L75 74.01L74.55 74.28Z"/>
+                        <path class="splash-bull-bar bar-3" d="M74.55 74.28L70.4 74.28L70.22 74.1L69.68 74.28L69.22 73.83L69.22 60.47L74.91 55.51L75 74.01L74.55 74.28Z"/>
                     </g>
                     <g class="splash-bull-bull">
-                        <path d="M35.74 74.28L35.56 74.1L35.38 74.28L34.93 73.83L34.93 71.84L32.85 68.14L32.76 70.58L33.66 72.74L33.66 74.01L33.39 74.28L33.21 74.1L33.03 74.28L31.23 74.28L31.05 74.1L30.87 74.28L30.42 73.47L30.42 71.48L28.97 68.05L29.15 65.88L26.44 59.57L26.62 56.5L27.35 55.23L29.33 53.25L27.98 54.06L27.17 55.23L25.81 56.23L23.65 56.77L22.2 56.77L20.76 56.23L19.58 55.23L19.04 53.79L19.22 52.89L19.04 51.62L18.23 50.45L17.33 50.09L12.45 50.09L11.1 49.1L10.38 47.11L10.74 44.95L11.82 43.32L13.63 41.88L13.99 40.97L15.16 39.8L17.15 39.08L18.59 39.08L20.04 39.62L21.21 40.61L19.49 40.7L17.96 42.6L16.79 43.41L14.08 43.95L12.36 45.85L12.18 47.47L13 48.29L18.23 48.29L19.49 48.65L20.67 49.82L21.03 52.17L21.39 52.89L22.2 53.52L23.1 53.52L24.37 53.16L25.99 52.26L28.07 50.18L29.33 48.38L32.13 45.94L34.84 44.68L38.09 44.13L40.07 42.87L42.33 39.71L45.58 32.85L47.92 28.88L50 26.81L51.99 25.9L56.14 25.72L59.39 26.62L60.29 27.17L61.91 27.53L64.8 28.79L66.88 30.87L67.6 32.13L67.96 33.39L69.13 34.57L70.04 34.57L72.38 33.84L74.91 33.84L75.09 34.03L77.17 33.39L76.53 34.21L75.27 34.93L72.74 35.29L72.2 35.47L71.84 36.01L72.74 35.83L76.71 36.01L77.98 35.65L79.42 34.75L79.87 34.84L79.33 35.38L79.42 35.65L79.06 35.65L78.52 36.19L76.71 37.09L75.27 37.45L73.47 37.45L71.93 38.27L72.29 39.53L72.29 40.61L70.85 43.32L70.49 46.75L69.4 48.38L68.59 49.01L67.51 48.83L67.15 48.47L66.06 48.47L65.25 47.83L64.89 45.85L63.63 43.5L63.27 41.88L62.91 41.34L63.09 44.4L60.92 46.75L60.92 47.47L61.19 47.74L61.91 47.56L63.72 47.74L64.35 48.56L64.35 50.18L63.45 53.07L63.09 55.96L62.27 57.13L61.19 57.49L60.83 57.31L56.77 57.4L56.77 55.42L57.13 53.97L57.58 53.52L58.12 53.52L60.11 54.42L60.92 53.43L61.1 51.62L60.83 51.53L59.39 52.26L57.22 52.8L55.6 52.8L53.61 52.08L52.8 51.26L52.08 49.82L52.08 47.65L52.53 46.48L51.9 47.47L51.53 49.46L52.08 51.26L53.16 52.71L52.53 53.52L49.28 55.14L46.57 55.69L43.32 55.69L40.61 56.95L38.9 59.03L38 61.19L36.55 62.82L36.55 64.08L35.83 66.06L35.83 67.33L36.37 68.77L36.73 70.94L37.64 72.56L37.82 74.01L35.74 74.28Z"/>
-                        <path d="M40.7 45.31L42.69 43.32L44.49 40.79L47.02 35.92L47.56 34.3L47.92 34.12L47.74 33.94L48.65 31.95L49.73 30.14L50.9 28.79L52.89 27.53L50.9 28.43L49.19 30.14L46.84 34.48L44.31 40.07L42.15 43.5L40.52 45.31L40.7 45.31Z"/>
+                        <path class="splash-bull-body" d="M35.74 74.28L35.56 74.1L35.38 74.28L34.93 73.83L34.93 71.84L32.85 68.14L32.76 70.58L33.66 72.74L33.66 74.01L33.39 74.28L33.21 74.1L33.03 74.28L31.23 74.28L31.05 74.1L30.87 74.28L30.42 73.47L30.42 71.48L28.97 68.05L29.15 65.88L26.44 59.57L26.62 56.5L27.35 55.23L29.33 53.25L27.98 54.06L27.17 55.23L25.81 56.23L23.65 56.77L22.2 56.77L20.76 56.23L19.58 55.23L19.04 53.79L19.22 52.89L19.04 51.62L18.23 50.45L17.33 50.09L12.45 50.09L11.1 49.1L10.38 47.11L10.74 44.95L11.82 43.32L13.63 41.88L13.99 40.97L15.16 39.8L17.15 39.08L18.59 39.08L20.04 39.62L21.21 40.61L19.49 40.7L17.96 42.6L16.79 43.41L14.08 43.95L12.36 45.85L12.18 47.47L13 48.29L18.23 48.29L19.49 48.65L20.67 49.82L21.03 52.17L21.39 52.89L22.2 53.52L23.1 53.52L24.37 53.16L25.99 52.26L28.07 50.18L29.33 48.38L32.13 45.94L34.84 44.68L38.09 44.13L40.07 42.87L42.33 39.71L45.58 32.85L47.92 28.88L50 26.81L51.99 25.9L56.14 25.72L59.39 26.62L60.29 27.17L61.91 27.53L64.8 28.79L66.88 30.87L67.6 32.13L67.96 33.39L69.13 34.57L70.04 34.57L72.38 33.84L74.91 33.84L75.09 34.03L77.17 33.39L76.53 34.21L75.27 34.93L72.74 35.29L72.2 35.47L71.84 36.01L72.74 35.83L76.71 36.01L77.98 35.65L79.42 34.75L79.87 34.84L79.33 35.38L79.42 35.65L79.06 35.65L78.52 36.19L76.71 37.09L75.27 37.45L73.47 37.45L71.93 38.27L72.29 39.53L72.29 40.61L70.85 43.32L70.49 46.75L69.4 48.38L68.59 49.01L67.51 48.83L67.15 48.47L66.06 48.47L65.25 47.83L64.89 45.85L63.63 43.5L63.27 41.88L62.91 41.34L63.09 44.4L60.92 46.75L60.92 47.47L61.19 47.74L61.91 47.56L63.72 47.74L64.35 48.56L64.35 50.18L63.45 53.07L63.09 55.96L62.27 57.13L61.19 57.49L60.83 57.31L56.77 57.4L56.77 55.42L57.13 53.97L57.58 53.52L58.12 53.52L60.11 54.42L60.92 53.43L61.1 51.62L60.83 51.53L59.39 52.26L57.22 52.8L55.6 52.8L53.61 52.08L52.8 51.26L52.08 49.82L52.08 47.65L52.53 46.48L51.9 47.47L51.53 49.46L52.08 51.26L53.16 52.71L52.53 53.52L49.28 55.14L46.57 55.69L43.32 55.69L40.61 56.95L38.9 59.03L38 61.19L36.55 62.82L36.55 64.08L35.83 66.06L35.83 67.33L36.37 68.77L36.73 70.94L37.64 72.56L37.82 74.01L35.74 74.28Z"/>
+                        <path class="splash-bull-hoof" d="M69.13 54.78L68.59 54.78L67.51 53.52L66.61 53.7L65.7 53.16L63.81 53.25L64.62 49.55L67.69 50.45L69.86 50.63L70.76 50.99L71.93 51.99L69.13 54.78Z"/>
                     </g>
+                    <path class="splash-bull-mane" d="M40.7 45.31L42.69 43.32L44.49 40.79L47.02 35.92L47.56 34.3L47.92 34.12L47.74 33.94L48.65 31.95L49.73 30.14L50.9 28.79L52.89 27.53L50.9 28.43L49.19 30.14L46.84 34.48L44.31 40.07L42.15 43.5L40.52 45.31L40.7 45.31Z"/>
                     <path class="splash-bull-arrow" d="M60.29 65.79L57.94 64.71L57.4 64.17L56.86 64.17L46.39 58.94L45.67 59.12L40.07 63.45L39.53 63.63L39.08 63.36L39.08 61.37L42.78 58.39L46.03 56.23L60.11 63.09L76.71 49.37L76.99 48.92L76.53 48.1L80.14 47.02L80.78 47.11L80.78 47.83L79.42 51.17L78.7 50.81L78.16 50.99L60.29 65.79Z"/>
                 </svg>
             </span>
@@ -234,13 +237,13 @@
                         <g class="bull-bars">
                             <path class="bull-bar bar-1" d="M54.51 74.28L51.08 74.28L50.9 74.1L49.46 74.28L49.01 73.83L49.1 62L54.78 64.8L54.78 74.01L54.51 74.28Z"/>
                             <path class="bull-bar bar-2" d="M64.62 74.28L59.3 74.19L59.12 73.83L59.12 67.15L59.57 67.06L60.47 67.6L64.8 63.99L64.89 74.01L64.62 74.28Z"/>
-                            <path class="bull-bar bar-3" d="M69.13 54.78L68.59 54.78L67.51 53.52L66.61 53.7L65.7 53.16L63.81 53.25L64.62 49.55L67.69 50.45L69.86 50.63L70.76 50.99L71.93 51.99L69.13 54.78Z"/>
-                            <path class="bull-bar bar-4" d="M74.55 74.28L70.4 74.28L70.22 74.1L69.68 74.28L69.22 73.83L69.22 60.47L74.91 55.51L75 74.01L74.55 74.28Z"/>
+                            <path class="bull-bar bar-3" d="M74.55 74.28L70.4 74.28L70.22 74.1L69.68 74.28L69.22 73.83L69.22 60.47L74.91 55.51L75 74.01L74.55 74.28Z"/>
                         </g>
                         <g class="bull-bull">
-                            <path d="M35.74 74.28L35.56 74.1L35.38 74.28L34.93 73.83L34.93 71.84L32.85 68.14L32.76 70.58L33.66 72.74L33.66 74.01L33.39 74.28L33.21 74.1L33.03 74.28L31.23 74.28L31.05 74.1L30.87 74.28L30.42 73.47L30.42 71.48L28.97 68.05L29.15 65.88L26.44 59.57L26.62 56.5L27.35 55.23L29.33 53.25L27.98 54.06L27.17 55.23L25.81 56.23L23.65 56.77L22.2 56.77L20.76 56.23L19.58 55.23L19.04 53.79L19.22 52.89L19.04 51.62L18.23 50.45L17.33 50.09L12.45 50.09L11.1 49.1L10.38 47.11L10.74 44.95L11.82 43.32L13.63 41.88L13.99 40.97L15.16 39.8L17.15 39.08L18.59 39.08L20.04 39.62L21.21 40.61L19.49 40.7L17.96 42.6L16.79 43.41L14.08 43.95L12.36 45.85L12.18 47.47L13 48.29L18.23 48.29L19.49 48.65L20.67 49.82L21.03 52.17L21.39 52.89L22.2 53.52L23.1 53.52L24.37 53.16L25.99 52.26L28.07 50.18L29.33 48.38L32.13 45.94L34.84 44.68L38.09 44.13L40.07 42.87L42.33 39.71L45.58 32.85L47.92 28.88L50 26.81L51.99 25.9L56.14 25.72L59.39 26.62L60.29 27.17L61.91 27.53L64.8 28.79L66.88 30.87L67.6 32.13L67.96 33.39L69.13 34.57L70.04 34.57L72.38 33.84L74.91 33.84L75.09 34.03L77.17 33.39L76.53 34.21L75.27 34.93L72.74 35.29L72.2 35.47L71.84 36.01L72.74 35.83L76.71 36.01L77.98 35.65L79.42 34.75L79.87 34.84L79.33 35.38L79.42 35.65L79.06 35.65L78.52 36.19L76.71 37.09L75.27 37.45L73.47 37.45L71.93 38.27L72.29 39.53L72.29 40.61L70.85 43.32L70.49 46.75L69.4 48.38L68.59 49.01L67.51 48.83L67.15 48.47L66.06 48.47L65.25 47.83L64.89 45.85L63.63 43.5L63.27 41.88L62.91 41.34L63.09 44.4L60.92 46.75L60.92 47.47L61.19 47.74L61.91 47.56L63.72 47.74L64.35 48.56L64.35 50.18L63.45 53.07L63.09 55.96L62.27 57.13L61.19 57.49L60.83 57.31L56.77 57.4L56.77 55.42L57.13 53.97L57.58 53.52L58.12 53.52L60.11 54.42L60.92 53.43L61.1 51.62L60.83 51.53L59.39 52.26L57.22 52.8L55.6 52.8L53.61 52.08L52.8 51.26L52.08 49.82L52.08 47.65L52.53 46.48L51.9 47.47L51.53 49.46L52.08 51.26L53.16 52.71L52.53 53.52L49.28 55.14L46.57 55.69L43.32 55.69L40.61 56.95L38.9 59.03L38 61.19L36.55 62.82L36.55 64.08L35.83 66.06L35.83 67.33L36.37 68.77L36.73 70.94L37.64 72.56L37.82 74.01L35.74 74.28Z"/>
-                            <path d="M40.7 45.31L42.69 43.32L44.49 40.79L47.02 35.92L47.56 34.3L47.92 34.12L47.74 33.94L48.65 31.95L49.73 30.14L50.9 28.79L52.89 27.53L50.9 28.43L49.19 30.14L46.84 34.48L44.31 40.07L42.15 43.5L40.52 45.31L40.7 45.31Z"/>
+                            <path class="bull-body" d="M35.74 74.28L35.56 74.1L35.38 74.28L34.93 73.83L34.93 71.84L32.85 68.14L32.76 70.58L33.66 72.74L33.66 74.01L33.39 74.28L33.21 74.1L33.03 74.28L31.23 74.28L31.05 74.1L30.87 74.28L30.42 73.47L30.42 71.48L28.97 68.05L29.15 65.88L26.44 59.57L26.62 56.5L27.35 55.23L29.33 53.25L27.98 54.06L27.17 55.23L25.81 56.23L23.65 56.77L22.2 56.77L20.76 56.23L19.58 55.23L19.04 53.79L19.22 52.89L19.04 51.62L18.23 50.45L17.33 50.09L12.45 50.09L11.1 49.1L10.38 47.11L10.74 44.95L11.82 43.32L13.63 41.88L13.99 40.97L15.16 39.8L17.15 39.08L18.59 39.08L20.04 39.62L21.21 40.61L19.49 40.7L17.96 42.6L16.79 43.41L14.08 43.95L12.36 45.85L12.18 47.47L13 48.29L18.23 48.29L19.49 48.65L20.67 49.82L21.03 52.17L21.39 52.89L22.2 53.52L23.1 53.52L24.37 53.16L25.99 52.26L28.07 50.18L29.33 48.38L32.13 45.94L34.84 44.68L38.09 44.13L40.07 42.87L42.33 39.71L45.58 32.85L47.92 28.88L50 26.81L51.99 25.9L56.14 25.72L59.39 26.62L60.29 27.17L61.91 27.53L64.8 28.79L66.88 30.87L67.6 32.13L67.96 33.39L69.13 34.57L70.04 34.57L72.38 33.84L74.91 33.84L75.09 34.03L77.17 33.39L76.53 34.21L75.27 34.93L72.74 35.29L72.2 35.47L71.84 36.01L72.74 35.83L76.71 36.01L77.98 35.65L79.42 34.75L79.87 34.84L79.33 35.38L79.42 35.65L79.06 35.65L78.52 36.19L76.71 37.09L75.27 37.45L73.47 37.45L71.93 38.27L72.29 39.53L72.29 40.61L70.85 43.32L70.49 46.75L69.4 48.38L68.59 49.01L67.51 48.83L67.15 48.47L66.06 48.47L65.25 47.83L64.89 45.85L63.63 43.5L63.27 41.88L62.91 41.34L63.09 44.4L60.92 46.75L60.92 47.47L61.19 47.74L61.91 47.56L63.72 47.74L64.35 48.56L64.35 50.18L63.45 53.07L63.09 55.96L62.27 57.13L61.19 57.49L60.83 57.31L56.77 57.4L56.77 55.42L57.13 53.97L57.58 53.52L58.12 53.52L60.11 54.42L60.92 53.43L61.1 51.62L60.83 51.53L59.39 52.26L57.22 52.8L55.6 52.8L53.61 52.08L52.8 51.26L52.08 49.82L52.08 47.65L52.53 46.48L51.9 47.47L51.53 49.46L52.08 51.26L53.16 52.71L52.53 53.52L49.28 55.14L46.57 55.69L43.32 55.69L40.61 56.95L38.9 59.03L38 61.19L36.55 62.82L36.55 64.08L35.83 66.06L35.83 67.33L36.37 68.77L36.73 70.94L37.64 72.56L37.82 74.01L35.74 74.28Z"/>
+                            <path class="bull-hoof" d="M69.13 54.78L68.59 54.78L67.51 53.52L66.61 53.7L65.7 53.16L63.81 53.25L64.62 49.55L67.69 50.45L69.86 50.63L70.76 50.99L71.93 51.99L69.13 54.78Z"/>
                         </g>
+                        <path class="bull-mane" d="M40.7 45.31L42.69 43.32L44.49 40.79L47.02 35.92L47.56 34.3L47.92 34.12L47.74 33.94L48.65 31.95L49.73 30.14L50.9 28.79L52.89 27.53L50.9 28.43L49.19 30.14L46.84 34.48L44.31 40.07L42.15 43.5L40.52 45.31L40.7 45.31Z"/>
                         <path class="bull-arrow" d="M60.29 65.79L57.94 64.71L57.4 64.17L56.86 64.17L46.39 58.94L45.67 59.12L40.07 63.45L39.53 63.63L39.08 63.36L39.08 61.37L42.78 58.39L46.03 56.23L60.11 63.09L76.71 49.37L76.99 48.92L76.53 48.1L80.14 47.02L80.78 47.11L80.78 47.83L79.42 51.17L78.7 50.81L78.16 50.99L60.29 65.79Z"/>
                     </svg>
                 </span>
@@ -319,7 +322,7 @@
                 </div>
                 <div class="search-container">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="search-input" class="search-input" placeholder="Search any global symbol — AAPL, RELIANCE.NS, 0700.HK, 7203.T..." autocomplete="off">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search any global symbol. AAPL, RELIANCE.NS, 0700.HK, 7203.T..." autocomplete="off">
                     <div class="search-results" id="search-results"></div>
                 </div>
             </section>
@@ -333,8 +336,7 @@
                     <!-- SCROLL SHIELD over the TradingView iframe.
                          A cross-origin iframe consumes the wheel event, and TradingView uses the
                          wheel to zoom the chart. The chart is a ~460px slab in the middle of the
-                         page, so a user scrolling down with the cursor over it simply stops moving
-                         — measured: wheeling at the header, either gutter or the bottom edge scrolls
+                         page, so a user scrolling down with the cursor over it simply stops moving, measured: wheeling at the header, either gutter or the bottom edge scrolls
                          the page 1200px, wheeling over the chart scrolls it 0.
                          The shield sits above the iframe and absorbs the wheel so the page scrolls
                          normally. Clicking it hands the chart the pointer (the standard
@@ -360,7 +362,7 @@
 
             <section class="hotpicks-section">
                 <div class="section-header">
-                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks — Today's Stock Buy Signals</h2>
+                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks: Today's Stock Buy Signals</h2>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <button class="spikers-btn" id="spikers-btn" title="Find candidates likely to spike today">🚀 Spikers</button>
                         <button class="refresh-btn has-spinner" id="refresh-hotpicks" title="Refresh hot picks (r)"><span class="rb-icon" aria-hidden="true"><span class="rb-arrow">↻</span><span class="rb-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span><span class="rb-label">Refresh</span></button>
@@ -392,7 +394,7 @@
                             </svg>
                         </span>
                         <span class="scanner-title">Full Ledger</span>
-                        <span class="scanner-hint">Same engine as the detail card. Click any row to expand the analysis inline; click the symbol name to load it into the chart above.</span>
+                        <span class="scanner-hint">Same engine as the detail card. Click any row to expand the analysis inline, click the symbol name to load it into the chart above.</span>
                     </summary>
                     <div class="scanner-controls">
                         <input type="text" id="scanner-filter" class="scanner-filter" placeholder="Filter by symbol or region (e.g. AAPL, NSE)..." autocomplete="off">
@@ -499,16 +501,16 @@
                     <div class="pl-result-amount" id="pl-resAmount"></div>
                     <div class="pl-result-pct" id="pl-resPct"></div>
                     <div class="pl-result-details">
-                        <div class="pl-detail"><span class="pl-dl">Shares</span><span class="pl-dv" id="pl-resShares">—</span></div>
-                        <div class="pl-detail"><span class="pl-dl">Capital</span><span class="pl-dv" id="pl-resCapital">—</span></div>
-                        <div class="pl-detail"><span class="pl-dl">Current Value</span><span class="pl-dv" id="pl-resValue">—</span></div>
-                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Gross P&amp;L</span><span class="pl-dv" id="pl-resGross">—</span></div>
-                        <div class="pl-detail pl-cost"><span class="pl-dl">Commission</span><span class="pl-dv" id="pl-resComm">—</span></div>
-                        <div class="pl-detail pl-cost"><span class="pl-dl">SEC + FINRA fees</span><span class="pl-dv" id="pl-resReg">—</span></div>
-                        <div class="pl-detail pl-cost" id="pl-rowSpread"><span class="pl-dl">Spread</span><span class="pl-dv" id="pl-resSpread">—</span></div>
-                        <div class="pl-detail pl-cost" id="pl-rowImpact"><span class="pl-dl">Market impact</span><span class="pl-dv" id="pl-resImpact">—</span></div>
-                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Total costs</span><span class="pl-dv" id="pl-resCosts">—</span></div>
-                        <div class="pl-detail"><span class="pl-dl">Break-even exit</span><span class="pl-dv" id="pl-resBreakEven">—</span></div>
+                        <div class="pl-detail"><span class="pl-dl">Shares</span><span class="pl-dv" id="pl-resShares"></span></div>
+                        <div class="pl-detail"><span class="pl-dl">Capital</span><span class="pl-dv" id="pl-resCapital"></span></div>
+                        <div class="pl-detail"><span class="pl-dl">Current Value</span><span class="pl-dv" id="pl-resValue"></span></div>
+                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Gross P&amp;L</span><span class="pl-dv" id="pl-resGross"></span></div>
+                        <div class="pl-detail pl-cost"><span class="pl-dl">Commission</span><span class="pl-dv" id="pl-resComm"></span></div>
+                        <div class="pl-detail pl-cost"><span class="pl-dl">SEC + FINRA fees</span><span class="pl-dv" id="pl-resReg"></span></div>
+                        <div class="pl-detail pl-cost" id="pl-rowSpread"><span class="pl-dl">Spread</span><span class="pl-dv" id="pl-resSpread"></span></div>
+                        <div class="pl-detail pl-cost" id="pl-rowImpact"><span class="pl-dl">Market impact</span><span class="pl-dv" id="pl-resImpact"></span></div>
+                        <div class="pl-detail pl-detail-sep"><span class="pl-dl">Total costs</span><span class="pl-dv" id="pl-resCosts"></span></div>
+                        <div class="pl-detail"><span class="pl-dl">Break-even exit</span><span class="pl-dv" id="pl-resBreakEven"></span></div>
                         <div class="pl-note" id="pl-resNote"></div>
                     </div>
                 </div>
@@ -517,12 +519,12 @@
         </aside>
     </div>
 
-    <button id="mia-launcher" class="mia-launcher" title="Ask Mia—your Market Intelligence Analyst" aria-label="Open Mia chat">
+    <button id="mia-launcher" class="mia-launcher" title="Ask Mia-your Market Intelligence Analyst" aria-label="Open Mia chat">
         <!-- Live aura orb (Face-ID / Siri-like): a breathing core, two
              counter-rotating iridescent rings, and a soft pulsing halo.
              Pure CSS, theme-aware (recolours via --accent), reduced-motion
              safe. The old white-disc + ECG glyph is gone. The voice-mode
-             canvas orb (.mia-launcher-orb) is unaffected — that's a separate
+             canvas orb (.mia-launcher-orb) is unaffected, that's a separate
              state that hides this aura. -->
         <span class="mia-aura" aria-hidden="true">
             <span class="mia-aura-halo"></span>
@@ -594,7 +596,7 @@
                 title.classList.add('settled');
                 // Step 2: ~250ms later, candle slides in.
                 setTimeout(function () { icon.classList.add('visible'); }, 250);
-                // Step 3: ~700ms later, BAMM — fly to header.
+                // Step 3: ~700ms later, BAMM, fly to header.
                 setTimeout(function () { content.classList.add('fly'); }, 700);
                 // Step 4: ~1.25s later, fade out the overlay AND start the header
                 // logo's sequence. It is deliberately not started earlier: the overlay is

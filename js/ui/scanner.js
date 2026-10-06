@@ -1,4 +1,4 @@
-// Full Ledger — sortable, filterable table over today's predictions
+// Full Ledger, sortable, filterable table over today's predictions
 // for the entire global universe. Drives the SAME computeFullConfidence
 // pipeline as the detail card at the top of the page (with bulkScan:
 // false) so a row's verdict matches the detail card byte-for-byte.
@@ -17,8 +17,8 @@
 // underlying assumption per the user's spec is that every resolved
 // horizon is one prediction; "12/20" means 12 of the last 20 resolved
 // horizons for THAT symbol hit the predicted direction. Colour bar
-// gradients smoothly across the percentage range — red < 45, amber
-// 45-70, green > 70 — interpolated, not stepped.
+// gradients smoothly across the percentage range, red < 45, amber
+// 45-70, green > 70, interpolated, not stepped.
 
 import { GLOBAL_POOL, UNIVERSE_CONFIG, PENNY_POOL, CRYPTO_POOL } from '../markets.js';
 import { analyzeAndCache, peek } from '../analysis-cache.js';
@@ -32,7 +32,7 @@ let scanState = {
     running: false,
     aborted: false,
     aborting: false,         // set when a mode-switch wants the running scan to stop
-    mode: null,              // 'stock' | 'crypto' — set by startScan(), used to gate restart
+    mode: null,              // 'stock' | 'crypto', set by startScan(), used to gate restart
     rows: [],
     historyByKey: {},
     accuracyBySymbol: {},
@@ -68,7 +68,7 @@ function buildHistoryIndex(rows) {
 // Definitions:
 //   total      = every committed (BUY/SELL) prediction-row for this
 //                symbol, across every prediction-date the cron ever
-//                made one. NEUTRAL/NO_TRADE rows excluded — they
+//                made one. NEUTRAL/NO_TRADE rows excluded, they
 //                make no directional claim. Increments by +1 per
 //                new prediction the engine commits to.
 //   hits       = of those, how many had AT LEAST ONE resolved horizon
@@ -82,15 +82,15 @@ function buildHistoryIndex(rows) {
 //                whether a new prediction was made today.
 //
 // Invariant: hits + misses ≤ total. When a new prediction lands,
-// total bumps by 1 (not hits or misses — they only move once that
+// total bumps by 1 (not hits or misses, they only move once that
 // row's first horizon resolves). When a horizon resolves, exactly
 // one of {hits, misses} bumps. Roshan's spec: "if right it will be
 // 12+1 otherwise if it's wrong then it will be 8+1 not for 12".
 // Read the user's window inputs and translate to a cutoff ISO date.
 // Returns null when "all time" is selected or when the input is
-// blank / invalid — meaning the aggregator runs against the full
+// blank / invalid, meaning the aggregator runs against the full
 // history. Days/months/years are calendar-relative (subtracts from
-// today), not trading-day-relative — months use ~30.44 days, years
+// today), not trading-day-relative, months use ~30.44 days, years
 // use 365 to keep arithmetic simple and stable.
 function computeAccuracyCutoff() {
     const nEl = document.getElementById('scanner-window-n');
@@ -118,7 +118,7 @@ function buildAccuracyIndex(rows, windowCutoffISO = null) {
     for (const r of rows) {
         if (!r.symbol || r.signal == null) continue;
         if (r.signal !== 'BUY' && r.signal !== 'SELL') continue;
-        // Time-window filter — drop predictions older than the cutoff.
+        // Time-window filter, drop predictions older than the cutoff.
         // Comparison is lex-safe because dates are 'YYYY-MM-DD'.
         if (windowCutoffISO && (!r.date || r.date < windowCutoffISO)) continue;
 
@@ -140,7 +140,7 @@ function buildAccuracyIndex(rows, windowCutoffISO = null) {
 
         // Decide whether this ROW is resolved enough to score.
         // Rule: if ANY horizon has directionMatch set, the row is
-        // graded — hit if any horizon hit, miss if none hit. This
+        // graded, hit if any horizon hit, miss if none hit. This
         // matches Roshan's "12 right + 8 wrong = 20 graded" mental
         // model (one row → one verdict, not one row → 5 verdicts).
         const horizons = r.horizons || {};
@@ -191,7 +191,7 @@ async function buildUniverse(mode = 'stock') {
     const set = new Set();
     if (mode === 'crypto') {
         for (const s of CRYPTO_POOL) set.add(s);
-        // Dynamic trending union — failure non-fatal, just go with
+        // Dynamic trending union, failure non-fatal, just go with
         // the static list if CoinGecko 503s or the proxy is down.
         try {
             const dynamic = await fetchCoinGeckoTrending();
@@ -201,14 +201,14 @@ async function buildUniverse(mode = 'stock') {
         if (UNIVERSE_CONFIG?.useUSScreeners) for (const s of US_SEED) set.add(s);
         for (const s of GLOBAL_POOL) set.add(s);
         // Include the penny universe so the Full Ledger covers them too.
-        // Same pool that hotpicks.js scans + the cron records — single
+        // Same pool that hotpicks.js scans + the cron records, single
         // source of truth via js/penny-universe.js.
         for (const s of PENNY_POOL) set.add(s);
     }
     return [...set];
 }
 
-// Dynamic crypto trending — pulls CoinGecko's /search/trending and
+// Dynamic crypto trending, pulls CoinGecko's /search/trending and
 // returns BASE-USD symbols. Hits the same Yahoo proxy worker which
 // also handles CoinGecko URLs (it forwards anything not matched by a
 // specific endpoint). Falls back to direct CoinGecko fetch if the
@@ -329,7 +329,7 @@ async function startScan() {
     const workers = Array.from({ length: CONCURRENCY }, () => worker());
     await Promise.all(workers);
     scanState.running = false;
-    // Final tail patch — picks up whatever didn't hit the % 4 cadence.
+    // Final tail patch, picks up whatever didn't hit the % 4 cadence.
     refresh('patch');
 }
 
@@ -383,7 +383,7 @@ function fmtSignal(signal) {
 }
 
 // Smooth red→amber→green gradient based on hit-rate percentage.
-// Per Roshan's spec: above 70 = green, 45–60 = amber, below 45 = red,
+// Per Roshan's spec: above 70 = green, 45 to 60 = amber, below 45 = red,
 // gradiented (not stepped) across the in-between values.
 //   < 45    : pure red
 //   45 → 60 : red → amber blend
@@ -407,7 +407,7 @@ function fmtAccuracy(symbol) {
     }
     // Format: hits / misses / total / days
     // Each number is dynamic and grows independently. Success Rate
-    // is computed against (hits + misses) — the GRADED set — not
+    // is computed against (hits + misses), the GRADED set, not
     // total, because pending predictions shouldn't drag the rate
     // down (they haven't been judged yet).
     const graded = a.hits + a.misses;
@@ -417,16 +417,16 @@ function fmtAccuracy(symbol) {
     const tip = `${a.hits} hits · ${a.misses} misses · ${a.total} total predictions · ${a.daysSpan}d since first prediction · ${pending} still pending`;
     // Each number's color reflects engine PERFORMANCE, not just the
     // semantic label. Roshan's spec: if hits < misses, you can't paint
-    // hits green — that misrepresents a losing symbol. So we tint
+    // hits green, that misrepresents a losing symbol. So we tint
     // hits/misses by which side is winning, and total/days stay
     // neutral (they're not verdicts).
     //
     //   hits   → green if hits >  misses (engine winning on this name)
     //            amber if hits == misses (coin-flip)
-    //            red   if hits <  misses (engine losing — green hits would lie)
-    //   misses → red   if misses >  hits (engine losing — bad sign)
+    //            red   if hits <  misses (engine losing, green hits would lie)
+    //   misses → red   if misses >  hits (engine losing, bad sign)
     //            amber if misses == hits
-    //            grey  if misses <  hits (low miss-count is fine — don't shout)
+    //            grey  if misses <  hits (low miss-count is fine, don't shout)
     //   total  → muted accent (neutral count of activity)
     //   days   → muted grey  (purely temporal context)
     //
@@ -501,7 +501,7 @@ function renderDrawer(row) {
             <div class="drawer-section-title">Confidence Sources</div>
             <div class="drawer-sources">${sourceRows || '<div class="drawer-empty-reasons">No source breakdown.</div>'}</div>
             ${targetsHTML}
-            <div class="drawer-section-title">Why this signal — top drivers</div>
+            <div class="drawer-section-title">Why this signal, top drivers</div>
             ${reasonsHTML}
             <div class="drawer-foot">
                 <button class="drawer-load-chart" type="button" data-action="load-chart" data-symbol="${row.symbol}">Open in chart above ↑</button>
@@ -531,7 +531,7 @@ function skelCells(i) {
 }
 
 // The "still scanning" indicator that lives at the BOTTOM of the table while
-// rows stream in — a bouncing-dots line + a few shimmer skeleton rows. Each
+// rows stream in, a bouncing-dots line + a few shimmer skeleton rows. Each
 // row is tagged `scanner-loading-tail` so the patch path can (a) tell it apart
 // from the TOP placeholder rows of the initial empty render and (b) insert
 // freshly-loaded rows ABOVE it, keeping the loader beneath loaded symbols.
@@ -546,9 +546,9 @@ function loadingTailHTML(n = 3, text = 'More rows are still computing…') {
 
 // Earlier we did `tbody.innerHTML = rows.map(...).join('')` on every
 // 4-row streaming refresh, which destroyed and rebuilt the expanded
-// drawer's DOM each time — that's the flicker Roshan flagged when
+// drawer's DOM each time, that's the flicker Roshan flagged when
 // streaming kept happening behind an open drawer. New strategy:
-//   - Empty/sort/filter changes still do a full rebuild (rare — only
+//   - Empty/sort/filter changes still do a full rebuild (rare, only
 //     when the user types a filter or clicks a sort header).
 //   - Streaming-only refreshes (called as new rows finish analysis)
 //     do a SURGICAL patch: existing rows update in place, new rows
@@ -569,13 +569,13 @@ function renderRows(mode = 'full') {
     }
     if (!rows.length) {
         if (scanState.running) {
-            // Nothing loaded yet — full-height skeleton loader (header line +
+            // Nothing loaded yet, full-height skeleton loader (header line +
             // 8 shimmer rows) so the user sees a live "building" state.
             const skelRows = Array.from({ length: 8 }, (_, i) => `<tr class="scanner-skel-row">${skelCells(i)}</tr>`).join('');
             tbody.innerHTML =
                 `<tr class="scanner-loading-row"><td colspan="7">
                     <span class="scanner-loading-dots"><i></i><i></i><i></i></span>
-                    <span class="scanner-loading-text">Scanning the global universe — rows stream in as they compute…</span>
+                    <span class="scanner-loading-text">Scanning the global universe, rows stream in as they compute…</span>
                  </td></tr>` + skelRows;
         } else {
             tbody.innerHTML = `<tr><td colspan="7" class="scanner-empty">No matching rows. Try clearing filters.</td></tr>`;
@@ -591,12 +591,12 @@ function renderRows(mode = 'full') {
         // The bug this fixes: the initial empty render injects the loading
         // placeholders at the TOP. The old patch walk only looked at
         // tr.scanner-row, so it never removed those placeholders and
-        // appendChild'd real rows BELOW them — leaving the loader above the
+        // appendChild'd real rows BELOW them, leaving the loader above the
         // loaded symbols. Now the loader lives as a TAIL at the very bottom.
         //
         // We must NOT destroy + recreate the tail every patch, or its shimmer
         // / bouncing-dots animations restart from frame 0 each cycle (visible
-        // jitter — flagged in adversarial review). So:
+        // jitter, flagged in adversarial review). So:
         //   - drop the TOP full-skeleton placeholder once (the empty render's
         //     rows, which are NOT yet marked as a tail),
         //   - keep any existing tail DOM in place (animations keep running),
@@ -684,7 +684,7 @@ function updateMeta() {
     const shown = applyFilters(scanState.rows).length;
     if (!total) { el.textContent = ''; return; }
     if (scanState.running) {
-        el.textContent = `Scanning ${done} / ${total}${errors ? ` (${errors} errors)` : ''} — ${shown} ready`;
+        el.textContent = `Scanning ${done} / ${total}${errors ? ` (${errors} errors)` : ''}, ${shown} ready`;
     } else {
         el.textContent = `${shown} of ${scanState.rows.length} symbols${errors ? ` · ${errors} errors` : ''}`;
     }
@@ -710,7 +710,7 @@ function updateSortHeaders() {
 // ── Click handling ───────────────────────────────────────────────────
 
 function loadInMainChart(sym) {
-    // Direct load — fully loads the chart + analysis above and scrolls up.
+    // Direct load, fully loads the chart + analysis above and scrolls up.
     // (Was a fragile search-box simulation that only prefilled the search and
     // required the user to re-pick from the dropdown.)
     if (typeof window.__loadSymbolDirect === 'function') {
@@ -795,7 +795,7 @@ export async function initScanner() {
     // whichever pool it started with, so users on the Crypto tab
     // see stocks. We listen on the tab-button group rather than
     // subscribing to a state event to avoid coupling. Same approach
-    // for the Today/Tomorrow timeframe tabs — different timeframe
+    // for the Today/Tomorrow timeframe tabs, different timeframe
     // means the engine produces different verdicts.
     function resetAndRestartScan() {
         const wantedMode = state.mode === 'crypto' ? 'crypto' : 'stock';
@@ -808,14 +808,14 @@ export async function initScanner() {
         if (scanState.running) {
             scanState.aborting = true;
         }
-        // Only relevant if details is open — otherwise the scan was
+        // Only relevant if details is open, otherwise the scan was
         // never started and a future open will pick up the new mode
         // automatically since startScan reads state.mode at call time.
         if (!details.open) return;
         // If mode actually changed (or rerun was requested), tear
         // down state and re-run.
         if (scanState.mode === wantedMode && scanState.rows.length) return;
-        // Drain any in-flight scan first — give it 80ms to settle,
+        // Drain any in-flight scan first, give it 80ms to settle,
         // then reset + start fresh.
         const restart = () => {
             scanState.started = false;

@@ -1,4 +1,4 @@
-// Crypto universe — curated stable list of ~300 tokens organized into
+// Crypto universe, curated stable list of ~300 tokens organized into
 // thematic buckets. Hybrid pattern matches js/penny-universe.js: this
 // list runs every cron / scan for dense per-symbol track records, and
 // hotpicks.js + scanner ALSO pull CoinGecko's /search/trending at

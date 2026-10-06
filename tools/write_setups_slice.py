@@ -1,11 +1,11 @@
 """Publish today's pullback setups across the liquid US universe: model/setups.json.
 
 Runs after the US close (nightly job), so every setup listed is CONFIRMED on a final closing
-price and the trade it describes enters at the next open (the measured +31 bps variant; entering
+price and the trade it describes enters at the next open (the measured +31 bps variant, entering
 at the close itself is +37 bps but needs the setup known before the bell, which is what the live
 card's "forming" state is for). See reversion_setup.py and tools/calibrate_reversion.py.
 
-Only setups whose calibration cell is statistically positive are listed; a qualifying dip in an
+Only setups whose calibration cell is statistically positive are listed, a qualifying dip in an
 unreliable cell is counted in `unflagged` rather than shown as a signal.
 
 Run: python tools/write_setups_slice.py

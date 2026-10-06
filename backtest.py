@@ -196,7 +196,7 @@ def expected_move_for(candles, signal, confidence):
     predicting, mirroring the ATR-based target math in js/analysis.js
     calculatePriceTargets. This is stored on the ledger row so record_outcomes
     can grade capturedPct = actual_move / expected_move WITHOUT re-deriving
-    anything (no JS<->Python drift — the row stores the number it's graded on).
+    anything (no JS<->Python drift, the row stores the number it's graded on).
 
     We use the daily-horizon ATR multiplier (0.8) since the 1d horizon is the
     primary scored one, and the confidence-scaled factor from the JS BUY/SELL
@@ -219,7 +219,7 @@ def expected_move_for(candles, signal, confidence):
 
 def _bollinger_bands(closes, period=20, std_dev=2):
     """Full Bollinger band edges (upper/middle/lower) for the price-target
-    clamps. The module's bollinger() returns only percent_b; the target math
+    clamps. The module's bollinger() returns only percent_b, the target math
     needs the band edges, mirroring js/analysis.js calculateBollingerBands."""
     if len(closes) < period:
         return None
@@ -232,7 +232,7 @@ def _bollinger_bands(closes, period=20, std_dev=2):
 
 def _rp(v):
     """Magnitude-aware price rounding. Alias kept so existing call sites read the
-    same; the implementation is shared with the cron, the resolver and the band
+    same, the implementation is shared with the cron, the resolver and the band
     module so the five copies of this rule cannot drift apart again."""
     return round_price(v)
 
@@ -240,12 +240,12 @@ def _rp(v):
 def price_targets(candles, signal, confidence, timeframe='today'):
     """Possible + probable price-target bands, LOCKED at market open.
 
-    Mirrors js/analysis.js calculatePriceTargets EXACTLY — same ATR multiplier
+    Mirrors js/analysis.js calculatePriceTargets EXACTLY, same ATR multiplier
     (0.8 for the day horizon), same confidence-scaled possible-band distances,
     the same Bollinger-width and recent-high/low clamps, and the same
     probable-band math. Storing this on the ledger row at open means the
     browser displays the SAME band the engine committed to at the open price,
-    held all day and graded by close — one engine, one number, no JS<->Python
+    held all day and graded by close, one engine, one number, no JS<->Python
     re-derivation drift. Anchored to the open price (candles[-1].close, which
     is the entry the row locks). Returns None when there isn't enough data."""
     if not candles or len(candles) < 20:
@@ -302,7 +302,7 @@ def price_targets(candles, signal, confidence, timeframe='today'):
     high_pct = ((predicted_high - current_price) / current_price) * 100
     low_pct = ((predicted_low - current_price) / current_price) * 100
 
-    # Probable band — narrower zone biased toward the called direction.
+    # Probable band, narrower zone biased toward the called direction.
     probable_inner = 0.18 + (1 - cf) * 0.18
     probable_outer = 0.45 + (1 - cf) * 0.20
     if signal == 'BUY':
@@ -359,8 +359,7 @@ def generate_prediction(candles):
     vol_v = volume_spike(volumes)
 
     # ── Horizon-aware mean-reversion vs momentum tilt ────────────────────
-    # This Python path records the NEXT-DAY (short-horizon) ledger call —
-    # exactly the path the live ledger proved was a failed momentum-chaser
+    # This Python path records the NEXT-DAY (short-horizon) ledger call, # exactly the path the live ledger proved was a failed momentum-chaser
     # (1d: momentum bets 31-35%, mean-reversion bets 61-66%, as-issued 46.7%).
     # So at this short horizon we up-weight mean-reversion (RSI/BB) and damp
     # momentum (MACD/MA-cross/5-bar), GATED by the ADX regime so a trending
@@ -452,7 +451,7 @@ def generate_prediction(candles):
     elif norm < -0.12: signal = 'SELL'
     else: signal = 'NEUTRAL'
 
-    # Abstain gate — mirror of the JS engine (see js/analysis.js). When
+    # Abstain gate, mirror of the JS engine (see js/analysis.js). When
     # the bull/bear edge is at chance levels OR the engine returned
     # NEUTRAL with low confidence, emit NO_TRADE so calibration metrics
     # reflect what users actually see (we don't log NO_TRADE rows as
@@ -472,8 +471,7 @@ def generate_prediction(candles):
     # dispersion: a 0-80 "evidence disagreement" proxy so the learner's
     # dispersion-penalty bands have data. The JS engine measures spread across
     # 4 named sources; this Python engine has only bull/bear tallies, so we
-    # use the share of evidence that pulled AGAINST the net direction —
-    # higher = more conflicted. Scaled to the learner's 0-80 bucket range.
+    # use the share of evidence that pulled AGAINST the net direction, # higher = more conflicted. Scaled to the learner's 0-80 bucket range.
     conflicting = min(bull, bear)
     dispersion = round((conflicting / total) * 80, 1) if total else 0
     # Directional expected-move distance this prediction implies, stored on
@@ -484,7 +482,7 @@ def generate_prediction(candles):
     if signal in ('BUY', 'SELL'):
         expected_move = expected_move_for(candles, signal, confidence)
     # Full possible + probable price-target bands, locked at open right after
-    # the signal — the browser reads these directly instead of re-deriving an
+    # the signal, the browser reads these directly instead of re-deriving an
     # approximate band from expectedMove. Computed for directional calls (the
     # bands are direction-shaped); None for NEUTRAL/NO_TRADE.
     targets = None
@@ -581,7 +579,7 @@ def fetch_vix_map(period=PERIOD):
                 continue
         return out
     except Exception as e:
-        print(f"  [warn] VIX fetch failed: {e} — vol_tier will be skipped")
+        print(f"  [warn] VIX fetch failed: {e}, vol_tier will be skipped")
         return {}
 
 
@@ -752,11 +750,11 @@ def summarize(predictions):
             hits = sum(1 for p in ps if not p['actual_up'])
         elif sig == 'NEUTRAL':
             hits = sum(1 for p in ps if p['actual_up'])
-        else:  # NO_TRADE — no directional bet, so no hit-rate
+        else:  # NO_TRADE, no directional bet, so no hit-rate
             out['by_signal'][sig] = {
                 'count': len(ps),
                 'avg_confidence': round(sum(p['confidence'] for p in ps) / len(ps), 2),
-                'note': 'abstained — not scored',
+                'note': 'abstained, not scored',
             }
             continue
         out['by_signal'][sig] = {
@@ -852,7 +850,7 @@ if __name__ == '__main__':
             preds = backtest_symbol(sym, since=args.since, vix_map=vix_map)
         except Exception as e:
             errors += 1
-            print(f"  {sym}: ERROR — {type(e).__name__}: {e}")
+            print(f"  {sym}: ERROR, {type(e).__name__}: {e}")
             continue
         if not preds:
             print(f"  {sym}: skipped (insufficient data)")
@@ -873,7 +871,7 @@ if __name__ == '__main__':
     for sig, stats in overall['by_signal'].items():
         if not stats.get('count'):
             continue
-        # NO_TRADE has no hit_rate (abstain — nothing to score). summarize()
+        # NO_TRADE has no hit_rate (abstain, nothing to score). summarize()
         # writes a 'note' key for those rows; print that instead so the
         # overall summary still surfaces NO_TRADE counts without crashing.
         if 'hit_rate' not in stats:
@@ -927,8 +925,7 @@ if __name__ == '__main__':
         # allow_nan=False forces an error instead of emitting bare NaN/Infinity
         # tokens, which are INVALID JSON: the browser's JSON.parse throws on
         # them, and that single throw was killing ALL of calibration.js's
-        # loadCalibration() (it bailed before even loading live calibration —
-        # so confidence silently fell back to raw/uncalibrated). We sanitize
+        # loadCalibration() (it bailed before even loading live calibration, # so confidence silently fell back to raw/uncalibrated). We sanitize
         # first (NaN/Inf -> null), THEN dump strictly so any future non-finite
         # leak fails the cron loudly instead of shipping unparseable JSON.
         json.dump(_json_safe(results), f, indent=2, allow_nan=False)

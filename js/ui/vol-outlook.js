@@ -48,7 +48,7 @@ export async function renderVolOutlook(onPick) {
     host.hidden = false;
     host.innerHTML = `
         <div class="section-header">
-            <h2 class="section-title">〰 Volatility outlook — next 5 sessions, from the ${escapeHtml(shortDate(slice.sessionDate))} close</h2>
+            <h2 class="section-title">〰 Volatility outlook: next 5 sessions, from the ${escapeHtml(shortDate(slice.sessionDate))} close</h2>
         </div>
         <div class="su-intro">
             How much these stocks are likely to move, not which way. Over ${wf.forecasts.toLocaleString()} forecasts in

@@ -1,4 +1,4 @@
-// Mia voice mode (Version A — free).
+// Mia voice mode (Version A, free).
 //
 // What this module does:
 //   1. Adds a mic button next to the send button in the chat footer.
@@ -14,7 +14,7 @@
 //        - while listening: from the mic AnalyserNode
 //        - while speaking: from the synthesised utterance boundary events
 //          (browser TTS does not expose raw audio, so we approximate with
-//          a smooth oscillation that pauses at sentence boundaries — looks
+//          a smooth oscillation that pauses at sentence boundaries, looks
 //          right to the eye, and matches how ChatGPT's orb behaves visually)
 //   7. Tap the orb anytime to interrupt: cancels recognition, cancels TTS,
 //      aborts the streaming agent. Tap again to keep talking.
@@ -23,7 +23,7 @@
 //
 // Why we approximate amplitude during speech: the only browsers that
 // expose raw TTS audio are behind paid realtime APIs. Browser native
-// SpeechSynthesis emits 'boundary' events at word boundaries — we use
+// SpeechSynthesis emits 'boundary' events at word boundaries, we use
 // those plus a smoothed sinusoid to drive the orb. The user experience
 // is indistinguishable from a real waveform unless you put them side by
 // side with an oscilloscope.
@@ -64,7 +64,7 @@ function makeSentenceChunker() {
                 buf = buf.slice(cut).replace(/^\s+/, '');
             }
             // Hard newline acts like sentence end (handles list bullets,
-            // numbered points etc. — gives Mia natural pauses).
+            // numbered points etc., gives Mia natural pauses).
             const nl = buf.indexOf('\n');
             if (nl >= 0) {
                 out.push(buf.slice(0, nl).trim());
@@ -83,14 +83,14 @@ function makeSentenceChunker() {
 // Strip emoji + pictographs before sending to TTS. Web Speech API's
 // browser voices verbalize emojis as their Unicode names ("smiling
 // face with smiling eyes", "thumbs up sign") which sounds robotic and
-// breaks immersion. The visible chat bubble keeps the emoji — only
+// breaks immersion. The visible chat bubble keeps the emoji, only
 // the audio stream gets stripped.
 //
 // Cast a wide net by combining several Unicode property classes:
-//   Extended_Pictographic   — most emoji (faces, hearts, animals, etc.)
-//   Emoji                   — broader set including dingbats
-//   Emoji_Modifier          — skin-tone modifiers U+1F3FB..U+1F3FF
-//   Emoji_Component         — zero-width joiner glue + keycap chars
+//   Extended_Pictographic, most emoji (faces, hearts, animals, etc.)
+//   Emoji, broader set including dingbats
+//   Emoji_Modifier, skin-tone modifiers U+1F3FB..U+1F3FF
+//   Emoji_Component, zero-width joiner glue + keycap chars
 // Also explicitly cover regional indicators (flags) and the ZWJ /
 // variation selector codepoints that build composite emoji sequences.
 const EMOJI_REGEX = /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Component}|[\u{1F1E6}-\u{1F1FF}]|[‍️]/gu;
@@ -100,12 +100,12 @@ const EMOJI_REGEX = /\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Compo
 // brackets, bare URLs, the agent's TOOL: scaffolding, and emoji.
 //
 // Currency / percent handling:
-//   "$84.44" → "84.44" — TTS reads "$" as "dollar" each time, so a
+//   "$84.44" → "84.44". TTS reads "$" as "dollar" each time, so a
 //      sentence like "$85.27 - $84.44" sounds like "dollar 85.27 dollar
-//      84.44" — clunky with multiple prices in one sentence. Strip the
+//      84.44", clunky with multiple prices in one sentence. Strip the
 //      glyph; Mia's prompt is responsible for whether to add "dollars"
 //      verbally when the context calls for it.
-//   "0.98%" → "0.98 percent" — make sure TTS pronounces it consistently
+//   "0.98%" → "0.98 percent", make sure TTS pronounces it consistently
 //      (some engines say "percent", some say "percentage sign", some
 //      say nothing). Inserting the word ourselves removes the ambiguity.
 //   Markdown bold residues (`**` or stray `*`) and table pipes (`|`)
@@ -142,7 +142,7 @@ function speakable(text) {
 
 // Voice panel docks to the right side instead of taking the whole screen.
 // User can see and interact with the app while Mia talks (and also use
-// Mia's navigation tools — controlSelectSymbol etc. — while still in
+// Mia's navigation tools, controlSelectSymbol etc., while still in
 // voice mode). Has a minimize button: collapsing the panel turns the
 // floating Mia launcher into a live orb that breathes/pulses with the
 // session state, so the user knows Mia is still listening / speaking
@@ -154,7 +154,7 @@ function speakable(text) {
 //
 // Voice mode renders as an overlay layer INSIDE the chat panel, not as a
 // separate side panel. CSS blurs the chat content behind it. That way
-// switching from chat to voice doesn't open a second panel — same panel,
+// switching from chat to voice doesn't open a second panel, same panel,
 // different mode. The minimize / close controls live in the overlay
 // itself; the chat panel header stays underneath.
 const VOICE_OVERLAY_HTML = `
@@ -163,7 +163,7 @@ const VOICE_OVERLAY_HTML = `
         <div class="mia-voice-head">
             <span class="mia-voice-head-title">Converse</span>
             <div class="mia-voice-head-actions">
-                <button class="mia-voice-min" id="mia-voice-min" title="Minimize — keep listening while you use the app" aria-label="Minimize">
+                <button class="mia-voice-min" id="mia-voice-min" title="Minimize, keep listening while you use the app" aria-label="Minimize">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12 L19 12"/></svg>
                 </button>
                 <button class="mia-voice-close" id="mia-voice-close" title="Exit voice mode" aria-label="Exit voice mode">
@@ -245,7 +245,7 @@ export function initVoice() {
 
 // The voice overlay lives inside .mia-panel so chat and voice share the
 // same container. mia.js's renderChat() rebuilds the panel innerHTML on
-// every open/back-from-settings, which would wipe the overlay — so we
+// every open/back-from-settings, which would wipe the overlay, so we
 // re-mount on every call. Cheap; the markup is static.
 function ensureVoiceOverlayMounted() {
     const panel = document.getElementById('mia-panel');
@@ -259,7 +259,7 @@ export function isVoiceSupported() {
     return !!(SR && TTS_AVAILABLE);
 }
 
-// External narration entry — lets the walkthrough (or any non-voice agentic
+// External narration entry, lets the walkthrough (or any non-voice agentic
 // flow) show text in the floating launcher caption pill + glass without a
 // live voice session. We add body.mia-caption-forced so the caption CSS
 // (otherwise gated on .mia-voice-minimized) shows during the tour, then the
@@ -274,8 +274,7 @@ export function setLauncherCaptionExternal(text, role = 'mia') {
     setLauncherCaption(text, role);
 }
 
-// Re-attach the mic button + voice overlay after each renderChat() —
-// mia.js rebuilds the panel innerHTML so both need to re-insert.
+// Re-attach the mic button + voice overlay after each renderChat(), // mia.js rebuilds the panel innerHTML so both need to re-insert.
 export function attachVoiceButton() {
     if (!isVoiceSupported()) return;
     insertVoiceButton();
@@ -313,11 +312,11 @@ function insertVoiceButton() {
     const foot = document.querySelector('.mia-foot');
     if (!foot) return;
     if (foot.querySelector('.mia-voice-btn')) return;
-    if (!isConfigured()) return; // No backend yet — voice would have nothing to call.
+    if (!isConfigured()) return; // No backend yet, voice would have nothing to call.
     const btn = document.createElement('button');
     btn.className = 'mia-voice-btn';
     btn.id = 'mia-voice-btn';
-    btn.title = 'Voice mode — talk to Mia';
+    btn.title = 'Voice mode, talk to Mia';
     btn.setAttribute('aria-label', 'Open voice mode');
     btn.innerHTML = `
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -336,10 +335,9 @@ function wireOverlayEvents() {
     document.getElementById('mia-voice-close').addEventListener('click', closeVoice);
     document.getElementById('mia-voice-min').addEventListener('click', minimizeVoice);
     document.getElementById('mia-voice-orb').addEventListener('click', onOrbTap);
-    // The Mia launcher is the entry point AND the minimized handle —
-    // tapping it while a session is minimized re-opens the panel.
+    // The Mia launcher is the entry point AND the minimized handle, // tapping it while a session is minimized re-opens the panel.
     // GUARD against re-attaching: wireOverlayEvents runs on every
-    // renderChat/overlay re-mount, and #mia-launcher is persistent — without
+    // renderChat/overlay re-mount, and #mia-launcher is persistent, without
     // a dedup flag the listener stacked, so one tap fired N times (and the
     // extra onOrbTap()->startListening() calls raced the SR teardown). Match
     // the dataset-flag pattern wireLauncherHoldToVoice already uses.
@@ -352,7 +350,7 @@ function wireOverlayEvents() {
                 e.stopImmediatePropagation();
                 // While minimized, the launcher acts as both the orb (interrupt
                 // mid-sentence) AND the restore handle. If Mia is actively
-                // speaking or thinking, treat the tap as an interrupt — same
+                // speaking or thinking, treat the tap as an interrupt, same
                 // as tapping the main orb. If she's listening or idle, just
                 // restore the panel so the user can see what's going on.
                 if (session.state === 'speaking' || session.state === 'thinking') {
@@ -383,8 +381,7 @@ function wireLauncherHoldToVoice() {
 
     const begin = (e) => {
         if (e.button !== undefined && e.button !== 0) return;
-        // Don't trigger hold while a voice session is already running —
-        // the tap-to-restore path handles that.
+        // Don't trigger hold while a voice session is already running, // the tap-to-restore path handles that.
         if (session.open) return;
         if (!isVoiceSupported() || !isConfigured()) return;
         pressed = true;
@@ -406,7 +403,7 @@ function wireLauncherHoldToVoice() {
     };
     const end = (e) => {
         if (armed) {
-            // We fired voice — swallow the click so togglePanel doesn't
+            // We fired voice, swallow the click so togglePanel doesn't
             // also open the chat panel underneath.
             e?.preventDefault?.();
             e?.stopImmediatePropagation?.();
@@ -467,7 +464,7 @@ async function openVoice() {
     session.liveMode = !!settings.voiceLive && !!settings.geminiKey;
     if (session.liveMode) {
         // Slight delay before starting the WebSocket so the panel
-        // animation finishes — keeps the orb in view while we boot
+        // animation finishes, keeps the orb in view while we boot
         // the connection (which can take ~500ms-1s).
         setTimeout(() => startLiveVoice(), 350);
     } else {
@@ -477,7 +474,7 @@ async function openVoice() {
         try { miaSound.connecting(); } catch (_) {}
         session.awaitingConnectCue = true;
         // Slight delay so the open animation can settle before we ask
-        // for the mic — feels less jumpy and keeps the orb visible
+        // for the mic, feels less jumpy and keeps the orb visible
         // while the permission prompt fires.
         setTimeout(() => startListening(), 350);
     }
@@ -516,12 +513,12 @@ async function startLiveVoice() {
         liveSess = await openLiveSession({
             apiKey: settings.geminiKey,
             systemPrompt,
-            // Native tool calling — Mia gets the same registry voice mode
+            // Native tool calling. Mia gets the same registry voice mode
             // had no access to before. Gemini Live decides from speech
             // intent which tool to invoke; onToolCall dispatches it.
             functionDeclarations: TOOL_DECLARATIONS,
             onTextOut: (text) => {
-                // Mia caption — append to the running utterance, not a new
+                // Mia caption, append to the running utterance, not a new
                 // div per fragment. Live streams these in word/syllable
                 // chunks; one DOM block per chunk made the captions stack
                 // vertically (word-below-word). Now we maintain a single
@@ -532,12 +529,12 @@ async function startLiveVoice() {
                 session.liveMiaUtterance += fragment;
                 renderLiveMiaCaption(session.liveMiaUtterance);
                 if (session.minimized) setLauncherCaption(session.liveMiaUtterance, 'mia');
-                // A new Mia turn started — reset persistence flag so
+                // A new Mia turn started, reset persistence flag so
                 // turnComplete knows there's something to save.
                 session.liveTurnPersisted = false;
             },
             onTextIn: (text) => {
-                // User caption — same buffering: append, then render once
+                // User caption, same buffering: append, then render once
                 // so the user's spoken text grows in place, not stacked.
                 if (!text) return;
                 session.liveUserUtterance += String(text);
@@ -630,7 +627,7 @@ async function startLiveVoice() {
         session.liveAudioOut = null;
         session.liveMode = false;
         // Fall through to the classic path.
-        setStatus('Live unavailable — switching to standard voice…');
+        setStatus('Live unavailable, switching to standard voice…');
         setTimeout(() => startListening(), 600);
     }
 }
@@ -654,7 +651,7 @@ function closeVoice() {
     session.minimized = false;
     session.autoLoop = false;
     session.awaitingConnectCue = false;
-    // Tear down both Live and Web Speech paths — whichever was active.
+    // Tear down both Live and Web Speech paths, whichever was active.
     // Idempotent if either wasn't running.
     stopLiveVoice();
     stopListening();
@@ -676,8 +673,7 @@ function closeVoice() {
     // to keep chatting in chat-mode after voice ends), launcher
     // stays hidden. If panel is closed, launcher becomes visible.
     setLauncherVis(isSidePanelOpen('mia') ? 'hidden' : 'visible');
-    // Note: we don't close the Mia panel itself when voice closes —
-    // user might want to drop back to chat in the same panel. They
+    // Note: we don't close the Mia panel itself when voice closes, // user might want to drop back to chat in the same panel. They
     // close the panel separately via the chat ✕ button.
 }
 
@@ -689,7 +685,7 @@ function closeVoice() {
 function minimizeVoice() {
     if (!session.open) return;
     session.minimized = true;
-    // Closing the panel via the stack is intentional — minimize means
+    // Closing the panel via the stack is intentional, minimize means
     // "get the panel out of the way". The voice session keeps running.
     // Going through the stack also re-promotes any other open panel
     // (Portfolio) to the right edge.
@@ -712,7 +708,7 @@ function restoreVoice() {
     if (overlay) overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.remove('mia-voice-minimized');
     setLauncherOrbMode(false);
-    // Voice panel is open in voice-active mode — hide the launcher
+    // Voice panel is open in voice-active mode, hide the launcher
     // (the panel is the focus). When voice closes entirely, the
     // closeVoice path will set this back to 'visible'.
     setLauncherVis('hidden');
@@ -768,7 +764,7 @@ function ensureLauncherCanvas(launcher) {
 // of the launcher; the launcher's own coords drive placement so window
 // resizes / mobile layouts work without extra wiring.
 //
-// Pairs with .mia-launcher-glass — a soft backdrop-blur "glass plate"
+// Pairs with .mia-launcher-glass, a soft backdrop-blur "glass plate"
 // that activates only when the caption is visible, covering the orb +
 // caption area so the underlying page reads softer behind the active
 // conversation.
@@ -863,7 +859,7 @@ function setOrbState(s) {
     //     never talk over Mia's actual voice) and stops the thinking loop.
     //   - leaving 'speaking' clears the gate so ticks/thinking resume.
     //   - 'thinking' starts the bubble loop (between utterances, while she
-    //     reasons / runs tools — this is allowed in voice mode).
+    //     reasons / runs tools, this is allowed in voice mode).
     //   - 'listening' fires the soft rising cue + ensures the loop is off.
     if (prev !== s) {
         try {
@@ -918,7 +914,7 @@ function setTranscript(msg) {
 
 // Live-mode caption renderers. Live streams transcriptions as small
 // fragments (word/syllable chunks). We keep ONE growing element per
-// speaker per turn and overwrite its text — so the caption flows like
+// speaker per turn and overwrite its text, so the caption flows like
 // a sentence (left to right, wrapping naturally) instead of stacking
 // vertically (one line per fragment, which is what was happening
 // when each fragment created a new div via appendTranscript).
@@ -980,7 +976,7 @@ function persistLiveTurn() {
     if (!userText && !miaText) return;
     session.liveTurnPersisted = true;
 
-    // Archive in the in-panel transcript — keep the visual record
+    // Archive in the in-panel transcript, keep the visual record
     // visible above the now-empty live row.
     const el = document.getElementById('mia-voice-transcript');
     if (el) {
@@ -995,7 +991,7 @@ function persistLiveTurn() {
     }
 
     // Persist into Mia's chat history so the chat panel shows the
-    // voice-mode conversation. Re-load fresh — another tab or the
+    // voice-mode conversation. Re-load fresh, another tab or the
     // chat panel itself may have appended in parallel.
     const updated = loadHistory();
     if (userText) updated.push({ role: 'user', content: userText });
@@ -1063,7 +1059,7 @@ function appendTranscript(sentence) {
 // Snap a character index up to the END of the word that contains it, so
 // the caption always advances on whole-word boundaries. Without this
 // snap a fallback timer (which thinks in characters) leaves half-words
-// stranded — "becau" / "becaus" / "because" — which reads as broken
+// stranded, "becau" / "becaus" / "because", which reads as broken
 // streaming, not word-by-word like real captions.
 function snapToWordBoundary(sentence, charIdx) {
     if (charIdx <= 0) return 0;
@@ -1108,7 +1104,7 @@ function highlightTranscript(sentence, charIdx) {
         }
     }
     // Mirror the spoken portion into the launcher caption so the user
-    // reads along with what Mia is actually saying out loud — matches
+    // reads along with what Mia is actually saying out loud, matches
     // the audio pace, not just the full sentence dumped at once.
     if (session.minimized) {
         const partial = sentence.slice(0, upTo);
@@ -1129,7 +1125,7 @@ function syncChatThread(historyOverride) {
     if (!document.getElementById('mia-thread')) return;
     try {
         renderThread(historyOverride || session.history);
-    } catch (_) { /* mia-thread not mounted yet — fine, will sync next render */ }
+    } catch (_) { /* mia-thread not mounted yet, fine, will sync next render */ }
 }
 
 function onOrbTap() {
@@ -1138,7 +1134,7 @@ function onOrbTap() {
     if (session.state === 'speaking' || session.state === 'thinking') {
         stopSpeaking();
         abortAgent();
-        // Restart listening immediately — that's the "interrupt mid-sentence"
+        // Restart listening immediately, that's the "interrupt mid-sentence"
         // feel the user wanted from ChatGPT's voice mode.
         startListening();
         return;
@@ -1149,7 +1145,7 @@ function onOrbTap() {
         stopListening();
         const text = (session.finalTranscript + ' ' + session.interimTranscript).trim();
         if (text) handleUserUtterance(text);
-        else startListening(); // Empty — just re-arm.
+        else startListening(); // Empty, just re-arm.
         return;
     }
     // idle → start listening
@@ -1169,7 +1165,7 @@ function startListening() {
     try {
         ensureMicAnalyser();
     } catch (err) {
-        // Mic permission denied or no input device — fall back to a
+        // Mic permission denied or no input device, fall back to a
         // synthesised idle pulse so the orb still moves visibly.
         console.warn('[voice] mic analyser unavailable:', err);
     }
@@ -1195,7 +1191,7 @@ function startListening() {
     rec.onerror = (e) => {
         console.warn('[voice] recognition error:', e.error);
         // 'no-speech' = the user just paused. We DON'T want to drop to
-        // idle and force a tap to resume — voice mode should feel like
+        // idle and force a tap to resume, voice mode should feel like
         // an open mic. The onend handler re-arms automatically. Same
         // story for 'aborted' (we cancelled it ourselves).
         if (e.error === 'no-speech' || e.error === 'aborted') return;
@@ -1207,7 +1203,7 @@ function startListening() {
     rec.onend = () => {
         // Some browsers fire onend without ever firing a final result if the
         // user said nothing. If we have text, run the turn. If not,
-        // auto-rearm so voice mode behaves like an always-on mic — silent
+        // auto-rearm so voice mode behaves like an always-on mic, silent
         // moments shouldn't kick the user back to a tap-to-resume state.
         if (session.state !== 'listening') return;
         const text = (session.finalTranscript + ' ' + session.interimTranscript).trim();
@@ -1215,14 +1211,14 @@ function startListening() {
             handleUserUtterance(text);
             return;
         }
-        // No speech this round — restart listening transparently. autoLoop
+        // No speech this round, restart listening transparently. autoLoop
         // controls whether voice mode keeps itself alive (true while the
         // overlay is open and the user hasn't closed it). Status stays as
         // "Listening…" so the user sees no break in the conversation flow.
         if (session.autoLoop && session.open) {
             // setTimeout(0) puts the new SR.start() in the next tick, so
             // the previous instance has fully torn down before we spin up
-            // a fresh one — Chrome throws InvalidStateError if you call
+            // a fresh one. Chrome throws InvalidStateError if you call
             // start() on a recognizer that isn't quite finished ending.
             setTimeout(() => {
                 if (session.open && session.state === 'listening') startListening();
@@ -1270,7 +1266,7 @@ async function handleUserUtterance(text) {
 
     // Persist the user turn into Mia's chat history so the side panel and
     // voice mode share state. Anything you say to Mia by voice shows up in
-    // the chat panel too — and vice versa.
+    // the chat panel too, and vice versa.
     session.history.push({ role: 'user', content: text });
     saveHistory(session.history);
     syncChatThread(); // user bubble appears behind the blur immediately
@@ -1292,7 +1288,7 @@ async function handleUserUtterance(text) {
                 // Surface WHAT Mia is doing, not just that something is
                 // happening. The actionVerbFor map (shared with the chat
                 // path's tool badges) gives a user-friendly verb per tool
-                // name — never the raw tool identifier. Updates both the
+                // name, never the raw tool identifier. Updates both the
                 // in-panel status text AND the floating launcher caption
                 // so minimized users see it too. Shimmer class is added
                 // so the status text reads as "in-progress" with a
@@ -1368,7 +1364,7 @@ function drainSpeakQueue() {
     session.speaking = true;
     // Stream the spoken text into the visible transcript word-by-word as
     // the TTS utterance fires boundary events. The user reads what Mia
-    // is saying in lock-step with hearing it — same reason captioning
+    // is saying in lock-step with hearing it, same reason captioning
     // boosts comprehension on streaming video.
     appendTranscript(next);
     let charIdx = 0;
@@ -1379,7 +1375,7 @@ function drainSpeakQueue() {
     if (v) u.voice = v;
     // Adaptive pacing for a more human cadence:
     // - Full statements (ending in . ! ?) read slightly slower so the
-    //   beat at the end has weight — declarative cadence.
+    //   beat at the end has weight, declarative cadence.
     // - Clause-y / comma-ending fragments stay at the brisker rate so the
     //   thought feels in-flight and connects to the next utterance.
     // - Pitch varies in a tiny ±0.04 band per utterance so a multi-
@@ -1392,7 +1388,7 @@ function drainSpeakQueue() {
     // Pre-tokenize the sentence into word-end indices. Caption advance
     // jumps to whichever word-end is closest to the current audio
     // position, which keeps the visible text aligned with the spoken
-    // word — never half a word, never lagging by a paragraph. This
+    // word, never half a word, never lagging by a paragraph. This
     // word-grid is shared by both the boundary path (Chrome/Edge) and
     // the timer fallback (Firefox/Safari) so the on-screen behavior is
     // identical regardless of browser support.
@@ -1406,7 +1402,7 @@ function drainSpeakQueue() {
         // Start the per-word fallback advance immediately. If onboundary
         // fires we cancel it (the browser is doing real word sync); if
         // it doesn't, this drives caption advance at ~roughly the audio
-        // pace. No 200ms delay — that just left the first word stranded.
+        // pace. No 200ms delay, that just left the first word stranded.
         let wordIdx = 0;
         const advanceTick = () => {
             if (boundaryFired || !session.speaking) { highlightTimer = null; return; }
@@ -1451,7 +1447,7 @@ function drainSpeakQueue() {
     };
     u.onerror = (e) => {
         // 'canceled' / 'interrupted' fires when we call cancel() ourselves
-        // — that's expected, not a bug. Other errors we log.
+        //, that's expected, not a bug. Other errors we log.
         if (e.error && e.error !== 'canceled' && e.error !== 'interrupted') {
             console.warn('[voice] tts error:', e.error);
         }
@@ -1491,7 +1487,7 @@ function pickVoice() {
     if (!voices?.length) return null;
     // Prefer a high-quality English neural voice when available. Edge ships
     // "Microsoft Aria Online (Natural)" / "Guy Online (Natural)" which sound
-    // close to Cortana — far better than the OS default. Chrome on macOS has
+    // close to Cortana, far better than the OS default. Chrome on macOS has
     // "Samantha" / "Karen". Fall back to any en-* voice; last resort: first
     // available.
     // Preference order: neural cloud voices first (best quality), then OS
@@ -1540,7 +1536,7 @@ function pulseOrb() {
 // minimized/active orb from the main orb.
 const orbTargets = new Map(); // key (string) -> { ctx, W, H, palette }
 
-// Siri-style palette — extra hues so the rotation around the orb feels
+// Siri-style palette, extra hues so the rotation around the orb feels
 // like a continuous gradient sweep, not three jumpy color bands.
 const SIRI_PALETTE = [
     '56, 189, 248',   // sky-400
@@ -1588,7 +1584,7 @@ function setupCanvas() {
     // tinted single-color. Ribbon count kept low (3) and glow neutral so
     // it doesn't get noisy at the larger 240px panel size.
     // ribbonWidth 0.5 makes the main-orb ribbons noticeably thinner than
-    // the launcher's — they read as "strings" instead of bands.
+    // the launcher's, they read as "strings" instead of bands.
     // To revert to the original single-accent orb, pass `null` for the
     // palette and drop the opts.
     registerOrbTarget('main', canvas, SIRI_PALETTE, {
@@ -1600,7 +1596,7 @@ function setupCanvas() {
         haloMul: 1.0,
         // Note: drawOrb uses Math.min(W, H) * 0.40 for baseR. With our
         // canvas at 150% of the button (so ~360px when button is 240),
-        // baseR becomes ~144 — but the visible orb the user perceives
+        // baseR becomes ~144, but the visible orb the user perceives
         // is still the 240px button. That intentional gap between baseR
         // and the visible boundary is what gives the halo room to fade
         // out softly instead of hitting an arbitrary cap.
@@ -1638,7 +1634,7 @@ function updateAmplitude(now) {
         else raw = syntheticSpeechAmplitude(now);
     } else if (session.state === 'thinking') raw = 0.45 + 0.35 * Math.abs(Math.sin(now * 0.005));
     else raw = 0.20 + 0.05 * Math.sin(now * 0.003); // idle breath
-    // EMA smoothing — heavier on Live mode (real RMS) since we already
+    // EMA smoothing, heavier on Live mode (real RMS) since we already
     // smoothed at the analyser level. Web Speech path uses synthetic amp
     // and benefits from a brisker response so the orb feels alive.
     const k = session.liveMode ? 0.86 : 0.78;
@@ -1681,7 +1677,7 @@ function drawOrb(now, target) {
     const cx = W / 2, cy = H / 2;
     ctx.clearRect(0, 0, W, H);
 
-    // Amplitude is shared across targets — updated once per frame in
+    // Amplitude is shared across targets, updated once per frame in
     // startCanvasLoop's tick. All orbs (main + launcher) pulse together.
     const amp = session.smoothedAmp;
 
@@ -1728,7 +1724,7 @@ function drawOrb(now, target) {
     const corePalette = pickColor(0);
 
     // Outermost ambient glow halo. Sized so the gradient terminates *inside*
-    // the canvas, not at its hard edge — otherwise we get a visible ring
+    // the canvas, not at its hard edge, otherwise we get a visible ring
     // where the halo gets clipped (canvas is square-ish but the orb is
     // round visually). Halo terminates at ~95% of the canvas-half so the
     // outer alpha is already 0 by the time it could touch the edge.
@@ -1740,7 +1736,7 @@ function drawOrb(now, target) {
     ctx.fillStyle = haloGrad;
     ctx.beginPath(); ctx.arc(cx, cy, haloR, 0, Math.PI * 2); ctx.fill();
 
-    // Ribbons — flowing color "strings" that orbit the core at varying
+    // Ribbons, flowing color "strings" that orbit the core at varying
     // radii. Each ribbon is a stroked sinusoid wrapped around a base
     // circumference, so it reads as a flexible flowing line. Multiple
     // ribbons at different phases + radii create the rotating color
@@ -1823,7 +1819,7 @@ function drawOrb(now, target) {
         ctx.restore();
     }
 
-    // Petal/wave layers — N rotating offset blobs that pulse with amp and
+    // Petal/wave layers. N rotating offset blobs that pulse with amp and
     // each pick a hue from the palette via flow-shifted lookup. With more
     // petals (launcher uses 8) and time-shifted color, the orb reads as a
     // continuous iridescent gradient sweep instead of distinct lobes.
@@ -1864,7 +1860,7 @@ function drawOrb(now, target) {
     }
     ctx.restore();
 
-    // Inner solid orb — the bright "ball" the petals halo around.
+    // Inner solid orb, the bright "ball" the petals halo around.
     // Sized smaller (was 0.62) so the petals + ribbons + ECG mark have
     // more room to read, and the core feels like an inner light source
     // rather than a dominant ball.
@@ -1873,8 +1869,7 @@ function drawOrb(now, target) {
     core.addColorStop(0, `rgba(255, 255, 255, ${0.92 + amp * 0.08})`);
     core.addColorStop(0.18, `rgba(${corePalette}, ${0.95})`);
     core.addColorStop(1, `rgba(${corePalette}, 0.55)`);
-    ctx.fillStyle = core;
-    ctx.beginPath(); ctx.arc(cx, cy, coreR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = core, ctx.beginPath(); ctx.arc(cx, cy, coreR, 0, Math.PI * 2); ctx.fill();
 
     // Specular highlight on the upper-left so the core reads as 3D.
     ctx.fillStyle = `rgba(255, 255, 255, ${0.30 + amp * 0.15})`;

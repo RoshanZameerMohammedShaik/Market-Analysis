@@ -1,14 +1,14 @@
 // Today's locked call + live status.
 //
 // The problem this solves: the engine recomputes on every refresh, so the
-// on-screen signal/confidence/targets drifted minute-to-minute — which
+// on-screen signal/confidence/targets drifted minute-to-minute, which
 // reads as "no conviction" and is confusing ("which number do I act on?").
 //
 // The fix (designed with Roshan): there is ONE prediction per symbol per
-// day — the FIRST one computed today — and it HOLDS. Subsequent recomputes
+// day, the FIRST one computed today, and it HOLDS. Subsequent recomputes
 // don't replace it; instead the live price drives a STATUS of that locked
 // call (on-track / target-reached / stopped / reversed). One number to
-// act on, plus an honest read of how it's playing out — never a second
+// act on, plus an honest read of how it's playing out, never a second
 // competing prediction.
 //
 // Locked calls live in localStorage keyed by symbol+date, so they survive
@@ -171,14 +171,13 @@ export function lockCall(symbol, prediction, anchor = null) {
 
 // The AUTHORITATIVE daily lock, ledger-first.
 //
-// The day's locked call should be the engine's OPEN-of-market commitment —
-// the row the Python cron wrote at market open with the OPEN price as entry.
+// The day's locked call should be the engine's OPEN-of-market commitment, // the row the Python cron wrote at market open with the OPEN price as entry.
 // That's what makes "did today's prediction reach its target by close?" an
 // honest question: the baseline is the morning open, identical for everyone,
 // regardless of when (or whether) the user opened this symbol's page.
 //
 // Order:
-//   1. ledger row for symbol+today (readTodayLock) — open-locked entry,
+//   1. ledger row for symbol+today (readTodayLock), open-locked entry,
 //      signal, confidence, derived target band. PRIMARY.
 //   2. else → the browser visit-time lock (lockCall below). FALLBACK, only
 //      for symbols outside the cron universe or before the cron has run for
@@ -262,26 +261,26 @@ export function computeStatus(locked, livePrice) {
 
     if (signal === 'BUY') {
         if (predictedHigh != null && livePrice >= predictedHigh) {
-            return { key: 'target-reached', label: '🎯 Target reached', detail: `Now ${fmtPct(movePct)} since the call — hit the predicted high.`, tone: 'good' };
+            return { key: 'target-reached', label: '🎯 Target reached', detail: `Now ${fmtPct(movePct)} since the call, hit the predicted high.`, tone: 'good' };
         }
         if (predictedLow != null && livePrice <= predictedLow) {
             return { key: 'stopped', label: '⚠ Stopped out', detail: `Dropped to the predicted low (${fmtPct(movePct)}). The setup didn't hold.`, tone: 'bad' };
         }
-        if (movePct <= -1) return { key: 'reversed', label: '↘ Moving against the call', detail: `Down ${fmtPct(movePct)} since the call — watch closely.`, tone: 'bad' };
+        if (movePct <= -1) return { key: 'reversed', label: '↘ Moving against the call', detail: `Down ${fmtPct(movePct)} since the call, watch closely.`, tone: 'bad' };
         if (movePct >= 0.3) return { key: 'on-track', label: '↗ On track', detail: `Up ${fmtPct(movePct)} toward the target.`, tone: 'good' };
-        return { key: 'flat', label: '● Holding', detail: `${fmtPct(movePct)} since the call — little movement yet.`, tone: 'neutral' };
+        return { key: 'flat', label: '● Holding', detail: `${fmtPct(movePct)} since the call, little movement yet.`, tone: 'neutral' };
     }
     if (signal === 'SELL') {
         if (predictedLow != null && livePrice <= predictedLow) {
-            return { key: 'target-reached', label: '🎯 Target reached', detail: `Now ${fmtPct(movePct)} since the call — hit the predicted low.`, tone: 'good' };
+            return { key: 'target-reached', label: '🎯 Target reached', detail: `Now ${fmtPct(movePct)} since the call, hit the predicted low.`, tone: 'good' };
         }
         if (predictedHigh != null && livePrice >= predictedHigh) {
             return { key: 'stopped', label: '⚠ Stopped out', detail: `Rose to the predicted high (${fmtPct(movePct)}). The short setup didn't hold.`, tone: 'bad' };
         }
-        if (movePct >= 1) return { key: 'reversed', label: '↗ Moving against the call', detail: `Up ${fmtPct(movePct)} since the call — watch closely.`, tone: 'bad' };
+        if (movePct >= 1) return { key: 'reversed', label: '↗ Moving against the call', detail: `Up ${fmtPct(movePct)} since the call, watch closely.`, tone: 'bad' };
         if (movePct <= -0.3) return { key: 'on-track', label: '↘ On track', detail: `Down ${fmtPct(movePct)} toward the target.`, tone: 'good' };
-        return { key: 'flat', label: '● Holding', detail: `${fmtPct(movePct)} since the call — little movement yet.`, tone: 'neutral' };
+        return { key: 'flat', label: '● Holding', detail: `${fmtPct(movePct)} since the call, little movement yet.`, tone: 'neutral' };
     }
-    // NEUTRAL / NO_TRADE — no directional target; just report drift.
-    return { key: 'flat', label: '● No directional call', detail: `${fmtPct(movePct)} since open — engine sat this one out today.`, tone: 'neutral' };
+    // NEUTRAL / NO_TRADE, no directional target; just report drift.
+    return { key: 'flat', label: '● No directional call', detail: `${fmtPct(movePct)} since open, engine sat this one out today.`, tone: 'neutral' };
 }

@@ -70,7 +70,7 @@ export function symbolSector(symbol) {
 }
 
 // The set of US large-caps we have a sector mapping for. Used as the
-// earnings-calendar scan universe — these are liquid names with reliable
+// earnings-calendar scan universe, these are liquid names with reliable
 // Yahoo earnings dates, so the calendar stays fast and accurate rather
 // than scanning the entire global pool (which would be slow and many of
 // whose foreign listings lack clean earnings data on the free path).

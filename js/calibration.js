@@ -2,11 +2,11 @@
 //
 // Strata picked in priority order at inference time:
 //   0. Live ledger by horizon+signal (real-world hit rate from
-//      record_outcomes.py) — if the bucket has ≥30 samples, this beats
+//      record_outcomes.py), if the bucket has ≥30 samples, this beats
 //      everything because it reflects current model behavior in current
 //      market conditions, not a backtest replay.
 //   0b. Live ledger by region (when no horizon+signal bucket but the
-//       region has data — covers non-US markets).
+//       region has data, covers non-US markets).
 //   1. Recency-weighted backtest curve (exp decay 30d)
 //   2. Volatility tier (low / mid / high VIX)
 //   3. Liquidity tier (mega/large/mid/small/penny)
@@ -25,10 +25,10 @@ let lastSourceUsed = null;        // for telemetry: which strata answered last c
 export async function loadCalibration() {
     if (calibrationStatus !== 'unloaded') return calibration;
     // Each source loads INDEPENDENTLY. A failure in one (e.g. a malformed
-    // backtest_results.json — historically it shipped bare `NaN` tokens that
+    // backtest_results.json, historically it shipped bare `NaN` tokens that
     // throw in JSON.parse) must NOT take down the other. Previously both were
     // in one try/catch, so a backtest parse error bailed before live
-    // calibration loaded — silently disabling ALL live-ledger calibration and
+    // calibration loaded, silently disabling ALL live-ledger calibration and
     // dropping confidence back to raw. Isolating them prevents that cascade.
     try {
         // Backtest calibration (fallback once live has data).
@@ -46,7 +46,7 @@ export async function loadCalibration() {
     }
 
     // Live calibration from the ledger pipeline (Step 3 output).
-    // Optional — file may not exist yet on fresh deploys.
+    // Optional, file may not exist yet on fresh deploys.
     try {
         const lr = await fetch('./model/live_calibration.json');
         if (lr.ok) liveCalibration = await lr.json();
@@ -58,7 +58,7 @@ export async function loadCalibration() {
 
 export function getCalibrationStatus() { return calibrationStatus; }
 
-// Mirror of ledger_universe.region_for — keep in sync. The region tag
+// Mirror of ledger_universe.region_for, keep in sync. The region tag
 // makes Priority 0b region-specific live calibration usable for non-US
 // symbols (RELIANCE.NS, 0700.HK, 7203.T, etc.) once the ledger has ≥30
 // resolved horizons in that region's bucket.
@@ -151,7 +151,7 @@ function resolveBucket(rawConfidence, mapGetter) {
     const parentSlots = parentChildren.flatMap(k => [].concat(mapGetter(k)));
     const parent = mergeSlots(parentSlots);
     if (parent && parent.n >= MIN_BUCKET_N) return parent;
-    // Neither clears the floor — return the finer one if it exists at all
+    // Neither clears the floor, return the finer one if it exists at all
     // (caller still applies its own >=30 gate via the returned n).
     return fineSlot || parent || null;
 }
@@ -176,7 +176,7 @@ function liveRegionLookup(rawConfidence, region) {
 // only loaded by ui/core.js init, which raced against confidence.js
 // callers that fire from Hot Picks / scanner / prewarm before init
 // finished. Result: liveCalibration was null on early calls and
-// calibrate() returned raw confidence unchanged — every signal looked
+// calibrate() returned raw confidence unchanged, every signal looked
 // pinned to the commitFloor (~53). Lazy-load eliminates that race.
 let _loadingPromise = null;
 function ensureLoaded() {
@@ -200,8 +200,7 @@ export async function calibrateWithMeta(rawConfidence, opts) {
     await ensureLoaded();
     const value = calibrate(rawConfidence, opts);
     // lastSourceUsed/lastSampleN were just set synchronously by the line
-    // above, in THIS microtask, before any other calibrate() can run —
-    // so reading them here (no await between) is race-free.
+    // above, in THIS microtask, before any other calibrate() can run, // so reading them here (no await between) is race-free.
     return { value, n: lastSampleN, source: lastSourceUsed };
 }
 
@@ -213,7 +212,7 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
     // memory (may be null on the very first call).
     ensureLoaded();
     // Priority 0: live ledger by REGION first (asset-class-matched, real-world).
-    // This MUST come before the asset-blind byHorizon lookup below — otherwise a
+    // This MUST come before the asset-blind byHorizon lookup below, otherwise a
     // stock calibrates against the pooled byHorizon bucket, which right now (post
     // 2026-06-06 engine reset) is built almost entirely from CRYPTO outcomes
     // (the only region with resolved 1d samples yet). Calibrating a US megacap
@@ -226,7 +225,7 @@ export function calibrate(rawConfidence, { tier = null, volTier = null, region =
         lastSourceUsed = 'live-region'; lastSampleN = liveR.n;
         return Math.round(liveR.actual);
     }
-    // Priority 0b: asset-BLIND live ledger by horizon+signal — ONLY when region
+    // Priority 0b: asset-BLIND live ledger by horizon+signal. ONLY when region
     // is unknown. With a known region we deliberately skip this to avoid
     // cross-asset contamination (see above); a thin region just rebuilds via
     // backtest until it has its own resolved samples.
@@ -286,7 +285,7 @@ export function getTrackRecordStatus() {
 export function getCalibrationSource() { return lastSourceUsed; }
 // Sample size behind the LAST calibrate() answer (0 when raw/ungrounded).
 // Lets callers size an HONEST confidence band: wide when few samples back
-// the rate, tight when many — the binomial standard error of the hit-rate,
+// the rate, tight when many, the binomial standard error of the hit-rate,
 // instead of a heuristic guess-stack.
 export function getCalibrationSampleN() { return lastSampleN; }
 export function getLiveCalibration() { return liveCalibration; }
@@ -295,7 +294,7 @@ export function getLiveCalibration() { return liveCalibration; }
 // byHorizon (1, 3, 5, 10, 20 days) showing the historical hit-rate for
 // signals near this confidence level at that horizon. UI uses this so
 // the user can see "engine has been 62% accurate at 1d but only 51% at
-// 20d in this band" — i.e., trust shorter horizons more.
+// 20d in this band", i.e., trust shorter horizons more.
 //
 // Returns null when the live ledger doesn't have enough resolved
 // horizons yet (we need at least 30 samples per horizon to be honest).

@@ -2,10 +2,10 @@
 //
 // Why this lives here: rates have a known asymmetric effect on equities.
 // When 10Y yield rises sharply, the discount rate on future cashflows
-// goes up — long-duration / growth names take it on the chin first.
+// goes up, long-duration / growth names take it on the chin first.
 // Tech (XLK), Communication Services growth (XLC), Real Estate (XLRE),
 // Utilities (XLU) are the classic rate-sensitive sectors. Defensives
-// like staples (XLP), energy (XLE), and financials (XLF — banks
+// like staples (XLP), energy (XLE), and financials (XLF, banks
 // actually benefit from rising rates via NIM) are less affected or
 // helped.
 //
@@ -47,7 +47,7 @@ async function fetchYield10Y() {
         // bug alive: it read as documentation of a deliberate choice rather than an assumption worth
         // rechecking. Verified against the live feed, and there is now a range guard so a units
         // change fails loudly instead of scaling silently.
-        // Raw '^TNX' — fetchWithProxy encodes the URL once at the proxy
+        // Raw '^TNX', fetchWithProxy encodes the URL once at the proxy
         // layer. Pre-encoding to %5ETNX would get encoded again to
         // %255ETNX (Yahoo 404). Same bug we fixed in regime.js + market.js.
         const url = 'https://query2.finance.yahoo.com/v8/finance/chart/^TNX?range=1mo&interval=1d';
@@ -90,12 +90,12 @@ async function fetchYield10Y() {
 // Kept threshold/principle-based, not a long enumerated list of tickers:
 // we ask sectors.js for the ETF and use the ETF→sensitivity mapping.
 const SECTOR_RATE_SENSITIVITY = {
-    XLK: -1,   // Tech — long-duration cashflows, hurt by rate hikes
-    XLC: -1,   // Communication services growth (META, GOOGL, NFLX) — same
-    XLRE: -1,  // Real estate — financing-sensitive, classic rate beta
-    XLU: -1,   // Utilities — bond proxies; lose to actual bonds when yields rise
-    XLY: -0.5, // Consumer discretionary — softer hit but durables get squeezed
-    XLF: +1,   // Financials — banks earn more on rising short rates (NIM)
+    XLK: -1,   // Tech, long-duration cashflows, hurt by rate hikes
+    XLC: -1,   // Communication services growth (META, GOOGL, NFLX), same
+    XLRE: -1,  // Real estate, financing-sensitive, classic rate beta
+    XLU: -1,   // Utilities, bond proxies; lose to actual bonds when yields rise
+    XLY: -0.5, // Consumer discretionary, softer hit but durables get squeezed
+    XLF: +1,   // Financials, banks earn more on rising short rates (NIM)
     XLE: 0,
     XLV: 0,
     XLP: 0,
@@ -129,14 +129,14 @@ export async function getYieldAdjustment(symbol, signal) {
 
     if (sensitivity < -0.4) {
         // Rate-sensitive sector
-        if (rising && signal === 'BUY') { adjust = -3; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d) — headwind for ${sectorLabel} long`; }
-        else if (rising && signal === 'SELL') { adjust = +2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d) — tailwind for ${sectorLabel} short`; }
-        else if (falling && signal === 'BUY') { adjust = +2; reason = `10Y yield ${trendWord} (${delta.toFixed(2)}pp/5d) — tailwind for ${sectorLabel} long`; }
-        else if (falling && signal === 'SELL') { adjust = -2; reason = `10Y yield ${trendWord} (${delta.toFixed(2)}pp/5d) — headwind for ${sectorLabel} short`; }
+        if (rising && signal === 'BUY') { adjust = -3; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d), headwind for ${sectorLabel} long`; }
+        else if (rising && signal === 'SELL') { adjust = +2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d), tailwind for ${sectorLabel} short`; }
+        else if (falling && signal === 'BUY') { adjust = +2; reason = `10Y yield ${trendWord} (${delta.toFixed(2)}pp/5d), tailwind for ${sectorLabel} long`; }
+        else if (falling && signal === 'SELL') { adjust = -2; reason = `10Y yield ${trendWord} (${delta.toFixed(2)}pp/5d), headwind for ${sectorLabel} short`; }
     } else if (sensitivity > 0.4) {
-        // Banks / financials — rising rates help on net interest margin
-        if (rising && signal === 'BUY') { adjust = +2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d) — NIM tailwind for ${sectorLabel} long`; }
-        else if (rising && signal === 'SELL') { adjust = -2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d) — NIM headwind for ${sectorLabel} short`; }
+        // Banks / financials, rising rates help on net interest margin
+        if (rising && signal === 'BUY') { adjust = +2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d). NIM tailwind for ${sectorLabel} long`; }
+        else if (rising && signal === 'SELL') { adjust = -2; reason = `10Y yield ${trendWord} (+${delta.toFixed(2)}pp/5d). NIM headwind for ${sectorLabel} short`; }
     }
 
     return {

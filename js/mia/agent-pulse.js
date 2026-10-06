@@ -1,6 +1,6 @@
 // Visible feedback when Mia drives the app. The chat-bubble tool-badge tells
 // the user *what* she's doing; this module makes it visible on the page itself
-// — pulsing the control she just touched and showing a brief toast — so the
+//, pulsing the control she just touched and showing a brief toast, so the
 // agentic action doesn't feel invisible when it happens behind/around the
 // chat panel.
 
@@ -41,7 +41,7 @@ import { notifyInfo } from '../ui/notify.js';
 let _lastHandle = null;
 export function showAgentToast(text, ms = 5000) {
     if (!text) return;
-    // Only one Mia agent toast on screen at a time — close the
+    // Only one Mia agent toast on screen at a time, close the
     // previous one before opening the next so we don't stack
     // identical agent-step toasts.
     if (_lastHandle) _lastHandle.close();
@@ -63,7 +63,7 @@ export function announce({ text, target }) {
 
 // ── Agentic-motion toolkit ───────────────────────────────────────────
 // Shared helpers that make Mia's tool actions LOOK like she's doing
-// them — performing each step at a visible, human-perceptible speed
+// them, performing each step at a visible, human-perceptible speed
 // rather than mutating the DOM instantly. Used by the P&L agentic
 // flow and (via runAgenticSteps) by other control tools.
 //
@@ -114,7 +114,7 @@ export async function typeIntoInput(input, value, { perChar = 75, focus = true }
     // Brief "field filled" flash so the user sees the value land.
     input.classList.add('mia-field-filled');
     setTimeout(() => input.classList.remove('mia-field-filled'), 650);
-    // Soft pop as the field lands (not per-keystroke — that'd be maddening).
+    // Soft pop as the field lands (not per-keystroke, that'd be maddening).
     soundTick();
 }
 

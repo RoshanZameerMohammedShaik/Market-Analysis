@@ -12,18 +12,18 @@ If you change anything in `computeFeatures()` on the JS side, mirror the change 
 - Predictions degrade silently (no error, just worse accuracy)
 - Nobody notices for weeks
 
-This happened once already — the volume_ratio drift fixed in the `cipher/quality-and-accuracy` branch was exactly this kind of bug.
+This happened once already, the volume_ratio drift fixed in the `cipher/quality-and-accuracy` branch was exactly this kind of bug.
 
 If you touch features:
 
-1. Run `python backtest.py --symbol AAPL` before and after — the per-bucket hit rates should not collapse
+1. Run `python backtest.py --symbol AAPL` before and after, the per-bucket hit rates should not collapse
 2. Add a comment in both files referencing each other
 3. If the feature is new, retrain (`python train_walkforward.py`) and ship the updated `lstm_weights.json` together with the code change
 
 ## Local development
 
 ```bash
-# Browser — no install needed
+# Browser, no install needed
 python -m http.server 8000
 
 # Python tooling
@@ -37,7 +37,7 @@ python train_xgboost.py        # ~1-3 min
 
 - JS: ES modules, no build step, no TypeScript. Keep modules small and focused; the old monolithic `ui.js` is gone for a reason.
 - Python: standard library + the deps in `requirements.txt`. No new heavy deps without a clear reason.
-- No tests yet — if you add a tricky module, add a test alongside it.
+- No tests yet, if you add a tricky module, add a test alongside it.
 
 ## What we want vs. don't want
 

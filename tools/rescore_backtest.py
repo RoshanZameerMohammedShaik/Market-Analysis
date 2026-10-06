@@ -5,7 +5,7 @@ The inversion hunt showed the engine is a failed momentum-chaser at 1d:
 mean-reversion bets hit 61-66%, momentum bets 30-35%. This tool REPLAYS the
 existing ledger rows, recomputes the signal under a tunable mean-reversion
 vs momentum weighting (from the stored rsi/macd/bb), and grades the would-be
-signal against the REAL stored outcomes — at 1d AND 5d — so we can prove a
+signal against the REAL stored outcomes, at 1d AND 5d, so we can prove a
 rebalance lifts 1d without wrecking 5d BEFORE touching the live engine.
 
 This is honest because:
@@ -14,9 +14,9 @@ This is honest because:
   - We report Wilson CIs, not point estimates.
   - We sweep the weight so we see the whole curve, not a cherry-picked point.
 
-Caveat surfaced in output: this is one ~3-week regime; a weight that wins
+Caveat surfaced in output: this is one ~3-week regime, a weight that wins
 here may not generalize. That's why the live fix will be REGIME-GATED, not
-a hard tilt — this backtest only establishes the DIRECTION and rough size.
+a hard tilt, this backtest only establishes the DIRECTION and rough size.
 
 Pure stdlib. Run: python tools/rescore_backtest.py
 """
@@ -80,7 +80,7 @@ def meanrev_lean(ind):
 
 
 def blended_signal(ind, w_meanrev):
-    """Blend the two leans; w_meanrev in [0,1] is the mean-reversion weight
+    """Blend the two leans, w_meanrev in [0,1] is the mean-reversion weight
     (1 - w_meanrev goes to momentum). Returns 'BUY'/'SELL'/None (dead zone)."""
     lean = w_meanrev * meanrev_lean(ind) + (1 - w_meanrev) * momentum_lean(ind)
     if lean > 0.08:

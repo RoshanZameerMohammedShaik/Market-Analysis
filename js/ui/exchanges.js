@@ -7,7 +7,7 @@
 // Output shape is uniform: { name, country }, where name is the
 // recognizable exchange name and country is a short country label
 // users actually use ("USA", "India", "UK", "Hong Kong", "Japan").
-// fullLabel() composes them as "NSE — India" for the chart header.
+// fullLabel() composes them as "NSE. India" for the chart header.
 //
 // Adding a new exchange? One entry here covers chart header, search
 // dropdown, and any future surface that wants the same label.
@@ -77,7 +77,7 @@ const SUFFIX_INFO = {
 // code, not a suffix).
 const CODE_INFO = {
     // Crypto has no listing exchange. Without this the lookup fell through to the empty-suffix
-    // rule and the BTC header read "NASDAQ / NYSE — USA".
+    // rule and the BTC header read "NASDAQ / NYSE. USA".
     CRYPTO: { name: 'Crypto', country: '' },
     NMS: { name: 'NASDAQ', country: 'USA' },
     NGM: { name: 'NASDAQ', country: 'USA' },
@@ -142,12 +142,12 @@ function suffixFromYahooSymbol(symbol) {
 
 /**
  * Strip Yahoo's exchange suffix from a ticker for DISPLAY ONLY. The
- * suffix isn't part of the real ticker on the exchange — it's Yahoo's
+ * suffix isn't part of the real ticker on the exchange, it's Yahoo's
  * internal disambiguation tag. e.g. "CORDSCABLE.NS" is just
  * "CORDSCABLE" on NSE; "0700.HK" is just "0700" on HKEX. The exchange
  * label already conveys which listing we're showing, so the suffix is
  * redundant noise on screen. Only strip if the suffix is one we
- * recognize as an exchange tag — leaves real "." characters in
+ * recognize as an exchange tag, leaves real "." characters in
  * tickers (rare but possible) untouched.
  */
 export function displayTicker(symbol) {
@@ -172,13 +172,13 @@ export function exchangeForCode(code) {
 /**
  * Compose the user-facing label.
  * Examples:
- *   fullLabel({ name: 'NSE', country: 'India' })  → "NSE — India"
+ *   fullLabel({ name: 'NSE', country: 'India' })  → "NSE. India"
  *   fullLabel(null)                                → ""
  *   fullLabel({ name: 'Crypto', country: '' })    → "Crypto"
  */
 export function fullLabel(info) {
     if (!info?.name) return '';
-    return info.country ? `${info.name} — ${info.country}` : info.name;
+    return info.country ? `${info.name}, ${info.country}` : info.name;
 }
 
 /**

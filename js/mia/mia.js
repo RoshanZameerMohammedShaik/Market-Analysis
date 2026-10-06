@@ -1,4 +1,4 @@
-// Mia v3.6 — trading-bar thinking animation.
+// Mia v3.6, trading-bar thinking animation.
 //
 // Phase 8.7 fix: ECG sweep felt medical. Replaced with six pulsing
 // candlestick-style bars that rise/fall in a wave (mimics a price chart
@@ -27,8 +27,7 @@ let activeAbort = null;
 // Tracks an in-flight LLM turn so we can resume the streaming UI when
 // the panel is closed mid-stream and reopened. closing the panel
 // preserves the DOM (it's hidden via the side-panel stack, not
-// unmounted) but reopen calls renderChat() which wipes innerHTML —
-// the in-flight stream then writes to a bubble that no longer exists,
+// unmounted) but reopen calls renderChat() which wipes innerHTML, // the in-flight stream then writes to a bubble that no longer exists,
 // and the user sees nothing until the call completes. By keeping the
 // renderer + last-known status text here, reopen can re-create a
 // streaming bubble and re-point the renderer at it.
@@ -156,8 +155,7 @@ export function initMia() {
             // from the ACTUAL panel state (here, on every stack layout change)
             // instead of from togglePanel's branch fixes the glitch where a
             // desynced panelOpen flag / double close-trigger left the launcher
-            // stuck hidden after the panel closed. We never touch 'orb' mode —
-            // voice.js / agentic-stage own that; only flip between hidden
+            // stuck hidden after the panel closed. We never touch 'orb' mode, // voice.js / agentic-stage own that; only flip between hidden
             // (panel open in chat mode) and visible (panel closed).
             if (getLauncherVis() !== 'orb') {
                 setLauncherVis(open ? 'hidden' : 'visible');
@@ -167,7 +165,7 @@ export function initMia() {
             // mid-animation) may have left if it was interrupted by an
             // outside-click close that bypassed togglePanel's morph reset.
             // Without this the launcher can stay invisible even though
-            // data-launcher-vis is 'visible' — the reported "toggle disappears
+            // data-launcher-vis is 'visible', the reported "toggle disappears
             // when I click the main screen" glitch.
             if (!open) {
                 const launcher = document.getElementById('mia-launcher');
@@ -194,20 +192,20 @@ function initLauncherReadyDot() {
         dot.dataset.state = isConfigured() ? 'ready' : 'idle';
         launcher.appendChild(dot);
     }
-    launcher.title = isConfigured() ? 'Ask Mia — your Market Intelligence Analyst (ready)' : 'Ask Mia — set up an API key to begin';
+    launcher.title = isConfigured() ? 'Ask Mia, your Market Intelligence Analyst (ready)' : 'Ask Mia, set up an API key to begin';
 }
 let _toggleLock = false;
 function togglePanel() {
     // Re-entrancy guard: the open/close morph animations run ~250-350ms. A
     // second toggle (rapid click, or ✕ landing while a morph is mid-flight)
-    // could interleave open/close and leave the launcher stuck hidden — the
+    // could interleave open/close and leave the launcher stuck hidden, the
     // reported glitch. Ignore toggles until the in-flight one settles.
     if (_toggleLock) return;
     _toggleLock = true;
     setTimeout(() => { _toggleLock = false; }, 380);
     // Source of truth is the stack, NOT the local panelOpen flag.
     // Voice mode opens the Mia panel directly via openSidePanel('mia'),
-    // bypassing this function — so panelOpen would desync and the ✕
+    // bypassing this function, so panelOpen would desync and the ✕
     // would do the wrong thing on first click. Reading from the stack
     // guarantees the click always toggles whatever's actually visible.
     const panel = document.getElementById('mia-panel');
@@ -241,7 +239,7 @@ function togglePanel() {
         morphSendToToggle();
         closeSidePanel('mia');
         // onLayout (above) flips the launcher back to visible from the real
-        // panel state — no manual setLauncherVis here (that's what desynced).
+        // panel state, no manual setLauncherVis here (that's what desynced).
     }
 }
 function renderRoot() {
@@ -264,7 +262,7 @@ function resumeActiveStream() {
     const newBubbleId = 'mia-stream-' + Date.now();
     appendStreamingBubble(newBubbleId);
     // Re-point the renderer's target to the new bubble. paint() reads
-    // bubbleId at call time, so swapping it here is sufficient — the
+    // bubbleId at call time, so swapping it here is sufficient, the
     // next push() (or our explicit repaint below) lands in the new
     // node. firstTokenSeen=true because we want paint() to overwrite
     // with the accumulated text, not preserve the thinking indicator.
@@ -403,7 +401,7 @@ function onPrimaryAction() {
 // tier-fallback (Flash-Lite ↔ Flash). The intent classifier picks the
 // right tier per query and the cooldown map auto-falls-back when one
 // tier is rate-limited. settings.thinkingMode still exists in storage
-// as an internal escape hatch — if a future power-user toggle is needed,
+// as an internal escape hatch, if a future power-user toggle is needed,
 // re-add the button bound to a setter and the existing routing logic
 // will respect it.
 export function renderThread(history) {
@@ -412,10 +410,10 @@ export function renderThread(history) {
     if (history.length === 0) {
         thread.innerHTML = `
             <div class="mia-greet">
-                <p>Hi, I’m <strong>Mia</strong>. Ask me anything — I can call the engine, pull external sources, and drive the app for you.</p>
+                <p>Hi, I’m <strong>Mia</strong>. Ask me anything. I can call the engine, pull external sources, and drive the app for you.</p>
                 <p class="mia-greet-hint">Try asking:</p>
                 <div class="mia-suggest-list">
-                    <button class="mia-suggest mia-suggest-brief" data-prompt="Brief me on the market right now. Check my watchlist for any signals that flipped, today's top hot picks, the current macro regime, and any notable upcoming earnings. Give me a tight, scannable morning briefing — lead with what changed or what's most actionable, use the tools to ground every number, and keep it to a few short sections. Don't dump raw tool output; synthesize it like an analyst checking in.">☀️ Brief me — what's moving right now</button>
+                    <button class="mia-suggest mia-suggest-brief" data-prompt="Brief me on the market right now. Check my watchlist for any signals that flipped, today's top hot picks, the current macro regime, and any notable upcoming earnings. Give me a tight, scannable morning briefing, lead with what changed or what's most actionable, use the tools to ground every number, and keep it to a few short sections. Don't dump raw tool output, synthesize it like an analyst checking in.">☀️ Brief me, what's moving right now</button>
                     <button class="mia-suggest">Deep-dive NVDA: signal, news, and your read.</button>
                     <button class="mia-suggest">Filter Hot Picks to under $5.</button>
                     <button class="mia-suggest">If I put $1,000 in TSLA at $200, P&L at $250?</button>
@@ -451,7 +449,7 @@ function renderWithFootnote(content) {
     if (!m) return renderMarkdown(content);
     const stripped = content.replace(UNVERIFIED_TOKEN_RE, '').trim();
     const list = m[1];
-    const note = `<div class="mia-unverified-note" title="These numbers weren't in tool results or signal data—double-check them."><span class="mia-unverified-icon">⚠</span> Verify: ${escapeHtml(list)}</div>`;
+    const note = `<div class="mia-unverified-note" title="These numbers weren't in tool results or signal data-double-check them."><span class="mia-unverified-icon">⚠</span> Verify: ${escapeHtml(list)}</div>`;
     return renderMarkdown(stripped) + note;
 }
 
@@ -556,7 +554,7 @@ async function doSend() {
                 toolResults.push(ev);
                 showToolBadge(bubbleId, ev.name, ev.kind);
                 // Soft tick when Mia performs a tool action (presses a button,
-                // runs a lookup) — the per-action sound the user asked for.
+                // runs a lookup), the per-action sound the user asked for.
                 try { soundTick(); } catch (_) {}
                 continue;
             }
@@ -579,7 +577,7 @@ async function doSend() {
         const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
         const flagged = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
         const updated = loadHistory();
-        // If the LLM returned literally nothing (empty stream — Gemini
+        // If the LLM returned literally nothing (empty stream. Gemini
         // sometimes does this on filter trips, weird quota states, or
         // truncated responses), surface a real "try again" instead of
         // saving a "(empty reply)" placeholder that poisons subsequent
@@ -587,7 +585,7 @@ async function doSend() {
         // case from F12 → Console.
         if (!flagged) {
             console.warn('[mia] LLM returned an empty reply for user message:', lastUserMsg);
-            updated.push({ role: 'assistant', content: 'Hmm, I drew a blank on that one — could you ask again?' });
+            updated.push({ role: 'assistant', content: 'Hmm, I drew a blank on that one, could you ask again?' });
         } else {
             updated.push({ role: 'assistant', content: flagged });
             // Soft "done" chime when a real answer lands (text path only;
@@ -605,13 +603,13 @@ async function doSend() {
         // Preserve the partial answer the user already saw on-screen. If a
         // stream errored mid-flight (rate limit, network blip, etc.) the
         // sensible thing is to keep what was rendered and append a small
-        // note — not wipe the whole bubble and replace it with an error.
+        // note, not wipe the whole bubble and replace it with an error.
         if (partial) {
             const cleaned = scrubToolNames(stripAgentNoise(partial).trim());
             const ctxText = buildContextBlock(currentSignal);
             const lastUserMsg = [...history].reverse().find(m => m.role === 'user')?.content || '';
             const flaggedPartial = flagUnverifiedNumbers(cleaned, [ctxText, lastUserMsg, ...toolResults.map(t => JSON.stringify(t))]);
-            // Never expose "rate-limited" wording to the user — auto-tier
+            // Never expose "rate-limited" wording to the user, auto-tier
             // fallback handles quota internally. By the time we land
             // here with a partial reply, the next tier was either
             // cooling too or also hit; we swallow the specifics and
@@ -619,39 +617,38 @@ async function doSend() {
             // both cases.
             const note = aborted
                 ? '_(stopped early by you)_'
-                : '_(reply cut off — ask again to continue)_';
+                : '_(reply cut off, ask again to continue)_';
             updated.push({ role: 'assistant', content: flaggedPartial + '\n\n' + note });
         } else {
             // No partial output. The user-visible message also avoids
-            // mentioning "rate limit" specifically — they just see
+            // mentioning "rate limit" specifically, they just see
             // "had trouble; try again" unless it's an auth/key error
             // they need to actually fix.
             let userMsg;
             if (aborted) {
                 // Abort fired but no partial output landed. We don't know
-                // WHO aborted (manual stop, panel close, watchdog, race) —
-                // but the user sees the symptom either way. Surface the
+                // WHO aborted (manual stop, panel close, watchdog, race), // but the user sees the symptom either way. Surface the
                 // raw error message so they (and I) can actually diagnose
                 // instead of staring at a polite '_Stopped by you._' lie.
                 console.warn('[mia] Turn aborted:', e?.message || '(no message)', e);
-                const detail = e?.message ? ` — ${e.message}` : '';
+                const detail = e?.message ? `, ${e.message}` : '';
                 userMsg = `_Turn was interrupted${detail}. Check the browser console for [mia] entries and try again._`;
             } else if (e?.status === 401 || e?.status === 403 || /API key/i.test(e?.message || '')) {
-                userMsg = `Sorry — ${e.message}`;
+                userMsg = `Sorry, ${e.message}`;
             } else if (e?.status === 429 || e?.tierCooling) {
                 // Hit ALL fallbacks and they're all cooling. This is the
                 // only case where the user genuinely needs to know quota
                 // was exhausted, but we say it gently without exposing
                 // which tier. Cooldown badge in the usage meter shows
                 // the technical detail.
-                userMsg = "I'm rate-limited across all backends right now — give me a minute and try again.";
+                userMsg = "I'm rate-limited across all backends right now, give me a minute and try again.";
             } else {
                 // Catch-all. Surface the real error so the next person
                 // who hits this (often Roshan) doesn't have to dig
                 // through the console to find out what happened. Also
                 // log explicitly so a `[mia]` filter shows it.
                 console.warn('[mia] Turn failed:', e?.status, e?.message || '(no message)', e);
-                const detail = e?.message ? ` — ${e.message}` : '';
+                const detail = e?.message ? `, ${e.message}` : '';
                 userMsg = `Sorry, I hit an error${detail}. Check the browser console for [mia] entries.`;
             }
             updated.push({ role: 'assistant', content: userMsg });
@@ -782,7 +779,7 @@ function renderSoundsSection() {
                 ${pill('snd-notify', 'Notifications', snd.notify, off)}
                 ${pill('snd-mia', "Mia's action sounds", snd.miaActions, off)}
             </div>
-            <p class="mia-help">“Turn off all sounds” silences everything above (and Mia’s action sounds) — but never Mia’s voice / spoken responses.</p>
+            <p class="mia-help">“Turn off all sounds” silences everything above (and Mia’s action sounds), but never Mia’s voice / spoken responses.</p>
         </div>`;
 }
 function wireSoundsSection(rerender) {
@@ -797,7 +794,7 @@ function wireSoundsSection(rerender) {
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener('click', () => {
-            if (el.dataset.disabled) return;   // master off — ignore
+            if (el.dataset.disabled) return;   // master off, ignore
             const snd = getSoundSettings();
             if (cat === 'mia') {
                 const next = !snd.miaActions;

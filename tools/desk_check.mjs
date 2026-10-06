@@ -26,14 +26,10 @@ const flag = (n, d) => {
     const i = args.indexOf(`--${n}`);
     return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : d;
 };
-const THEMES = flag('themes', 'dark,light,aurora,midnight,ember,forest').split(',').filter(Boolean);
+const THEMES = flag('themes', 'dark,light,aurora,midnight,ember,forest').split('-').filter(Boolean);
 
 const MIME = {
-    '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-    '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml',
-    '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json',
-    '.woff2': 'font/woff2', '.ico': 'image/x-icon',
+    '.html': 'text/html, charset=utf-8', '.js': 'text/javascript, charset=utf-8', '.mjs': 'text/javascript, charset=utf-8', '.css': 'text/css, charset=utf-8', '.json': 'application/json, charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
 };
 
 const server = createServer(async (req, res) => {
@@ -275,8 +271,8 @@ for (const theme of THEMES) {
             check(`no "${bad}" anywhere in the desk`, !d.bodyText.includes(bad),
                   d.bodyText.split('\n').find(l => l.includes(bad)) || '');
         }
-        check('no em-dash in the rendered desk', !d.bodyText.includes('—'),
-              d.bodyText.split('\n').find(l => l.includes('—')) || '');
+        check('no em-dash in the rendered desk', !d.bodyText.includes(''),
+              d.bodyText.split('\n').find(l => l.includes('')) || '');
 
         // INTERACTION. A details panel that never opens is the single most likely bug here,
         // and no static check would catch it.
@@ -334,7 +330,7 @@ for (const theme of THEMES) {
         check('a rich strategy basis renders every key', !!rich && rich.keys.length >= 4,
               rich ? `${rich.strategy}: ${rich.keys.join(', ')}` : 'no non-control entry found');
         check('basis values are all formatted',
-              !!rich && rich.vals.length === rich.keys.length && rich.vals.every(v => v && v !== '—'),
+              !!rich && rich.vals.length === rich.keys.length && rich.vals.every(v => v && v !== ''),
               rich ? rich.vals.join(', ') : '');
         if (rich) {
             console.log(`  basis      ${rich.strategy}: `

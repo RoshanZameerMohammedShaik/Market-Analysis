@@ -12,7 +12,7 @@ export async function getEarningsProximity(symbol) {
     const c = cache.get(symbol);
     if (c && Date.now() - c.ts < TTL_MS) return c;
     try {
-        // Pass raw symbol — fetchWithProxy encodes the URL exactly once
+        // Pass raw symbol, fetchWithProxy encodes the URL exactly once
         // when routing through the worker / CORS proxy. Pre-encoding here
         // would double-encode any non-ASCII or special-char ticker.
         const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=earnings,calendarEvents`;
@@ -39,7 +39,7 @@ export async function getEarningsProximity(symbol) {
 export function earningsCap(daysUntil) {
     if (daysUntil == null) return { cap: 100, reason: null };
     if (daysUntil < 0) return { cap: 100, reason: null }; // past
-    if (daysUntil <= 1) return { cap: 60, reason: `Earnings within 1 day — binary event risk` };
-    if (daysUntil <= 5) return { cap: 70, reason: `Earnings in ${daysUntil} days — reduced predictiveness` };
+    if (daysUntil <= 1) return { cap: 60, reason: `Earnings within 1 day, binary event risk` };
+    if (daysUntil <= 5) return { cap: 70, reason: `Earnings in ${daysUntil} days, reduced predictiveness` };
     return { cap: 100, reason: null };
 }

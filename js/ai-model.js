@@ -1,11 +1,10 @@
-// AI Model — LSTM inference in pure JavaScript, ensembled with GBT when available.
+// AI Model. LSTM inference in pure JavaScript, ensembled with GBT when available.
 //
 // Phase 8 addition: tier-aware model selection. When the engine detects
 // tier='penny', we use a SEPARATE penny-trained LSTM (lstm_weights_penny.json)
 // because penny stocks have wholly different dynamics than mid/large-caps.
 // If the penny weights file isn't yet available (first ~2 weeks before the
-// Sunday cron has populated it), we transparently fall back to the main LSTM —
-// no regression for penny analyses, just unrealized upside until the file lands.
+// Sunday cron has populated it), we transparently fall back to the main LSTM, // no regression for penny analyses, just unrealized upside until the file lands.
 //
 // IMPORTANT: feature extraction here MUST match train_model.py and
 // train_penny_lstm.py exactly. Any drift biases predictions silently.
@@ -182,7 +181,7 @@ export function computeFeatures(candles, configOverride) {
         // featureCount 8 → we stop here. An 11-feature model → we append
         // the three extras. This keeps inference correct against EITHER
         // a still-deployed 8-feature model or a freshly-retrained
-        // 11-feature one — no dimension-mismatch window. See
+        // 11-feature one, no dimension-mismatch window. See
         // shared_features.py VERSION SAFETY note.
         const featureCount = cfg.features || cfg.input_size || 8;
         if (featureCount >= 11) {
@@ -327,21 +326,21 @@ export async function getAIPrediction(candles, opts = {}) {
     let modelOk = await loadModelForTier(MAIN_KEY);
     // Intraday model takes precedence on the Today horizon (when caller
     // passes intraday:true AND supplied 1h candles). It is NOT used for
-    // penny stocks — those keep their dedicated penny dynamics, which
+    // penny stocks, those keep their dedicated penny dynamics, which
     // matter more than the intraday granularity for sub-$5 names.
     if (intraday && !wantPenny) {
         const intradayOk = await loadModelForTier(INTRADAY_KEY);
         if (intradayOk) {
             modelKey = INTRADAY_KEY;
         }
-        // else fall back to main daily model — no regression if the
+        // else fall back to main daily model, no regression if the
         // intraday weights file hasn't shipped yet.
     } else if (wantPenny) {
         const pennyOk = await loadModelForTier(PENNY_KEY);
         if (pennyOk) {
             modelKey = PENNY_KEY;
         }
-        // else fall back to main — no regression on penny analyses if file missing.
+        // else fall back to main, no regression on penny analyses if file missing.
     }
     if (!modelOk && modelKey === MAIN_KEY) {
         return { score: 50, available: false, reason: 'AI model not loaded' };

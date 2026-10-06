@@ -1,7 +1,7 @@
 """
 XGBoost ensemble companion to the LSTM. Same 8 features, isotonic
 calibration, but exports a portable JSON tree format that pure-JS can
-traverse — see js/xgb-model.js.
+traverse, see js/xgb-model.js.
 
 Why bother:
   - Trees often beat tiny LSTMs on small/tabular feature sets.
@@ -10,11 +10,10 @@ Why bother:
     probabilities reflect empirical hit rates.
 
 Writes:
-    model/xgb_trees.json    (portable trees + isotonic calibrators — what JS reads)
+    model/xgb_trees.json    (portable trees + isotonic calibrators, what JS reads)
     model/xgb_metrics.json  (cv accuracy, brier score, calibration curve)
 
-Does NOT write the legacy xgb_model.json (xgboost-binary booster) anymore;
-the browser had no way to read it. xgb_trees.json replaces it.
+Does NOT write the legacy xgb_model.json (xgboost-binary booster) anymore, the browser had no way to read it. xgb_trees.json replaces it.
 """
 import json
 import os
@@ -107,7 +106,7 @@ def serialize_booster_to_portable_trees(booster):
                 flat.append({'v': float(node['leaf'])})
                 node_map[node['nodeid']] = idx
                 return idx
-            # Internal node — reserve our slot now, fill children later.
+            # Internal node, reserve our slot now, fill children later.
             idx = len(flat)
             flat.append(None)  # placeholder
             node_map[node['nodeid']] = idx
@@ -209,7 +208,7 @@ if __name__ == '__main__':
 
     out = {
         'method': 'XGBoost portable trees + isotonic calibration',
-        'n_features': SHARED_FEATURES,   # 11 — from shared_features (was hard-coded 8)
+        'n_features': SHARED_FEATURES,   # 11, from shared_features (was hard-coded 8)
         'base_score': base_score,
         'n_trees': len(portable_trees),
         'trees': portable_trees,

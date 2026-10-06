@@ -12,7 +12,7 @@
 //   ```fenced``` code blocks
 //   GitHub-flavored | a | b | tables with --- separator row
 //   blank-line paragraphs
-// Everything else is escaped first — no raw HTML, no script execution.
+// Everything else is escaped first, no raw HTML, no script execution.
 
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({

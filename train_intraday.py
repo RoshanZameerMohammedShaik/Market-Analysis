@@ -3,16 +3,16 @@ Train an INTRADAY (1-hour candle) LSTM for next-bar direction.
 
 Why a separate model: the main LSTM trains on DAILY bars, so its
 next-bar label is "tomorrow's daily move". But the app's "Today"
-timeframe is a within-the-session call — a horizon the daily model was
+timeframe is a within-the-session call, a horizon the daily model was
 never trained for. A model trained on 1h candles predicts the next 1h
 move, which is the right granularity for the Today tab. This is the
 single biggest accuracy mismatch we can close on the short horizon.
 
 Reuses everything from train_model.py (PriceLSTM, the symbol universe,
-the shared 11-feature extractor) — ONLY the data interval changes from
+the shared 11-feature extractor). ONLY the data interval changes from
 '1d' to '1h'. Feature math is identical and timeframe-agnostic, so the
 same shared_features pipeline and the same browser inference path work
-unchanged; the browser just loads a different weights file and feeds it
+unchanged, the browser just loads a different weights file and feeds it
 1h candles.
 
 Writes:
@@ -22,7 +22,7 @@ Writes:
 VERSION SAFETY: like the penny model, the browser only USES this file
 for the Today horizon when it exists AND declares a matching feature
 count. If the file is absent (first run before the cron populates it),
-the engine transparently falls back to the daily LSTM for Today — no
+the engine transparently falls back to the daily LSTM for Today, no
 regression, just unrealized upside until the file lands.
 """
 import json
@@ -110,7 +110,7 @@ def train():
             with torch.no_grad():
                 preds = (model(X_test_t) > 0.5).float()
                 acc = (preds == y_test_t).float().mean().item()
-            print(f"  Epoch {epoch+1}/{EPOCHS} — loss {total_loss/len(loader):.4f} — test acc {acc*100:.1f}%")
+            print(f"  Epoch {epoch+1}/{EPOCHS}, loss {total_loss/len(loader):.4f}, test acc {acc*100:.1f}%")
 
     model.eval()
     with torch.no_grad():

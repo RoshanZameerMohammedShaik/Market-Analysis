@@ -4,8 +4,7 @@
 // unreliable (HF Inference, Google News, Reddit, StockTwits, Yahoo
 // crumb-walled paths) gets a named breaker. On first failure within
 // the failure window, the breaker trips and short-circuits subsequent
-// calls for the cooldown duration. After cooldown, it tries again —
-// if it succeeds, the failure window resets; if it fails, cooldown
+// calls for the cooldown duration. After cooldown, it tries again, // if it succeeds, the failure window resets; if it fails, cooldown
 // extends.
 //
 // Why threshold = 1 (was 2 in earlier per-module versions): when
@@ -46,7 +45,7 @@ export function isCooling(name) {
 /**
  * Record a failure. Threshold 1 means the breaker trips immediately
  * on the first failure within the failure window. After cooldown
- * expires, the next call probes — if it succeeds, recordSuccess
+ * expires, the next call probes, if it succeeds, recordSuccess
  * resets state; if it fails, the breaker re-cools.
  */
 export function recordFailure(name) {
@@ -87,7 +86,7 @@ export async function withBreaker(name, fn, fallback = null) {
     }
 }
 
-// Inspect — used by /dev for diagnostic display if we add it later.
+// Inspect, used by /dev for diagnostic display if we add it later.
 export function getBreakerStates() {
     const out = {};
     const now = Date.now();

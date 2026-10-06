@@ -1,4 +1,4 @@
-// Spike detector — finds candidates with above-baseline probability of
+// Spike detector, finds candidates with above-baseline probability of
 // moving ≥X% in the SAME trading session (today only).
 //
 // This is honest: most picks will be wrong. Single-session ≥10% moves
@@ -21,10 +21,10 @@ import { calibrate, getCalibrationStatus } from './calibration.js';
 
 export const BUCKETS = [
     { id: 'gte10', label: '≥10%', minPct: 10, maxPct: Infinity },
-    { id: '10to20', label: '10–20%', minPct: 10, maxPct: 20 },
-    { id: '20to30', label: '20–30%', minPct: 20, maxPct: 30 },
-    { id: '30to40', label: '30–40%', minPct: 30, maxPct: 40 },
-    { id: '40to50', label: '40–50%', minPct: 40, maxPct: 50 },
+    { id: '10to20', label: '10 to 20%', minPct: 10, maxPct: 20 },
+    { id: '20to30', label: '20 to 30%', minPct: 20, maxPct: 30 },
+    { id: '30to40', label: '30 to 40%', minPct: 30, maxPct: 40 },
+    { id: '40to50', label: '40 to 50%', minPct: 40, maxPct: 50 },
     { id: 'gt50', label: '>50%', minPct: 50, maxPct: Infinity },
 ];
 
@@ -90,7 +90,7 @@ async function scoreOne({ symbol, name, price, candles, mode, regime, sectorAdj,
         return 0;
     })();
 
-    // Raw probability — weighted blend, clamped 0..1.
+    // Raw probability, weighted blend, clamped 0..1.
     const raw = Math.max(0, Math.min(1,
         meanReversion * 0.30 +
         breakout * 0.25 +
@@ -133,7 +133,7 @@ function feasibleForBucket(scored, bucket) {
     if (!scored) return false;
     // Feasible only if the candidate can physically REACH the band's floor.
     // Previously the gate used ATR×2-vs-midpoint while the projection used
-    // ATR×3, so they disagreed — a candidate could pass the gate yet project
+    // ATR×3, so they disagreed, a candidate could pass the gate yet project
     // a % outside its own bucket (e.g. ">50%" showing "+15%"). Now both use
     // physicalMaxPct, and the test is "can it reach bucket.minPct".
     return physicalMaxPct(scored) >= bucket.minPct;
@@ -165,7 +165,7 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
                 let candles = c.candles;
                 if (!candles) {
                     if (mode === 'stock') {
-                        // Bulk scan path — suffixProbe off so a single
+                        // Bulk scan path, suffixProbe off so a single
                         // missing symbol doesn't walk 6 candidates × 2
                         // URLs through the proxy chain.
                         const data = await fetchStockData(c.symbol, '3mo', '1d', { suffixProbe: false });
@@ -253,7 +253,7 @@ export async function findSpikers(candidates, bucket, onProgress, opts = {}) {
         const desiredPct = bucket.maxPct === Infinity ? bucket.minPct + 5 : (bucket.minPct + Math.min(bucket.maxPct, 80)) / 2;
         const bandCap = Math.min(bucket.maxPct === Infinity ? 80 : bucket.maxPct, physMax);
         // If physical reach can't even hit the floor, this candidate doesn't
-        // belong in the band — drop it (defense-in-depth; feasibleForBucket
+        // belong in the band, drop it (defense-in-depth; feasibleForBucket
         // already filtered, but keep the projection self-consistent).
         if (bandCap < bucket.minPct) return null;
         const projectedPct = Math.max(bucket.minPct, Math.min(desiredPct, bandCap));

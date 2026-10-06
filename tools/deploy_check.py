@@ -3,7 +3,7 @@
 WHY THIS EXISTS
 ---------------
 On 2026-08-27 Roshan asked why market-ai.pages.dev had not changed. It had not
-changed since **2026-06-07, commit 289f775 — 592 commits earlier**. Everything built
+changed since **2026-06-07, commit 289f775 to 592 commits earlier**. Everything built
 in between was on GitHub and none of it was live: the UI redesign, the calibrated
 band, the sub-penny price fix, the AI in the cron. Every local check passed, every
 push succeeded, and the site quietly served an 11-week-old build the whole time.

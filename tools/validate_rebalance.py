@@ -4,10 +4,10 @@ bull/bear weighting now in backtest.generate_prediction (short-horizon
 mean-reversion tilt), and grade the would-be 1d + 5d signal vs real
 outcomes. The ledger doesn't store ADX, so we test the tilt presets the
 live code uses (ranging mr=1.6/mom=0.45, mid mr=1.4/mom=0.6, trending
-mr=1.15/mom=0.85) to bracket what the regime-gated version will do — and
+mr=1.15/mom=0.85) to bracket what the regime-gated version will do, and
 compare every one against the engine's ACTUAL recorded 46.7% (1d).
 
-Honest: grades against the real stored pctMove sign; reports Wilson CIs.
+Honest: grades against the real stored pctMove sign, reports Wilson CIs.
 """
 import json
 import math
@@ -42,7 +42,7 @@ def score(ind, mr, mom):
     """Mirror of backtest.generate_prediction's tilted bull/bear/norm using
     only the stored indicators (rsi, macd.histogram/macd, bb.percent_b).
     ma-cross and 5-bar momentum aren't stored, so this is the RSI+MACD+BB
-    core — the dominant terms — which is enough to validate direction."""
+    core, the dominant terms, which is enough to validate direction."""
     rsi_v = ind.get('rsi')
     macd_v = ind.get('macd') or {}
     bb_v = ind.get('bb') or {}

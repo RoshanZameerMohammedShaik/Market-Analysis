@@ -1,4 +1,4 @@
-// First-open welcome screen — single path: API key (Gemini or Cloudflare).
+// First-open welcome screen, single path: API key (Gemini or Cloudflare).
 // Both keys can co-exist; runtime auto-falls-over from Gemini → CF if the
 // primary rate-limits.
 
@@ -49,7 +49,7 @@ export function renderWelcome(panel, onConfigured) {
             <div class="mia-section-heading">Connect Mia in under a minute</div>
             <div class="mia-card primary" id="mia-card-apikey">
                 <div class="mia-card-emoji">⚡</div>
-                <div class="mia-card-title">API key — instant + mobile-friendly</div>
+                <div class="mia-card-title">API key, instant + mobile-friendly</div>
                 <div class="mia-card-tags">
                     <span>Gemini + Cloudflare</span><span>Auto-fallback</span><span>Free tier</span><span>${GEMINI_MODELS[0]?.label || 'Gemini'}</span>
                 </div>
@@ -58,7 +58,7 @@ export function renderWelcome(panel, onConfigured) {
                 </div>
                 <button class="mia-card-btn primary" data-pick="apikey">Set up</button>
             </div>
-            <div class="mia-welcome-tip">No accounts, no servers. Both providers have generous free tiers — together they cover hundreds of conversations a day for free.</div>
+            <div class="mia-welcome-tip">No accounts, no servers. Both providers have generous free tiers, together they cover hundreds of conversations a day for free.</div>
         </div>
     `;
 
@@ -80,11 +80,11 @@ function renderApiKeySetup(panel, onConfigured) {
             </div>
         </div>
         <div class="mia-setup">
-            <div class="mia-section-heading">Pick a provider — or paste both for auto-fallback</div>
+            <div class="mia-section-heading">Pick a provider, or paste both for auto-fallback</div>
             <div class="mia-providers">
                 <button class="mia-prov ${s.backend === 'gemini' || (!s.backend && s.geminiKey) ? 'active' : ''}" data-prov="gemini">
                     <div class="mia-prov-name">Gemini <span class="mia-prov-badge">recommended</span></div>
-                    <div class="mia-prov-meta">Flash-Lite + Flash • 30 RPM • 250K–1M TPM • free</div>
+                    <div class="mia-prov-meta">Flash-Lite + Flash • 30 RPM • 250K-1M TPM • free</div>
                 </button>
                 <button class="mia-prov ${s.backend === 'cloudflare' ? 'active' : ''}" data-prov="cloudflare">
                     <div class="mia-prov-name">Cloudflare Workers AI</div>
@@ -121,7 +121,7 @@ function geminiFormHtml(s) {
     return `
         <ol class="mia-steps">
             <li><span class="mia-step-num">1</span> Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and sign in with your Google account.</li>
-            <li><span class="mia-step-num">2</span> Click <strong>Create API Key</strong> (free tier — no card required).</li>
+            <li><span class="mia-step-num">2</span> Click <strong>Create API Key</strong> (free tier, no card required).</li>
             <li><span class="mia-step-num">3</span> Copy the key value and paste below.</li>
         </ol>
         <label class="mia-field">
@@ -136,7 +136,7 @@ function geminiFormHtml(s) {
             <button class="mia-test-btn" id="mia-test">Test</button>
         </div>
         <div id="mia-test-result" class="mia-test-result"></div>
-        <p class="mia-help">Your key is stored only in this browser's localStorage. Mia talks to Gemini directly — no server, no proxy.</p>
+        <p class="mia-help">Your key is stored only in this browser's localStorage. Mia talks to Gemini directly, no server, no proxy.</p>
     `;
 }
 
@@ -194,7 +194,7 @@ function wireForm(prov, formEl, panel, onConfigured) {
     formEl.querySelector('#mia-connect').addEventListener('click', async () => {
         if (prov === 'gemini') {
             const key = formEl.querySelector('#mia-gemini-key').value.trim();
-            // No prefix validation — Google has begun issuing Gemini keys
+            // No prefix validation. Google has begun issuing Gemini keys
             // with prefixes other than AIza (e.g. 'AQ...'). The api-gemini
             // ping path is the real source of truth: a valid key works,
             // an invalid key gets a clean rejection there. Trust the

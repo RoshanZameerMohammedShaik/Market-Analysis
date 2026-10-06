@@ -3,16 +3,16 @@
 // when the app (and tab) is fully closed.
 //
 // Flow:
-//   1. registerServiceWorker() — registers /sw.js (root scope).
-//   2. enablePush() — asks notification permission, creates a Push
+//   1. registerServiceWorker(), registers /sw.js (root scope).
+//   2. enablePush(), asks notification permission, creates a Push
 //      subscription with the worker's VAPID public key.
-//   3. syncAlerts(alerts) — POSTs {subscription, alerts} to the worker,
+//   3. syncAlerts(alerts). POSTs {subscription, alerts} to the worker,
 //      which stores them in KV; the worker's cron then watches prices
 //      and pushes on a cross.
 //
 // CONFIG: set PUSH_API to the deployed push-alerts worker URL after
 // `wrangler deploy`. Until then push is inert (enablePush throws a clear
-// error) — the tab-open crypto alerts in price-alerts.js still work
+// error), the tab-open crypto alerts in price-alerts.js still work
 // regardless, so the app degrades gracefully.
 //
 // HONEST LIMITS (surfaced in the UI, not hidden here):
@@ -79,7 +79,7 @@ function urlBase64ToUint8Array(base64) {
 export async function enablePush() {
     if (!isPushConfigured()) throw new Error('Closed-tab push isn\'t set up yet (no backend URL configured).');
     if (!isPushSupported()) throw new Error('This browser doesn\'t support background push.');
-    if (iosNeedsInstall()) throw new Error('On iPhone, add this app to your Home Screen first — iOS only delivers push to installed apps.');
+    if (iosNeedsInstall()) throw new Error('On iPhone, add this app to your Home Screen first, iOS only delivers push to installed apps.');
 
     const reg = await registerServiceWorker();
     if (!reg) throw new Error('Couldn\'t register the background service.');

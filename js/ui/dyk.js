@@ -26,7 +26,7 @@ function scheduleNext() {
 }
 
 function showNext() {
-    // Suppress entirely on very small screens — it covers content.
+    // Suppress entirely on very small screens, it covers content.
     if (isVerySmall()) { scheduleNext(); return; }
     if (shown) { hide(); }
     const tip = nextTip();

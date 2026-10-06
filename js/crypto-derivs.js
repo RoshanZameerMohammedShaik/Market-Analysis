@@ -127,13 +127,13 @@ export function derivsAdjustment(signal, derivs, priceChange1d) {
         const extPos = f > 0.1;
         const extNeg = f < -0.1;
         if (signal === 'BUY' && extPos) {
-            adjust -= 5; reasons.push(`Funding extreme positive (${f.toFixed(3)}%/8h) — longs crowded, fading`);
+            adjust -= 5; reasons.push(`Funding extreme positive (${f.toFixed(3)}%/8h), longs crowded, fading`);
         } else if (signal === 'BUY' && extNeg) {
-            adjust += 3; reasons.push(`Funding extreme negative (${f.toFixed(3)}%/8h) — shorts trapped, contrarian boost`);
+            adjust += 3; reasons.push(`Funding extreme negative (${f.toFixed(3)}%/8h), shorts trapped, contrarian boost`);
         } else if (signal === 'SELL' && extNeg) {
-            adjust -= 5; reasons.push(`Funding extreme negative (${f.toFixed(3)}%/8h) — shorts crowded, fading`);
+            adjust -= 5; reasons.push(`Funding extreme negative (${f.toFixed(3)}%/8h), shorts crowded, fading`);
         } else if (signal === 'SELL' && extPos) {
-            adjust += 3; reasons.push(`Funding extreme positive (${f.toFixed(3)}%/8h) — longs trapped, contrarian boost`);
+            adjust += 3; reasons.push(`Funding extreme positive (${f.toFixed(3)}%/8h), longs trapped, contrarian boost`);
         }
     }
 
@@ -143,11 +143,11 @@ export function derivsAdjustment(signal, derivs, priceChange1d) {
         const oiDown = oiTrend < -1.0;
         const priceUp = priceChange1d > 0;
         if (signal === 'BUY' && priceUp && oiUp) {
-            adjust += 2; reasons.push(`OI rising ${oiTrend.toFixed(1)}% with price — fresh long conviction`);
+            adjust += 2; reasons.push(`OI rising ${oiTrend.toFixed(1)}% with price, fresh long conviction`);
         } else if (signal === 'BUY' && priceUp && oiDown) {
-            adjust -= 3; reasons.push(`OI falling ${oiTrend.toFixed(1)}% with price up — short squeeze, fragile`);
+            adjust -= 3; reasons.push(`OI falling ${oiTrend.toFixed(1)}% with price up, short squeeze, fragile`);
         } else if (signal === 'SELL' && !priceUp && oiUp) {
-            adjust += 1; reasons.push(`OI rising ${oiTrend.toFixed(1)}% with price down — fresh shorts confirming`);
+            adjust += 1; reasons.push(`OI rising ${oiTrend.toFixed(1)}% with price down, fresh shorts confirming`);
         }
     }
 

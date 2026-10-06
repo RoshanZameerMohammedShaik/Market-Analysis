@@ -83,7 +83,7 @@ function isotonicStep(cal, raw) {
  * must have AT LEAST model.n_features elements (8 for old models, 11
  * after the ADX/MFI/ATR expansion). Extra trailing elements are
  * ignored by the trees, so an 11-element vector against an old
- * 8-feature model is safe — it just doesn't use the new dims until
+ * 8-feature model is safe, it just doesn't use the new dims until
  * the XGBoost model also retrains. Returns null when model not loaded.
  * Output is a calibrated probability in [0, 1].
  */

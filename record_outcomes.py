@@ -98,7 +98,7 @@ def trading_days_passed(prediction_date: str, today: datetime.date) -> int:
 
 # A single-day move beyond this ratio is a corporate action (split, reverse
 # split, redenomination), not a return. Two AEHL rows in this ledger read +1192%
-# and +1803% in one day; unguarded they moved a 1,096-row sample's mean return
+# and +1803% in one day, unguarded they moved a 1,096-row sample's mean return
 # from -0.07% to +2.59% and its stdev from 1.6 to 65.3. Genuine penny moves of
 # 50-100% are real and must NOT be filtered, so the bar is set well above them.
 MAX_DAILY_RATIO = 3.0
@@ -136,7 +136,7 @@ def fetch_window(symbol: str, start_iso: str, days_needed: int = 0):
 
     def col(name):
         v = df[name].values.tolist() if hasattr(df[name], 'values') else []
-        # MultiIndex case for a single ticker — flatten
+        # MultiIndex case for a single ticker, flatten
         return [x[0] if isinstance(x, list) else x for x in v]
 
     closes, highs, lows = col('Close'), col('High'), col('Low')
@@ -294,7 +294,7 @@ def resolve_horizon(row: dict, h_days: int, bars):
     elif signal == 'NEUTRAL':
         direction_match = abs(pct_move) < 1.0  # NEUTRAL hits when close to flat
     else:
-        # NO_TRADE — engine abstained, there's nothing to score against.
+        # NO_TRADE, engine abstained, there's nothing to score against.
         direction_match = None
 
     # ── Target-capture quality (capturedPct + rangeHit) ──────────────────
@@ -302,13 +302,13 @@ def resolve_horizon(row: dict, h_days: int, bars):
     # adds QUALITY: of the move the engine implicitly predicted (expectedMove,
     # stored on the row at prediction time), what fraction did price actually
     # capture IN THE PREDICTED DIRECTION? Measured against the window's best
-    # favorable excursion (high for BUY, low for SELL) — "did it reach the
+    # favorable excursion (high for BUY, low for SELL), "did it reach the
     # target zone at any point", not just where it happened to close.
     #
     # Cap at 100 (reaching/exceeding the target is a full win, overshoot isn't
     # extra credit), floor at 0 (wrong-direction = 0%, directionMatch already
     # carries the up/down truth). null when the row predates target storage or
-    # is non-directional — we don't fabricate it for legacy rows.
+    # is non-directional, we don't fabricate it for legacy rows.
     captured_pct = None
     range_hit = None
     expected_move = row.get('expectedMove')
@@ -317,17 +317,17 @@ def resolve_horizon(row: dict, h_days: int, bars):
         if direction_match is False:
             # Directionally wrong (closed the wrong way) = a miss, full stop.
             # We do NOT credit a trivial intraday wiggle in the right
-            # direction on a call that ultimately closed against us — that
+            # direction on a call that ultimately closed against us, that
             # would let losing calls show a misleading "3% captured".
             captured_pct = 0
             range_hit = 'wrong_dir'
         else:
-            # Direction was right — measure how much of the predicted move
+            # Direction was right, measure how much of the predicted move
             # the best favorable excursion captured (high for BUY, low for
             # SELL): "did it reach the target zone at any point in the window".
             if signal == 'BUY':
                 favorable = (window_high - entry) if window_high is not None else move
-            else:  # SELL — favorable excursion is downward
+            else:  # SELL, favorable excursion is downward
                 favorable = (entry - window_low) if window_low is not None else -move
             raw = max(0.0, favorable / expected_move)
             captured_pct = int(round(min(1.0, raw) * 100))
@@ -366,7 +366,7 @@ def main():
     rows = load_rows(path)
     if not rows:
         # Legit no-op on the very first cron of a new year (or fresh repo).
-        print(f"No ledger rows for {year} — nothing to resolve.")
+        print(f"No ledger rows for {year}, nothing to resolve.")
         return
 
     # Cache of fetched bars per symbol so we don't re-download for each horizon.
@@ -443,7 +443,7 @@ def main():
             print(f'  {k}: {stats[k]:,}')
 
     # Hard-fail when we had work to do (mature horizons due) but resolved
-    # zero AND most fetches failed — that's yfinance being down across the
+    # zero AND most fetches failed, that's yfinance being down across the
     # board, not a legit no-op.
     if rows_with_unresolved_due > 0 and updated == 0 and errors > 0:
         ratio = errors / rows_with_unresolved_due

@@ -28,7 +28,7 @@ import { loadLedger } from '../ledger-reader.js';
 /**
  * Programmatic equivalent of the user typing a symbol and clicking the
  * first match. Reuses the existing search flow so we don't bypass any
- * validation. Stocks only — crypto picks need a coingecko id which we
+ * validation. Stocks only, crypto picks need a coingecko id which we
  * resolve here from the search result.
  */
 export async function controlSelectSymbol({ symbol, mode = 'stock' }) {
@@ -112,7 +112,7 @@ export async function controlClosePLPanel() {
     return { ok: true };
 }
 
-// Toggle the chart's "Engine Signals" mode — when ON, every symbol renders on
+// Toggle the chart's "Engine Signals" mode, when ON, every symbol renders on
 // our own lightweight-charts candle chart with the engine's past BUY/SELL
 // calls drawn as markers (green=hit, red=miss). When OFF, US tickers use the
 // TradingView embed. Persisted in localStorage; we flip it then re-render the
@@ -124,7 +124,7 @@ export async function controlToggleEngineSignals({ on = null } = {}) {
     try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) {}
     // Repaint the chart-header toggle button + re-render the chart.
     const { loadChart, attachEngineSignalsToggle } = await import('../ui/chart.js');
-    announce({ text: next ? 'Engine signals ON — showing past calls on the chart…' : 'Engine signals off — back to the standard chart…' });
+    announce({ text: next ? 'Engine signals ON, showing past calls on the chart…' : 'Engine signals off, back to the standard chart…' });
     try { loadChart(); } catch (_) {}
     try { attachEngineSignalsToggle(); } catch (_) {}
     return { ok: true, engineSignalsOn: next };
@@ -141,7 +141,7 @@ export async function controlOpenTradeModal({ symbol, side = 'BUY' } = {}) {
     if (!['BUY', 'SELL'].includes(sd)) throw new Error('side must be BUY or SELL');
     const { isInstantiated } = await import('../portfolio/state.js');
     if (!isInstantiated()) {
-        return { ok: false, reason: 'no-portfolio', message: 'No practice portfolio yet — instantiate one first (instantiate_portfolio), then open the trade modal.' };
+        return { ok: false, reason: 'no-portfolio', message: 'No practice portfolio yet, instantiate one first (instantiate_portfolio), then open the trade modal.' };
     }
     const { openTradeModal } = await import('../ui/trade-buttons.js');
     announce({ text: `Opening ${sd} ticket for ${sym}…` });
@@ -222,7 +222,7 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice, t
     // glass card. Roshan's spec: aurora-blurred backdrop + rising
     // white particles + Mia stays minimized as the orb. Subsequent
     // pl_calculate calls (multi-scenario flow) re-use the same stage
-    // since openAgenticStage() is idempotent — it closes any prior
+    // since openAgenticStage() is idempotent, it closes any prior
     // stage before opening the new one.
     const { openAgenticStage } = await import('../ui/agentic-stage.js');
     const sym = usedCurrent && state.currentSymbol ? state.currentSymbol : null;
@@ -246,7 +246,7 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice, t
     // Mia filling a fresh form.
     invEl.value = ''; buyEl.value = ''; curEl.value = '';
 
-    // Type each field in slowly, in order, at a visible speed — so the
+    // Type each field in slowly, in order, at a visible speed, so the
     // user literally watches Mia fill the calculator rather than seeing
     // the numbers blink into place. A short toast precedes each field.
     // Prices go in through roundPrice, not toFixed(2): toFixed(2) typed SHIB's price as "0.00",
@@ -276,7 +276,7 @@ export async function controlPLCalculate({ investment, buyPrice, currentPrice, t
     if (plan || orderType) setPLPrefs({ plan, orderType });
     await sleep(120);
 
-    // Visibly press Calculate, then reveal the result — scroll it into
+    // Visibly press Calculate, then reveal the result, scroll it into
     // view inside the (mid-screen, scrollable) stage card so the user
     // sees the profit/loss land instead of it sitting below the fold.
     announce({ text: 'Calculating…' });
@@ -353,7 +353,7 @@ export function controlScrollTo({ section }) {
     const el = document.getElementById(id);
     if (!el) {
         throw new Error(id === 'mia-desk'
-            ? "Mia's desk is inside the Portfolio panel — call open_portfolio_panel first, then scroll to it."
+            ? "Mia's desk is inside the Portfolio panel, call open_portfolio_panel first, then scroll to it."
             : `element #${id} not on page`);
     }
     announce({ text: `Jumping to ${section}…`, target: el });
@@ -463,12 +463,12 @@ export { readLedgerHistory } from '../ledger-reader.js';
 // Top losers / movers from today's ledger. Looks at rows whose 1d horizon
 // has resolved and ranks by largest negative pctMove (or absolute pctMove
 // if the user wants "biggest movers either way"). Powered by the same
-// ledger the engine writes — no scraping news sites for "top losers"
+// ledger the engine writes, no scraping news sites for "top losers"
 // articles, just the actual outcomes our cron recorded.
 //
 // IMPORTANT: this is scoped to OUR tracked universe (~530 symbols across
 // the regions we cover). The "worst performing stock today" answer is
-// "worst performer in our universe" — NOT "worst performer in all of
+// "worst performer in our universe". NOT "worst performer in all of
 // global markets." A microcap ADR like ZCMD that's not in our coverage
 // won't appear, even if it dropped 60%. The coverage object in the
 // return value makes that explicit so Mia can honestly qualify her
@@ -477,7 +477,7 @@ export { readLedgerHistory } from '../ledger-reader.js';
 export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) {
     const rows = await loadLedger();
     if (!rows.length) {
-        return { available: false, note: 'Ledger not seeded yet — needs at least one cron run.' };
+        return { available: false, note: 'Ledger not seeded yet, needs at least one cron run.' };
     }
     // Pick the most recent date that has any resolved 1d horizons. Today's
     // crons may not have resolved yet (resolve cron runs at 22:00 UTC), so
@@ -490,7 +490,7 @@ export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) 
         if (dayRows.length >= 5) { chosenDate = d; scoped = dayRows; break; }
     }
     if (!chosenDate) {
-        return { available: false, note: 'No resolved 1d horizons in the ledger yet — wait for the next outcome-resolution cron.' };
+        return { available: false, note: 'No resolved 1d horizons in the ledger yet, wait for the next outcome-resolution cron.' };
     }
     // Build coverage metadata BEFORE region-filtering, so Mia knows the
     // full universe size + the regions we actually track.
@@ -499,7 +499,7 @@ export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) 
         universeSize: scoped.length,
         regions: allRegions,
         scope: 'tracked-only',
-        note: `Limited to the ~530 symbols our engine tracks (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid names from NSE / HKEX / TYO / LSE / DAX / ASX). Stocks outside this universe — small-cap ADRs, OTC, foreign micro-caps — are not visible here. For absolute-worst-in-all-markets answers, use a web search.`,
+        note: `Limited to the ~530 symbols our engine tracks (S&P 500, Nasdaq 100, sector reps, top crypto, plus liquid names from NSE / HKEX / TYO / LSE / DAX / ASX). Stocks outside this universe, small-cap ADRs, OTC, foreign micro-caps, are not visible here. For absolute-worst-in-all-markets answers, use a web search.`,
     };
     if (region) {
         const reg = String(region).toUpperCase();
@@ -562,7 +562,7 @@ export async function readTopLosers({ region, limit = 10, side = 'down' } = {}) 
  */
 export async function findSimilarSetups({ rsi, macd, bb, signal, region, k = 20 } = {}) {
     const rows = await loadLedger();
-    if (!rows.length) return { available: false, note: 'Ledger not seeded yet — needs at least one cron run.' };
+    if (!rows.length) return { available: false, note: 'Ledger not seeded yet, needs at least one cron run.' };
 
     // Pull out the live/target features. Caller can pass them explicitly,
     // but most of the time we just read the current on-screen signal.
@@ -755,7 +755,7 @@ export function controlOpenResources() {
 // Close the Resources panel. The panel exposes a dedicated close button
 // (#resources-close) wired to setOpen(false); clicking it is the canonical
 // close path (also fires the same teardown Esc/click-outside use). Falls back
-// to the toggle if the close button isn't mounted. Idempotent — no-op when
+// to the toggle if the close button isn't mounted. Idempotent, no-op when
 // already closed.
 export function controlCloseResources() {
     if (!document.body.classList.contains('resources-open')) return { ok: true, alreadyClosed: true };
@@ -769,7 +769,7 @@ export function controlCloseResources() {
 }
 
 // Open the Full Ledger panel (the <details> at #scanner-section).
-// Optionally pass a symbol — we'll set the filter to surface the row
+// Optionally pass a symbol, we'll set the filter to surface the row
 // and (if expand=true) auto-toggle that row's inline analysis drawer.
 export function controlOpenFullLedger({ symbol = null, expand = false, signal = null, accuracyWindow = null } = {}) {
     const section = document.querySelector('#scanner-section .scanner-details');
@@ -900,7 +900,7 @@ export function controlSetAccuracyWindow(input) {
     return { ok: true, unit, n };
 }
 
-// Watchlist add — toggles the star ON for a symbol. Idempotent: calling
+// Watchlist add, toggles the star ON for a symbol. Idempotent: calling
 // when already starred is a no-op (returns watched: true with reason).
 export async function controlAddToWatchlist({ symbol }) {
     const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
@@ -912,7 +912,7 @@ export async function controlAddToWatchlist({ symbol }) {
     return { ok: true, watched: true };
 }
 
-// Watchlist remove — opposite of add.
+// Watchlist remove, opposite of add.
 export async function controlRemoveFromWatchlist({ symbol }) {
     const { isWatched, toggleWatch } = await import('../ui/watchlist.js');
     const sym = String(symbol || '').toUpperCase().trim();
@@ -938,18 +938,18 @@ export async function controlSetPriceAlert({ symbol, above = null, below = null 
         return { ok: true, cleared: true };
     }
     // HONESTY GATE: realtime price alerts only fire for crypto (Binance WS).
-    // Free stock feeds are 5–15 min delayed and there's no socket wired, so
+    // Free stock feeds are 5 to 15 min delayed and there's no socket wired, so
     // a stock alert would persist but NEVER fire. Refuse it with a clear
-    // reason instead of returning ok:true — Mia must not confirm a dead
+    // reason instead of returning ok:true. Mia must not confirm a dead
     // alert ("Alert set on AAPL" when it can never trigger).
     if (!isCryptoSymbol(sym)) {
         return {
             ok: false,
             unsupported: true,
-            reason: `Realtime price alerts are crypto-only (e.g. BTC-USD). Free stock data is 5–15 min delayed with no live feed, so a stock alert on ${sym} would never fire — I didn't set one.`,
+            reason: `Realtime price alerts are crypto-only (e.g. BTC-USD). Free stock data is 5 to 15 min delayed with no live feed, so a stock alert on ${sym} would never fire. I didn't set one.`,
         };
     }
-    // Auto-watchlist symbols that get an alert — keeping alerts on
+    // Auto-watchlist symbols that get an alert, keeping alerts on
     // un-watched names creates UI orphans.
     if (!isWatched(sym)) toggleWatch(sym);
     const a = above != null ? Number(above) : null;
@@ -1065,7 +1065,7 @@ export async function controlAddFunds({ amount, currency = 'USD' } = {}) {
     const cur = String(currency || 'USD').toUpperCase();
     const { isInstantiated, addFunds } = await import('../portfolio/state.js');
     if (!isInstantiated()) {
-        return { ok: false, note: 'No practice portfolio yet — call instantiate_portfolio first.' };
+        return { ok: false, note: 'No practice portfolio yet, call instantiate_portfolio first.' };
     }
     const { getRateToUSD } = await import('../portfolio/fx.js');
     const fxRateToUSD = await getRateToUSD(cur);
@@ -1074,7 +1074,7 @@ export async function controlAddFunds({ amount, currency = 'USD' } = {}) {
     return { ok: true, currency: cur, amount: amt };
 }
 
-// Reset wipes the practice portfolio. Destructive — Mia's tool desc
+// Reset wipes the practice portfolio. Destructive. Mia's tool desc
 // instructs her to confirm with the user before calling.
 export async function controlResetPortfolio() {
     const { isInstantiated, resetPortfolio } = await import('../portfolio/state.js');
@@ -1114,7 +1114,7 @@ export async function controlClearTimeTravel() {
     if (label) label.textContent = 'Live';
     if (btn) btn.classList.remove('active');
     const refresh = document.getElementById('refresh-analysis');
-    announce({ text: 'Back to live — re-running on current data…', target: refresh || 'signal-section' });
+    announce({ text: 'Back to live, re-running on current data…', target: refresh || 'signal-section' });
     if (refresh) refresh.click();
     return { ok: true, date: null };
 }

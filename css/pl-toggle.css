@@ -1,11 +1,11 @@
-/* P&L Calculator — standalone right-edge slide-in side panel + its launcher.
+/* P&L Calculator, standalone right-edge slide-in side panel + its launcher.
  * (Renamed role: this file used to style a floating #pl-sidebar aside + a
  *  header #pl-toggle button. The calculator is now its own panel, #pl-panel,
  *  registered with the side-panel-stack coordinator like Mia + Portfolio.)
  * Loaded after style.css. */
 
 /* Always a single, centered main column. Resources (left) and the panels
-   (right) all slide in OVER the chart — never grid columns — so the chart
+   (right) all slide in OVER the chart, never grid columns, so the chart
    never reflows when one opens. */
 .app-layout { grid-template-columns: minmax(0, 1fr) !important; }
 
@@ -35,7 +35,7 @@ body.side-panel-pl-open .pl-launcher {
     background: var(--bg-hover);
 }
 
-/* ── The panel itself — mirrors .portfolio-panel slide-in mechanics ────── */
+/* ── The panel itself, mirrors .portfolio-panel slide-in mechanics ────── */
 .pl-panel {
     position: fixed; top: 0; right: 0; bottom: 0;
     width: min(380px, 94vw);
@@ -93,7 +93,7 @@ body.side-panel-pl-open .pl-launcher {
    normally hosts it should not also paint an empty shell behind the stage. */
 .pl-panel .pl-body.agentic-stage-mounted { /* host relocates; nothing needed */ }
 
-/* Header buttons hover polish (kept from the prior file — still used by the
+/* Header buttons hover polish (kept from the prior file, still used by the
    gear menu's theme/about buttons). */
 .theme-toggle, .header-btn { position: relative; transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s, color 0.2s, box-shadow 0.25s; }
 .theme-toggle::after, .header-btn::after {

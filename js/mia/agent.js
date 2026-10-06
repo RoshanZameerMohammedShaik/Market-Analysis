@@ -1,8 +1,8 @@
 // Agent loop. Wraps the streaming LLM call to detect tool requests,
 // execute them, and feed results back. Up to 6 tool calls per turn.
 //
-// Phase 5: builds TWO system prompts — one with the tool prompt section,
-// one without — and passes both to the LLM client. The router uses the
+// Phase 5: builds TWO system prompts, one with the tool prompt section,
+// one without, and passes both to the LLM client. The router uses the
 // no-tools version for the prose path so 8B can't fabricate tool calls.
 
 import { stream as llmStream } from './llm-client.js';
@@ -115,7 +115,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
                 if (m) { toolMatch = m; interrupted = true; break; }
             }
 
-            // Once we see "TOOL:" anywhere, freeze yielding — the rest of the
+            // Once we see "TOOL:" anywhere, freeze yielding, the rest of the
             // buffer is the call args, not prose. We'll resume after the call.
             const toolMarker = buffer.search(/(?:^|\s)TOOL:/i);
             const safeUpTo = toolMarker >= 0 ? toolMarker : buffer.lastIndexOf('\n');
@@ -155,7 +155,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
             ];
             toolCalls++;
             if (toolCalls >= MAX_TOOL_CALLS) {
-                yield { type: 'delta', text: '\n\n_(too many invalid tool calls; stopping)_' };
+                yield { type: 'delta', text: '\n\n_(too many invalid tool calls, stopping)_' };
                 return;
             }
             continue;
@@ -181,7 +181,7 @@ export async function* runTurn({ system, messages, signal, onProgress }) {
 
         toolCalls++;
         if (toolCalls >= MAX_TOOL_CALLS) {
-            yield { type: 'delta', text: '\n\n_(reached tool-call limit; finalizing answer)_' };
+            yield { type: 'delta', text: '\n\n_(reached tool-call limit, finalizing answer)_' };
             await sleep(INTRA_TURN_PACE_MS);
             for await (const delta of llmStream({
                 system: fullSystem + '\n\nNo more tools. Write the final answer using only the context and tool results above.',

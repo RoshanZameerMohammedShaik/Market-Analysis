@@ -6,7 +6,7 @@
 // → "Mia" name in the chat, Resources toggle → "Resources" headline),
 // the destination's name should run a single left-to-right shimmer
 // once it's on screen so the user's eye lands on it. The text ends
-// bright white (or theme-blue) and STAYS bright — the shimmer is the
+// bright white (or theme-blue) and STAYS bright, the shimmer is the
 // transition into a bright label, not a flash that disappears.
 //
 // CSS does the visual: .flash-shimmer's animation runs once with
@@ -22,7 +22,7 @@
  * Run the one-shot shimmer on the given element. Safe to call when
  * `el` is null (no-op). Re-firing while a shimmer is already running
  * restarts it from the beginning (matches the user's expectation of
- * "highlight this NOW") — useful when a panel is opened a second time
+ * "highlight this NOW"), useful when a panel is opened a second time
  * after the bright state was wiped by a re-render.
  */
 export function flashShimmer(el) {
@@ -37,7 +37,7 @@ export function flashShimmer(el) {
     // of one-shot shimmer is that it ends with the text bright and
     // STAYS bright (animation-fill-mode: forwards in the CSS holds the
     // final frame). Removing the class here would snap the text back
-    // to its dim base immediately after the sweep — exactly what
+    // to its dim base immediately after the sweep, exactly what
     // Roshan called out as wrong.
 }
 

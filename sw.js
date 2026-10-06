@@ -1,10 +1,10 @@
-// Service Worker for Market Analyzer — closed-tab push notifications.
+// Service Worker for Market Analyzer, closed-tab push notifications.
 //
 // Lives at the site ROOT so its scope covers the whole app (a SW can
 // only control pages at or below its own path). Its ONLY job is push:
 // it stays registered after the tab closes, wakes on an incoming Web
 // Push from the push-alerts Cloudflare Worker, and shows the
-// notification. No offline caching here — that's deliberate; we don't
+// notification. No offline caching here, that's deliberate; we don't
 // want a SW silently serving stale app shells while we ship frequently.
 
 self.addEventListener('install', (event) => {

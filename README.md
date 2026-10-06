@@ -2,7 +2,7 @@
 
 **Real-time stock & crypto prediction engine + Mia, your in-app market intelligence analyst.**
 
-Multi-timeframe technicals, FinBERT news sentiment, market context (Fear & Greed / VIX / S&P breadth), a browser-side LSTM, macro regime overlay, sector-relative scoring, and earnings-aware confidence — all blended into a single calibrated BUY / SELL / NEUTRAL signal.
+Multi-timeframe technicals, FinBERT news sentiment, market context (Fear & Greed / VIX / S&P breadth), a browser-side LSTM, macro regime overlay, sector-relative scoring, and earnings-aware confidence, all blended into a single calibrated BUY / SELL / NEUTRAL signal.
 
 Runs entirely in the browser. No backend, no API keys for the core analyzer. Mia uses either a local LLM in your browser (WebLLM) or your own free Groq / Cloudflare key.
 
@@ -14,7 +14,7 @@ Runs entirely in the browser. No backend, no API keys for the core analyzer. Mia
 
 Most retail prediction tools assert confidence numbers without ever measuring whether they're correct. This repo is built around the opposite premise: **every confidence number shown to a user has been calibrated against backtested historical hit rate**, and the user can see their own running accuracy in the UI.
 
-If the backtest says the 70%-bucket actually hit 62%, the UI shows 62%. The badge next to the confidence (visible in dev mode) tells you whether you're seeing a calibrated number or a raw heuristic. Mia is contractually grounded to that displayed number — she cannot contradict the page.
+If the backtest says the 70%-bucket actually hit 62%, the UI shows 62%. The badge next to the confidence (visible in dev mode) tells you whether you're seeing a calibrated number or a raw heuristic. Mia is contractually grounded to that displayed number, she cannot contradict the page.
 
 ---
 
@@ -22,20 +22,20 @@ If the backtest says the 70%-bucket actually hit 62%, the UI shows 62%. The badg
 
 ### Signal engine
 
-- **Multi-timeframe technicals** — RSI, MACD, Bollinger Bands, MA crossovers, ADX, MFI, ATR, volume confirmation. Confluence scoring across daily / weekly / 4H.
-- **AI model** — LSTM (PyTorch → JSON → pure-JS forward pass) trained on 23 symbols, walk-forward CV reported.
-- **News sentiment** — FinBERT (HuggingFace Inference API, no key) with keyword fallback, recency-decayed.
-- **Market conditions** — Fear & Greed Index, VIX, S&P 500 trend.
-- **Backtester** — Python harness that replays the full pipeline on Yahoo history, computes calibration buckets, Sharpe, drawdown, per-symbol accuracy.
-- **Live outcome tracker** — every signal you see is logged in localStorage and resolved against future prices; your personal hit rate displays in the UI (dev mode).
+- **Multi-timeframe technicals**. RSI, MACD, Bollinger Bands, MA crossovers, ADX, MFI, ATR, volume confirmation. Confluence scoring across daily / weekly / 4H.
+- **AI model**. LSTM (PyTorch → JSON → pure-JS forward pass) trained on 23 symbols, walk-forward CV reported.
+- **News sentiment**. FinBERT (HuggingFace Inference API, no key) with keyword fallback, recency-decayed.
+- **Market conditions**. Fear & Greed Index, VIX, S&P 500 trend.
+- **Backtester**. Python harness that replays the full pipeline on Yahoo history, computes calibration buckets, Sharpe, drawdown, per-symbol accuracy.
+- **Live outcome tracker**, every signal you see is logged in localStorage and resolved against future prices; your personal hit rate displays in the UI (dev mode).
 
 ### Accuracy refinements (newly added)
 
-- **Macro regime overlay** — risk-on / risk-off / neutral / transition tag from VIX trajectory + S&P trend + dollar (DXY). Adjusts confidence weighting.
-- **Sector-relative scoring** — stock vs. sector ETF (XLK/XLF/XLE/etc.) over the trailing 5 days. Bullish setup in a falling sector → confidence reduced. Bullish setup in a rising sector → confidence boosted.
-- **Earnings proximity penalty** — if a stock has earnings within 5 trading days, technicals lose predictiveness; we cap confidence accordingly.
-- **Confidence range** — in addition to the point estimate, the engine returns a [low, high] interval based on source dispersion + macro uncertainty + earnings proximity. Surfaced on the signal card when the spread is meaningful.
-- **Disagreement penalty** — when AI / Technical / Sentiment / Market sources span more than 25 / 35 / 50 points, confidence is capped by 3 / 7 / 12. High dispersion = real signal of low conviction.
+- **Macro regime overlay**, risk-on / risk-off / neutral / transition tag from VIX trajectory + S&P trend + dollar (DXY). Adjusts confidence weighting.
+- **Sector-relative scoring**, stock vs. sector ETF (XLK/XLF/XLE/etc.) over the trailing 5 days. Bullish setup in a falling sector → confidence reduced. Bullish setup in a rising sector → confidence boosted.
+- **Earnings proximity penalty**, if a stock has earnings within 5 trading days, technicals lose predictiveness; we cap confidence accordingly.
+- **Confidence range**, in addition to the point estimate, the engine returns a [low, high] interval based on source dispersion + macro uncertainty + earnings proximity. Surfaced on the signal card when the spread is meaningful.
+- **Disagreement penalty**, when AI / Technical / Sentiment / Market sources span more than 25 / 35 / 50 points, confidence is capped by 3 / 7 / 12. High dispersion = real signal of low conviction.
 
 ### Mia, the chatbot (v2)
 
@@ -43,17 +43,17 @@ Mia is your in-app market intelligence analyst. She reads the same signal data y
 
 **Backends** (you pick at first open; switchable in settings):
 
-- **WebLLM** — runs entirely in your browser using Qwen 2.5 7B (default, ~4.3 GB cached) or Qwen 2.5 14B (Thinking mode, ~8 GB). Private, no signup, no key. Desktop-only (needs WebGPU + 8 GB RAM).
-- **API key** — you bring a free Groq or Cloudflare Workers AI key (each ~2-min email signup, no card). Llama 3.3 70B class. Mobile + desktop. Signups happen in a new tab; key is stored locally only.
+- **WebLLM**, runs entirely in your browser using Qwen 2.5 7B (default, ~4.3 GB cached) or Qwen 2.5 14B (Thinking mode, ~8 GB). Private, no signup, no key. Desktop-only (needs WebGPU + 8 GB RAM).
+- **API key**, you bring a free Groq or Cloudflare Workers AI key (each ~2-min email signup, no card). Llama 3.3 70B class. Mobile + desktop. Signups happen in a new tab; key is stored locally only.
 
 **Tools she can call** (the agentic part):
 
-- `get_current_signal()` — read the live signal card.
-- `analyze_symbol(symbol)` — trigger the full analysis pipeline for any stock.
-- `get_hot_picks(mode, timeframe)` — fetch current top 20 picks.
-- `get_market_conditions(mode)` — Fear & Greed, VIX, S&P trend.
-- `get_calibration_status()` — backtest curve + per-bucket hit rates.
-- `compare_symbols(symbols[])` — multi-stock comparison.
+- `get_current_signal()`, read the live signal card.
+- `analyze_symbol(symbol)`, trigger the full analysis pipeline for any stock.
+- `get_hot_picks(mode, timeframe)`, fetch current top 20 picks.
+- `get_market_conditions(mode)`. Fear & Greed, VIX, S&P trend.
+- `get_calibration_status()`, backtest curve + per-bucket hit rates.
+- `compare_symbols(symbols[])`, multi-stock comparison.
 
 **Anti-hallucination**: System prompt forbids inventing numbers; an output post-check flags any unsourced number with a small ⚠ marker.
 
@@ -196,7 +196,7 @@ Market-Analysis/
 1. `backtest.py` walks every symbol's history, generates a prediction for each bar, and records the actual outcome.
 2. It writes a `calibration` array to `model/backtest_results.json`: per 10-point confidence bucket, the average predicted confidence and the average actual hit rate.
 3. The browser's `calibration.js` loads that JSON on startup.
-4. `confidence.js` produces a raw confidence (heuristic 38–88 score), then passes it through `calibrate()` which looks up the bucket and returns the empirical hit rate instead.
+4. `confidence.js` produces a raw confidence (heuristic 38 to 88 score), then passes it through `calibrate()` which looks up the bucket and returns the empirical hit rate instead.
 5. The signal card shows a `calibrated` or `raw` badge (dev-only) so users know which one they're seeing.
 6. A scheduled GitHub Action runs the backtest daily and commits a fresh JSON, so calibration is always current.
 
@@ -207,7 +207,7 @@ Visit `/dev` to enable, `/dev/off` to disable. Persists per-browser. Public visi
 ## Privacy
 
 - All analysis runs in your browser. Stock data fetched from Yahoo / CoinGecko via free CORS proxies.
-- API keys (Groq / Cloudflare) live in your browser's localStorage only. Mia talks to the chosen provider directly — no relay.
+- API keys (Groq / Cloudflare) live in your browser's localStorage only. Mia talks to the chosen provider directly, no relay.
 - Conversation history persists locally; clearable from Mia's chat header.
 - Outcome-tracker logs your shown signals locally so you can compute personal hit-rate.
 
@@ -217,4 +217,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). The single most load-bearing rule: featu
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

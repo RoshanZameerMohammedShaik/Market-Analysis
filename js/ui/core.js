@@ -58,8 +58,7 @@ export function init() {
     document.documentElement.setAttribute('data-dev', isDev() ? '1' : '0');
     // Direct symbol loader exposed globally so OTHER modules (Full Ledger,
     // sector heatmap, Mia) can load a symbol's chart + analysis WITHOUT the
-    // fragile "type into search box, wait 400ms, click the dropdown" dance —
-    // which was why those paths only "searched" instead of fully loading.
+    // fragile "type into search box, wait 400ms, click the dropdown" dance, // which was why those paths only "searched" instead of fully loading.
     // Resolves the mode from the symbol shape (crypto if -USD), sets state,
     // loads the chart, runs the analysis, and scrolls to the top.
     window.__loadSymbolDirect = (symbol, opts = {}) => {
@@ -90,7 +89,7 @@ export function init() {
     initPennyFilterButtons();
     showChartPlaceholder();
     // Did-You-Know now lives at the top of the Resources panel (fresh fact per
-    // open) instead of a floating bottom-left chip — see ui/glossary.js. The
+    // open) instead of a floating bottom-left chip, see ui/glossary.js. The
     // old timed floating chip is no longer started.
     // startDyk();
 
@@ -125,8 +124,7 @@ export function init() {
         const btn = e.currentTarget;
         btn.classList.add('spinning');
         startTipsForLoading();
-        // Clear the 5-min cache so the click actually refetches —
-        // otherwise hitting Refresh within 5 min returns the same
+        // Clear the 5-min cache so the click actually refetches, // otherwise hitting Refresh within 5 min returns the same
         // cards. Roshan caught this when adding pennies wasn't
         // surfacing until the cache TTL expired.
         clearHotPicksCache();
@@ -209,7 +207,7 @@ async function runAnalysis() {
 
     // Stale-while-revalidate: if we have a cached entry for this
     // symbol+timeframe, render it INSTANTLY (chart + signal) so the
-    // user gets feedback at click time. Then check freshness — if
+    // user gets feedback at click time. Then check freshness, if
     // older than 2 min, kick off a background re-analysis and
     // re-render when it lands. Time-travel mode bypasses cache (it's
     // a deterministic past-date replay, not a "current" view).
@@ -223,7 +221,7 @@ async function runAnalysis() {
             setLatestSignal(result);
         } catch (_) { /* fall through to fresh fetch */ }
         if (cached.fresh) {
-            // Cache is <2min old — that's our freshness floor. Done.
+            // Cache is <2min old, that's our freshness floor. Done.
             document.getElementById('refresh-analysis')?.addEventListener('click', () => runAnalysis(true));
             return;
         }
@@ -276,7 +274,7 @@ async function runAnalysis() {
         setLatestSignal(result);
 
         // Store fresh result in the analysis cache for stale-while-
-        // revalidate. Skip on time-travel runs — those are deterministic
+        // revalidate. Skip on time-travel runs, those are deterministic
         // past-date replays and shouldn't pollute the live cache.
         if (!state.timeTravelDate) {
             try {
@@ -285,7 +283,7 @@ async function runAnalysis() {
             } catch (_) {}
         }
 
-        // Don't log time-travel predictions — they're hypothetical
+        // Don't log time-travel predictions, they're hypothetical
         // "what would the engine have said back then?" calls, not real
         // forward predictions. Logging them would poison live accuracy
         // metrics.
@@ -350,7 +348,7 @@ function clearAnalysis() {
     document.getElementById('search-input').value = '';
 }
 
-// Settings dropdown — single gear button replaces the row of header
+// Settings dropdown, single gear button replaces the row of header
 // icons. Click toggles the menu. Click any menu item closes the menu;
 // each item's actual behavior is wired by its own module via getElementById
 // (about-btn → about.js, currency-toggle → currency-toggle.js, theme-
@@ -397,7 +395,7 @@ function initSettingsMenu() {
         if (e.key === 'Escape' && menu.classList.contains('open')) setOpen(false);
     });
 
-    // P&L Calculator shortcut — opens the standalone P&L side panel
+    // P&L Calculator shortcut, opens the standalone P&L side panel
     // (it's its own panel now, no longer nested inside Portfolio) and
     // focuses the first field so the user can start typing immediately.
     document.getElementById('pl-shortcut')?.addEventListener('click', () => {

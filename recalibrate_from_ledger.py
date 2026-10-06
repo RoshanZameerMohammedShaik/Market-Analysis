@@ -59,7 +59,7 @@ def bucket_for(confidence: int) -> str:
 
     Finer resolution than the old 10pp bands. The engine produces most
     of its output in the 45-60 range, and on the live ledger those 5pp
-    buckets each have 600-1000 resolved samples — plenty above the n>=30
+    buckets each have 600-1000 resolved samples, plenty above the n>=30
     confidence floor. Sparse high-confidence 5pp buckets (e.g. 65-70 with
     n<30) are handled by the JS reader's roll-up: it tries the 5pp bucket
     first, then falls back to the 10pp parent, then to backtest. Keep
@@ -87,7 +87,7 @@ def aggregate(rows):
         # Version gate: only rows produced by the engine that's running now
         # count toward the calibration the user sees. Rows from a prior
         # engine (or unversioned rows pre-dating this scheme) are EXCLUDED so
-        # a scoring change — like the 1-day mean-reversion rebalance — rebuilds
+        # a scoring change, like the 1-day mean-reversion rebalance, rebuilds
         # its track record from scratch instead of inheriting the old, now-
         # wrong hit-rate. New 1-day buckets refill within days (1d resolves
         # daily); longer horizons take proportionally longer, which is honest:
@@ -114,7 +114,7 @@ def aggregate(rows):
             # by_region is NOT keyed by signal, and the JS reader
             # (calibration.js liveRegionLookup) uses it to calibrate
             # BUY/SELL confidence. NEUTRAL's directionMatch means "stayed
-            # flat" — a different success criterion — so blending it in
+            # flat", a different success criterion, so blending it in
             # contaminated the directional region calibration. Restrict
             # by_region to directional calls only.
             if signal in ('BUY', 'SELL'):
@@ -151,7 +151,7 @@ def main():
         'engineVersion': ENGINE_VERSION,
         # How much history was set aside because it came from an older engine.
         # When this is large and totalResolvedHorizons is small, the track
-        # record is mid-rebuild — the UI says so rather than implying the new
+        # record is mid-rebuild, the UI says so rather than implying the new
         # engine has a long proven history.
         'skippedOldEngineRows': skipped_old_engine,
         'skippedOldEngineResolved': skipped_resolved,

@@ -684,7 +684,7 @@
     "wild:6": 0.8,
     "wild:7": 0.8
   },
-  "earningsSource": "yfinance get_earnings_dates; reaction session per earnings_calendar.py",
+  "earningsSource": "yfinance get_earnings_dates, reaction session per earnings_calendar.py",
   "zEarn": {
     "active": {
       "1": 3.3508,

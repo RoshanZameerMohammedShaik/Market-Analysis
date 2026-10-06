@@ -2,7 +2,7 @@
 //
 // Why: bullish/bearish divergences are one of the highest-edge
 // classical signals in retail TA. Price makes a new extreme but
-// the underlying momentum/volume-flow indicator does NOT — a leading
+// the underlying momentum/volume-flow indicator does NOT, a leading
 // signal that the move is running out of fuel.
 //
 // We only trust divergences when 2+ indicators agree. Single-indicator

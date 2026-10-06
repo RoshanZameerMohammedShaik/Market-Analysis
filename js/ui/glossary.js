@@ -4,16 +4,16 @@
 const SECTIONS = [
     {
         title: 'Meet Mia',
-        intro: 'Market Intelligence Analyst — your in-app chatbot. Click the 💬 launcher (bottom-right) to ask anything about a stock, an indicator, or what a signal means.',
+        intro: 'Market Intelligence Analyst, your in-app chatbot. Click the 💬 launcher (bottom-right) to ask anything about a stock, an indicator, or what a signal means.',
         items: [],
     },
     {
         title: 'Signal terminology',
         items: [
             ['Signal', 'BUY / SELL / NEUTRAL. The direction the engine thinks price is heading over the chosen timeframe.'],
-            ['Confidence', 'How likely the signal is to play out, expressed as a percentage. When backtest data is loaded, this is the empirical hit rate — not a heuristic.'],
+            ['Confidence', 'How likely the signal is to play out, expressed as a percentage. When backtest data is loaded, this is the empirical hit rate, not a heuristic.'],
             ['Timeframe', 'Today = next bar. Tomorrow = roughly 24 hours out. Tomorrow predictions are slightly less confident on average because more can change.'],
-            ['Confluence', 'When daily, weekly, and 4-hour timeframes all agree. The highest-quality setup; confidence gets a bonus.'],
+            ['Confluence', 'When daily, weekly, and 4-hour timeframes all agree. The highest-quality setup, confidence gets a bonus.'],
             ['Trend regime', 'The market\'s current behavior. "Trending" rewards momentum signals; "ranging" rewards mean-reversion signals.'],
         ],
     },
@@ -24,7 +24,7 @@ const SECTIONS = [
             ['MACD', 'Moving Average Convergence/Divergence. Crossovers signal momentum shifts.'],
             ['Bollinger Bands', 'Volatility envelope around price. Touches of the outer bands often precede mean-reversion moves.'],
             ['ADX', 'Trend strength meter. Above 25 = strong trend. Below 20 = chop, where breakouts often fail.'],
-            ['MFI', 'Money Flow Index. Like RSI but weighted by volume — catches institutional moves.'],
+            ['MFI', 'Money Flow Index. Like RSI but weighted by volume, catches institutional moves.'],
             ['ATR', 'Average True Range. Used to scale stop-losses and price targets to a stock\'s normal volatility.'],
         ],
     },
@@ -48,7 +48,7 @@ const SECTIONS = [
     {
         title: 'FAQs',
         items: [
-            ['How accurate is this?', 'It depends — see the per-confidence-bucket calibration. Anyone claiming "95% accuracy" on stock prediction is either lying or has overfit.'],
+            ['How accurate is this?', 'It depends, see the per-confidence-bucket calibration. Anyone claiming "95% accuracy" on stock prediction is either lying or has overfit.'],
             ['Should I trade based on this?', 'No tool replaces your own judgment. This is one input among many. Position size matters more than entry.'],
             ['Where does the data come from?', 'Yahoo Finance for stocks and crypto bars (Kraken when Yahoo has the wrong coin), CoinGecko for the crypto list, Yahoo and Bing News for headlines, alternative.me for Fear & Greed. All free, no API keys.'],
             ['Is my data sent anywhere?', 'No. Everything runs in your browser. Your prediction history lives in your browser\'s localStorage.'],
@@ -57,7 +57,7 @@ const SECTIONS = [
     },
 ];
 
-// Resources panel state — in-memory only. Always starts closed on page
+// Resources panel state, in-memory only. Always starts closed on page
 // load (Roshan's UX preference: the panel should never auto-open after
 // a refresh, even if the user opened it earlier in a previous session).
 import { flashShimmer } from './flash-shimmer.js';

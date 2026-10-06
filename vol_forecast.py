@@ -8,7 +8,7 @@ on known dates. Walk-forward 2016-2026 over 475,579 forecasts (tools/train_vol_m
   * the size of next week's moves: R^2 0.64 on log volatility, against 0.53 for "next week looks
     like the last 30 days", which is what the band used before;
   * earnings weeks: the 30-day estimate scored R^2 -0.04 there (worse than guessing the average)
-    and ran 46% too low; this model knows the date is coming;
+    and ran 46% too low, this model knows the date is coming;
   * "choppier or calmer than the last 20 sessions?": right 68% overall, ~80% on the half of calls
     where it is at least 70% sure, ~92% where it is at least 90% sure. Calibrated, so the stated
     confidence is the measured hit rate for calls like it.
@@ -21,12 +21,11 @@ IMPLIED VOLATILITY (2026-10-02). The stock's own option-implied vol (DoltHub, si
 market's implied-vol term structure (CBOE VIX9D, VIX3M, VVIX), all as of the PREVIOUS session,
 because the nightly run happens before that day's IV is published. On 2021-2026 test years: move
 size R^2 0.428 -> 0.441, earnings weeks 0.295 -> 0.322, AUC 0.737 -> 0.749, and the share of
-stocks with an 80%+ call 25.6% -> 30.1% at the same 85.8% hit rate (tools/_exp4/iv_ablation.py;
-same-day IV scored the same, so there is no timing leak to lean on). Stocks without listed
-options, and every row before 2019, carry IV as missing; the trees route missing values natively.
+stocks with an 80%+ call 25.6% -> 30.1% at the same 85.8% hit rate (tools/_exp4/iv_ablation.py, same-day IV scored the same, so there is no timing leak to lean on). Stocks without listed
+options, and every row before 2019, carry IV as missing, the trees route missing values natively.
 
-MIRRORED BY js/vol-forecast.js; tools/vol_sync_check.py holds them together. Features are built
-from COMPLETED daily bars only; a live partial bar would read as a finished day.
+MIRRORED BY js/vol-forecast.js, tools/vol_sync_check.py holds them together. Features are built
+from COMPLETED daily bars only, a live partial bar would read as a finished day.
 """
 import json
 import math
@@ -114,7 +113,7 @@ def features(bars, market, earn_in, dow, iv=None):
 
 def feature_frame(df, mkt, iv=None):
     """Vectorized features for every row of one symbol's history (training). Must equal
-    features() at each row; tools/vol_sync_check.py asserts it. df: date,o,h,l,c,v; mkt indexed
+    features() at each row, tools/vol_sync_check.py asserts it. df: date,o,h,l,c,v, mkt indexed
     by date with MARKET_FEATURES."""
     import pandas as pd
 

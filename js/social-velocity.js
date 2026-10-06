@@ -1,4 +1,4 @@
-// Phase 7 — StockTwits social-velocity pump detector.
+// Phase 7. StockTwits social-velocity pump detector.
 //
 // Penny stocks (and meme stocks generally) are pump-prone. Tracking how
 // FAST a name's mention rate is rising in retail-trader hubs detects the
@@ -150,15 +150,15 @@ export function socialVelocityAdjustment(signal, vel) {
     if (vel.label === 'extreme') {
         if (signal === 'BUY') {
             adjust -= 3;
-            reasons.push(`Social velocity extreme (${vel.peakVelocity}x baseline) — likely pump near peak, BUY is risky entry`);
+            reasons.push(`Social velocity extreme (${vel.peakVelocity}x baseline), likely pump near peak, BUY is risky entry`);
         } else if (signal === 'SELL') {
             adjust += 2;
-            reasons.push(`Social velocity extreme (${vel.peakVelocity}x baseline) — pump exhaustion supports SELL`);
+            reasons.push(`Social velocity extreme (${vel.peakVelocity}x baseline), pump exhaustion supports SELL`);
         }
     } else if (vel.label === 'high') {
         if (signal === 'BUY') {
             adjust -= 1;
-            reasons.push(`Social velocity high (${vel.peakVelocity}x baseline) — mid-pump caution on BUY`);
+            reasons.push(`Social velocity high (${vel.peakVelocity}x baseline), mid-pump caution on BUY`);
         }
     }
 

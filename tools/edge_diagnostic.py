@@ -8,7 +8,7 @@ Reads the live ledger and answers, with real numbers (not estimates):
   3. Crypto vs stock 1d hit-rate (does real-time data matter?)
   4. Hit-rate by confidence band, by |move| magnitude, by RSI/MACD/BB setup
   5. The conviction-slice curve: for each confidence floor, the hit-rate and
-     coverage of the calls AT OR ABOVE it — i.e. does concentrating raise it,
+     coverage of the calls AT OR ABOVE it, i.e. does concentrating raise it,
      and is there a slice where a ~70% tier exists?
   6. Same per horizon (1/3/5/10/20) so we see which horizon is most tractable.
 
@@ -39,7 +39,7 @@ def is_crypto(sym):
 
 
 def wilson(hits, n, z=1.96):
-    """Wilson 95% CI for a proportion — honest small-sample interval."""
+    """Wilson 95% CI for a proportion, honest small-sample interval."""
     if n == 0:
         return (0.0, 0.0)
     p = hits / n
@@ -87,7 +87,7 @@ def line(label, hits, n):
 
 def main():
     rows = load()
-    print(f"=== EDGE DIAGNOSTIC — {len(rows)} ledger rows ===\n")
+    print(f"=== EDGE DIAGNOSTIC, {len(rows)} ledger rows ===\n")
 
     # ---- 1. Overall 1d + significance ----
     p = resolved(rows, 1)
@@ -167,7 +167,7 @@ def main():
     for k, v in mag_b.items():
         line(f'|move| {k}', *rate(v)[:2])
     print("   (note: this is conditioned on the OUTCOME move, so it's descriptive,")
-    print("    not a tradeable filter — it tells us where direction is readable.)")
+    print("    not a tradeable filter, it tells us where direction is readable.)")
     print()
 
     # ---- 6. Per horizon ----

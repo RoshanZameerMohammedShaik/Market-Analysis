@@ -1,9 +1,9 @@
-// Portfolio simulation — state model + localStorage persistence.
+// Portfolio simulation, state model + localStorage persistence.
 //
 // Internal accounting is always in USD. The user's "display currency" is a
 // label + an FX rate at instantiate-time (and a current FX rate fetched on
 // demand for display). We do NOT recompute everything in the user's
-// currency at runtime — that would compound rounding errors and make
+// currency at runtime, that would compound rounding errors and make
 // position-cost math weird across FX swings. Instead: cash and lot cost
 // basis stored in USD; UI converts on render via the live FX rate.
 //
@@ -71,7 +71,7 @@ export function isInstantiated() {
 }
 
 // Reset to a fresh, un-instantiated state. Existing trade history is wiped
-// — this is "start over" not "withdraw funds." History stays in the
+//, this is "start over" not "withdraw funds." History stays in the
 // exported snapshot if user grabs one before reset.
 export function resetPortfolio() {
     portfolio = emptyPortfolio();
@@ -169,7 +169,7 @@ export function recordSell({ symbol, units, priceUSD }) {
     if (!Number.isFinite(u) || u <= 0) throw new Error('Units must be > 0.');
     if (!Number.isFinite(p) || p <= 0) throw new Error('Price must be > 0.');
     const pos = portfolio.positions[sym];
-    if (!pos || pos.units < u - 1e-9) throw new Error('Not enough units to sell (long-only — no shorting).');
+    if (!pos || pos.units < u - 1e-9) throw new Error('Not enough units to sell (long-only, no shorting).');
 
     let remaining = u;
     let costBasisConsumedUSD = 0;
@@ -215,12 +215,12 @@ export function avgCostBasisUSD(symbol) {
     return totalCost / pos.units;
 }
 
-// Symbols currently held — used by pricing.js to subscribe live tickers.
+// Symbols currently held, used by pricing.js to subscribe live tickers.
 export function heldSymbols() {
     return Object.keys(getPortfolio().positions);
 }
 
-// Total cumulative deposits in USD — for return-pct calculations that
+// Total cumulative deposits in USD, for return-pct calculations that
 // account for added funds, not just initial deposit.
 //
 // ALLOCATE_MIA / RECLAIM_MIA belong in this sum, and getting that wrong is not cosmetic.

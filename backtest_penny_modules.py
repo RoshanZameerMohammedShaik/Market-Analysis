@@ -1,5 +1,5 @@
 """
-Phase 8 — historical synthetic backtest of the FINRA / OpenInsider / Social
+Phase 8, historical synthetic backtest of the FINRA / OpenInsider / Social
 velocity penny modules.
 
 Why it exists: Phase 7 shipped these modules but the LIVE penny accuracy
@@ -7,7 +7,7 @@ won't accumulate ~50 resolved calls for ~6 weeks. To give the user a real
 number on day 1, we replay the modules over historical data instead.
 
 What we replay (option A from the design call):
-  - FINRA daily short volume CSVs from cdn.finra.org — archived, downloadable.
+  - FINRA daily short volume CSVs from cdn.finra.org, archived, downloadable.
   - OpenInsider Form 4 history via SEC EDGAR. SEC keeps every Form 4
     filing with its filing date forever; we can reconstruct "insider
     cluster buys in last 30d as of date D" for any historical D.
@@ -34,7 +34,7 @@ Runner: invoked from .github/workflows/refresh-data.yml as part of
         unreachable so the rest of the pipeline still runs.
 
 This script intentionally does the synthetic replay in pure Python
-without the full JS engine — we re-implement the adjustment logic to
+without the full JS engine, we re-implement the adjustment logic to
 match finra-short.js / openinsider.js / social-velocity.js exactly.
 """
 import os
@@ -51,7 +51,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(SCRIPT_DIR, 'model')
 OUTPUT_PATH = os.path.join(MODEL_DIR, 'penny_module_lift.json')
 
-# Penny universe — same as train_penny_lstm.py
+# Penny universe, same as train_penny_lstm.py
 PENNY_SYMBOLS = [
     'BBAI', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'POET', 'NVTS', 'SOUN',
     'SAVA', 'IMAB', 'NVAX', 'OCGN', 'INO', 'AGEN', 'ANIX',
@@ -118,7 +118,7 @@ def predict_baseline(closes, idx):
     """Stand-in for the engine's signal at historical bar `idx`.
     Uses simple SMA-cross + RSI heuristic (lighter than full engine but
     consistent across runs). This does NOT need to match the live engine
-    exactly — we just need the SAME baseline signal in both WITH and WITHOUT
+    exactly, we just need the SAME baseline signal in both WITH and WITHOUT
     arms so the lift number is honest."""
     if idx < 21:
         return 'NEUTRAL'
@@ -202,7 +202,7 @@ def main():
         result = {
             'runDate': datetime.utcnow().isoformat() + 'Z',
             'sampleSize': without_total,
-            'note': 'insufficient samples — expand penny universe or wait',
+            'note': 'insufficient samples, expand penny universe or wait',
         }
     else:
         rate_with = with_hits / max(1, with_total)
@@ -225,11 +225,11 @@ def main():
             'caveats': [
                 'FINRA-only replay; OpenInsider + Social velocity historical replay pending.',
                 'Backtest accuracy != live accuracy due to penny survivorship bias.',
-                'Penny LSTM not in this comparison — measured separately.',
+                'Penny LSTM not in this comparison, measured separately.',
             ],
         }
         if not confident:
-            result['caveats'].insert(0, f'Sample size {with_total} below 50 — 95% CI ±{round(ci_pp,1)}pp; treat as preliminary.')
+            result['caveats'].insert(0, f'Sample size {with_total} below 50 to 95% CI ±{round(ci_pp,1)}pp; treat as preliminary.')
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     with open(OUTPUT_PATH, 'w') as f:

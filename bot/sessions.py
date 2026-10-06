@@ -32,7 +32,7 @@ their P/L means anything, and the differences are not small:
     measured anywhere in this project, so an LSE sleeve without it would be pure fiction.
   * IBKR's commission schedules differ per venue (percentage-of-value with local-currency
     minimums, not the US per-share model).
-  * Non-USD markets need FX at trade time; the portfolio is USD-internal.
+  * Non-USD markets need FX at trade time, the portfolio is USD-internal.
 
 Approximating those would produce numbers that look precise and are wrong, which is worse
 than a smaller universe. They get added when their fees are modelled properly.
@@ -91,7 +91,7 @@ def _local_now(tz_name, now_utc=None):
 
 
 def is_open(market, now_utc=None):
-    """(open?, reason). Crypto is always open; equities follow their own clock.
+    """(open?, reason). Crypto is always open, equities follow their own clock.
 
     The reason string is written into the run log so an idle run explains itself instead
     of looking like a failure.

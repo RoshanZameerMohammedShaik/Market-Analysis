@@ -1,4 +1,4 @@
-// Data fetching layer — Yahoo Finance (stocks) & CoinGecko (crypto).
+// Data fetching layer. Yahoo Finance (stocks) & CoinGecko (crypto).
 // Strategy:
 //   1) Direct fetch (works for non-Yahoo URLs that send CORS headers).
 //   2) Our own Cloudflare Worker /yahoo proxy (always tried for Yahoo URLs;
@@ -26,7 +26,7 @@ function isYahooUrl(url) {
 }
 
 // Per-target-host breaker. Independent of the per-proxy breaker
-// below — this one trips when the TARGET URL's host is unreachable
+// below, this one trips when the TARGET URL's host is unreachable
 // regardless of which proxy we tried. Catches the case where Hot
 // Picks fires 5 parallel analyses, each calling fetchGoogleNews,
 // before the news.js-level breaker has time to trip on the first
@@ -52,7 +52,7 @@ function shouldUseTargetBreaker(url) {
 // /v10/quoteSummary and /v7/options/ require an auth cookie + crumb
 // our worker proxy can't satisfy; Yahoo returns 401. Each endpoint
 // family gets its own breaker (so a 401 on quoteSummary doesn't
-// silence options too — they're independent fault domains).
+// silence options too, they're independent fault domains).
 const YAHOO_CRUMB_WALLED = [
     { re: /\/v10\/finance\/quoteSummary\//, name: 'yahoo-quoteSummary' },
     { re: /\/v7\/finance\/options\//, name: 'yahoo-options' },
@@ -99,12 +99,11 @@ export async function fetchWithProxy(url) {
         throw new Error(`Target host cooling (${targetBreaker}).`);
     }
 
-    // 1) Direct fetch — only for non-Yahoo URLs. Yahoo never sends CORS
+    // 1) Direct fetch, only for non-Yahoo URLs. Yahoo never sends CORS
     //    headers from the browser, so a direct attempt is guaranteed to
     //    log an error and waste a round-trip. Skip it.
     //
-    // Also skip direct for hosts we've already learned reject CORS —
-    // news.google.com is the textbook example. After one failure the
+    // Also skip direct for hosts we've already learned reject CORS, // news.google.com is the textbook example. After one failure the
     // target breaker covers it, but we additionally maintain a
     // hard-coded list of hosts that NEVER work via direct fetch from
     // a browser, so we don't even try once. Saves the first error
@@ -166,7 +165,7 @@ export async function fetchWithProxy(url) {
             if (res) return res;
         } catch (e) {
             // 401 from the worker on a crumb-walled Yahoo path means
-            // EVERY downstream proxy will also 401 — they all hit the
+            // EVERY downstream proxy will also 401, they all hit the
             // same Yahoo endpoint that requires the auth cookie + crumb.
             // Trip the breaker IMMEDIATELY and abort the chain. Without
             // this, we'd cascade through 4 CORS proxies just to learn
@@ -188,7 +187,7 @@ export async function fetchWithProxy(url) {
     // 3) Public CORS proxy chain. Each proxy has its own breaker so a
     //    503/timeout on corsproxy.io doesn't get retried for every
     //    subsequent URL in a Hot-Picks-style scan. The "lastWorking"
-    //    sticky-pick stays — once one proxy works, future calls hit it
+    //    sticky-pick stays, once one proxy works, future calls hit it
     //    first and skip the chain entirely on the happy path.
     if (workingProxy !== null) {
         const proxy = CORS_PROXIES[workingProxy];
@@ -283,7 +282,7 @@ function createTextResponse(text, originalRes) {
 // ─── STOCK DATA ───────────────────────────────────────────────────────────────
 
 export async function fetchStockData(symbol, range = '3mo', interval = '1d', opts = {}) {
-    // Raw symbol — fetchWithProxy encodes the URL exactly once at the
+    // Raw symbol, fetchWithProxy encodes the URL exactly once at the
     // proxy layer (see regime.js comment). Pre-encoding here would
     // double-encode any '^' / ':' / non-ASCII characters and Yahoo
     // would 404. ASCII tickers are unaffected (encodeURIComponent is
@@ -294,8 +293,8 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d', opt
     // no data for non-US listings (CORDSCABLE-style Indian small-caps)
     // because it can't resolve the exchange. We probe the bare form
     // first, then fall through major non-US exchanges in likelihood
-    // order. EXPENSIVE on the miss path — 6 candidates × 2 URLs ×
-    // proxy chain — so callers that operate on bulk universes (Hot
+    // order. EXPENSIVE on the miss path, 6 candidates × 2 URLs ×
+    // proxy chain, so callers that operate on bulk universes (Hot
     // Picks scan, batch refresh) opt OUT via { suffixProbe: false } to
     // avoid the freeze when even one symbol is dead. User-initiated
     // searches keep the probe enabled (default true).
@@ -364,9 +363,9 @@ export async function fetchStockData(symbol, range = '3mo', interval = '1d', opt
     }
 
     // Derive a sane previousClose. Order of preference:
-    //   1. meta.previousClose       — yesterday's close (always 1-day prior)
-    //   2. second-to-last candle    — yesterday's close, derived from the data
-    //   3. meta.chartPreviousClose  — LAST resort. This is the close at the
+    //   1. meta.previousClose, yesterday's close (always 1-day prior)
+    //   2. second-to-last candle, yesterday's close, derived from the data
+    //   3. meta.chartPreviousClose. LAST resort. This is the close at the
     //      START of the requested range (3 months ago in our case), so using
     //      it here gives nonsense day-% values like "+401.8%" on AAOI.
     let previousClose = meta.previousClose;
@@ -401,11 +400,11 @@ export function withHistory(data, days = 92) {
 }
 
 export async function fetchStockMultiTimeframe(symbol) {
-    // Resolve the daily fetch FIRST — that one runs the suffix probe
+    // Resolve the daily fetch FIRST, that one runs the suffix probe
     // (CORDSCABLE → CORDSCABLE.NS), so the weekly + 4h calls can
     // skip re-probing by using the resolved symbol with suffixProbe off.
     // Without this, an unsuffixed Indian ticker would re-probe through
-    // 6 candidates × 2 URLs three separate times in parallel — major
+    // 6 candidates × 2 URLs three separate times in parallel, major
     // slowdown on a search miss.
     // A YEAR of daily bars, not three months: the trend gate and the pullback setup need a
     // 200-day average. The engine is still handed the same trailing ~3 months it always saw
@@ -430,7 +429,7 @@ export async function fetchStockMultiTimeframe(symbol) {
     // Preserve the RAW 1h series (pre-4h-aggregation) so the intraday
     // LSTM can run on true 1h bars for the "Today" horizon. fourHourRaw
     // is the un-aggregated 1h fetch; we only aggregated a COPY into
-    // fourHour above. null when the 1h fetch failed — the engine falls
+    // fourHour above. null when the 1h fetch failed, the engine falls
     // back to the daily model for Today in that case.
     const hourly = fourHourRaw && fourHourRaw.candles?.length ? fourHourRaw : null;
 
@@ -442,8 +441,7 @@ export async function fetchStockMultiTimeframe(symbol) {
 const COINGECKO_BASE = 'https://api.coingecko.com/api/v3';
 
 // CoinGecko's free API works directly from the browser (CORS-friendly, 200),
-// but its rate limit (~10-30 calls/min) 429s when several calls fire at once —
-// which is why crypto symbols intermittently "don't load". So we (a) SERIALIZE
+// but its rate limit (~10-30 calls/min) 429s when several calls fire at once, // which is why crypto symbols intermittently "don't load". So we (a) SERIALIZE
 // CoinGecko calls behind a min-interval gate, and (b) short-TTL CACHE responses
 // so repeat lookups (chart + analysis of the same coin, or re-opens within a
 // couple minutes) don't re-hit the network at all. fetchWithProxy still adds
@@ -472,7 +470,7 @@ function coingeckoFetch(url) {
         _cgGate.last = Date.now();
         if (Date.now() < _cgBreaker.until) {
             // Fail fast and say why, rather than queue behind a 12s gate to be rejected anyway.
-            throw new Error('CoinGecko is rate-limited; cooling off for '
+            throw new Error('CoinGecko is rate-limited, cooling off for '
                 + `${Math.ceil((_cgBreaker.until - Date.now()) / 1000)}s`);
         }
         try {
@@ -503,7 +501,7 @@ function coingeckoFetch(url) {
 const _cgCache = new Map();
 const CG_CACHE_MS = 90 * 1000;
 // Exported so other modules' CoinGecko calls (hotpicks market list / trending)
-// share the SAME rate-limit gate + cache — otherwise they burst CoinGecko in
+// share the SAME rate-limit gate + cache, otherwise they burst CoinGecko in
 // parallel and 429, which is the main reason crypto symbols don't load.
 export async function coingeckoJson(url) {
     const hit = _cgCache.get(url);
@@ -733,7 +731,7 @@ export async function searchStocks(query) {
         } catch (e) { continue; }
     }
     // Yahoo's autocomplete misses many Indian / global small-caps
-    // (CORDSCABLE, etc.) — when search returns nothing we offer the
+    // (CORDSCABLE, etc.), when search returns nothing we offer the
     // bare ticker plus exchange-suffixed candidates so the user can
     // pick the right listing. fetchStockData also probes these
     // suffixes transparently, but exposing them in the dropdown lets

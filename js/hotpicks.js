@@ -4,11 +4,11 @@
 // sequentially → ~100 seconds.
 //
 // New approach:
-//   Phase 1 — lightweight quote fetch for ALL 487 in batches of 50
+//   Phase 1, lightweight quote fetch for ALL 487 in batches of 50
 //     via Yahoo's /v7/finance/quote multi-symbol endpoint. 5 round trips,
 //     ~3-5 seconds.
 //   Filter: rank by composite momentum+volume score, keep top 60.
-//   Phase 2 — full multi-timeframe analysis on those 60 (batches of 12).
+//   Phase 2, full multi-timeframe analysis on those 60 (batches of 12).
 //   ~7-10 seconds.
 //   Total: ~12-15s vs ~100s.
 //
@@ -81,7 +81,7 @@ const stockCache = new Map(); // key -> { ts, picks }
 // Exported so the manual ↻ Refresh button (in ui/core.js) can force a
 // fresh scan instead of returning the 5-minute cached result. Without
 // this, clicking Refresh within 5 min of the previous scan silently
-// re-rendered the same cards — meaning users couldn't see new penny
+// re-rendered the same cards, meaning users couldn't see new penny
 // finalists right after a code update that expanded the universe.
 export function clearHotPicksCache() {
     stockCache.clear();
@@ -148,8 +148,8 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     // even when they're moving. Pennies get their own ranking pass
     // (below) and a guaranteed slot allocation in the Phase 2 set.
     // Hybrid sourcing per Roshan's spec:
-    //   (a) STABLE — js/penny-universe.js, ~500 hand-curated symbols.
-    //   (b) DYNAMIC — Yahoo screeners (aggressive_small_caps,
+    //   (a) STABLE, js/penny-universe.js, ~500 hand-curated symbols.
+    //   (b) DYNAMIC. Yahoo screeners (aggressive_small_caps,
     //       day_gainers, day_losers, most_actives) filtered to <$5
     //       at scan time, so live movers that aren't on the curated
     //       list still surface today and get recorded in the ledger.
@@ -158,7 +158,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         if (!symbolMeta[sym]) symbolMeta[sym] = { symbol: sym };
         if (!symbols.includes(sym)) symbols.push(sym);
     }
-    // Dynamic — same Yahoo screeners as Stream 1, but we keep them
+    // Dynamic, same Yahoo screeners as Stream 1, but we keep them
     // SEPARATE here so we can apply the <$5 filter and tag the
     // results as pennies (so Phase 1 routes them through the
     // momentum-dominant ranking, not the volume-heavy liquid one).
@@ -195,7 +195,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         }
     }
 
-    // Phase 1 ranking — split into two streams so pennies get a fair
+    // Phase 1 ranking, split into two streams so pennies get a fair
     // shot at Phase 2 slots. Liquid stream uses the original
     // momentum + log10(volume) score (large-caps need volume to be
     // credible). Penny stream uses a momentum-only score with a small
@@ -242,8 +242,8 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${filteredSymbols.length} stocks…`);
 
     // Phase 2: FULL engine analysis on filtered set. Every Phase 1
-    // finalist runs through computeFullConfidence — same code path as
-    // a user click — so Hot Picks cards reflect the real engine
+    // finalist runs through computeFullConfidence, same code path as
+    // a user click, so Hot Picks cards reflect the real engine
     // (LSTM + sentiment + market + macro/sector/yield/calendar/
     // ledger-track-record + 20+ enrichment layers), not just a
     // technicals-only preview.
@@ -268,7 +268,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const data = withHistory(await fetchStockData(symbol, '1y', '1d', { suffixProbe: false }));
                     if (!data.candles || data.candles.length < 30) return null;
                     const multiData = deriveMultiTimeframe(data);
-                    // Full pipeline — same call as the user-click path
+                    // Full pipeline, same call as the user-click path
                     // in core.js. bulkScan=false so the LSTM, per-symbol
                     // ledger track record, and all enrichments fire.
                     const result = await computeFullConfidence(multiData, 'stock', symbol, timeframe, { bulkScan: false, newsLite: true });
@@ -310,7 +310,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
 // calibration-thresholds.js. That value is "the lowest confidence
 // at which empirical hit rate from the live ledger is at least
 // 55%". So "55% on a card" actually means "engine has been right
-// 55%+ on similar setups" — not a hardcoded UI cutoff. NEUTRAL
+// 55%+ on similar setups", not a hardcoded UI cutoff. NEUTRAL
 // and NO_TRADE excluded entirely.
 //
 // Sync getter exposed so the empty-state UI message can show the
@@ -322,14 +322,14 @@ export function getHotPicksFloor() {
 // Hot Picks = the engine's BUY opportunities only (Roshan's call: "I need only
 // the ones with strong Buy there"), ranked strongest-first.
 //   1. keep only BUY (drop SELL / NEUTRAL / NO_TRADE),
-//   2. rank by calibrated confidence, take the top maxPicks — so the STRONGEST
+//   2. rank by calibrated confidence, take the top maxPicks, so the STRONGEST
 //      available buys surface even though this engine's calibrated BUY
 //      confidences currently sit low (near coin-flip). We intentionally do NOT
 //      gate on the learned 55% hotPicksFloor here: on the current confidence
 //      scale almost nothing clears 55%, so that gate left Hot Picks
 //      permanently empty (the opposite of what the user wants). "Strong" =
 //      top-ranked, and every card shows its real confidence % so nothing is
-//      dressed up — a 27% card reads as 27%.
+//      dressed up, a 27% card reads as 27%.
 //
 // Plus one floor that is not a tuning knob: calibrated confidence of at least 50%. The calibrated
 // number is the live hit rate of calls like this one, so a BUY at 46% is, by the engine's own
@@ -352,8 +352,8 @@ async function yahooBatchQuotes(symbols, onProgress) {
     const CHUNK = 50;
     for (let i = 0; i < symbols.length; i += CHUNK) {
         const chunk = symbols.slice(i, i + CHUNK);
-        if (onProgress) onProgress(`Quote pre-fetch — ${i + chunk.length}/${symbols.length}…`);
-        // Raw symbols — fetchWithProxy encodes the whole URL once at the
+        if (onProgress) onProgress(`Quote pre-fetch, ${i + chunk.length}/${symbols.length}…`);
+        // Raw symbols, fetchWithProxy encodes the whole URL once at the
         // proxy layer. Pre-encoding each symbol then joining with comma
         // is the same shape since encodeURIComponent of ASCII tickers is
         // idempotent, but it would double-encode any future symbol with
@@ -375,7 +375,7 @@ async function yahooBatchQuotes(symbols, onProgress) {
                 });
             }
         } catch (_) {
-            // Soft fail — those symbols just won't get pre-filter scores;
+            // Soft fail, those symbols just won't get pre-filter scores;
             // they'll fall to the bottom of the ranking.
         }
     }
@@ -425,7 +425,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
         return cached;
     }
 
-    if (onProgress) onProgress('Scanning all crypto sources — market cap, trending, gainers...');
+    if (onProgress) onProgress('Scanning all crypto sources, market cap, trending, gainers...');
 
     const [marketPage1, marketPage2, trendingCoins] = await Promise.allSettled([
         fetchCryptoMarket(1),
@@ -505,7 +505,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
                 weekly: tf(aggregateCandlesPeriod(candles, 7)),
                 fourHour: tf(candles.slice(-20)),
             };
-            // Full pipeline on crypto Hot Picks too — same engine as
+            // Full pipeline on crypto Hot Picks too, same engine as
             // the click-path. computeFullConfidence handles crypto by
             // routing through derivs / cross-asset enrichments.
             const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false, newsLite: true });

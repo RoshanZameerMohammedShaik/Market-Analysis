@@ -1,13 +1,13 @@
 // Always-on debug capture. Loaded via a tiny inline script at the
 // top of every page (see index.html / dev/index.html) BEFORE any
-// app module — that's the only way to catch errors thrown during
+// app module, that's the only way to catch errors thrown during
 // the early ES-module load phase.
 //
 // Captured streams:
-//   1. console.log / warn / error / info / debug — full args
-//   2. window.onerror — uncaught synchronous exceptions
-//   3. unhandledrejection — Promise rejections without a .catch
-//   4. fetch failures — 4xx / 5xx responses + network errors
+//   1. console.log / warn / error / info / debug, full args
+//   2. window.onerror, uncaught synchronous exceptions
+//   3. unhandledrejection. Promise rejections without a .catch
+//   4. fetch failures, 4xx / 5xx responses + network errors
 //
 // Storage: ring buffer (last 1000 entries). Past that, oldest drops.
 // Memory ceiling on a long session capped at ~1MB.
@@ -16,7 +16,7 @@
 // scrub before it lands in the buffer. We never store the raw key
 // even internally, so a copy-all from the debug UI is guaranteed safe.
 //
-// This module is "passive" — it only collects. The /dev/console UI
+// This module is "passive", it only collects. The /dev/console UI
 // reads window.__debugBuffer and renders it.
 
 (function installDebugCapture() {
@@ -35,7 +35,7 @@
     }
 
     // Single-pass redactor for any captured text. Same regex set
-    // we'd use on a clipboard scrubber — keeps the capture buffer
+    // we'd use on a clipboard scrubber, keeps the capture buffer
     // safe to copy or screenshot.
     function redact(s) {
         return String(s)
@@ -73,7 +73,7 @@
         notify();
     }
 
-    // Hook console levels — preserve original output so DevTools
+    // Hook console levels, preserve original output so DevTools
     // still works normally for anyone who has it open.
     const origConsole = {};
     ['log', 'warn', 'error', 'info', 'debug'].forEach(level => {
@@ -105,7 +105,7 @@
     });
 
     // fetch failures: wrap window.fetch so we see 4xx / 5xx and
-    // network errors centrally. Doesn't change behavior — we just
+    // network errors centrally. Doesn't change behavior, we just
     // observe the result and log on failure.
     const origFetch = window.fetch?.bind(window);
     if (origFetch) {
@@ -114,11 +114,11 @@
             try {
                 const res = await origFetch(...args);
                 if (!res.ok) {
-                    record('warn', [`fetch ${res.status} ${res.statusText} — ${url}`], { tag: 'fetch' });
+                    record('warn', [`fetch ${res.status} ${res.statusText}, ${url}`], { tag: 'fetch' });
                 }
                 return res;
             } catch (err) {
-                record('error', [`fetch error — ${url} — ${err.message}`], { tag: 'fetch' });
+                record('error', [`fetch error, ${url}, ${err.message}`], { tag: 'fetch' });
                 throw err;
             }
         };
@@ -143,5 +143,5 @@
 
     // Sentinel to confirm capture is active. Useful when debugging
     // the debugger.
-    record('info', ['[debug-capture] installed — capturing console + errors + fetch failures'], { tag: 'debug-capture' });
+    record('info', ['[debug-capture] installed, capturing console + errors + fetch failures'], { tag: 'debug-capture' });
 })();

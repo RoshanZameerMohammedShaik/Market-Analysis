@@ -1,4 +1,4 @@
-// Level 3 — keyless web search via Google News RSS.
+// Level 3, keyless web search via Google News RSS.
 //
 // Why not DuckDuckGo HTML: every CORS proxy in our chain is blocked from
 // fetching html.duckduckgo.com (they detect proxy UAs and refuse). Tested
@@ -7,11 +7,11 @@
 // Why Google News RSS instead:
 //   - Same proxy chain works fine (already used by news.js)
 //   - Returns a clean XML SERP; no fragile HTML scraping
-//   - News-focused — exactly the right tool for "what's happening with X"
+//   - News-focused, exactly the right tool for "what's happening with X"
 //   - 100 results per query so we can rank/filter cheaply
 //
 // Trade-off: this isn't general-purpose web search anymore. It's news-only.
-// For Mia's job (filling gaps the engine doesn't track — breaking news,
+// For Mia's job (filling gaps the engine doesn't track, breaking news,
 // macro events, narrative shifts), news is the highest-value lookup.
 //
 // Risk surface: untrusted internet text. Mia must:

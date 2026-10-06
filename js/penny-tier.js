@@ -1,4 +1,4 @@
-// Phase 2 — penny-stock tier model.
+// Phase 2, penny-stock tier model.
 //
 // Penny stocks (price < $5, low float, often microcaps) trade on a
 // completely different mechanic than large-caps: dominated by short-
@@ -54,7 +54,7 @@ async function fetchViaWorker(symbol) {
 
 async function fetchDirectYahoo(symbol) {
     // Best-effort fallback for if Yahoo ever relaxes the crumb wall.
-    // Raw symbol — fetchWithProxy encodes once at the proxy layer.
+    // Raw symbol, fetchWithProxy encodes once at the proxy layer.
     const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics`;
     try {
         const res = await fetchWithProxy(url);
@@ -141,39 +141,39 @@ export function pennyTierAdjustment(signal, penny, currentTier) {
     if (penny.floatBucket === 'micro') {
         if (signal === 'BUY') {
             adjust -= 8;
-            reasons.push(`Micro float (${formatShares(penny.floatShares)}) — low-float spikes often reverse, BUY confidence reduced`);
+            reasons.push(`Micro float (${formatShares(penny.floatShares)}), low-float spikes often reverse, BUY confidence reduced`);
         } else if (signal === 'SELL') {
             adjust -= 4;
-            reasons.push(`Micro float (${formatShares(penny.floatShares)}) — shorts may get squeezed, SELL confidence reduced`);
+            reasons.push(`Micro float (${formatShares(penny.floatShares)}), shorts may get squeezed, SELL confidence reduced`);
         }
     } else if (penny.floatBucket === 'small') {
         if (signal === 'BUY') {
             adjust -= 4;
-            reasons.push(`Small float (${formatShares(penny.floatShares)}) — BUY confidence trimmed`);
+            reasons.push(`Small float (${formatShares(penny.floatShares)}). BUY confidence trimmed`);
         }
     }
 
     if (penny.shortBucket === 'extreme') {
         if (signal === 'BUY') {
             adjust += 5;
-            reasons.push(`Short interest extreme (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float) — squeeze tailwind for BUY`);
+            reasons.push(`Short interest extreme (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float), squeeze tailwind for BUY`);
         } else if (signal === 'SELL') {
             adjust -= 8;
-            reasons.push(`Short interest extreme (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float) — squeeze risk against SELL`);
+            reasons.push(`Short interest extreme (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float), squeeze risk against SELL`);
         }
     } else if (penny.shortBucket === 'high') {
         if (signal === 'BUY') {
             adjust += 2;
-            reasons.push(`Short interest high (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float) — mild squeeze tailwind`);
+            reasons.push(`Short interest high (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float), mild squeeze tailwind`);
         } else if (signal === 'SELL') {
             adjust -= 4;
-            reasons.push(`Short interest high (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float) — squeeze risk reduces SELL confidence`);
+            reasons.push(`Short interest high (${(penny.shortPercentOfFloat * 100).toFixed(0)}% of float), squeeze risk reduces SELL confidence`);
         }
     }
 
     if (penny.squeezeRisk >= 0.7) {
         cap = 60;
-        reasons.push(`High squeeze risk (${(penny.squeezeRisk * 100).toFixed(0)}/100) — confidence capped at 60`);
+        reasons.push(`High squeeze risk (${(penny.squeezeRisk * 100).toFixed(0)}/100), confidence capped at 60`);
     }
 
     if (adjust > 8) adjust = 8;

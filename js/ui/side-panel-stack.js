@@ -64,7 +64,7 @@ function recomputeLayout() {
     // Notify EVERY registered panel so each one can sync its open class /
     // aria-hidden / launcher state with the current stack. We can't iterate
     // only openOrder here, because a panel that just closed has been removed
-    // from openOrder and would never get notified — its .open class would
+    // from openOrder and would never get notified, its .open class would
     // stay set forever, leaving it visible after the user clicked ✕.
     for (const [id, cfg] of PANELS.entries()) {
         cfg?.onLayout?.();
@@ -82,7 +82,7 @@ export function getOpenOrder() {
 // passed to registerSidePanel. We always exempt:
 //   - the panels themselves (their .getElement())
 //   - any modal backdrops the panels open (Trade modal, Instantiate
-//     modal, etc. — clicking their content shouldn't close the panel
+//     modal, etc., clicking their content shouldn't close the panel
 //     behind them)
 //   - launcher buttons (clicking the launcher to toggle is its own
 //     handler; we'd close-then-toggle-open which is jittery)
@@ -120,7 +120,7 @@ function isClickOutsideAllPanels(target) {
 document.addEventListener('mousedown', (e) => {
     if (openOrder.length === 0) return;
     if (!isClickOutsideAllPanels(e.target)) return;
-    // Close all open panels — same as ✕ on each, in reverse order so
+    // Close all open panels, same as ✕ on each, in reverse order so
     // the layout recomputes one panel at a time and we don't fight
     // the transitions.
     const toClose = [...openOrder].reverse();

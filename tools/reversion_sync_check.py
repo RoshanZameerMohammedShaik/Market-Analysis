@@ -1,6 +1,6 @@
 """Assert the trend gate and the pullback setup agree between Python and JS, on real bars.
 
-The cron (trend_gate.py, reversion_setup.py) decides what the LEDGER records and publishes; the
+The cron (trend_gate.py, reversion_setup.py) decides what the LEDGER records and publishes, the
 browser (js/trend-gate.js, js/reversion-setup.js) decides what the CARD shows. If they disagree,
 a user sees a BUY the scorecard never graded, or a setup the landing list never listed.
 

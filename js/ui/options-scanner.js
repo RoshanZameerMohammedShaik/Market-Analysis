@@ -2,7 +2,7 @@
 //
 // Sweeps the liquid US large-cap universe, pulls each name's options
 // chain (Yahoo, 5-min cache via options-iv.js), and surfaces symbols
-// whose positioning is anomalous — crowded puts/calls (PCR extremes)
+// whose positioning is anomalous, crowded puts/calls (PCR extremes)
 // or a stretched IV skew (downside fear / upside euphoria). Ranked by
 // how unusual the positioning is.
 //
@@ -58,7 +58,7 @@ async function gather() {
 
 function renderRows(rows) {
     if (rows && rows.feedUnavailable) {
-        return '<div class="options-scan-empty">Options data is temporarily unavailable — the free options feed isn’t responding right now. The engine’s signals still work; this overlay returns when the feed is back.</div>';
+        return '<div class="options-scan-empty">Options data is temporarily unavailable, the free options feed isn’t responding right now. The engine’s signals still work, this overlay returns when the feed is back.</div>';
     }
     if (!rows || !rows.length) {
         return '<div class="options-scan-empty">No unusual options activity across the large-cap universe right now.</div>';

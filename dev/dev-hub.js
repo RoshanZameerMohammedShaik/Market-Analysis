@@ -1,4 +1,4 @@
-// Dev Hub controller — single toggle button + how-to-use copy.
+// Dev Hub controller, single toggle button + how-to-use copy.
 //
 // The standalone console viewer was removed because each tab has
 // its own debug-capture buffer, so /dev's console only ever showed

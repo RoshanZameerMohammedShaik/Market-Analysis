@@ -23,7 +23,7 @@ Mia can never liquidate a position Roshan opened by hand.
 ACCOUNTING RULES, MIRRORING js/portfolio/state.js
 -------------------------------------------------
   * All internal accounting in USD. Display currency is a UI concern.
-  * FIFO lots. A buy appends a lot; a sell consumes lots oldest-first, so cost basis
+  * FIFO lots. A buy appends a lot, a sell consumes lots oldest-first, so cost basis
     and realized P/L are exact rather than averaged.
   * Fills cross the spread via trading_costs.fill_price, so the cost is baked into the
     cost basis instead of being a separate fee. A bot that books fills at the midpoint

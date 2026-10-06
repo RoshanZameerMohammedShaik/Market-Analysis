@@ -7,7 +7,7 @@
 THE SPLIT, AND WHY
 ------------------
 bot/advise.mjs THINKS (the app's real engine plus Mia's LLM) and this file ACTS. A
-strategy returns intents; only this file touches money. So a bug in a strategy or a
+strategy returns intents, only this file touches money. So a bug in a strategy or a
 hallucination from the LLM cannot spend anything: every intent passes the broker rules and
 the risk limits below before it becomes a fill.
 
@@ -17,14 +17,13 @@ WHAT GETS WRITTEN
   model/bot/trades.jsonl  the timeline. One row per FILL, with the reasoning and evidence
   model/bot/runs.jsonl    one row per RUN, including runs that traded nothing
 
-runs.jsonl matters as much as trades.jsonl. Roshan asked to see when and why she traded;
-seeing that she looked and deliberately did nothing is the same question answered, and
+runs.jsonl matters as much as trades.jsonl. Roshan asked to see when and why she traded, seeing that she looked and deliberately did nothing is the same question answered, and
 without it a quiet week is indistinguishable from a broken cron.
 
 GUARDS, EACH FOR A NAMED FAILURE
 --------------------------------
   session gate      Trading NYSE at 3am books fills against a stale close that could never
-                    have happened. bot/sessions.py decides; crypto is exempt.
+                    have happened. bot/sessions.py decides, crypto is exempt.
   stale-price       Even inside a session, a quote older than maxPriceAgeMin is refused. A
                     decision made on an hour-old price is not the decision it claims.
   holiday-by-data   No exchange calendar is bundled: they rot and differ per venue. If a
@@ -97,7 +96,7 @@ def candidate_universe(cfg, held, live_markets):
     rows are used as a cheap prior: they already carry a price and a weightedScore per
     symbol, computed at that market's open by the cron. Names are ranked on that stored
     score, and the top maxCandidates are re-analysed FRESH by the real engine before any
-    decision. The prior only chooses who to look at; it never decides anything.
+    decision. The prior only chooses who to look at, it never decides anything.
 
     Held positions are always included regardless of rank, or Mia could not sell what she
     already owns.
@@ -332,7 +331,7 @@ def rebalance_sleeves(acct, learned, prices, cfg):
         over several cycles instead of lurching on one noisy reading. This is a rate limit,
         not a tuned parameter: any value below 1.0 has the same qualitative effect.
       * THE CONTROL SLEEVE IS EXCLUDED. Its capital must stay put or it stops being a
-        benchmark. bot/learn.py never emits a weight for it; this skips it regardless.
+        benchmark. bot/learn.py never emits a weight for it, this skips it regardless.
 
     Does nothing at all when no sleeve has actionable evidence, which is the normal state.
     """

@@ -20,7 +20,7 @@ The same fixed-precision mistake appeared in five places across both languages,
 which is why this is a shared module rather than a fifth local helper.
 
 Rule: 2dp at or above $1, 4dp at or above $0.01, and below that SIGNIFICANT
-figures rather than decimal places. A fixed 8dp still collapses at 1e-9; sig-figs
+figures rather than decimal places. A fixed 8dp still collapses at 1e-9, sig-figs
 never do, at any magnitude.
 """
 import math

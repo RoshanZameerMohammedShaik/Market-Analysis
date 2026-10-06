@@ -17,8 +17,7 @@
 :root {
     /* Dark mode: page stays true black, but cards/secondary surfaces
        lift a few notches so they're visibly raised slabs against the
-       black backdrop. Pure-black-on-black shadows were invisible —
-       we now use white-tinted outer shadows (low alpha) PLUS a
+       black backdrop. Pure-black-on-black shadows were invisible, we now use white-tinted outer shadows (low alpha) PLUS a
        brighter inset top hairline so each card looks like a piece of
        dark glass with light catching the upper edge. */
     --bg-primary: #000000;
@@ -48,11 +47,11 @@
     --scroll-track: #000000;
     --scroll-thumb: #383838;
     --scroll-thumb-hover: #4a9eff;
-    /* Depth tokens — white-tinted outer shadows so the lifted edge of
+    /* Depth tokens, white-tinted outer shadows so the lifted edge of
        each card glows softly off the pure-black backdrop instead of
        disappearing. Inset top hairline (4-5% white) catches the
-       light source. The pairing — lighter card surface + white
-       outer halo + white inset top + thin black inset bottom — is
+       light source. The pairing, lighter card surface + white
+       outer halo + white inset top + thin black inset bottom, is
        what reads as "raised dark glass" instead of flat slab.
        Combined cards: outer halo + inset top + inset bottom in one
        declaration so callers don't have to stack multiple shadow
@@ -147,7 +146,7 @@
     --scroll-track: #100628;
     --scroll-thumb: #3d2270;
     --scroll-thumb-hover: #c084fc;
-    /* Aurora depth tokens — same approach as dark, but the accent
+    /* Aurora depth tokens, same approach as dark, but the accent
        glow on hover uses the violet accent so cards lift with a
        subtle purple wash, matching the rest of the theme. */
     --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.55), 0 6px 16px rgba(0, 0, 0, 0.50), 0 20px 44px rgba(58, 18, 110, 0.55);
@@ -178,7 +177,7 @@ html, body {
        to force the body wider than the viewport. That made the
        browser silently disable the mobile media queries (since body
        was now > 540px) and rendered the desktop layout while the user
-       could only see the leftmost 402px — looking like "the screen
+       could only see the leftmost 402px, looking like "the screen
        split, with the right half empty waiting for Mia." Clamping
        overflow-x to hidden at html+body level means no child can
        expand the document, and our @media rules fire reliably. */
@@ -194,7 +193,7 @@ body {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Depth pass — applied across all themes.
+   Depth pass, applied across all themes.
 
    Roshan's brief: cards / buttons / pills should have soft elevation
    so the page doesn't look flat. Each theme defines its own
@@ -269,7 +268,7 @@ body {
 [data-theme="light"] .tab-btn.active {
     box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06), 0 4px 10px rgba(var(--accent-rgb), 0.18);
 }
-/* Portfolio launcher when its panel is open — accent glow so it
+/* Portfolio launcher when its panel is open, accent glow so it
    reads as the active control like .tab-btn.active. */
 body.side-panel-portfolio-open .portfolio-launcher {
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 14px rgba(var(--accent-rgb), 0.32);
@@ -279,7 +278,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
 }
 
 /* Inset highlight on top + soft inset bottom shadow on cards gives
-   the polished CRED card edge — a thin white line on top and a thin
+   the polished CRED card edge, a thin white line on top and a thin
    shadow on bottom, like light catching a raised surface. */
 [data-theme="light"] .signal-box,
 [data-theme="light"] .hot-pick-card,
@@ -291,7 +290,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
 }
 [data-theme="light"] .signal-box::before,
 [data-theme="light"] .hot-pick-card::before {
-    /* Top hairline highlight — purely decorative, sits inside the
+    /* Top hairline highlight, purely decorative, sits inside the
        border so the corners stay clean. */
     content: '';
     position: absolute;
@@ -305,7 +304,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
 [data-theme="light"] .hot-pick-card { position: relative; }
 
 /* Subtle gradient on cards so they're not a flat slab of white.
-   Top a touch warmer than the bottom — light source from above. */
+   Top a touch warmer than the bottom, light source from above. */
 [data-theme="light"] .hot-pick-card,
 [data-theme="light"] .signal-box,
 [data-theme="light"] .price-target-card,
@@ -327,7 +326,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     /* sticky already counts as a positioned value, so the absolute
        .header-actions inside it anchors here (not to <body>). The
        gear cluster sits centred against the header height via
-       top: 50% / translateY(-50%) — see .header-actions below.
+       top: 50% / translateY(-50%), see .header-actions below.
 
        safe-area-inset-top covers the iPhone notch when the page runs
        as a PWA from the home screen. apple-mobile-web-app-status-bar-
@@ -380,7 +379,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
 .header-actions {
     /* Anchor BELOW the safe-area inset so the gear clears the iPhone
        notch / dynamic island. Earlier `top: 50%` centered the gear
-       against the header's full height — but with safe-area-inset-top
+       against the header's full height, but with safe-area-inset-top
        padding added, half of that height is consumed by the notch,
        so 50% landed the gear partially behind the dynamic island.
        Using calc(safe-area-inset-top + 14px) puts the gear directly
@@ -394,7 +393,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
        .header-content the title is vertically centered; matching that with
        top:50% + translateY(-50%) aligns the gear to the title. On iPhone the
        safe-area padding lives on the header, so the content (and thus this
-       50%) is already below the notch — no dynamic-island overlap. */
+       50%) is already below the notch, no dynamic-island overlap. */
     top: 50%;
     right: max(24px, env(safe-area-inset-right, 24px));
     transform: translateY(-50%);
@@ -416,7 +415,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
 .header-btn:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
 .header-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Settings gear — exactly ONE forward rotation on open, ONE backward
+/* Settings gear, exactly ONE forward rotation on open, ONE backward
    on close. No hover rotation, no continuous spin. Earlier the hover
    rule rotated to 60deg, which made the open animation jump 60→360
    (looked like a fast forward+back wobble). Now the gear holds at 0
@@ -461,7 +460,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     align-items: center;
     gap: 10px;
     /* Bumped vertical padding from 6px → 10px so each menu row hits
-       ~44pt — Apple HIG floor for touch targets. The gear menu was
+       ~44pt. Apple HIG floor for touch targets. The gear menu was
        hard to tap accurately on iPhone before. Desktop is unaffected
        (still feels compact). */
     padding: 10px 12px;
@@ -511,7 +510,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     margin-left: 6px;
 }
 
-/* Currency picker popover — opens to the LEFT of the settings menu
+/* Currency picker popover, opens to the LEFT of the settings menu
    when the Currency Converter item is clicked. Lists every supported
    currency with symbol, code, and friendly name. */
 .currency-picker {
@@ -603,7 +602,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     padding: 24px;
     gap: 24px;
 }
-/* Resources panel — slides in from the left as a fixed full-height
+/* Resources panel, slides in from the left as a fixed full-height
    overlay (covers the sticky header too) so opening / closing it
    never reflows the main content and the panel reads as a complete
    side-sheet, not a clipped strip. Z-index sits above .app-header
@@ -615,7 +614,7 @@ body.side-panel-portfolio-open .portfolio-launcher {
     left: 0;
     bottom: 0;
     width: min(300px, 92vw);
-    /* 100dvh (dynamic viewport height) instead of 100vh — on iOS
+    /* 100dvh (dynamic viewport height) instead of 100vh, on iOS
        Safari the URL bar collapses on scroll, and 100vh is sticky
        to the LARGER viewport state, which means content overflows
        the visible area when the bar is open. dvh tracks the actual
@@ -681,7 +680,7 @@ body.resources-open .glossary-rail { transform: translateX(0); }
     padding: 0;
 }
 /* Backdrop: invisible click-target on desktop so clicking outside the
-   panel closes it (no visual dim — the chart stays clearly readable).
+   panel closes it (no visual dim, the chart stays clearly readable).
    Mobile gets a dim + blur so the sheet pattern reads. Sits just below
    the panel (600) and above the header (100) so the header is also
    click-to-dismiss. */
@@ -743,7 +742,7 @@ body.resources-open .resources-backdrop {
     padding: 6px 0;
     line-height: 1;
 }
-/* Hide the toggle pill while Resources is open — the panel itself
+/* Hide the toggle pill while Resources is open, the panel itself
    has its own × close button and the header strip the pill lives in
    should not show through the overlay. Earlier we lifted the pill
    above the panel (z-index 460 > overlay 450), but Roshan's correct
@@ -949,7 +948,7 @@ body.resources-open .resources-toggle {
 }
 #tradingview-widget { width: 100%; height: 100%; }
 /* Aurora: keep the CHART background dark (near-black) rather than the deep
-   purple page colour — the TradingView widget + candle placeholder read far
+   purple page colour, the TradingView widget + candle placeholder read far
    better on a neutral dark canvas, and it matches the dark theme's chart. */
 [data-theme="aurora"] .chart-container { background: #07060d; }
 
@@ -1168,7 +1167,7 @@ body.resources-open .resources-toggle {
 }
 @media (prefers-reduced-motion: no-preference) {
     /* Swoosh: when the button lands in the dock (.is-on), it slides in from the
-       left with a fade — reads as travelling rightward into the header. */
+       left with a fade, reads as travelling rightward into the header. */
     .watchlist-perm-btn.is-on { animation: notif-swoosh-in 0.42s var(--ease-premium, cubic-bezier(0.22,1,0.36,1)) both; }
 }
 @keyframes notif-swoosh-in {
@@ -1176,7 +1175,7 @@ body.resources-open .resources-toggle {
     to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 
-/* Closed-app checkbox — fades in/out with the toggle state. */
+/* Closed-app checkbox, fades in/out with the toggle state. */
 .watchlist-closed-check {
     display: inline-flex; align-items: center; gap: 7px;
     font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;
@@ -1352,7 +1351,7 @@ body.resources-open .resources-toggle {
 }
 .scanner-filter { flex: 1; min-width: 200px; }
 .scanner-meta { font-size: 0.78rem; color: var(--text-muted); margin-left: auto; }
-/* Accuracy time-window control — small label + number + unit
+/* Accuracy time-window control, small label + number + unit
    dropdown, sized so the row stays compact. */
 .scanner-window {
     display: inline-flex;
@@ -1419,7 +1418,7 @@ body.resources-open .resources-toggle {
 .scanner-table th.sort-asc::after  { content: ' ▲'; font-size: 0.7em; }
 .scanner-table th.sort-desc::after { content: ' ▼'; font-size: 0.7em; }
 
-/* Per-row "Load chart ↗" button — loads the symbol's chart + analysis above. */
+/* Per-row "Load chart ↗" button, loads the symbol's chart + analysis above. */
 .scanner-loadchart-btn {
     margin-left: 8px;
     padding: 2px 8px;
@@ -1436,7 +1435,7 @@ body.resources-open .resources-toggle {
 .scanner-row:hover .scanner-loadchart-btn { opacity: 1; }
 .scanner-loadchart-btn:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-1px); }
 
-/* Full-Ledger focus overlay — row click zooms the analysis into a big card
+/* Full-Ledger focus overlay, row click zooms the analysis into a big card
    over a blurred backdrop; click the backdrop (or ×/Esc) to return. */
 .ledger-focus-overlay {
     position: fixed; inset: 0; z-index: 1300;
@@ -1515,7 +1514,7 @@ body.resources-open .resources-toggle {
         box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.16);
     }
 }
-/* The expanded drawer row is NOT a card — neutralise the card cell styling so
+/* The expanded drawer row is NOT a card, neutralise the card cell styling so
    it reads as an attached panel under its row (no rounding/zoom/gap weirdness). */
 .scanner-drawer-row td {
     background: var(--bg-secondary);
@@ -1560,7 +1559,7 @@ body.resources-open .resources-toggle {
 .hit-no      { color: var(--red);    font-weight: 700; }
 .hit-pending { color: var(--text-muted); font-style: italic; }
 
-/* Full Ledger summary icon — small SVG sitting between the chevron
+/* Full Ledger summary icon, small SVG sitting between the chevron
    and the title. Replaces the old 📊 emoji which was misaligned and
    theme-ignorant. */
 .scanner-icon {
@@ -1584,7 +1583,7 @@ body.resources-open .resources-toggle {
     border-bottom-color: var(--accent);
 }
 
-/* Prediction Accuracy cell — three stacked rows (frac, pct + label,
+/* Prediction Accuracy cell, three stacked rows (frac, pct + label,
    gradient bar). Color flows through the gradient computed in JS so
    the cell tints smoothly red→amber→green with the percentage. */
 .acc-cell {
@@ -2009,7 +2008,7 @@ body.resources-open .resources-toggle {
 
 .section-subtitle { font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 800; margin: 14px 0 8px; }
 .technical-section { margin-top: 12px; }
-/* Live indicator snapshot chips — the actual computed numbers for the
+/* Live indicator snapshot chips, the actual computed numbers for the
    current symbol, tinted by bull/bear/neutral reading. */
 .tech-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
 .tech-chip {
@@ -2042,7 +2041,7 @@ body.resources-open .resources-toggle {
 .accordion-body { padding: 0 12px 10px 28px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
 .accordion-explanation { padding-top: 6px; border-top: 1px dashed var(--border); }
 /* Flat (non-expandable) variant for technical-indicator rows that
-   have no extra detail to surface beyond the title — saves the user
+   have no extra detail to surface beyond the title, saves the user
    from clicking only to find "this indicator provides context"
    placeholder text. Inherits the same row layout but without the
    pointer cursor / chevron. */
@@ -2156,11 +2155,10 @@ body.resources-open .resources-toggle {
 .loading-tip { font-size: 0.74rem; color: var(--text-muted); font-style: italic; }
 
 /* Candlestick skeleton loader. Renders a row of OHLC bars whose body
-   heights, wick lengths, and colors animate in a staggered loop —
-   visually says "we are computing a market chart" instead of generic
+   heights, wick lengths, and colors animate in a staggered loop, visually says "we are computing a market chart" instead of generic
    spinner. Used on the multi-second analysis screen where the user
    stares at the loader long enough to notice. */
-/* Premium "live-market" loader — bars breathe as a smooth travelling wave
+/* Premium "live-market" loader, bars breathe as a smooth travelling wave
    (scaleY from a shared baseline, GPU transform not top/bottom thrash), each
    capped with a soft glow, and a faint scan-sheen drifts across the whole row.
    Reads as the engine actively pulsing through the data rather than a choppy
@@ -2253,7 +2251,7 @@ body.resources-open .resources-toggle {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Phone breakpoint (≤540px) — iPhone 17 Pro logical width is 402pt.
+   Phone breakpoint (≤540px), iPhone 17 Pro logical width is 402pt.
    Roshan's brief: "looks so squeezed in and looks like the web version
    when added as a Safari home-screen shortcut". Address each squeeze
    point: tabs row wrapping cleanly, Portfolio button visible (icon-
@@ -2262,7 +2260,7 @@ body.resources-open .resources-toggle {
    take full width with safe-area inset for the iPhone home-bar.
    ──────────────────────────────────────────────────────────────────── */
 @media (max-width: 540px) {
-    /* Page surfaces — respect iPhone safe areas (notch + home bar) */
+    /* Page surfaces, respect iPhone safe areas (notch + home bar) */
     body { padding-bottom: env(safe-area-inset-bottom, 0); }
     .app-layout {
         padding: 10px max(10px, env(safe-area-inset-left, 10px))
@@ -2284,14 +2282,14 @@ body.resources-open .resources-toggle {
        reachable in a tight cluster and 44 each would crowd the row. */
     .header-btn, .theme-toggle { width: 36px; height: 36px; }
 
-    /* Tabs row — wrap onto multiple lines without squishing */
+    /* Tabs row, wrap onto multiple lines without squishing */
     .tabs-row { gap: 6px; margin-bottom: 8px; row-gap: 8px; }
     .tab-group { padding: 3px; }
     .tab-btn { padding: 6px 12px; font-size: 0.78rem; }
     .resources-toggle { padding: 3px 10px 3px 8px; }
     .resources-toggle-label { font-size: 0.78rem; padding: 5px 0; }
 
-    /* Portfolio launcher — show as compact pill with icon visible.
+    /* Portfolio launcher, show as compact pill with icon visible.
        The pre-existing rule at portfolio.css:731 hid the LABEL on
        phones, but the icon span was nested inside the label so the
        whole button became invisible. The HTML is fixed (icon is now
@@ -2300,14 +2298,14 @@ body.resources-open .resources-toggle {
     .portfolio-launcher { padding: 6px 12px; font-size: 0.78rem; margin-left: 0; }
     .portfolio-launcher-icon { width: 12px; height: 12px; }
 
-    /* Search row — input takes the full row, results dropdown is
+    /* Search row, input takes the full row, results dropdown is
        100% wide so suggestions don't truncate awkwardly. */
     .controls-section { margin-bottom: 12px; }
     .search-container { width: 100%; }
     .search-input { font-size: 0.9rem; padding: 10px 12px 10px 36px; }
     .search-results { max-height: 60vh; }
 
-    /* Chart + signal cards — roomier interior so text doesn't crowd */
+    /* Chart + signal cards, roomier interior so text doesn't crowd */
     .chart-container { height: 280px; }
     .chart-header { padding: 6px 0 10px; flex-wrap: wrap; gap: 8px; }
     .signal-section { margin-bottom: 16px; }
@@ -2319,7 +2317,7 @@ body.resources-open .resources-toggle {
         font-size: 0.78rem;
     }
 
-    /* Hot Picks grid — stay 2-up on phones (was auto-fill 160px which
+    /* Hot Picks grid, stay 2-up on phones (was auto-fill 160px which
        would only fit one column on a 402pt screen). 2 columns reads
        as a proper grid, not a stack. */
     .hotpicks-grid {
@@ -2331,7 +2329,7 @@ body.resources-open .resources-toggle {
     .hot-pick-confidence { font-size: 0.86rem; }
     .penny-tabs { flex-wrap: wrap; gap: 4px; }
 
-    /* Full Ledger — let the table scroll horizontally inside its
+    /* Full Ledger, let the table scroll horizontally inside its
        wrapper so cells stay readable instead of getting crushed. */
     .scanner-summary { padding: 10px 12px; }
     .scanner-title { font-size: 0.92rem; }
@@ -2346,7 +2344,7 @@ body.resources-open .resources-toggle {
     .acc-cell { min-width: 110px; }
     .acc-frac { font-size: 0.78rem; }
 
-    /* Side panels (Mia + Portfolio) — full width on phones. The panel
+    /* Side panels (Mia + Portfolio), full width on phones. The panel
        itself starts at top: 0 (covers the notch area) but the FIRST
        child is the header which now carries safe-area-inset-top
        padding, so the close button + title sit below the dynamic
@@ -2356,22 +2354,22 @@ body.resources-open .resources-toggle {
         max-width: 100vw !important;
         padding-bottom: env(safe-area-inset-bottom, 0);
     }
-    /* Side-panel headers — push below the iPhone notch so the close
+    /* Side-panel headers, push below the iPhone notch so the close
        buttons aren't trapped under the dynamic island. The class on
-       Mia is .mia-head (single 'head'), not .mia-header — earlier rule
+       Mia is .mia-head (single 'head'), not .mia-header, earlier rule
        targeted the wrong class so Mia's notch fix never took effect. */
     .portfolio-panel-head,
     .mia-head { padding-top: max(14px, env(safe-area-inset-top, 14px)); }
 
-    /* Mia launcher — slightly smaller + nudged inward so it doesn't
+    /* Mia launcher, slightly smaller + nudged inward so it doesn't
        crash the right edge or the home indicator. */
     .mia-launcher { width: 48px; height: 48px; bottom: max(16px, env(safe-area-inset-bottom, 16px)); right: 16px; }
     .mia-launcher-logo { width: 36px; height: 26px; }
 
-    /* Resources panel as a left sheet — full width, safe-area top */
+    /* Resources panel as a left sheet, full width, safe-area top */
     .glossary-rail { width: min(320px, 96vw); padding-top: max(16px, env(safe-area-inset-top, 16px)); }
 
-    /* Notification stack — narrow + safe-area top */
+    /* Notification stack, narrow + safe-area top */
     .ma-notify-container {
         top: max(12px, env(safe-area-inset-top, 12px));
         left: 12px;

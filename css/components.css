@@ -1,5 +1,5 @@
 /* ============================================================================
-   VAULT — component layer
+   VAULT, component layer
    ============================================================================
    Loaded after design-system.css. Restyles the app's real surfaces using the
    EXISTING class names, so no markup or JS module has to change. Where a rule
@@ -9,7 +9,7 @@
    ============================================================================ */
 
 /* ---------------------------------------------------------------------------
-   LAYOUT — reclaim the wasted space
+   LAYOUT, reclaim the wasted space
    The old layout centred a 1200px column inside a 1512px viewport with an empty
    glossary rail on the left, so the page read as off-centre with dead gutters.
 --------------------------------------------------------------------------- */
@@ -34,7 +34,7 @@
 }
 
 /* ---------------------------------------------------------------------------
-   HEADER — a real sticky glass bar with presence
+   HEADER, a real sticky glass bar with presence
 --------------------------------------------------------------------------- */
 .app-header {
     position: sticky;
@@ -73,9 +73,13 @@
     align-items: center;
     gap: var(--sp-3);
     flex: 0 1 auto;
-    /* The title block was centred in a full-width flex row, which is what left
-       the bar looking empty. Anchor it left where a brand belongs. */
-    margin: 0;
+    /* CENTRED in the bar, per Roshan 2026-10-06 ("bring the name and logo to the center of
+       the header, it is currently on the left"). This rule previously forced margin: 0 to
+       anchor the brand left and override style.css, which is why justify-content: center
+       there had no effect. The gear is absolutely positioned against .app-header, so it does
+       not move with this and does not collide. */
+    margin: 0 auto;
+    justify-content: center;
 }
 
 .app-title-wrap { display: flex; align-items: center; gap: var(--sp-2); }
@@ -163,7 +167,7 @@
 .header-btn:hover .settings-gear { transform: rotate(60deg); }
 
 /* Portfolio is the one primary action in the control row, so it alone gets the
-   accent treatment. Everything else stays quiet — if all buttons shout, none do. */
+   accent treatment. Everything else stays quiet, if all buttons shout, none do. */
 .portfolio-launcher {
     color: var(--accent-contrast);
     background: var(--accent);
@@ -422,7 +426,7 @@
    the first screen ~530px of nothing, so a new user's first impression was a
    void. Collapse it while the placeholder is showing, and give a real chart MORE
    room than before, since price action is the reason the page exists.
-   :has() degrades safely — an engine without it keeps the original 360px. */
+   :has() degrades safely, an engine without it keeps the original 360px. */
 .chart-container { height: 460px; }
 .chart-container:has(.chart-placeholder) {
     height: auto;
@@ -459,7 +463,7 @@
     width: 100%;
     /* 840 of the 1192px column, about 70%. Two earlier passes bracketed this:
        full-bleed at 1188x220 was a 5.4:1 bar, and 600x280 read as a small box
-       adrift in the column. 840x350 is 2.4:1 — substantial enough to hold the
+       adrift in the column. 840x350 is 2.4:1, substantial enough to hold the
        page while still reading as a panel rather than a stretched strip. */
     max-width: 840px;
     margin-inline: auto;
@@ -710,7 +714,7 @@
 
    Removed on request. It also has a real cost beyond taste: blurring ~19 cards on
    every pointer move over the grid forces a full repaint of each, and it hides
-   prices the moment the cursor crosses the grid — in a scanning UI you want to
+   prices the moment the cursor crosses the grid, in a scanning UI you want to
    compare cards, which means the other nineteen have to stay readable.
 
    The LIFT is kept: the hovered card still rises and gains a shadow, which is

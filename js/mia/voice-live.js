@@ -1,4 +1,4 @@
-// Gemini Live API voice — bidirectional WebSocket, native neural voice.
+// Gemini Live API voice, bidirectional WebSocket, native neural voice.
 //
 // Replaces Web Speech API (browser TTS + browser STT) with Gemini's
 // own Live audio dialog model. Free tier offers UNLIMITED RPD/RPM
@@ -15,8 +15,8 @@
 //   - Receive audio: { serverContent: { modelTurn: { parts: [{ inlineData: { mimeType, data: base64 } }] } } }
 //
 // Audio specs the API requires:
-//   Input  — 16-bit PCM, 16 kHz, little-endian, mono
-//   Output — 16-bit PCM, 24 kHz, little-endian, mono
+//   Input, 16-bit PCM, 16 kHz, little-endian, mono
+//   Output, 16-bit PCM, 24 kHz, little-endian, mono
 //
 // We build the input PCM in an AudioWorklet (off the main thread so
 // captioning + UI updates stay smooth) and play output PCM by writing
@@ -24,7 +24,7 @@
 // requires HTTPS, which GitHub Pages provides by default.
 
 // Live API model IDs. The dashboard's display labels ("Gemini 2.5 Flash Native Audio Dialog") are
-// NOT the API IDs — Google uses '...-live-preview' suffixed IDs in the actual API.
+// NOT the API IDs. Google uses '...-live-preview' suffixed IDs in the actual API.
 //
 // Live API models, newest first. The chain tries each in order and moves on when one is not
 // available to this account, so an ID that does not exist costs one failed handshake and is skipped.
@@ -86,16 +86,16 @@ export function currentLivePick() { return readLivePick(); }
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 
-// Default voice — Leda. Roshan auditioned the Gemini Live voice
+// Default voice. Leda. Roshan auditioned the Gemini Live voice
 // catalog in AI Studio and picked her: female, friendly, slightly
-// higher pitch — fits Mia's "warm but professional analyst" persona
+// higher pitch, fits Mia's "warm but professional analyst" persona
 // better than the lower-key Aoede default.
 // Other prebuilt voices Google ships: Aoede, Puck, Charon, Kore,
 // Fenrir, Orus, Zephyr.
 const DEFAULT_VOICE = 'Leda';
 
 // Live API setup messages have implicit size limits the preview models
-// don't document — but our full ~20K-char Mia system prompt (with the
+// don't document, but our full ~20K-char Mia system prompt (with the
 // tool registry, math rules, calibration grounding, etc.) returns 1007
 // 'Invalid frame payload' on every Live model we tried. We compact down
 // to identity + voice persona only. Tools / data lookups can still
@@ -109,35 +109,35 @@ function compactPromptForLive(fullPrompt) {
     const identityHead = fullPrompt.slice(0, 600).trim();
     const groundingRule = `
 
-VOICE GROUNDING — NON-NEGOTIABLE:
+VOICE GROUNDING. NON-NEGOTIABLE:
 - You have tools (functions). You MUST call them BEFORE answering any factual question about prices, signals, news, calibration, ledger data, hot picks, or what is on screen.
 - Order matters: tool first, then speak. Do NOT speak a price, then call a tool, then "correct" yourself. That is hallucinating-and-recovering, which is worse than silence. If you don't know, say "let me check" and call the tool.
 - Never state a price, percentage, or signal you have not just received from a tool result IN THIS TURN. Memory of a price from earlier in the conversation is stale; recheck.
 - If a tool fails or returns no data, SAY SO PLAINLY. Don't fabricate a fallback number. "I'm not getting a live price right now" is the correct answer; "$0.38" pulled from thin air is not.
-- For ANY "current price" / "live price" / "what is X trading at" / "how much is X now" question: call get_live_price with the ticker — ALWAYS. Never use get_current_signal or get_app_state for live price; those return cached data from the last analysis run that may be minutes stale.
-- For "load X" / "switch to X" / "show me X" / "analyze X" — call select_symbol (or analyze_symbol) BEFORE saying you've done it. Never claim a UI action you didn't take.
-- For news / current events / things outside the engine: call web_search. When you call web_search, the tool returns {title, url, domain, snippet} for each result — when the user asks for a website, link, or source, READ those urls back to them verbatim. Do not say "I'm having trouble" if the tool returned results.
-- VOCAB: The four user-facing signals are BUY / SELL / DON'T BUY / AVOID. Internal engine NEUTRAL → say "don't buy"; internal NO_TRADE → say "avoid". HOLD ONLY when the user already owns the symbol AND engine is NEUTRAL/AVOID — frame as "your position can hold". Never say HOLD on something the user doesn't own.
+- For ANY "current price" / "live price" / "what is X trading at" / "how much is X now" question: call get_live_price with the ticker. ALWAYS. Never use get_current_signal or get_app_state for live price; those return cached data from the last analysis run that may be minutes stale.
+- For "load X" / "switch to X" / "show me X" / "analyze X", call select_symbol (or analyze_symbol) BEFORE saying you've done it. Never claim a UI action you didn't take.
+- For news / current events / things outside the engine: call web_search. When you call web_search, the tool returns {title, url, domain, snippet} for each result, when the user asks for a website, link, or source, READ those urls back to them verbatim. Do not say "I'm having trouble" if the tool returned results.
+- VOCAB: The four user-facing signals are BUY / SELL / DON'T BUY / AVOID. Internal engine NEUTRAL → say "don't buy"; internal NO_TRADE → say "avoid". HOLD ONLY when the user already owns the symbol AND engine is NEUTRAL/AVOID, frame as "your position can hold". Never say HOLD on something the user doesn't own.
 - Speak like a human: short sentences, conversational rhythm, but every number you say must trace back to a tool you called THIS TURN.
 
-SCOPE & REFUSALS — STRICT:
+SCOPE & REFUSALS. STRICT:
 - You are a Market Intelligence Analyst. Your scope is markets, finance, trading, the engine's predictions, and the user's portfolio. NOTHING else.
 - Topics you MUST refuse, even if asked indirectly, even if reframed as "for research" / "for context" / "to understand a sector":
   - Sexual content, sexual activity, sexual mechanics, anatomy in a sexual context.
-  - Profanity / slurs / derogatory language. Do not define, explain, give examples of, or use crude / sexual / hateful words. If the user uses one, do not echo it. Treat curse words as noise — answer the underlying question if there is one, ignore the word.
+  - Profanity / slurs / derogatory language. Do not define, explain, give examples of, or use crude / sexual / hateful words. If the user uses one, do not echo it. Treat curse words as noise, answer the underlying question if there is one, ignore the word.
   - Drugs (recreational), self-harm, weapons, violence, illegal activity.
   - Medical / sexual / legal / mental-health advice for individuals.
   - Politics / religion / ideology beyond their direct market impact.
-- Refusal style: BRIEF and HUMAN. One or two short sentences. Vary the wording every time — never repeat the same line twice in a row. Sound like a real analyst deflecting small-talk, not a moderation bot reading a script. Don't lecture, don't list alternative resources, don't moralize, don't explain "why you can't" at length. Just acknowledge briefly and pivot to markets.
-- Examples of acceptable refusals (use as STYLE inspiration, not templates — paraphrase, vary length, vary tone):
-  - "Not really my lane — got a ticker you'd like a read on?"
+- Refusal style: BRIEF and HUMAN. One or two short sentences. Vary the wording every time, never repeat the same line twice in a row. Sound like a real analyst deflecting small-talk, not a moderation bot reading a script. Don't lecture, don't list alternative resources, don't moralize, don't explain "why you can't" at length. Just acknowledge briefly and pivot to markets.
+- Examples of acceptable refusals (use as STYLE inspiration, not templates, paraphrase, vary length, vary tone):
+  - "Not really my lane, got a ticker you'd like a read on?"
   - "Skipping that one. Anything market-related I can dig into?"
   - "Outside my wheelhouse. Happy to look at a sector or symbol though."
   - "Mm, I'll pass on that. What stock or crypto are you watching?"
   - "Different conversation than I'm built for. What's on your radar trading-wise?"
 - The "but it's for finding a sector / company" framing does NOT unlock these topics. Healthcare sector analysis is fine; the activity itself is not. You can discuss publicly-traded healthcare companies WITHOUT defining or describing the underlying activity.
-- If the user persists after a refusal, refuse again — but with DIFFERENT wording, slightly firmer if needed. Don't repeat your previous line. Don't escalate to lecturing. Don't soften and concede.`;
-    return identityHead + groundingRule + '\n\nKeep replies brief and conversational — this is voice mode.';
+- If the user persists after a refusal, refuse again, but with DIFFERENT wording, slightly firmer if needed. Don't repeat your previous line. Don't escalate to lecturing. Don't soften and concede.`;
+    return identityHead + groundingRule + '\n\nKeep replies brief and conversational, this is voice mode.';
 }
 
 // PCM-encoder AudioWorklet definition. We inject this as a Blob URL
@@ -216,7 +216,7 @@ const RECONNECT_WINDOW_MS = 5 * 60 * 1000;
 
 /**
  * Open a Gemini Live session with auto-reconnect on goAway / unexpected
- * close. The session handle stays valid across reconnects — sendAudio /
+ * close. The session handle stays valid across reconnects, sendAudio /
  * sendText calls always route to the current WebSocket. Caller doesn't
  * see the reconnects unless they hit the attempt cap.
  *
@@ -255,7 +255,7 @@ export async function openLiveSession(opts = {}) {
 
     // Try the chain of Live model IDs in order until one accepts the
     // setup. Different free-tier accounts have different access tiers
-    // for preview models — flash-live (3.1) may 1008 for some, while
+    // for preview models, flash-live (3.1) may 1008 for some, while
     // flash-25 native-audio works. We discover which one works by
     // attempting the connection rather than asking ahead of time.
     // Order: an explicit caller override, then whatever worked last time, then the full catalog
@@ -296,7 +296,7 @@ export async function openLiveSession(opts = {}) {
             //                                      "speechConfig": {...} },
             //                "systemInstruction": { "parts": [...] } } }
             // The Python/JS SDKs use a `config={}` parameter that maps to
-            // this `setup` envelope on the wire — I previously copied
+            // this `setup` envelope on the wire. I previously copied
             // `{config:...}` straight from an SDK example which is why
             // every model 1007'd: the server got valid JSON it didn't
             // recognize. Reference: ai.google.dev/api/live#bidigeneratecontentsetup
@@ -322,8 +322,7 @@ export async function openLiveSession(opts = {}) {
                 // model picks/executes tools mid-conversation. We dispatch
                 // toolCall messages to runTool() in the message handler.
                 //
-                // No toolConfig.functionCallingConfig at the setup level —
-                // we tried setting mode='AUTO' explicitly to insure against
+                // No toolConfig.functionCallingConfig at the setup level, // we tried setting mode='AUTO' explicitly to insure against
                 // a server-side default change, but Live's setup proto
                 // rejects the field with 1007 ("Inconsistent data") even
                 // though AUTO is the documented default elsewhere. Plain
@@ -345,7 +344,7 @@ export async function openLiveSession(opts = {}) {
             const setupTimeout = setTimeout(() => {
                 if (!setupAcked) {
                     try { ws.close(); } catch (_) {}
-                    reject(new Error('Live setup timed out — server did not ack.'));
+                    reject(new Error('Live setup timed out, server did not ack.'));
                 }
             }, 10_000);
 
@@ -354,7 +353,7 @@ export async function openLiveSession(opts = {}) {
             ws.addEventListener('message', async (ev) => {
                 // Live API frames arrive as Blobs (browser default for
                 // binaryType='blob') OR ArrayBuffers (we set arraybuffer
-                // for raw audio out) — both must be decoded to UTF-8
+                // for raw audio out), both must be decoded to UTF-8
                 // before JSON.parse. Plain strings are also possible.
                 // Earlier we passed `ev.data` straight to JSON.parse,
                 // which threw "Unexpected token 'o', '[object ArrayBuffer]'"
@@ -375,7 +374,7 @@ export async function openLiveSession(opts = {}) {
                 try { msg = JSON.parse(text); }
                 catch (e) { console.warn('[mia/live] parse error:', e, 'preview:', text.slice(0, 200)); return; }
 
-                // Setup ack — flip the gate and resolve openOnce.
+                // Setup ack, flip the gate and resolve openOnce.
                 if (msg.setupComplete && !setupAcked) {
                     setupAcked = true;
                     clearTimeout(setupTimeout);
@@ -389,13 +388,13 @@ export async function openLiveSession(opts = {}) {
                 if (msg.goAway) {
                     // Server is forcing a session rotation. CRITICAL:
                     // we must STOP processing audio from this socket
-                    // immediately — otherwise the old socket's tail
+                    // immediately, otherwise the old socket's tail
                     // audio plays in parallel with the new socket's
                     // fresh audio, and the user hears two voices
                     // overlapping. Mark this socket as "draining" so
                     // its remaining serverContent frames drop on the
                     // floor; the close handler kicks off reconnect.
-                    console.log('[mia/live] Server goAway received; muting this socket and reconnecting.');
+                    console.log('[mia/live] Server goAway received, muting this socket and reconnecting.');
                     ws.__draining = true;
                     return;
                 }
@@ -467,7 +466,7 @@ export async function openLiveSession(opts = {}) {
                     reject(new Error(`Live WS closed before setup (code ${ev.code}).`));
                     return;
                 }
-                // Post-setup close — kick off auto-reconnect unless the
+                // Post-setup close, kick off auto-reconnect unless the
                 // user explicitly called our close(), or unless this WS
                 // is no longer the "current" one (a stale callback from
                 // an already-replaced socket).
@@ -491,13 +490,13 @@ export async function openLiveSession(opts = {}) {
         if (state.userClosed) return;
         const withinCap = recordAttemptAndCheck();
         if (!withinCap) {
-            // Too many reconnects in the window — something's actually
+            // Too many reconnects in the window, something's actually
             // broken (model retired, bad key, persistent network issue).
             // Stop trying and tell the caller so they can fall back to
             // Web Speech.
-            console.warn('[mia/live] Reconnect cap hit; giving up. recent attempts:', state.recentAttempts.length);
+            console.warn('[mia/live] Reconnect cap hit, giving up. recent attempts:', state.recentAttempts.length);
             try { onClose?.(ev); } catch (_) {}
-            try { onError?.(new Error('Live API: too many reconnects in 5 minutes; falling back.')); } catch (_) {}
+            try { onError?.(new Error('Live API: too many reconnects in 5 minutes, falling back.')); } catch (_) {}
             return;
         }
         const delay = RECONNECT_BACKOFF_MS[Math.min(state.reconnectAttempts, RECONNECT_BACKOFF_MS.length - 1)];
@@ -506,7 +505,7 @@ export async function openLiveSession(opts = {}) {
         await new Promise(r => setTimeout(r, delay));
         if (state.userClosed) return;
         try {
-            // Reuse the model that worked on initial connection — no need
+            // Reuse the model that worked on initial connection, no need
             // to walk the chain again. If the same model now rejects, the
             // catch falls through to scheduling another retry.
             const newWs = await openOnce(state.successfulModel);
@@ -543,7 +542,7 @@ export async function openLiveSession(opts = {}) {
         }
     }
 
-    // Initial connection — walk the model chain until one accepts the
+    // Initial connection, walk the model chain until one accepts the
     // setup. The first to ack setupComplete becomes the "winning" model
     // that reconnects will reuse. If ALL models 1008/4xx, surface the
     // last error so the caller falls back to Web Speech.
@@ -624,7 +623,7 @@ export async function openLiveSession(opts = {}) {
                     functionResponses: [{
                         id,
                         // The model passes a function name back when emitting
-                        // toolCall — Live uses the id to match. Echoing the
+                        // toolCall. Live uses the id to match. Echoing the
                         // name field is harmless and matches Google's example.
                         response: responseObj,
                     }],
@@ -676,7 +675,7 @@ export async function startMicCapture({ onPCMChunk }) {
     };
     source.connect(node);
     // Also branch to an analyser so the orb can read mic amplitude
-    // while listening. The analyser is purely measurement — it doesn't
+    // while listening. The analyser is purely measurement, it doesn't
     // touch the PCM the worklet ships up to the WS, and doesn't need
     // ctx.destination either (we don't want to play the user's mic
     // back through the speakers, that's just feedback).
@@ -721,7 +720,7 @@ export function createAudioOutputQueue() {
     let nextStartTime = ctx.currentTime;
     const sources = new Set();
     // Insert an AnalyserNode between sources and destination so callers
-    // can read the actual RMS of what's playing — that's how the orb
+    // can read the actual RMS of what's playing, that's how the orb
     // gets to pulse with Leda's voice instead of a synthetic sine.
     // smoothing 0.8 + fftSize 512 keeps the orb tracking the cadence
     // of speech without strobing on individual phoneme attacks.
@@ -750,7 +749,7 @@ export function createAudioOutputQueue() {
             src.onended = () => sources.delete(src);
         },
         clear() {
-            // Stop everything queued — the user interrupted.
+            // Stop everything queued, the user interrupted.
             for (const s of sources) {
                 try { s.stop(); } catch (_) {}
             }
@@ -758,7 +757,7 @@ export function createAudioOutputQueue() {
             nextStartTime = ctx.currentTime;
         },
         // Returns 0..1 amplitude reading from the playback path. Cheap
-        // — the orb's render loop calls this once per frame at 60fps.
+        //, the orb's render loop calls this once per frame at 60fps.
         getAmplitude() {
             const buf = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteFrequencyData(buf);
@@ -771,8 +770,7 @@ export function createAudioOutputQueue() {
             for (let i = lo; i < hi; i++) { sum += buf[i]; count++; }
             return count ? sum / count / 255 : 0;
         },
-        // Returns true while there are still scheduled buffers playing —
-        // caller can use this to know when Leda has stopped speaking
+        // Returns true while there are still scheduled buffers playing, // caller can use this to know when Leda has stopped speaking
         // (vs. just paused between chunks during a long reply).
         isPlaying() {
             return nextStartTime > ctx.currentTime;

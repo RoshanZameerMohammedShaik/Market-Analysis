@@ -1,7 +1,7 @@
-// particles.js — a lightweight ambient particle field (canvas 2D).
+// particles.js, a lightweight ambient particle field (canvas 2D).
 //
 // Inspired by particle-love.com: a drifting field of points connected by
-// thin lines, gently reacting to the cursor. NOT a heavy WebGL sim — a
+// thin lines, gently reacting to the cursor. NOT a heavy WebGL sim, a
 // capped, GPU-friendly canvas field tuned to sit behind content without
 // stealing focus or frames. Theme-aware (recolours from --accent), and it
 // fully stops when off-screen / tab hidden / reduced-motion.
@@ -93,7 +93,7 @@ export function mountParticles(host, opts = {}) {
             // Wrap around edges (seamless field).
             if (p.x < -10) p.x = w + 10; else if (p.x > w + 10) p.x = -10;
             if (p.y < -10) p.y = h + 10; else if (p.y > h + 10) p.y = -10;
-            // Cursor repulsion — particles ease away from the pointer.
+            // Cursor repulsion, particles ease away from the pointer.
             if (pointer.active) {
                 const dx = p.x - pointer.x, dy = p.y - pointer.y;
                 const d2 = dx * dx + dy * dy;

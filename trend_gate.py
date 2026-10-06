@@ -26,7 +26,7 @@ This does not make direction predictable: 53% is the honest ceiling for a daily 
 a 71-feature walk-forward model that reached AUC 0.519. It removes the half of the calls that were
 reliably worse than a coin flip.
 
-js/trend-gate.js mirrors this exactly; tools/trend_gate_sync_check.py holds them together.
+js/trend-gate.js mirrors this exactly, tools/trend_gate_sync_check.py holds them together.
 """
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ def trend_state(closes, volumes):
 
 
 def gate(signal, state, region):
-    """None when the call stands; otherwise the reason key it is withheld for."""
+    """None when the call stands, otherwise the reason key it is withheld for."""
     if str(region or '').upper() not in GATED_REGIONS or signal not in ('BUY', 'SELL'):
         return None
     if not state or not state.get('known'):

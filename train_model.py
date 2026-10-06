@@ -2,13 +2,13 @@
 Train a small LSTM for next-bar direction prediction and export weights
 as JSON for browser-side inference (js/ai-model.js).
 
-Feature extraction here is duplicated in js/ai-model.js — they MUST stay
+Feature extraction here is duplicated in js/ai-model.js, they MUST stay
 in sync. If you change anything in compute_features(), mirror the change
 in computeFeatures() in js/ai-model.js or predictions will silently drift.
 
 Phase 1: SYMBOLS expanded from 23 hand-picked to ~530 across S&P 500,
 Nasdaq 100, sector representatives, and top crypto. Symbols that fail
-to fetch are skipped silently — the trainer is tolerant of dead tickers.
+to fetch are skipped silently, the trainer is tolerant of dead tickers.
 """
 import torch
 import torch.nn as nn
@@ -18,7 +18,7 @@ import json
 import os
 
 # Single source of truth for feature math + counts. train_model used to
-# hand-roll its own copy; now it delegates so the LSTM, XGBoost,
+# hand-roll its own copy, now it delegates so the LSTM, XGBoost,
 # backtest, and JS runtime can't drift apart.
 from shared_features import compute_sequences, robust_download, FEATURES as SHARED_FEATURES, SEQUENCE_LENGTH as SHARED_SEQLEN
 
@@ -80,7 +80,7 @@ _REAL_ESTATE = [
     'PLD', 'AMT', 'CCI', 'EQIX', 'PSA', 'SPG', 'O', 'WELL', 'AVB', 'EQR',
     'ARE', 'VICI', 'EXR', 'DLR', 'CBRE', 'IRM',
 ]
-# Hot retail / momentum names traders care about; valuable for the
+# Hot retail / momentum names traders care about, valuable for the
 # distribution this model learns.
 _RETAIL_FAVS = [
     'GME', 'AMC', 'BBBY', 'BB', 'PLUG', 'NIO', 'XPEV', 'LI', 'BABA', 'JD',
@@ -98,7 +98,7 @@ _CRYPTO = [
     'WLD-USD', 'TON-USD',
 ]
 
-# Penny tier — same list as penny_universe.SYMBOLS (which mirrors
+# Penny tier, same list as penny_universe.SYMBOLS (which mirrors
 # js/penny-universe.js). Optional import: if penny_universe.py isn't
 # present locally (older checkout), the main LSTM still trains, just
 # without the penny dynamics. The penny-tier LSTM (train_penny_lstm.py)
@@ -108,8 +108,8 @@ try:
 except ImportError:
     _PENNIES = []
 
-# Wider crypto universe — js/crypto-universe.js mirror. The local
-# _CRYPTO list above (38 majors) stays for back-compat; the wider
+# Wider crypto universe, js/crypto-universe.js mirror. The local
+# _CRYPTO list above (38 majors) stays for back-compat, the wider
 # pool unions on top so the LSTM trains on meme / L2 / AI / DeFi
 # coins too.
 try:
@@ -127,8 +127,8 @@ seen = set()
 SYMBOLS = [s for s in SYMBOLS if not (s in seen or seen.add(s))]
 
 PERIOD = '5y'
-SEQUENCE_LENGTH = SHARED_SEQLEN   # 20 — from shared_features
-FEATURES = SHARED_FEATURES        # 11 — from shared_features (was hard-coded 8)
+SEQUENCE_LENGTH = SHARED_SEQLEN   # 20, from shared_features
+FEATURES = SHARED_FEATURES        # 11, from shared_features (was hard-coded 8)
 HIDDEN_SIZE = 32
 NUM_LAYERS = 2
 EPOCHS = 50
@@ -145,7 +145,7 @@ MODEL_PATH = os.path.join(MODEL_DIR, 'lstm_weights.json')
 
 def compute_features(df):
     """Compute (sequence, label) pairs. Delegates to shared_features so
-    there's ONE source of truth for the feature math — this used to be
+    there's ONE source of truth for the feature math, this used to be
     a hand-copied duplicate that drifted from shared_features.py and
     js/ai-model.js. Now all three reference the same 11-feature
     definition (8 original + ADX + MFI + ATR%)."""
@@ -241,7 +241,7 @@ def train_model():
                 test_preds = (test_outputs > 0.5).float()
                 accuracy = (test_preds == y_test_t).float().mean().item()
                 avg_loss = total_loss / len(loader)
-                print(f"  Epoch {epoch+1}/{EPOCHS} — Loss: {avg_loss:.4f} — Test Acc: {accuracy*100:.1f}%")
+                print(f"  Epoch {epoch+1}/{EPOCHS}. Loss: {avg_loss:.4f}. Test Acc: {accuracy*100:.1f}%")
 
     model.eval()
     with torch.no_grad():
@@ -268,7 +268,7 @@ def export_model_to_json(model, filepath):
     export = {
         'config': {
             'input_size': FEATURES,
-            'features': FEATURES,   # explicit — JS reads cfg.features to size its input
+            'features': FEATURES,   # explicit. JS reads cfg.features to size its input
             'hidden_size': HIDDEN_SIZE,
             'num_layers': NUM_LAYERS,
             'sequence_length': SEQUENCE_LENGTH,

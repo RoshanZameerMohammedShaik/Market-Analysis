@@ -11,9 +11,9 @@ What CAN be real and change every day is the record: each confirmed setup, once 
 is graded with the exact rule the app tells people to follow. The record is append-only, written
 before the outcome is known, and never re-fit.
 
-The rule, as published: buy at the open of the session after the signal; sell at the open after
-the first close above the 5-day average; if that has not happened within 10 sessions, sell at
-the open after the 10th. No stop. A trade "recovers" when it exits above its entry; net bps
+The rule, as published: buy at the open of the session after the signal, sell at the open after
+the first close above the 5-day average, if that has not happened within 10 sessions, sell at
+the open after the 10th. No stop. A trade "recovers" when it exits above its entry, net bps
 subtract a 6 bps round trip, as the calibration does.
 
 Run nightly after tools/write_setups_slice.py: python tools/grade_setups.py

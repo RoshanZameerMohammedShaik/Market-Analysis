@@ -9,7 +9,7 @@
 // Why this is more interesting than a normal backtest: the user can
 // pick any symbol and any date in their head, get the engine's read,
 // and visually compare to what actually happened next on the chart.
-// It's the single most distinctive feature this app can ship — no
+// It's the single most distinctive feature this app can ship, no
 // normal charting tool replays the engine's mind.
 //
 // Logged predictions are skipped while in time-travel mode (see

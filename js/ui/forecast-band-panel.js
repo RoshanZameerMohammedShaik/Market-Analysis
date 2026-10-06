@@ -153,7 +153,7 @@ function renderHistory(hist, currency) {
                 <span class="bh-day">${pastLabel(r.date)} ${src}</span>
                 ${rowViz(r)}
                 ${verdict}
-                <span class="bh-nums">Range ${money(r.predLow, currency)}–${money(r.predHigh, currency)} · Actual ${money(r.actualLow, currency)}–${money(r.actualHigh, currency)}</span>
+                <span class="bh-nums">Range ${money(r.predLow, currency)}, ${money(r.predHigh, currency)} · Actual ${money(r.actualLow, currency)}, ${money(r.actualHigh, currency)}</span>
             </div>`;
     }).join('');
     const good = hist.claimedPct != null && hist.coveragePct >= hist.claimedPct;
@@ -205,7 +205,7 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
                 <td class="fb-day">${labels[i]}${tag}</td>
                 <td class="fb-low">${money(d.low, currency)}</td>
                 <td class="fb-high">${money(d.high, currency)}</td>
-                <td class="fb-span">${spanPct != null ? `±${(spanPct / 2).toFixed(1)}%` : '—'}</td>
+                <td class="fb-span">${spanPct != null ? `±${(spanPct / 2).toFixed(1)}%` : '-'}</td>
             </tr>`;
     }).join('');
 

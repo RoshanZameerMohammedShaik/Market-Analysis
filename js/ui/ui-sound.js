@@ -1,16 +1,16 @@
-// General UI sound layer — soft synthesized cues across the whole app
+// General UI sound layer, soft synthesized cues across the whole app
 // (hover, click/tap, tab switch, panel open/close, toggle, success, error).
 //
 // Built entirely with the Web Audio API: every sound is oscillators +
 // envelopes through a low-pass filter, so it stays free, dependency-free, and
 // in keeping with the dynamic-only rule (nothing pre-recorded shipped). The
 // character matches Mia's "soft organic bubble" palette (js/mia/sound.js) so
-// the app has ONE coherent sonic identity — these are just the non-voice,
+// the app has ONE coherent sonic identity, these are just the non-voice,
 // interaction-driven counterparts.
 //
 // HARD GATES (all must pass for any sound to play):
-//   1. uiSoundEnabled (settings, default ON, persisted) — the mute.
-//   2. NOT Mia-speaking — shares mia/sound.js's speaking gate via
+//   1. uiSoundEnabled (settings, default ON, persisted), the mute.
+//   2. NOT Mia-speaking, shares mia/sound.js's speaking gate via
 //      isMiaSpeaking(), so UI cues never talk over her voice.
 //   3. prefers-reduced-motion: reduce → we honour it as "reduce non-essential
 //      feedback" and stay silent (motion-sensitive users often want quiet too).
@@ -19,7 +19,7 @@
 // trigger here is gesture-driven (click/tap/hover-after-interaction), so
 // ensure() lazily creates + resumes the context on first real use.
 //
-// Volume is intentionally very low and cues are very short — ambient texture,
+// Volume is intentionally very low and cues are very short, ambient texture,
 // never a soundboard. Hover is throttled so sweeping the mouse doesn't machine-gun.
 
 import { loadSettings, saveSettings } from '../mia/settings.js';
@@ -27,7 +27,7 @@ import { isMiaSpeaking } from '../mia/sound.js';
 
 let ctx = null;
 let masterGain = null;
-const MASTER_VOLUME = 0.32;   // bumped from 0.14 — cues were too quiet to hear
+const MASTER_VOLUME = 0.32;   // bumped from 0.14, cues were too quiet to hear
 
 // ── enable/mute (persisted, per-category) ────────────────────────────────
 // Categories: 'click' | 'hover' | 'notify'. Each maps to a settings flag.
@@ -108,7 +108,7 @@ function ensure() {
 // `category` is 'click' | 'hover' | 'notify' (defaults to 'click'). The cue
 // only plays if that category is enabled, Mia isn't speaking, motion isn't
 // reduced, the TAB IS VISIBLE, and the audio context is live. The
-// document.hidden gate stops background cues — the watchlist poller fires
+// document.hidden gate stops background cues, the watchlist poller fires
 // notify() on signal flips every few minutes, which was playing sound while
 // the app sat in the background (the "random sound" the user heard).
 function canEmit(category = 'click') {
@@ -144,7 +144,7 @@ function now() { return ctx ? ctx.currentTime : 0; }
 // ── public triggers ─────────────────────────────────────────────────────
 // Each is a no-op when gated, so call sites never need to guard.
 
-// Featherweight hover tick — throttled so a mouse sweep doesn't stutter.
+// Featherweight hover tick, throttled so a mouse sweep doesn't stutter.
 let _lastHover = 0;
 export function hover() {
     if (!canEmit('hover')) return;
@@ -154,7 +154,7 @@ export function hover() {
     blip(720 + Math.random() * 40, now() + 0.001, 0.16, 0.07);
 }
 
-// Click / tap — a deliberate two-layer "tock": a low thud + a short mid body,
+// Click / tap, a deliberate two-layer "tock": a low thud + a short mid body,
 // distinctly weightier and LOWER than the light, airy hover tick (720Hz) so
 // press vs. hover are unmistakable across the app.
 export function click() {
@@ -172,7 +172,7 @@ export function tab() {
     blip(680, t + 0.06, 0.34, 0.12);
 }
 
-// Panel / drawer open — gentle upward swell.
+// Panel / drawer open, gentle upward swell.
 export function open() {
     if (!canEmit()) return;
     const t = now() + 0.001;
@@ -180,7 +180,7 @@ export function open() {
     blip(560, t + 0.07, 0.30, 0.16, 760);
 }
 
-// Panel / drawer close — gentle downward settle.
+// Panel / drawer close, gentle downward settle.
 export function close() {
     if (!canEmit()) return;
     const t = now() + 0.001;
@@ -188,13 +188,13 @@ export function close() {
     blip(360, t + 0.07, 0.26, 0.16, 280);
 }
 
-// Toggle flip — single crisp mid tick.
+// Toggle flip, single crisp mid tick.
 export function toggle() {
     if (!canEmit()) return;
     blip(620, now() + 0.001, 0.30, 0.09);
 }
 
-// Success — warm rising major third+fifth (lighter than Mia's full triad).
+// Success, warm rising major third+fifth (lighter than Mia's full triad).
 export function success() {
     if (!canEmit('notify')) return;
     const t = now() + 0.001;
@@ -203,7 +203,7 @@ export function success() {
     blip(784, t + 0.18, 0.40, 0.24);   // G5
 }
 
-// Error — soft low minor two-tone (a gentle "nope", never harsh).
+// Error, soft low minor two-tone (a gentle "nope", never harsh).
 export function error() {
     if (!canEmit('notify')) return;
     const t = now() + 0.001;
@@ -211,11 +211,11 @@ export function error() {
     blip(247, t + 0.12, 0.40, 0.24, 220);
 }
 
-// ── "Signal landed" — distinct chord per call direction, fired once per
+// ── "Signal landed", distinct chord per call direction, fired once per
 // analysis when the signal card renders. Punchier than success() so a real
 // prediction reads as more momentous than a form-validation tick.
 
-// BUY — rising A4→D5→G5, clean held tones (confident, ascending).
+// BUY, rising A4→D5→G5, clean held tones (confident, ascending).
 export function signalLandedBuy() {
     if (!canEmit('notify')) return;
     const t = now() + 0.001;
@@ -223,7 +223,7 @@ export function signalLandedBuy() {
     blip(587, t + 0.10, 0.34, 0.14);
     blip(784, t + 0.22, 0.38, 0.18);
 }
-// SELL — descending E5→A4→E4, each sliding down (cautious, settling).
+// SELL, descending E5→A4→E4, each sliding down (cautious, settling).
 export function signalLandedSell() {
     if (!canEmit('notify')) return;
     const t = now() + 0.001;
@@ -231,7 +231,7 @@ export function signalLandedSell() {
     blip(440, t + 0.11, 0.34, 0.14, 392);
     blip(330, t + 0.24, 0.36, 0.18, 293);
 }
-// NEUTRAL / NO_TRADE — two equal C5 tones, no pitch motion ("wait and see").
+// NEUTRAL / NO_TRADE, two equal C5 tones, no pitch motion ("wait and see").
 export function signalLandedNeutral() {
     if (!canEmit('notify')) return;
     const t = now() + 0.001;
@@ -255,7 +255,7 @@ export function cardArrival(i = 0) {
     blip(660 + i * 28, now() + 0.001, 0.14, 0.07);
 }
 
-// Generic notification ping — a soft two-note rise for an info-kind toast
+// Generic notification ping, a soft two-note rise for an info-kind toast
 // (success/error have their own cues). Notify category.
 export function notification() {
     if (!canEmit('notify')) return;
@@ -291,8 +291,7 @@ export function initUiSound() {
 
     // Pre-warm the AudioContext on the VERY FIRST user gesture anywhere, so it's
     // already 'running' by the time the user clicks a button. Without this, the
-    // first click(s) pay the context-resume latency and the sound lands late —
-    // the "delay between click and sound" the user noticed. ensure() creates +
+    // first click(s) pay the context-resume latency and the sound lands late, // the "delay between click and sound" the user noticed. ensure() creates +
     // resumes; we just call it early on the first pointerdown (capture phase, so
     // it runs before the click cue below). One-shot via { once: true }.
     document.addEventListener('pointerdown', () => { try { ensure(); } catch (_) {} },
@@ -307,11 +306,11 @@ export function initUiSound() {
         else click();
     }, { passive: true, capture: true });
 
-    // Hover cue — ONCE per item entered, not per descendant. pointerover
+    // Hover cue. ONCE per item entered, not per descendant. pointerover
     // bubbles from every child node, so naively calling hover() on each event
     // machine-guns ("tup tup tup") as the cursor crosses a card's inner
     // elements. We track the allow-list element the pointer is currently
-    // "inside" and only fire when it CHANGES — true pointerenter semantics via
+    // "inside" and only fire when it CHANGES, true pointerenter semantics via
     // delegation (one cue per card/button, regardless of how many children it
     // has). Cleared on pointerout when leaving the element entirely.
     let _hoveredItem = null;

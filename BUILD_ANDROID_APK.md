@@ -1,7 +1,7 @@
 # Build the Android APK for friends-and-family distribution
 
 Sit-down checklist for when you're at your Mac with a free afternoon. The
-config files are already in the repo — these are the commands to run.
+config files are already in the repo, these are the commands to run.
 
 ## One-time setup
 
@@ -72,7 +72,7 @@ keytool -genkey -v -keystore ~/market-analyzer-release.keystore \
         -alias marketanalyzer -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Save the password somewhere safe — losing it means you can't update
+Save the password somewhere safe, losing it means you can't update
 existing installs. Then:
 
 ```bash
@@ -103,14 +103,14 @@ The app loads `https://market-ai.pages.dev` on every launch. So:
 - **Code changes** (most updates): just `git push`. Cloudflare Pages
   redeploys, and the next time the user opens the app they see the
   new code. **No rebuild, no re-share.**
-- **Capacitor native changes** (rare — splash screen tweaks, plugin
+- **Capacitor native changes** (rare, splash screen tweaks, plugin
   upgrades, app icon, app name): rebuild the APK and re-share.
 
 ## Pre-flight checklist before sharing the first APK
 
 - [ ] App launches and shows the splash overlay
 - [ ] Splash settles, BAMM animation completes
-- [ ] Main app loads — title, search, hot picks visible
+- [ ] Main app loads, title, search, hot picks visible
 - [ ] Tap "Resources" → panel slides in
 - [ ] Tap "Portfolio" → panel slides in (no notch overlap)
 - [ ] Mia (💬 launcher) → panel slides in (no notch overlap)

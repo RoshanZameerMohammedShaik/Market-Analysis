@@ -1,6 +1,6 @@
 // Catalog of free-tier Gemini text-generation models, ordered by
 // QUALITY (best-first). Each entry has its own independent daily quota
-// — the API key is shared, but Google tracks RPD/RPM separately per
+//, the API key is shared, but Google tracks RPD/RPM separately per
 // model, so we can rotate through this list as each tier exhausts.
 //
 // We intentionally don't hardcode RPM/RPD numbers here. Google adjusts
@@ -11,9 +11,9 @@
 // server suggests, and we move on to the next model in the chain.
 //
 // Quality tiers used by the router:
-//   'reasoning' — best for tool-heavy / agent / multi-step. Used when
+//   'reasoning', best for tool-heavy / agent / multi-step. Used when
 //                 intent classifier returns 'tool'.
-//   'fast'      — best for prose / quick chat. Used when intent is
+//   'fast', best for prose / quick chat. Used when intent is
 //                 'prose'.
 // A query of intent X starts walking the list filtered to its tier,
 // falling through to the OTHER tier only after its preferred tier is
@@ -32,7 +32,7 @@
 //   - 'latest' aliases auto-target current generation
 //
 // We aggressively include all working IDs because each model has its
-// OWN independent daily quota — even though the API key is shared,
+// OWN independent daily quota, even though the API key is shared,
 // Google tracks RPD per model. So one key can effectively burn
 // ~3000+ RPD/day across the rotation before any single model
 // exhausts. Models that 404 get auto-marked cooling for 1h by the
@@ -81,7 +81,7 @@ export const GEMINI_MODELS = [
     { id: 'gemini-2.0-flash-lite',           tier: 'fast',      label: 'Gemini 2.0 Flash-Lite' },
     { id: 'gemini-1.5-flash-8b',             tier: 'fast',      label: 'Gemini 1.5 Flash-8B' },
 
-    // ── Gemma open-weight models — 14.4K RPD EACH ────────────────
+    // ── Gemma open-weight models, 14.4K RPD EACH ────────────────
     // Tier them as 'fast' since they're sized like Flash-class. The dashboard shows 14,400 RPD,
     // which is ~720x a Flash model's ceiling, so these are the real floor under the whole chain.
     // (Dashboard labels are 'Gemma 4 26B' / 'Gemma 4 31B'. The API ID form is unconfirmed, so both
@@ -120,7 +120,7 @@ export function modelChainFor(intent) {
     return [...preferred, ...fallback];
 }
 
-// Reverse lookup — used by the status pill to render a tier badge.
+// Reverse lookup, used by the status pill to render a tier badge.
 export function tierFor(modelId) {
     const m = GEMINI_MODELS.find(x => x.id === modelId);
     return m?.tier || 'unknown';

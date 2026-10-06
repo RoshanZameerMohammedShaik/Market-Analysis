@@ -33,7 +33,7 @@ export function timeframeAgreementAdjustment(finalSignal, agreement) {
     const a = agreement.agreement;
     if (agreement.total < 2) return { adjust: 0, reason: null };
     if (a >= 1.0) return { adjust: +4, reason: `All ${agreement.total} timeframes agree on ${finalSignal}` };
-    if (a <= 0.0) return { adjust: -5, reason: `All ${agreement.total} timeframes disagree with ${finalSignal} — very weak signal` };
+    if (a <= 0.0) return { adjust: -5, reason: `All ${agreement.total} timeframes disagree with ${finalSignal}, very weak signal` };
     if (a <= 0.34) return { adjust: -3, reason: `Only ${agreement.matchCount}/${agreement.total} timeframes agree with ${finalSignal}` };
     return { adjust: 0, reason: null };
 }

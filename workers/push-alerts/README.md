@@ -1,4 +1,4 @@
-# Push Alerts Worker — closed-tab price notifications
+# Push Alerts Worker, closed-tab price notifications
 
 Sends a Web Push notification when a watched symbol crosses a price
 threshold, **even when the app/tab is fully closed**. A 1-minute cron
@@ -11,12 +11,12 @@ checks live prices server-side and pushes via VAPID to each subscriber.
   Screen as a PWA (Apple rule, iOS 16.4+). Normal Safari tabs won't get it.
 
 The tab-OPEN crypto alerts in `js/ui/price-alerts.js` (Binance WebSocket)
-keep working independently — this worker is purely additive for the
+keep working independently, this worker is purely additive for the
 closed-app case.
 
 ---
 
-## One-time setup (Roshan — needs your authenticated Cloudflare account)
+## One-time setup (Roshan, needs your authenticated Cloudflare account)
 
 All commands run from `workers/push-alerts/`.
 
@@ -45,10 +45,10 @@ npx wrangler secret put VAPID_PUBLIC_KEY      # paste the public key
 npx wrangler secret put VAPID_PRIVATE_KEY     # paste the private key
 npx wrangler secret put VAPID_SUBJECT         # e.g. mailto:you@example.com
 ```
-**Important — key format:** paste the keys EXACTLY as `web-push
+**Important, key format:** paste the keys EXACTLY as `web-push
 generate-vapid-keys` prints them. They are base64url-unpadded (uses `-`
 and `_`, no `+`/`/`/`=`). The worker decodes them as base64url and uses
-the public key verbatim in the `k=` header — do not re-encode them to
+the public key verbatim in the `k=` header, do not re-encode them to
 standard base64 or the signature/JWK import will break.
 
 ### 4. Deploy
@@ -96,10 +96,10 @@ KV value per subscriber:
 ```
 
 Web Push (VAPID JWT + RFC 8291 aes128gcm payload encryption) is
-implemented with WebCrypto only in `src/worker.js` — no npm push library,
+implemented with WebCrypto only in `src/worker.js`, no npm push library,
 so it runs on the Workers runtime unmodified.
 
 ## Free-tier notes
-- Workers free: 100K req/day; cron counts as invocations — 1/min = 1,440/day.
+- Workers free: 100K req/day; cron counts as invocations, 1/min = 1,440/day.
 - KV free: 100K reads + 1K writes/day. We read all subs once per minute;
   scale stays tiny for a friends-and-family deployment.

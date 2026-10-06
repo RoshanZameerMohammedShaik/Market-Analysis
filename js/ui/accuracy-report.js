@@ -1,12 +1,11 @@
-// Accuracy-by-setup report — "which setups does the engine read well?"
+// Accuracy-by-setup report, "which setups does the engine read well?"
 //
 // An honest meta-analysis from the live ledger: hit-rate broken down by
 // the indicator context stored on each prediction (signal direction,
 // RSI zone, MACD momentum, Bollinger position). Tells the user WHEN to
 // lean on the engine and when to be skeptical.
 //
-// Honesty note: we don't fake a trending/ranging or risk-on/off split —
-// ADX and macro regime aren't stored per ledger row, so those would be
+// Honesty note: we don't fake a trending/ranging or risk-on/off split, // ADX and macro regime aren't stored per ledger row, so those would be
 // retroactive guesses. Every dimension here is derived from real logged
 // fields. Thin buckets (< minN) are dimmed and labeled "low sample" so a
 // 3-row 100% never masquerades as a trustworthy edge.
@@ -25,7 +24,7 @@ function bucketRow(b, overallRate) {
         <div class="ar-bucket ${b.enough ? '' : 'thin'}">
             <span class="ar-bucket-label">${b.label}</span>
             <div class="ar-bucket-bar"><div class="ar-bucket-fill ${tier}" style="width:${Math.min(100, b.hitRate || 0)}%"></div></div>
-            <span class="ar-bucket-rate ${tier}">${b.hitRate == null ? '—' : b.hitRate + '%'}</span>
+            <span class="ar-bucket-rate ${tier}">${b.hitRate == null ? '-' : b.hitRate + '%'}</span>
             <span class="ar-bucket-n">${b.resolved}${b.enough ? '' : ' · low sample'}</span>
             ${deltaStr}
         </div>`;
@@ -34,7 +33,7 @@ function bucketRow(b, overallRate) {
 function renderReport(data) {
     if (!data || !data.available) {
         if (data?.rebuilding) {
-            return `<div class="ar-empty">The engine was just improved, so its accuracy breakdown is rebuilding under the new logic. ${data.retiredRows} earlier predictions came from the previous engine — and since the update changed which setups it reads well, those numbers no longer apply and are set aside. The breakdown reappears as fresh calls resolve.</div>`;
+            return `<div class="ar-empty">The engine was just improved, so its accuracy breakdown is rebuilding under the new logic. ${data.retiredRows} earlier predictions came from the previous engine, and since the update changed which setups it reads well, those numbers no longer apply and are set aside. The breakdown reappears as fresh calls resolve.</div>`;
         }
         return `<div class="ar-empty">Not enough resolved predictions yet to break accuracy down by setup${data?.totalResolved ? ` (${data.totalResolved} so far)` : ''}.</div>`;
     }
@@ -44,7 +43,7 @@ function renderReport(data) {
             <div class="ar-dim-title">${d.title}</div>
             ${d.buckets.length ? d.buckets.map(b => bucketRow(b, o.hitRate)).join('') : '<div class="ar-dim-empty">No data.</div>'}
         </div>`).join('');
-    // Target-capture line — only shown once enough rows carry a stored
+    // Target-capture line, only shown once enough rows carry a stored
     // target (new rows). Two distinct truths: direction (did it go the
     // right way) AND capture (how much of the predicted move it got).
     const captureLine = (Number.isFinite(o.avgCapturedPct) && o.capturedSampleN >= 10)
@@ -54,13 +53,13 @@ function renderReport(data) {
         <div class="ar-overall">
             Engine baseline: <b>${o.hitRate}%</b> right direction over ${o.resolved} resolved ${data.horizonDays}-day calls.
             ${captureLine}
-            Each setup below is measured against the direction baseline — green setups are where the engine has the most edge.
+            Each setup below is measured against the direction baseline, green setups are where the engine has the most edge.
         </div>
         ${dims}
         <div class="ar-caption">
             Direction = did price close the way we called it. Capture = how much of the predicted price move it actually
             reached (graded against each call's own stored target; blank on older rows from before target-grading).
-            We don't show a market-regime split (trending/ranging, risk-on/off) — that state isn't stored per prediction,
+            We don't show a market-regime split (trending/ranging, risk-on/off), that state isn't stored per prediction,
             so showing it would be a guess.
         </div>`;
 }
@@ -93,7 +92,7 @@ export function initAccuracyReport() {
             <details class="accuracy-report-details">
                 <summary class="accuracy-report-summary">
                     <span class="accuracy-report-title">🎯 Which Setups Does the Engine Read Best?</span>
-                    <span class="accuracy-report-hint">Hit-rate by RSI / momentum / band context — when to trust it</span>
+                    <span class="accuracy-report-hint">Hit-rate by RSI / momentum / band context, when to trust it</span>
                     <button class="accuracy-report-refresh" id="accuracy-report-refresh" title="Recompute">↻</button>
                 </summary>
                 <div class="accuracy-report-host" id="accuracy-report-host"></div>

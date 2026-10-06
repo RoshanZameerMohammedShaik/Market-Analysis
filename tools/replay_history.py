@@ -70,7 +70,7 @@ def fetch_bars(symbol, years, retries=3):
 
     auto-adjusted closes: splits and dividends are already applied, which is what
     keeps a 4-for-1 split from looking like a -75% day. The resolver has a separate
-    corporate-action guard for the live path; here adjustment is the cleaner fix.
+    corporate-action guard for the live path, here adjustment is the cleaner fix.
     """
     os.makedirs(CACHE, exist_ok=True)
     path = os.path.join(CACHE, f'{symbol.replace("/", "_")}_{years}y.json')

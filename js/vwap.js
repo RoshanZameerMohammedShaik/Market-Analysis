@@ -48,10 +48,10 @@ export function computeVwapClassifier(candles) {
 export function vwapAdjustment(signal, vwapData) {
     if (!vwapData || (signal !== 'BUY' && signal !== 'SELL')) return { adjust: 0, reason: null };
     const { regime, deviationPct } = vwapData;
-    if (signal === 'BUY' && regime === 'reversion-up') return { adjust: +3, reason: `Below VWAP (${deviationPct}%) on declining volume — mean reversion supports BUY` };
-    if (signal === 'BUY' && regime === 'continuation-up') return { adjust: +2, reason: `Above VWAP (${deviationPct}%) on rising volume — trend continuation supports BUY` };
-    if (signal === 'BUY' && regime === 'distribution') return { adjust: -3, reason: `Below VWAP on rising volume — real selling, BUY weakened` };
-    if (signal === 'SELL' && regime === 'topping') return { adjust: +3, reason: `Above VWAP on declining volume — distribution at top, SELL supported` };
-    if (signal === 'SELL' && regime === 'distribution') return { adjust: +2, reason: `Below VWAP on rising volume — confirmed selling pressure` };
+    if (signal === 'BUY' && regime === 'reversion-up') return { adjust: +3, reason: `Below VWAP (${deviationPct}%) on declining volume, mean reversion supports BUY` };
+    if (signal === 'BUY' && regime === 'continuation-up') return { adjust: +2, reason: `Above VWAP (${deviationPct}%) on rising volume, trend continuation supports BUY` };
+    if (signal === 'BUY' && regime === 'distribution') return { adjust: -3, reason: `Below VWAP on rising volume, real selling, BUY weakened` };
+    if (signal === 'SELL' && regime === 'topping') return { adjust: +3, reason: `Above VWAP on declining volume, distribution at top, SELL supported` };
+    if (signal === 'SELL' && regime === 'distribution') return { adjust: +2, reason: `Below VWAP on rising volume, confirmed selling pressure` };
     return { adjust: 0, reason: null };
 }

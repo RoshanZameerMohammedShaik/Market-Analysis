@@ -33,7 +33,7 @@ from ledger_universe import symbols_for_region  # noqa: E402
 
 OUT = os.path.join(REPO, 'model', 'earnings.json')
 STOCK_REGIONS = ['NYSE', 'LSE', 'XETRA', 'NSE', 'HKEX', 'TYO', 'ASX']
-HORIZON_DAYS = 45       # the band spans 7 sessions; the slack covers a slice that is a few days old
+HORIZON_DAYS = 45       # the band spans 7 sessions, the slack covers a slice that is a few days old
 
 
 def upcoming(sym, now):

@@ -67,9 +67,9 @@ export async function getSectorRotation(symbol) {
 
 export function rotationAdjustment(signal, rotation) {
     if (!rotation || (signal !== 'BUY' && signal !== 'SELL')) return { adjust: 0, reason: null };
-    if (signal === 'BUY' && rotation.leader) return { adjust: +3, reason: `${rotation.sectorName} sector ranks #${rotation.rank}/${rotation.total} (${rotation.pct5d}% 5d) — leading rotation supports BUY` };
-    if (signal === 'BUY' && rotation.laggard) return { adjust: -4, reason: `${rotation.sectorName} sector ranks #${rotation.rank}/${rotation.total} — lagging rotation, BUY weakened` };
-    if (signal === 'SELL' && rotation.laggard) return { adjust: +3, reason: `${rotation.sectorName} sector lagging (#${rotation.rank}) — SELL supported by rotation` };
-    if (signal === 'SELL' && rotation.leader) return { adjust: -3, reason: `${rotation.sectorName} sector leading (#${rotation.rank}) — SELL conflicts with rotation` };
+    if (signal === 'BUY' && rotation.leader) return { adjust: +3, reason: `${rotation.sectorName} sector ranks #${rotation.rank}/${rotation.total} (${rotation.pct5d}% 5d), leading rotation supports BUY` };
+    if (signal === 'BUY' && rotation.laggard) return { adjust: -4, reason: `${rotation.sectorName} sector ranks #${rotation.rank}/${rotation.total}, lagging rotation, BUY weakened` };
+    if (signal === 'SELL' && rotation.laggard) return { adjust: +3, reason: `${rotation.sectorName} sector lagging (#${rotation.rank}). SELL supported by rotation` };
+    if (signal === 'SELL' && rotation.leader) return { adjust: -3, reason: `${rotation.sectorName} sector leading (#${rotation.rank}). SELL conflicts with rotation` };
     return { adjust: 0, reason: null };
 }

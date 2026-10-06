@@ -88,7 +88,7 @@ const raw = await page.evaluate(async () => {
 });
 check('history.json is served as JSON', raw.ok === true, `content-type ${raw.ctype}`);
 if (!raw.ok) {
-    console.log('\nHISTORY SLICE CHECK FAIL: the slice is not deployed; nothing below can pass.');
+    console.log('\nHISTORY SLICE CHECK FAIL: the slice is not deployed, nothing below can pass.');
     await browser.close(); if (server) server.close();
     process.exitCode = 1;
 } else {

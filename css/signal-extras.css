@@ -88,7 +88,7 @@
     fill: none;
     stroke-width: 9;
     stroke-linecap: round;
-    /* eased sweep — matches the count-up duration */
+    /* eased sweep, matches the count-up duration */
     transition: stroke-dashoffset 1.05s cubic-bezier(0.22, 1, 0.36, 1);
     filter: drop-shadow(0 0 5px currentColor);
 }
@@ -113,7 +113,7 @@
 .conf-dial-head.mid  { fill: #fef0bf; }
 .conf-dial-head.low  { fill: #fecaca; }
 
-/* One-shot landing pulse — a quick scale + glow bump when the value arrives,
+/* One-shot landing pulse, a quick scale + glow bump when the value arrives,
    so the load "lands" with a beat instead of just stopping. */
 @media (prefers-reduced-motion: no-preference) {
     .conf-dial-landed .conf-dial-value { animation: cd-land-glow 0.5s ease-out; }
@@ -183,7 +183,7 @@
 .conf-dial-sub.low  { color: var(--red); }
 
 /* ── Today's-call live status line ─────────────────────────────────── */
-/* ── Suggested Decision — the HERO takeaway of the analysis section ──────
+/* ── Suggested Decision, the HERO takeaway of the analysis section ──────
    Highest-emphasis block in the signal card: this is the "what should I do"
    the whole app is built to surface. Tinted by direction; numbers bolded. */
 .suggested-decision {
@@ -391,7 +391,7 @@
 }
 
 /* ── Signal-flip pulse (watchlist row) ─────────────────────────────── */
-/* "The engine changed its mind" — the flipped row flashes a tinted glow
+/* "The engine changed its mind", the flipped row flashes a tinted glow
    that fades out. Green-ish for bullish flips, red-ish for bearish. */
 @keyframes flip-pulse-up {
     0%   { box-shadow: 0 0 0 0 rgba(45, 210, 139, 0.0); border-color: var(--border); }
@@ -426,7 +426,7 @@
 
 /* ── Live sparkline tick flash (crypto Hot Picks) ──────────────────── */
 /* A whisper-soft pulse on the sparkline area each time a live trade
-   tick redraws the line — just enough to read as "alive". */
+   tick redraws the line, just enough to read as "alive". */
 @keyframes spark-tick-flash {
     0%   { box-shadow: inset 0 0 0 0 rgba(var(--accent-rgb), 0.0); }
     35%  { box-shadow: inset 0 0 12px 0 rgba(var(--accent-rgb), 0.12); }

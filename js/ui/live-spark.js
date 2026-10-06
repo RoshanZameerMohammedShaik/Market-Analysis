@@ -1,8 +1,8 @@
 // Live-ticking sparklines for Hot Picks cards.
 //
-// CRYPTO ONLY — and deliberately so. Public crypto WebSockets (Binance, or
+// CRYPTO ONLY, and deliberately so. Public crypto WebSockets (Binance, or
 // Coinbase where Binance is refused) give true real-time trades for free; stock feeds on the free path
-// (Stooq / Yahoo) are 5–15 min delayed, so animating a stock sparkline
+// (Stooq / Yahoo) are 5 to 15 min delayed, so animating a stock sparkline
 // tick-by-tick would be faking liveness. We honour the same honesty
 // line the price-alerts module draws.
 //
@@ -42,7 +42,7 @@ function paintCard(card, buffer, price) {
     }
     const priceValue = card.querySelector('.hot-pick-current-price .hot-pick-target-value');
     if (priceValue && Number.isFinite(price)) {
-        // Adaptive precision — alts can be sub-cent. Keep it dependency
+        // Adaptive precision, alts can be sub-cent. Keep it dependency
         // -free here (no currency FX) because crypto cards are USD-native
         // and this is a live overlay, not the canonical render.
         const txt = price >= 1000 ? price.toFixed(2)
@@ -73,7 +73,7 @@ export function bindLiveSparks(grid) {
     if (!grid) return;
     // Live ticking is CRYPTO-ONLY: stocks have no real-time feed on the
     // free path. Crucially, we must gate on the actual app MODE, not on
-    // the symbol shape — appending "-USD" to a stock ticker (VERA →
+    // the symbol shape, appending "-USD" to a stock ticker (VERA →
     // VERA-USD) would otherwise look "crypto" and wrongly open a Binance
     // socket for every stock card. In stock mode we tear down and bail.
     if (state.mode !== 'crypto') { stopLiveSparks(); return; }
@@ -83,14 +83,14 @@ export function bindLiveSparks(grid) {
     for (const card of cards) {
         const rawSym = card.dataset.symbol;
         // Only cards that carry a live-spark seed (emitted for crypto in
-        // hotpicks.js) are eligible — a second guard behind the mode check.
+        // hotpicks.js) are eligible, a second guard behind the mode check.
         if (!card.dataset.spark) continue;
         const pair = cardSymbolToPair(rawSym);
         if (!pair) continue;
         seen.add(pair);
 
         if (active.has(pair)) {
-            // Already streaming — repoint the entry at the (possibly new)
+            // Already streaming, repoint the entry at the (possibly new)
             // card node so redraws hit the on-screen element.
             active.get(pair).card = card;
             continue;
@@ -125,8 +125,7 @@ export function bindLiveSparks(grid) {
             }
             if (node) paintCard(node, entry.buffer, price);
         });
-        // subscribe() returns null for pairs Binance doesn't carry —
-        // drop the entry so we don't hold a dead slot.
+        // subscribe() returns null for pairs Binance doesn't carry, // drop the entry so we don't hold a dead slot.
         if (!entry.handle) active.delete(pair);
     }
 

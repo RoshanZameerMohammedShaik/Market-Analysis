@@ -50,13 +50,13 @@ export function volumeProfileAdjustment(signal, profile, volumeTrend) {
     if (!profile || (signal !== 'BUY' && signal !== 'SELL')) return { adjust: 0, reason: null };
     const risingVol = volumeTrend === 'rising';
     if (signal === 'BUY' && profile.breakAbove && risingVol) {
-        return { adjust: +3, reason: `Broke above HVN ${profile.breakAbove.priceLow}-${profile.breakAbove.priceHigh} on rising volume — continuation likely` };
+        return { adjust: +3, reason: `Broke above HVN ${profile.breakAbove.priceLow}-${profile.breakAbove.priceHigh} on rising volume, continuation likely` };
     }
     if (signal === 'BUY' && profile.breakAbove && !risingVol) {
-        return { adjust: -2, reason: `HVN breakout but volume not confirming — false break risk` };
+        return { adjust: -2, reason: `HVN breakout but volume not confirming, false break risk` };
     }
     if (signal === 'SELL' && profile.breakBelow && risingVol) {
-        return { adjust: +3, reason: `Broke below HVN ${profile.breakBelow.priceLow}-${profile.breakBelow.priceHigh} on rising volume — confirmed breakdown` };
+        return { adjust: +3, reason: `Broke below HVN ${profile.breakBelow.priceLow}-${profile.breakBelow.priceHigh} on rising volume, confirmed breakdown` };
     }
     return { adjust: 0, reason: null };
 }

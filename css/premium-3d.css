@@ -1,9 +1,9 @@
 /* ============================================================================
-   premium-3d.css — CURSOR-TILT DEPTH CARDS (final, hardened)
+   premium-3d.css. CURSOR-TILT DEPTH CARDS (final, hardened)
    Loaded LAST (after style.css → premium.css) so equal-specificity rules win.
    STRICTLY ADDITIVE: only adds perspective / transform / depth-shadow /
    parallax / specular. Never changes position, display, grid-template, or
-   sizing — elements never move structurally; they gain Z depth, tilt, shadow.
+   sizing, elements never move structurally; they gain Z depth, tilt, shadow.
 
    Spine = "Cursor-Tilt Depth Cards" (workflow winner). js/ui/tilt-3d.js writes
    a small set of EASED custom props onto the ONE element under the pointer (or
@@ -12,8 +12,7 @@
        --mx / --my     pointer position as % within the element (specular)
        --engage        0→1 eased by the JS lerp (CSS multiplies depth by it)
    CSS owns ALL geometry. With no JS / reduced-motion / touch, the vars stay at
-   flat defaults and the UI degrades to a static — but still dimensional —
-   extrusion (never flat).
+   flat defaults and the UI degrades to a static, but still dimensional, extrusion (never flat).
 
    Grafts (per workflow director): Glass two-layer light shadow + lerp/rect-cache
    (in JS); Neumorphic static reduced-motion extrusion + control press-inset +
@@ -21,7 +20,7 @@
    on .tab-btn.active + .signal-box rim only.
 
    Review fixes applied vs the raw synthesized draft:
-     1. Card tilt transform applies ONLY on [data-tilting] — idle/entering cards
+     1. Card tilt transform applies ONLY on [data-tilting], idle/entering cards
         keep premium.css's transform, so no card-rise conflict / end-of-scan wobble.
      2. --engage is EASED by the JS lerp (not a binary flip); the card transform
         has no css transition while tilting (JS owns it) → snap-free handoff.
@@ -145,7 +144,7 @@
 
 
 /* ============================================================================
-   STATIC RESTING EXTRUSION — ungated ON PURPOSE (depth is not motion).
+   STATIC RESTING EXTRUSION, ungated ON PURPOSE (depth is not motion).
    ========================================================================== */
 .hotpicks-grid > .hot-pick-card {
     box-shadow:
@@ -181,7 +180,7 @@
 
 
 /* ============================================================================
-   MOTION / TILT / PARALLAX / SPECULAR — gated behind no-preference.
+   MOTION / TILT / PARALLAX / SPECULAR, gated behind no-preference.
    ========================================================================== */
 @media (prefers-reduced-motion: no-preference) {
 
@@ -202,7 +201,7 @@
 
            PICASA LIFT: the card swings its right edge toward the viewer
            (rotateY from JS is negative), tips its top slightly forward
-           (rotateX), rises on Z, AND zooms via scale(--d3-zoom) — all eased by
+           (rotateX), rises on Z, AND zooms via scale(--d3-zoom), all eased by
            --engage so it animates in/out smoothly. The grid blurs the OTHER
            cards (see [data-lifting] below) to focus this one. */
         transform:
@@ -221,7 +220,7 @@
     }
 
     /* Picasa focus: while one card is lifted, soften every OTHER card in the
-       grid — a touch of blur + slight desaturation + dim, so the eye locks on
+       grid, a touch of blur + slight desaturation + dim, so the eye locks on
        the raised one. The lifted card ([data-tilting]) is excluded and stays
        crisp. Transition makes the soften/restore glide rather than snap. */
     .hotpicks-grid[data-lifting] > .hot-pick-card {
@@ -250,7 +249,7 @@
                     0 0 0 1px rgba(251, 191, 36, 0.35) !important;
     }
 
-    /* Inner parallax tiers — eased by --engage (JS-lerped), translateZ only. */
+    /* Inner parallax tiers, eased by --engage (JS-lerped), translateZ only. */
     .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-symbol,
     .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting] .hot-pick-name {
         transform: translateZ(calc(var(--d3-tier-1) * var(--engage)));
@@ -266,7 +265,7 @@
         transform: translateZ(calc(var(--d3-tier-3) * var(--engage)));
     }
 
-    /* Moving specular — a single injected <div class="tilt-spec">. Sits low in
+    /* Moving specular, a single injected <div class="tilt-spec">. Sits low in
        3D (below text tiers) with a soft blend so light-theme text keeps contrast. */
     .hot-pick-card > .tilt-spec,
     .spikers-card > .tilt-spec,
@@ -284,12 +283,12 @@
         transform: translateZ(6px);
     }
 
-    /* Signal box — cursor-tilt intentionally REMOVED (read as cheap on the
+    /* Signal box, cursor-tilt intentionally REMOVED (read as cheap on the
        large analysis card). It keeps only its static resting extrusion +
        GSAP entrance. position:relative retained for the aurora rim ::after. */
     .signal-box { position: relative; }
 
-    /* Modals — subtle self-perspective tilt. */
+    /* Modals, subtle self-perspective tilt. */
     .spikers-card, .kbd-help-card { position: relative; }
     .spikers-card[data-tilting],
     .kbd-help-card[data-tilting] {
@@ -304,7 +303,7 @@
     .mia-panel, .portfolio-panel { perspective: 1500px; }
 
 
-    /* ── HOLOGRAPHIC FOIL — AURORA ONLY, tabs + signal-box rim ONLY ────────── */
+    /* ── HOLOGRAPHIC FOIL. AURORA ONLY, tabs + signal-box rim ONLY ────────── */
     [data-theme="aurora"] .tab-btn.active {
         position: relative;
         isolation: isolate;
@@ -349,7 +348,7 @@
     }
 
 
-    /* ── MOBILE / NO FINE POINTER — flatten tilt, keep static extrusion ───── */
+    /* ── MOBILE / NO FINE POINTER, flatten tilt, keep static extrusion ───── */
     @media (hover: none), (pointer: coarse), (max-width: 540px) {
         .hotpicks-grid:not([data-streaming]) .hot-pick-card[data-tilting],
         .signal-box[data-tilting],
@@ -370,7 +369,7 @@
         }
         .hotpicks-grid:not([data-streaming]) { perspective: 2200px; }
         .tilt-spec { display: none; }
-        /* No Picasa sibling-blur on touch/narrow — keep all cards crisp. */
+        /* No Picasa sibling-blur on touch/narrow, keep all cards crisp. */
         .hotpicks-grid[data-lifting] > .hot-pick-card:not([data-tilting]) {
             filter: none;
             opacity: 1;
@@ -380,7 +379,7 @@
 
 
 /* ============================================================================
-   REDUCED MOTION — hold the static dimensional extrusion (do NOT go flat).
+   REDUCED MOTION, hold the static dimensional extrusion (do NOT go flat).
    ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
     .hot-pick-card,
@@ -466,7 +465,7 @@
 .refresh-btn.has-spinner.spinning .rb-dots  { opacity: 1; }
 
 @media (prefers-reduced-motion: no-preference) {
-    /* The whole ring rotates AND each dot pulses brightness in sequence — the
+    /* The whole ring rotates AND each dot pulses brightness in sequence, the
        chasing-comet look of the Windows loader. */
     .refresh-btn.has-spinner.spinning .rb-dots {
         animation: rb-ring-rotate 0.9s linear infinite;
@@ -491,7 +490,7 @@
 
 
 /* ============================================================================
-   FULL LEDGER loading animation — a header line with bouncing dots + a set of
+   FULL LEDGER loading animation, a header line with bouncing dots + a set of
    shimmer skeleton rows, instead of plain "rows will compute…" text.
    ========================================================================== */
 .scanner-loading-row td {

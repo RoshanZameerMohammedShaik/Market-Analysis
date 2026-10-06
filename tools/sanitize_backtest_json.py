@@ -2,7 +2,7 @@
 
 The backtester historically wrote bare NaN/Infinity tokens (json.dump's
 default allow_nan=True). Those are invalid JSON and the browser's JSON.parse
-throws on them — which was silently killing ALL of calibration.js
+throws on them, which was silently killing ALL of calibration.js
 (loadCalibration bailed before loading live calibration). backtest.py now
 sanitizes on write; this fixes the already-committed file in place without a
 multi-hour backtest re-run.

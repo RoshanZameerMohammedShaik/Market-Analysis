@@ -33,8 +33,7 @@ WHY THE LIMITS EXIST (each one prevents a specific measured failure)
 CONFIG IS A REPO FILE, DELIBERATELY
 -----------------------------------
 The browser cannot write to the repo, and the bot cannot read localStorage, so settings
-that BOTH need have to live in git. model/bot/config.json is the single source of truth;
-the UI will read it and display it, and changing it is a commit. That is a feature for
+that BOTH need have to live in git. model/bot/config.json is the single source of truth, the UI will read it and display it, and changing it is a commit. That is a feature for
 an audit trail: every settings change is dated and attributable, so a performance shift
 can always be tied to what was altered.
 """

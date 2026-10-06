@@ -8,7 +8,7 @@
  *    does not exist, and the user sees Mia try and fail at a thing she just offered to do.
  * 2. IMPLEMENTED BUT NOT DECLARED. The reverse is quieter and was real: a working tool the model is
  *    never told about is dead code, and the capability silently does not exist. Mia had no desk
- *    tools at all, so "how is your desk doing" left her guessing at a P&L figure — the single worst
+ *    tools at all, so "how is your desk doing" left her guessing at a P&L figure, the single worst
  *    thing this app can do.
  *
  * It also asserts coverage of the surfaces Mia SHOULD reach, and the one she deliberately should not:

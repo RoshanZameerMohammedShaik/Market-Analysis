@@ -61,23 +61,23 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
     // Try tier in order: if it's cooling, skip to the next; if a 429/cooling
     // error arises BEFORE any output has streamed, mark cooling and try the
     // alternate tier inline (invisible to the user). If a 429 arises AFTER
-    // output has already streamed, we can't recover invisibly — the partial
+    // output has already streamed, we can't recover invisibly, the partial
     // text is on screen already. In that case we let the error bubble up
     // so the catch in mia.js shows the partial reply with a soft cut-off
     // note. The cooldown is recorded either way so the NEXT turn skips
     // the bad tier silently.
     //
     // Also: never tell the user "falling back to Flash". The whole point
-    // of auto-fallback is invisible recovery — the only user-visible
+    // of auto-fallback is invisible recovery, the only user-visible
     // status during fallback is the same generic "thinking…" they'd see
     // on a normal call.
     // Walk through every free-tier Gemini model in priority order, falling
     // through on 429 / cooling. Each Gemini model has its OWN independent
-    // daily and per-minute quota — even though the API key is shared, Google
+    // daily and per-minute quota, even though the API key is shared, Google
     // tracks RPM/RPD separately per model. So when Flash-Lite hits its
     // daily cap we move to Flash, then 2.0-flash, then 1.5-flash, etc. We
     // exhaust all ~8 models before giving up to Cloudflare. Effective free
-    // quota: ~5–10× what we had before.
+    // quota: ~5 to 10× what we had before.
     async function* runGeminiChain(intent) {
         // Build the chain: preferred-tier models first, then the other
         // tier as fallback. Intent classifier already decided whether
@@ -92,7 +92,7 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
         const allCooling = chain.every(m => isCooling(m));
         if (allCooling) {
             for (const m of chain) clearCooldown(m);
-            console.log('[mia] All Gemini models cooling; cleared map and probing fresh.');
+            console.log('[mia] All Gemini models cooling, cleared map and probing fresh.');
         }
 
         let lastErr = null;
@@ -119,7 +119,7 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
                     yield delta;
                 }
                 if (!yieldedAnyDelta) {
-                    console.warn('[mia] Empty stream from', model, '— continuing to next model.');
+                    console.warn('[mia] Empty stream from', model, ', continuing to next model.');
                     continue; // empty response → try next, don't return success
                 }
                 return; // success
@@ -131,7 +131,7 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
                 // permanently for this session by marking it cooling for
                 // a long time so the chain doesn't keep retrying.
                 if (err?.status === 400 || err?.status === 404) {
-                    console.warn('[mia] Model unavailable:', model, '— skipping for 1h.');
+                    console.warn('[mia] Model unavailable:', model, ', skipping for 1h.');
                     markCooling(model, 3600);
                     continue;
                 }
@@ -145,8 +145,7 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
 
     const geminiRun = async function* () {
         // Classify intent ONCE up front. The classifier is itself a
-        // Flash-Lite call, so we only pay for it on the first turn —
-        // and we read the result from a cached lastDecision when
+        // Flash-Lite call, so we only pay for it on the first turn, // and we read the result from a cached lastDecision when
         // available to avoid the round-trip on rapid retries.
         const lastUser = [...messages].reverse().find(m => m.role === 'user');
         const intent = await classifyForRouting({
@@ -170,7 +169,7 @@ export async function* stream({ system, systemNoTools, messages, signal, onProgr
         return;
     } catch (err) {
         if (!fallback || !shouldFailover(err) || signal?.aborted) throw err;
-        // Don't announce "falling back to cloudflare" — invisible recovery
+        // Don't announce "falling back to cloudflare", invisible recovery
         // is the whole point. User just sees "thinking…" continue.
         if (onProgress) onProgress({ phase: 'thinking', percent: 100, friendly: 'thinking…' });
         if (fallback === 'gemini') {
@@ -204,7 +203,7 @@ export function getLastRoutingDecision() {
 // in use right now, plus any tiers that are currently cooling. Reads
 // the router's last decision (which records the model picked for the
 // most recent call) and the cooldown map from tier-cooldown.js.
-// (getCooldownState is imported at the top of the file — having an
+// (getCooldownState is imported at the top of the file, having an
 // import statement here in the middle is a parse error in strict ES
 // module loading, which silently broke the whole Mia pipeline.)
 export function getModelStatus() {

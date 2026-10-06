@@ -6,7 +6,7 @@ A strategy NEVER touches the account. It receives a read-only snapshot and retur
 list of Intent objects. The runner alone applies broker rules, risk limits and sizing,
 then executes. That split exists so a strategy cannot accidentally bypass a rule, and
 so the timeline can record the difference between what a strategy WANTED and what the
-account ALLOWED. Roshan asked to see why a trade happened; seeing why one did NOT happen
+account ALLOWED. Roshan asked to see why a trade happened, seeing why one did NOT happen
 is just as informative.
 
 Every Intent carries `why` (one sentence a human reads) and `evidence` (the numbers

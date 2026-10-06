@@ -1,4 +1,4 @@
-// Level 2 — research_symbol meta-tool.
+// Level 2, research_symbol meta-tool.
 //
 // Fires 5 reads in parallel for a single symbol so Mia has rich
 // multi-source context to synthesize her own qualitative read. Total

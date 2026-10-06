@@ -5,10 +5,10 @@
 //      TTL. Fresh cache hits return instantly; stale ones are
 //      re-fetched.
 //   2. On app boot, prewarm the user's watchlist so clicking any of
-//      them is an instant render — chart + signal show without the
+//      them is an instant render, chart + signal show without the
 //      ~2-4s pipeline wait.
 //
-// Cache TTL — 2 minutes. Roshan picked 2 min as the freshness floor
+// Cache TTL, 2 minutes. Roshan picked 2 min as the freshness floor
 // on top of Stooq's intraday delay; any cached entry younger than
 // that is treated as live. After 2 min, the next click triggers a
 // full pipeline re-run AND we render the stale cached result
@@ -42,7 +42,7 @@ export function peek(symbol, timeframe = 'today', mode = 'stock') {
 
 /**
  * Run the full analysis pipeline and store the result. Returns the
- * { multiData, signal } pair. Throws if analysis fails — caller
+ * { multiData, signal } pair. Throws if analysis fails, caller
  * decides whether to display the previous cached entry.
  *
  * `opts.bulkScan` toggles between fast-but-approximate (true, used by
@@ -67,7 +67,7 @@ export async function analyzeAndCache(symbol, timeframe = 'today', mode = 'stock
 }
 
 /**
- * Force-refresh the cache for a symbol — used when the user clicks
+ * Force-refresh the cache for a symbol, used when the user clicks
  * a symbol whose entry is stale. Returns the fresh entry, or
  * propagates the error.
  */
@@ -83,7 +83,7 @@ export async function refresh(symbol, timeframe = 'today', mode = 'stock', symbo
  * symbol is analyzed sequentially with a small gap between them so
  * we don't saturate the data sources or block the UI thread.
  *
- * Silent on failure — a watchlist symbol that 404s on Yahoo today
+ * Silent on failure, a watchlist symbol that 404s on Yahoo today
  * just doesn't get a cache entry; the user will see the normal
  * pipeline run when they click it.
  */

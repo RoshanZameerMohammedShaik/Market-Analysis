@@ -35,7 +35,7 @@ So every conclusion is gated three ways, and all three must pass before anything
   * MINIMUM SAMPLE. Below MIN_ROUND_TRIPS a t-statistic is meaningless however large it
     looks, because a handful of trades can produce any t at all.
   * DEFLATED SIGNIFICANCE. The False Strategy Theorem (Bailey and Lopez de Prado) says that
-    trying k things makes the best of them look significant by chance; the expected maximum
+    trying k things makes the best of them look significant by chance, the expected maximum
     |t| under the null grows like sqrt(2 ln k). Every sleeve and every bucket examined counts
     as a trial, so the bar rises as the learner looks at more things.
   * SHRINKAGE TOWARD ZERO EDGE. Even once the bar is cleared, the adjustment is scaled by how

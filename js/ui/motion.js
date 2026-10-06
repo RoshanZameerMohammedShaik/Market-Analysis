@@ -1,4 +1,4 @@
-// motion.js — the app's GSAP-powered animation vocabulary.
+// motion.js, the app's GSAP-powered animation vocabulary.
 //
 // GSAP (now 100% free, incl. SplitText / DrawSVG / Flip / ScrollTrigger via
 // Webflow) is loaded globally as UMD scripts in index.html BEFORE the module
@@ -6,11 +6,11 @@
 // This module is the single place the rest of the app reaches for motion, so:
 //   • every animation is gated on prefers-reduced-motion in ONE place;
 //   • every call NO-OPS SAFELY if GSAP failed to load (offline first paint,
-//     blocked CDN copy, etc.) — callers never need to guard;
+//     blocked CDN copy, etc.), callers never need to guard;
 //   • we never reinvent eased tweens / number counters / SVG draws by hand.
 //
 // Nothing here changes layout or engine behaviour; it only animates existing
-// elements. Use sparingly and tastefully — GSAP makes it easy to overdo it.
+// elements. Use sparingly and tastefully. GSAP makes it easy to overdo it.
 
 const G = typeof window !== 'undefined' ? window.gsap : null;
 

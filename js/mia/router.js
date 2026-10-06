@@ -29,9 +29,9 @@ export async function classifyForRouting({ userMessage, key, signal }) {
 /**
  * Stream Mia output with intent-classified routing.
  *
- * @param opts.system        — full tool-path system prompt
- * @param opts.systemNoTools — (legacy, ignored — slim is built locally)
- * @param opts.latestSignal  — current on-screen signal for context-block
+ * @param opts.system, full tool-path system prompt
+ * @param opts.systemNoTools, (legacy, ignored, slim is built locally)
+ * @param opts.latestSignal, current on-screen signal for context-block
  *                              (optional; if not passed, prose still works,
  *                               just without grounding)
  */

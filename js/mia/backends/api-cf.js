@@ -1,9 +1,9 @@
-// Cloudflare Workers AI backend — alternative free API key option.
+// Cloudflare Workers AI backend, alternative free API key option.
 // Path: /accounts/{account_id}/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast
 // Requires both a Workers AI API token and the user's account ID.
 //
 // Free tier: ~10,000 "neurons"/day. Roughly ~150-300 Llama 70B replies/day.
-// CF doesn't expose remaining usage in response headers — we estimate.
+// CF doesn't expose remaining usage in response headers, we estimate.
 
 let lastUsage = null;
 

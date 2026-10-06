@@ -1,5 +1,5 @@
 """
-Penny-stock universe — Python mirror of js/penny-universe.js. Stable
+Penny-stock universe. Python mirror of js/penny-universe.js. Stable
 ~500-symbol curated list of US-listed (NYSE/Nasdaq/AMEX) names. Used by:
 
   - ledger_universe.ALL_SYMBOLS: cron records + resolves predictions on
@@ -9,10 +9,10 @@ Penny-stock universe — Python mirror of js/penny-universe.js. Stable
 
 On TOP of this stable list, the cron also fetches Yahoo screeners at
 runtime (penny_dynamic.py) to catch movers that aren't on the stable
-list. Dynamic ones get recorded in the ledger as they appear; if they
+list. Dynamic ones get recorded in the ledger as they appear, if they
 keep showing up the per-symbol track-record bonus eventually fires.
 
-If you edit this list, also update js/penny-universe.js — JS is the
+If you edit this list, also update js/penny-universe.js. JS is the
 source of truth for the runtime, this file is the cron/LSTM mirror.
 """
 

@@ -3,7 +3,7 @@
 // Why crypto-only: free stock-data sources (Yahoo, Stooq) are 5-15 min
 // delayed because real-time exchange feeds are licensed. A 15-min-late
 // price alert for a market that moves second-by-second is worse than
-// useless — it would tell users about moves that already played out.
+// useless, it would tell users about moves that already played out.
 // Crypto, by contrast, has free public WebSocket trade feeds (Binance, or
 // Coinbase where Binance refuses the connection, as it does for US users).
 // So this module covers the case where realtime is achievable and
@@ -13,12 +13,12 @@
 //   - localStorage holds per-symbol thresholds: { "BTC-USD": {above, below} }
 //   - One live subscription per active alert (crypto-stream.js reconnects).
 //   - Each tick, compare against thresholds; fire Notification on cross
-//     and clear that direction (one-shot — you don't want a $-1 dip
+//     and clear that direction (one-shot, you don't want a $-1 dip
 //     re-firing every tick).
 //   - The watchlist UI gets a small inline "alert at" form for crypto
 //     rows; stocks see a hint explaining why they're unsupported.
 //
-// Stays open as long as the tab is open. No service worker — closing
+// Stays open as long as the tab is open. No service worker, closing
 // the tab also closes the WS, and the alert won't fire. That matches
 // the existing watchlist's tab-open-only model.
 
@@ -92,7 +92,7 @@ function evaluate(symbol, price) {
     let changed = false;
     if (a.above != null && price >= a.above) {
         notify(symbol, 'above', price, a.above);
-        a.above = null; // one-shot — clear so it doesn't re-fire on every tick
+        a.above = null; // one-shot, clear so it doesn't re-fire on every tick
         changed = true;
     }
     if (a.below != null && price <= a.below) {
@@ -120,7 +120,7 @@ function connectSocket(symbol) {
         document.dispatchEvent(new CustomEvent('ma:price-tick', { detail: { symbol, price } }));
         evaluate(symbol, price);
     });
-    if (!handle) return; // unsupported symbol — UI surfaces this
+    if (!handle) return; // unsupported symbol. UI surfaces this
     sockets.set(symbol, { handle });
 }
 

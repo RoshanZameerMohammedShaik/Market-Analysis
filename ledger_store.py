@@ -4,7 +4,7 @@ WHY THIS EXISTS
 ---------------
 model/ledger/2026.jsonl reached 101.30 MB and GitHub refused the push:
 
-    remote: error: File model/ledger/2026.jsonl is 101.30 MB; this exceeds
+    remote: error: File model/ledger/2026.jsonl is 101.30 MB, this exceeds
     remote: error: GitHub's file size limit of 100.00 MB
 
 That is a HARD limit on any single blob, not a warning and not a quota that can be raised, so

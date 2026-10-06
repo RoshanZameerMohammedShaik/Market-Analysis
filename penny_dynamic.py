@@ -7,12 +7,12 @@ These are THE SAME FOUR SCREENERS the browser's Hot Picks uses
 (js/hotpicks.js), and that is the point: the cron has to analyse
 everything the app is willing to recommend.
 
-Why it matters — the bug this fixes. The cron only ever asked for
+Why it matters, the bug this fixes. The cron only ever asked for
 sub-$5 names, so the ledger universe and the Hot Picks universe
 disagreed. DY at $309.61 was shown as a Hot Pick with a full
 prediction, but no cron row existed for it, so daily-lock.js fell
 through to its visit-time fallback and the card read "today's call ·
-locked 11:18 AM" — the time the USER opened the page, not the market
+locked 11:18 AM", the time the USER opened the page, not the market
 open. Seven of twelve Hot Picks on that screen were in the same state.
 An open-locked call is what makes "did today's prediction reach its
 target?" answerable at all, because the baseline has to be the same
@@ -38,7 +38,7 @@ _HEADERS = {
 
 
 def _fetch_one(scr_id: str) -> List[dict]:
-    """Fetch one screener; return list of quote dicts or []."""
+    """Fetch one screener, return list of quote dicts or []."""
     url = f"{_BASE}?formatted=false&lang=en-US&region=US&scrIds={scr_id}&count=50"
     try:
         req = urllib.request.Request(url, headers=_HEADERS)

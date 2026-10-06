@@ -67,7 +67,7 @@ def is_crypto(symbol):
 def half_spread_pct(price, symbol=None):
     """Effective half-spread for one side, in percent. None if price is unusable.
 
-    `symbol` is optional so every existing caller keeps working; passing it applies the
+    `symbol` is optional so every existing caller keeps working, passing it applies the
     crypto adjustment. The research tools deliberately do NOT pass it, because their panels
     are equity-only.
     """
@@ -102,7 +102,7 @@ def fill_price(price, side, symbol=None):
 
     A BUY lifts the offer and a SELL hits the bid, so the bot must never book a fill
     at the midpoint it saw. Charging cost as a separate fee AND filling at mid would
-    double-count on one side and under-count on the other; modelling it as a worse
+    double-count on one side and under-count on the other, modelling it as a worse
     fill price is both simpler and closer to reality, because it also makes the
     position's cost basis honest for later P/L.
     """

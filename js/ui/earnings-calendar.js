@@ -1,4 +1,4 @@
-// Earnings calendar — "what reports this week (and how the engine reads
+// Earnings calendar, "what reports this week (and how the engine reads
 // it going in)".
 //
 // For a universe of liquid US large-caps (the sector-mapped set), we:
@@ -12,7 +12,7 @@
 // collapsible section; lazy-loads on first open.
 //
 // Honesty note: the engine CAPS confidence going into earnings
-// (earningsCap in earnings.js — binary event risk). So a pre-earnings
+// (earningsCap in earnings.js, binary event risk). So a pre-earnings
 // read is intentionally cautious; the calendar surfaces that rather
 // than implying the engine is highly sure ahead of a coin-flip event.
 
@@ -30,7 +30,7 @@ const PROX_CONCURRENCY = 6;   // parallel earnings-date lookups
 function sigLabel(sig) {
     return sig === 'NO_TRADE' ? 'AVOID'
         : sig === 'NEUTRAL' ? "DON'T BUY"
-        : sig || '—';
+        : sig || '';
 }
 function sigClass(sig) { return (sig || 'neutral').toLowerCase(); }
 
@@ -69,7 +69,7 @@ async function gather(windowDays) {
     });
     // If EVERY proximity lookup came back null, the earnings feed is
     // unavailable (Yahoo's quoteSummary endpoint is crumb-walled on the free
-    // proxy) — distinct from "no earnings in window". Signal that so the UI
+    // proxy), distinct from "no earnings in window". Signal that so the UI
     // shows an honest "feed unavailable" message instead of "no earnings".
     const anyData = prox.some(x => x && x.daysUntil != null);
     if (!anyData) return { feedUnavailable: true, rows: [] };
@@ -79,7 +79,7 @@ async function gather(windowDays) {
         .sort((a, b) => a.daysUntil - b.daysUntil)
         .slice(0, MAX_ROWS);
     if (!upcoming.length) return [];
-    // 3. Engine read for each (bulkScan: fast, approximate — fine for a
+    // 3. Engine read for each (bulkScan: fast, approximate, fine for a
     //    list view; the click-through gives the full-fidelity card).
     const withSignal = await mapLimit(upcoming, 4, async (row) => {
         try {
@@ -95,7 +95,7 @@ async function gather(windowDays) {
 function renderRows(rows) {
     // gather() may return {feedUnavailable:true} when the earnings feed is down.
     if (rows && rows.feedUnavailable) {
-        return '<div class="earnings-cal-empty">Earnings dates are temporarily unavailable — the free data feed for the earnings calendar isn’t responding right now. The engine’s BUY/SELL calls still work; check back later for the earnings overlay.</div>';
+        return '<div class="earnings-cal-empty">Earnings dates are temporarily unavailable, the free data feed for the earnings calendar isn’t responding right now. The engine’s BUY/SELL calls still work, check back later for the earnings overlay.</div>';
     }
     if (!rows || !rows.length) {
         return '<div class="earnings-cal-empty">No earnings in the selected window across the large-cap universe.</div>';
@@ -104,7 +104,7 @@ function renderRows(rows) {
         <div class="earnings-cal-row" data-symbol="${r.sym}">
             <span class="earnings-cal-when ${whenClass(r.daysUntil)}">${whenLabel(r.daysUntil)}</span>
             <span><span class="earnings-cal-sym">${displayTicker(r.sym)}</span></span>
-            ${r.signal ? `<span class="earnings-cal-sig ${sigClass(r.signal)}">${sigLabel(r.signal)}</span>` : '<span class="earnings-cal-sig neutral">—</span>'}
+            ${r.signal ? `<span class="earnings-cal-sig ${sigClass(r.signal)}">${sigLabel(r.signal)}</span>` : '<span class="earnings-cal-sig neutral">-</span>'}
             <span class="earnings-cal-conf">${r.confidence != null ? r.confidence + '%' : ''}</span>
         </div>`).join('')}</div>`;
 }

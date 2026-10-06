@@ -4,7 +4,7 @@ bot/broker.py and trading_costs.py are the cost model for the paper desk. js/tra
 the same model for the P&L calculator and the signal card. If they drift, the calculator quotes one
 cost and the desk charges another, and every comparison between "what I planned" and "what Mia did"
 is measured in two different currencies. This project has already had two engines for one
-prediction once; this check stops it having two cost models.
+prediction once, this check stops it having two cost models.
 
 Also asserts the calculator against the worked examples from the conversation that motivated it,
 so a formula change that is internally consistent but wrong about the real numbers still fails.

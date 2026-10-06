@@ -1,4 +1,4 @@
-// Phase 8 — Penny Risk dashboard.
+// Phase 8. Penny Risk dashboard.
 //
 // Renders a focused panel ALONGSIDE the engine signal whenever
 // liquidityTier === 'penny'. Surfaces the float / short / FINRA / Insider /

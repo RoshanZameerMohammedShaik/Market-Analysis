@@ -1,10 +1,9 @@
-// Floating Debug App panel — visible only when dev mode is on.
+// Floating Debug App panel, visible only when dev mode is on.
 //
 // Mounts a small chip in the corner of the main app showing live
 // error / warning counts. Click expands into the same console UI
 // the /dev page renders, scoped to THIS tab's debug buffer (the only
-// way the user can see logs from the page they're actually using —
-// each tab has its own window and its own buffer).
+// way the user can see logs from the page they're actually using, // each tab has its own window and its own buffer).
 //
 // The buffer itself is captured by js/debug-capture.js which is
 // loaded inline at the top of index.html before any module. This
@@ -35,7 +34,7 @@ let state = {
 };
 
 export function initDebugPanel() {
-    // Re-evaluate on every init call — toggling dev mode in the
+    // Re-evaluate on every init call, toggling dev mode in the
     // /dev page sets localStorage but doesn't re-run app bootstrap;
     // page reload picks up the change.
     if (!isDevMode()) return;
@@ -159,7 +158,7 @@ function render() {
     if (!cap) return;
     const entries = cap.entries;
 
-    // Counts (always — the chip shows them even when collapsed).
+    // Counts (always, the chip shows them even when collapsed).
     let errCount = 0, warnCount = 0;
     for (const e of entries) {
         ensureTagInDropdown(e.tag);

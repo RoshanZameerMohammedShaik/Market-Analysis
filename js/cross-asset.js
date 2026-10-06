@@ -45,7 +45,7 @@ async function fetchBtcDominance5d() {
         // 24h global cap change percentage as a proxy: if BTC outperforms
         // the total market today, dominance rises.
         const totalChange = json?.data?.market_cap_change_percentage_24h_usd || 0;
-        // Rough proxy — we surface current dominance + 24h directional bias.
+        // Rough proxy, we surface current dominance + 24h directional bias.
         btcDomCache = { ts: Date.now(), value: { current: cur, totalChange24h: totalChange } };
         return btcDomCache.value;
     } catch (_) { return null; }
@@ -80,17 +80,17 @@ export function crossAssetAdjustment(signal, ca) {
     if (ca.kind === 'dxy') {
         const pressure = ca.pct5d * ca.sensitivity;
         // Positive pressure = headwind for the symbol. Threshold ~1%.
-        if (signal === 'BUY' && pressure > 1) return { adjust: -3, reason: `DXY +${ca.pct5d}% 5d — dollar strength is a headwind for ${ca.sector || 'this'} BUY` };
-        if (signal === 'BUY' && pressure < -1) return { adjust: +2, reason: `DXY ${ca.pct5d}% 5d — dollar weakness supports BUY` };
-        if (signal === 'SELL' && pressure > 1) return { adjust: +2, reason: `DXY +${ca.pct5d}% 5d — dollar strength supports SELL` };
+        if (signal === 'BUY' && pressure > 1) return { adjust: -3, reason: `DXY +${ca.pct5d}% 5d, dollar strength is a headwind for ${ca.sector || 'this'} BUY` };
+        if (signal === 'BUY' && pressure < -1) return { adjust: +2, reason: `DXY ${ca.pct5d}% 5d, dollar weakness supports BUY` };
+        if (signal === 'SELL' && pressure > 1) return { adjust: +2, reason: `DXY +${ca.pct5d}% 5d, dollar strength supports SELL` };
         return { adjust: 0, reason: null };
     }
     if (ca.kind === 'btc-dominance') {
         if (ca.isBtc) return { adjust: 0, reason: null };
         // Heuristic: when total crypto market is flat-down but BTC.D is
         // high (>50%), alts typically underperform.
-        if (ca.current > 55 && signal === 'BUY') return { adjust: -3, reason: `BTC dominance ${ca.current}% — alts typically underperform, BUY weakened` };
-        if (ca.current < 45 && signal === 'BUY') return { adjust: +2, reason: `BTC dominance ${ca.current}% — alt season conditions support BUY` };
+        if (ca.current > 55 && signal === 'BUY') return { adjust: -3, reason: `BTC dominance ${ca.current}%, alts typically underperform, BUY weakened` };
+        if (ca.current < 45 && signal === 'BUY') return { adjust: +2, reason: `BTC dominance ${ca.current}%, alt season conditions support BUY` };
         return { adjust: 0, reason: null };
     }
     return { adjust: 0, reason: null };

@@ -21,18 +21,18 @@
 //   - Requires breakdown data on each ledger row. Older rows may
 //     not have it; we skip those.
 //   - Requires AT LEAST 50 resolved rows with breakdown data
-//     before we trust the empirical weights — fall back to the
+//     before we trust the empirical weights, fall back to the
 //     hardcoded baseline below until that bar is hit.
 //   - Recomputes every 30 min in the background (cached). Real-time
 //     enough that the engine adapts to regime shifts within hours.
 
 import { loadLedger } from './ledger-reader.js';
 
-const CACHE_MS = 30 * 60 * 1000; // 30 min — real-time enough, cheap enough
+const CACHE_MS = 30 * 60 * 1000; // 30 min, real-time enough, cheap enough
 const MIN_RESOLVED_FOR_LEARNING = 50;
 
 // Fallback baseline if the ledger is too thin to learn from. NOT
-// a hardcoded production weight — only used until enough resolved
+// a hardcoded production weight, only used until enough resolved
 // rows exist for empirical learning. The dynamic_only rule allows
 // fallbacks while the engine is bootstrapping data.
 const FALLBACK_AI_PRESENT = { ai: 0.15, technical: 0.35, sentiment: 0.25, market: 0.25 };
@@ -100,14 +100,14 @@ function hitRatesToWeights(counts) {
         // Sources with no resolved rows get the baseline rate (50%)
         // so they're not zero-weighted before they have data.
         const rate = c.resolved >= 5 ? c.hits / c.resolved : 0.5;
-        // Center on 50% — a source at 50% (coin-flip) gets baseline
+        // Center on 50%, a source at 50% (coin-flip) gets baseline
         // weight; above lifts it, below docks it.
         const lift = Math.max(0, rate - 0.30); // floor at 30% so a bad source still gets some weight
         rates[s] = lift;
         total += lift;
     }
     if (total === 0) {
-        // Defensive — all sources scoring 30% or below means data is
+        // Defensive, all sources scoring 30% or below means data is
         // garbage. Fall back to baseline.
         return null;
     }
@@ -124,7 +124,7 @@ function hitRatesToWeights(counts) {
  * loaded yet on the very first analysis).
  */
 export async function getLearnedWeights(aiAvailable) {
-    // Cache check — return cached weights if fresh.
+    // Cache check, return cached weights if fresh.
     if (_cache && Date.now() - _cacheTs < CACHE_MS) {
         return _adjustForAi(_cache, aiAvailable);
     }
@@ -137,7 +137,7 @@ export async function getLearnedWeights(aiAvailable) {
             // Gate on the LEAST-resolved source, not the most. Using Math.max
             // let learning fire as soon as ANY single source (in practice only
             // technical, which swings outside the 45-55 abstain band) cleared
-            // the bar — while ai/sentiment/market sat at 0 resolved. The
+            // the bar, while ai/sentiment/market sat at 0 resolved. The
             // hitRatesToWeights floor then zeroed the one data-backed source and
             // split the weight evenly across the three undatae'd ones
             // ({technical:0, ai/sentiment/market:0.333}), collapsing every
@@ -145,7 +145,7 @@ export async function getLearnedWeights(aiAvailable) {
             // Requiring ALL sources to have real resolved data before we trust a
             // learned vector means we stay on the sound technical-led FALLBACK
             // baseline (0.15/0.35/0.25/0.25) until every source is genuinely
-            // measurable — which restores per-stock differentiation now and only
+            // measurable, which restores per-stock differentiation now and only
             // adopts learned weights once they're honestly grounded.
             const minResolved = Math.min(...Object.values(counts).map(c => c.resolved));
             if (minResolved < MIN_RESOLVED_FOR_LEARNING) {

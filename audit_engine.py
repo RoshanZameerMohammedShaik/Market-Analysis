@@ -2,15 +2,15 @@
 Engine accuracy audit. Reads the live ledger and reports:
 
   1. Overall hit rate by horizon (1d, 3d, 5d, 10d, 20d)
-  2. Hit rate by SIGNAL (BUY / SELL / NEUTRAL — directionally)
+  2. Hit rate by SIGNAL (BUY / SELL / NEUTRAL, directionally)
   3. Hit rate by CONFIDENCE BUCKET (the meaningful question:
      do 60%+ predictions actually hit ~60%? do 70%+ hit ~70%?)
   4. Per-symbol track record (only symbols with >=5 resolved 1d
-     horizons) — feeds the new track-record-bonus weighting.
+     horizons), feeds the new track-record-bonus weighting.
   5. Old-vs-new threshold simulation: under the new 60/40 + 55%
      commit floor, how many predictions would have been emitted,
      and what would their hit rate have been?
-  6. LSTM "is it learning" check — looks at hit-rate trend across
+  6. LSTM "is it learning" check, looks at hit-rate trend across
      the year. Improving = the weekly retrain is working. Flat or
      declining = retrain might be overfitting / regime drift.
 
@@ -76,7 +76,7 @@ def load_ledger(year):
 def directional_rows(rows, horizon):
     """Yield (row, horizon_data) only for rows that have a resolved
     directional outcome (horizon present, directionMatch is bool, and
-    signal is BUY or SELL — NEUTRAL is non-directional)."""
+    signal is BUY or SELL. NEUTRAL is non-directional)."""
     for r in rows:
         sig = r.get('signal')
         if sig not in ('BUY', 'SELL'):
@@ -207,7 +207,7 @@ def report_threshold_simulation(rows):
 def report_learning_trend(rows):
     """Bucket predictions by month and show 1d hit rate over time.
     If the engine is "learning" via weekly retrains, we'd expect the
-    hit rate to be stable or improving across months — not random."""
+    hit rate to be stable or improving across months, not random."""
     print('\n=== 6. IS THE LSTM LEARNING? (1d hit rate by month) ===')
     print('Stable or improving = retrain working. Declining = regime drift.')
     by_month = defaultdict(lambda: [0, 0])

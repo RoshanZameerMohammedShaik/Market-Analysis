@@ -3,7 +3,7 @@
 Published nightly by tools/write_market_sessions.py from the exchange_calendars library. Outside
 the published window (or with no file at all) the weekday rule applies, which is what every
 caller did before this existed, so a missing file degrades to the old behaviour rather than
-breaking. MIRRORED BY js/market-sessions.js; tools/earnings_sync_check.py holds them together.
+breaking. MIRRORED BY js/market-sessions.js, tools/earnings_sync_check.py holds them together.
 """
 import datetime
 import json

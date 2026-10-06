@@ -13,7 +13,7 @@ import { recordBuy, recordSell, getPortfolio, isInstantiated, avgCostBasisUSD } 
 import { getCurrentPrice, isCryptoSymbol } from './pricing.js';
 
 // Place a market BUY. `quote` is { mode: 'amountUSD', value } OR
-// { mode: 'units', value } — supports both "buy $250 of X" and
+// { mode: 'units', value }, supports both "buy $250 of X" and
 // "buy 0.5 X". priceOverrideUSD is for testing only.
 export async function buy(symbol, quote, priceOverrideUSD = null) {
     if (!isInstantiated()) throw new Error('Load a portfolio first.');
@@ -48,7 +48,7 @@ export async function buy(symbol, quote, priceOverrideUSD = null) {
 }
 
 // Place a market SELL. quote.mode='units' or 'amountUSD' or 'all'.
-// 'all' liquidates the entire position — convenient for "exit AAPL".
+// 'all' liquidates the entire position, convenient for "exit AAPL".
 export async function sell(symbol, quote, priceOverrideUSD = null) {
     if (!isInstantiated()) throw new Error('Load a portfolio first.');
     const sym = normalizeSymbol(symbol);
@@ -73,7 +73,7 @@ export async function sell(symbol, quote, priceOverrideUSD = null) {
         throw new Error('Quote mode must be "amountUSD", "units", or "all".');
     }
     if (units > pos.units + 1e-9) {
-        throw new Error(`You only hold ${pos.units} ${sym}; can't sell ${units}. (Long-only — no shorting.)`);
+        throw new Error(`You only hold ${pos.units} ${sym}; can't sell ${units}. (Long-only, no shorting.)`);
     }
 
     const result = recordSell({ symbol: sym, units, priceUSD: price });

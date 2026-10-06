@@ -3,13 +3,13 @@
 // All numbers below are LEARNED from the live ledger. No hardcoded
 // "magic" thresholds. Recomputes every 30 minutes (cached). Falls
 // back to bootstrap defaults ONLY when the ledger is too thin to
-// learn from — and the bootstrap defaults are documented as
+// learn from, and the bootstrap defaults are documented as
 // "transitional, not production weights."
 //
 // What gets learned:
 //   - commitFloorConfidence: lowest confidence at which engine
 //     should emit BUY/SELL (anywhere empirical hit rate >= 50%).
-//     Below this, the engine emits NEUTRAL — the math hasn't
+//     Below this, the engine emits NEUTRAL, the math hasn't
 //     proven itself reliable enough to commit.
 //   - hotPicksFloor: confidence at which empirical hit rate >= 55%.
 //     This is what Hot Picks should require to be "hot".
@@ -36,7 +36,7 @@ import { loadLedger } from './ledger-reader.js';
 const CACHE_MS = 30 * 60 * 1000;
 const MIN_RESOLVED_TO_LEARN = 100;
 
-// Bootstrap defaults — used ONLY before the ledger has enough data.
+// Bootstrap defaults, used ONLY before the ledger has enough data.
 // These are not production weights; they're starting points until
 // the learner takes over.
 const BOOTSTRAP = Object.freeze({
@@ -205,16 +205,15 @@ function learnDispersionPenalties(rows) {
 
 async function recomputeFromLedger() {
     const rows = await loadLedger();
-    // Count ONLY resolved DIRECTIONAL (BUY/SELL) rows — the same definition
+    // Count ONLY resolved DIRECTIONAL (BUY/SELL) rows, the same definition
     // every downstream learner uses (hitRateByConfidence/hitRateByScore/
     // learnDispersionPenalties here, plus source-weights.js and
     // ledger-reader.isResolvedDirectional). The old filter counted any row
-    // whose 1d directionMatch was non-null — but NEUTRAL/NO_TRADE rows that
+    // whose 1d directionMatch was non-null, but NEUTRAL/NO_TRADE rows that
     // still get a directionMatch were NOT what the learners consume, and on a
     // ledger that is mostly non-directional this MISCOUNTED. (In practice the
     // bug surfaced as resolvedCount=0 while source-weights saw 132 on the same
-    // ledger, leaving thresholds frozen on BOOTSTRAP — buyScoreThreshold=60 —
-    // which forced every ~50-scoring stock to NEUTRAL and pinned confidence
+    // ledger, leaving thresholds frozen on BOOTSTRAP, buyScoreThreshold=60, // which forced every ~50-scoring stock to NEUTRAL and pinned confidence
     // flat near the floor.) Counting the same directional rows the learners
     // actually use makes the learn-gate consistent and unfreezes learning.
     const resolvedCount = rows.filter(r =>
@@ -238,7 +237,7 @@ async function recomputeFromLedger() {
     const dispersionPenalties = learnDispersionPenalties(rows);
 
     return {
-        // Confidence floors — fall back to bootstrap when no value
+        // Confidence floors, fall back to bootstrap when no value
         // in the empirical ledger satisfies the target.
         commitFloorConfidence: commitFloor ?? BOOTSTRAP.commitFloorConfidence,
         hotPicksFloor: hotFloor ?? BOOTSTRAP.hotPicksFloor,
@@ -251,7 +250,7 @@ async function recomputeFromLedger() {
         sellAgreementCutoff: BOOTSTRAP.sellAgreementCutoff,
         // Dispersion penalties.
         dispersionPenaltyBands: dispersionPenalties || BOOTSTRAP.dispersionPenaltyBands,
-        // Bonus magnitudes — kept at bootstrap until we add more
+        // Bonus magnitudes, kept at bootstrap until we add more
         // sophisticated lift-measurement (separate session).
         unanimousBonusPts: BOOTSTRAP.unanimousBonusPts,
         trackRecord: BOOTSTRAP.trackRecord,
@@ -262,7 +261,7 @@ async function recomputeFromLedger() {
 
 /**
  * Returns the current learned thresholds (cached 30 min). Always
- * returns a complete object — no missing fields, no surprises.
+ * returns a complete object, no missing fields, no surprises.
  */
 export async function getCalibrationThresholds() {
     if (_cache && Date.now() - _cacheTs < CACHE_MS) return _cache;
@@ -282,7 +281,7 @@ export async function getCalibrationThresholds() {
 }
 
 /**
- * Synchronous getter — returns last-cached thresholds, or bootstrap
+ * Synchronous getter, returns last-cached thresholds, or bootstrap
  * if nothing's been learned yet. Used by call sites that can't
  * await (e.g. CSS class decisions, syncronous renderers). The
  * async caller in the engine populates the cache earlier in the

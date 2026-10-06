@@ -1,6 +1,6 @@
 // Unified pricing layer for the portfolio simulator.
 //
-// Two patterns under the hood — one per asset class — but one subscribe()
+// Two patterns under the hood, one per asset class, but one subscribe()
 // API for callers:
 //
 //   const handle = subscribe('BTC-USD', priceCb);  // live trades (Binance, else Coinbase)
@@ -9,15 +9,15 @@
 //
 // Crypto: live WebSocket trades via crypto-stream.js (Binance, falling back to Coinbase).
 // Stocks: snapshot-on-demand. CB fires:
-//   - immediately with cached price when available (so panel doesn't show '—')
+//   - immediately with cached price when available (so panel doesn't show '-')
 //   - again whenever refreshStockPrices() runs (panel-open + manual ↻ button)
 //
 // Stock price sources, in priority order:
 //   1. Public.com REALTIME quote via our Worker /stock-quote route (the
 //      secret lives on the Worker; the browser only ever calls our route).
-//      This is genuine realtime — when configured it replaces the delayed feed.
-//   2. Stooq CSV snapshot — free, CORS-friendly, 5–15 min delayed.
-//   3. Yahoo v7 quote via the Worker proxy — covers more low-volume / intl.
+//      This is genuine realtime, when configured it replaces the delayed feed.
+//   2. Stooq CSV snapshot, free, CORS-friendly, 5 to 15 min delayed.
+//   3. Yahoo v7 quote via the Worker proxy, covers more low-volume / intl.
 // If Public isn't configured (no Worker secret) or is down, we fall straight
 // through to Stooq/Yahoo, so the app always has a price. We surface the
 // source + a 'last refreshed HH:MM' timestamp so the user knows freshness.
@@ -57,7 +57,7 @@ function subscribeCrypto(symbol, cb) {
     }
     entry.subs.add(cb);
     if (entry.lastPrice != null) {
-        // Fire once immediately so the UI doesn't sit on '—' until the next trade tick.
+        // Fire once immediately so the UI doesn't sit on '-' until the next trade tick.
         try { cb(entry.lastPrice, { symbol, ts: Date.now(), source: cryptoStreamVenue(), cached: true }); } catch (_) {}
     }
     return {
@@ -100,8 +100,7 @@ const PUBLIC_QUOTE_URL = 'https://market-analysis-yahoo-proxy.roshanzameer7866.w
 
 // Realtime stock price via Public.com (through our Worker). Resolves a finite
 // price, or throws so the caller falls back to Stooq. Treats "not configured"
-// (no Worker secret yet) and any non-realtime payload as a miss — silently —
-// so the feature degrades to the delayed sources until the key is set.
+// (no Worker secret yet) and any non-realtime payload as a miss, silently, // so the feature degrades to the delayed sources until the key is set.
 let _publicQuoteDisabled = false;   // flips true after a 'configured:false' so we stop trying
 async function fetchStockPriceFromPublic(symbol) {
     if (_publicQuoteDisabled) throw new Error('public quote disabled');
@@ -120,7 +119,7 @@ async function fetchStockPriceFromPublic(symbol) {
     if (!res.ok) throw new Error(`public ${res.status}`);
     const json = await res.json();
     if (json && json.configured === false) {
-        _publicQuoteDisabled = true;   // no secret on the Worker — don't keep asking this session
+        _publicQuoteDisabled = true;   // no secret on the Worker, don't keep asking this session
         throw new Error('public not configured');
     }
     const price = json?.price;
@@ -187,19 +186,18 @@ async function fetchStockPriceFromStooq(symbol) {
     const text = await res.text();
     const lines = text.trim().split('\n');
     if (lines.length < 2) throw new Error('empty stooq response');
-    const cols = lines[1].split(',');
+    const cols = lines[1].split('-');
     if (cols.length < 7) throw new Error('unexpected stooq response shape');
     const close = parseFloat(cols[6]);
     if (!Number.isFinite(close) || close <= 0) {
-        // Stooq returns 'N/D' literally for symbols it doesn't carry —
-        // surfaces here as NaN. Throw so the caller can try Yahoo.
+        // Stooq returns 'N/D' literally for symbols it doesn't carry, // surfaces here as NaN. Throw so the caller can try Yahoo.
         throw new Error(`stooq has no data for ${symbol}`);
     }
     return close;
 }
 
 async function fetchStockPriceFromYahoo(symbol) {
-    // Yahoo's v7/finance/quote endpoint — lightweight last-trade lookup.
+    // Yahoo's v7/finance/quote endpoint, lightweight last-trade lookup.
     // Same one hotpicks uses for batch quotes. Goes through fetchWithProxy
     // because Yahoo's chart/quote endpoints don't send CORS headers.
     // Lazy-import to keep the portfolio module dependency-light at boot.
@@ -334,8 +332,7 @@ export async function getCurrentPrice(symbol) {
 }
 
 // Source of the most recent getCurrentPrice() fetch PER SYMBOL, so callers that
-// only get the number back (trade fills, Mia) can tell realtime from delayed —
-// keyed by symbol so concurrent fetches (e.g. portfolio pricing several
+// only get the number back (trade fills, Mia) can tell realtime from delayed, // keyed by symbol so concurrent fetches (e.g. portfolio pricing several
 // positions at once) don't clobber each other's source. Pass the symbol you
 // just fetched; omit to get the most-recent of any (best-effort).
 const _lastStockSourceBySym = new Map();

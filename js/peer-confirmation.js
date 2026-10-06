@@ -30,7 +30,7 @@ const TTL_MS = 5 * 60 * 1000;
 /**
  * Returns { agreement, peerCount, dominantDir, peerSummary } or null on failure.
  * agreement is 0..1: fraction of peers whose direction matches ourSignal.
- * dominantDir is 'BUY' | 'SELL' | 'NEUTRAL' — majority across peers.
+ * dominantDir is 'BUY' | 'SELL' | 'NEUTRAL', majority across peers.
  */
 export async function getPeerAgreement(symbol, ourSignal) {
     const upper = (symbol || '').toUpperCase();
@@ -46,7 +46,7 @@ export async function getPeerAgreement(symbol, ourSignal) {
 
     const sample = peers.slice(0, 4);
     const results = await Promise.allSettled(sample.map(async p => {
-        // suffixProbe off — peer set is curated US tickers; the probe
+        // suffixProbe off, peer set is curated US tickers; the probe
         // would just slow this down on any miss.
         const data = await fetchStockData(p, '3mo', '1d', { suffixProbe: false });
         if (!data?.candles || data.candles.length < 30) return null;

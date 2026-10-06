@@ -1,20 +1,20 @@
 // Shareable prediction cards.
 //
 // Renders a clean, branded 1080×1080 PNG of the current signal entirely
-// on a <canvas> (no html2canvas, no DOM screenshot, no library) — the
+// on a <canvas> (no html2canvas, no DOM screenshot, no library), the
 // confidence dial as an arc, the BUY/SELL verdict, the price targets, the
 // symbol, and the market-ai.pages.dev wordmark. Then shares it via the
 // Web Share API (with the image file) where supported, falling back to a
 // PNG download everywhere else.
 //
 // Built so the app spreads: one tap turns a prediction into something a
-// user can drop into a chat with friends — and it carries the URL, not
+// user can drop into a chat with friends, and it carries the URL, not
 // the GitHub repo.
 
 const SITE = 'market-ai.pages.dev';
 
 // Theme-ish palette pulled from the app's dark identity (the card is
-// always dark — it reads well on any background it's pasted onto).
+// always dark, it reads well on any background it's pasted onto).
 const PAL = {
     bg0: '#0a0a12', bg1: '#12121f',
     text: '#e8eef5', muted: '#8b96a8', dim: '#5b6678',
@@ -54,7 +54,7 @@ function drawDial(ctx, cx, cy, r, conf) {
 }
 
 function fmtMoney(v) {
-    if (v == null || !Number.isFinite(v)) return '—';
+    if (v == null || !Number.isFinite(v)) return '';
     if (v >= 1000) return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 2 });
     if (v >= 1) return '$' + v.toFixed(2);
     return '$' + v.toFixed(4);
@@ -80,7 +80,7 @@ export function renderShareCanvas(prediction, symbol) {
     const signal = prediction.signal || 'NEUTRAL';
     const tgt = prediction.priceTargets || {};
 
-    // Header — symbol + wordmark.
+    // Header, symbol + wordmark.
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = PAL.text;
     ctx.font = '800 72px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
@@ -155,8 +155,8 @@ export async function sharePredictionCard(prediction, symbol) {
     // don't call share() on a platform that can't take the file.
     const shareData = {
         files: [file],
-        title: `${String(symbol).toUpperCase()} — ${signalLabel(prediction.signal)} ${Math.round(prediction.confidence)}%`,
-        text: `${String(symbol).toUpperCase()}: ${signalLabel(prediction.signal)} at ${Math.round(prediction.confidence)}% — via ${SITE}`,
+        title: `${String(symbol).toUpperCase()}, ${signalLabel(prediction.signal)} ${Math.round(prediction.confidence)}%`,
+        text: `${String(symbol).toUpperCase()}: ${signalLabel(prediction.signal)} at ${Math.round(prediction.confidence)}%, via ${SITE}`,
     };
     try {
         if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
@@ -173,6 +173,6 @@ export async function sharePredictionCard(prediction, symbol) {
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     try {
         const { notify } = await import('./notify.js');
-        notify('Prediction card saved — share it anywhere.', { kind: 'success' });
+        notify('Prediction card saved, share it anywhere.', { kind: 'success' });
     } catch (_) {}
 }

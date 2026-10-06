@@ -19,11 +19,11 @@ THREE STATES, NOT TWO
 
 A REACTION DAY, NOT AN ANNOUNCEMENT DATE
 ----------------------------------------
-Announced before the close (pre-market or intraday) moves that session; announced after the
+Announced before the close (pre-market or intraday) moves that session, announced after the
 close moves the next one. Times are converted in the exchange's own timezone with zoneinfo
 (bot/sessions.py is the one table of hours), so DST is handled rather than approximated.
 
-js/earnings-calendar.js mirrors this; tools/band_sync_check.py holds the two together.
+js/earnings-calendar.js mirrors this, tools/band_sync_check.py holds the two together.
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def reaction_date(announce_epoch, region):
     local = datetime.datetime.fromtimestamp(int(announce_epoch), datetime.timezone.utc).astimezone(ZoneInfo(spec['tz']))
     close_h, close_m = spec['close']
     d = local.date()
-    # Before the close on a session day moves that session; at or after the close, the next one.
+    # Before the close on a session day moves that session, at or after the close, the next one.
     if not (_is_session_day(d, spec, region) and (local.hour, local.minute) < (close_h, close_m)):
         d += datetime.timedelta(days=1)
     while not _is_session_day(d, spec, region):
@@ -92,7 +92,7 @@ def session_date_for(region, epoch=None):
     """Exchange-LOCAL date of the session in progress (or most recent) at `epoch`.
 
     Not the UTC date. ASX opens at 23:00 UTC, so a Sydney session's UTC date is the day before
-    its own; using the UTC date there would shift the whole band by one session and read the
+    its own, using the UTC date there would shift the whole band by one session and read the
     earnings day off the wrong row. Returns None without zoneinfo rather than guessing.
     """
     spec = MARKETS.get(str(region).upper())

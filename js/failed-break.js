@@ -26,7 +26,7 @@ export function detectFailedBreak(candles) {
             kind: 'failed-breakout',
             direction: 'bearish', // reversal from up to down
             strength: Math.min(1, 0.5 + Math.max(0, volRatio - 1) * 0.3),
-            reason: `Failed breakout above ${swingHigh.toFixed(2)} — closed back inside range${volRatio > 1.4 ? ` on ${volRatio.toFixed(1)}× volume` : ''}`,
+            reason: `Failed breakout above ${swingHigh.toFixed(2)}, closed back inside range${volRatio > 1.4 ? ` on ${volRatio.toFixed(1)}× volume` : ''}`,
             volRatio,
         };
     }
@@ -36,7 +36,7 @@ export function detectFailedBreak(candles) {
             kind: 'failed-breakdown',
             direction: 'bullish',
             strength: Math.min(1, 0.5 + Math.max(0, volRatio - 1) * 0.3),
-            reason: `Failed breakdown below ${swingLow.toFixed(2)} — closed back inside range${volRatio > 1.4 ? ` on ${volRatio.toFixed(1)}× volume` : ''}`,
+            reason: `Failed breakdown below ${swingLow.toFixed(2)}, closed back inside range${volRatio > 1.4 ? ` on ${volRatio.toFixed(1)}× volume` : ''}`,
             volRatio,
         };
     }

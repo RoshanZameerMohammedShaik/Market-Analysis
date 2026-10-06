@@ -224,7 +224,7 @@ export function generatePrediction(candles, timeframe = 'today') {
     // was a failed momentum-chaser: momentum bets hit ~31-35%, mean-reversion
     // bets hit ~61-66%, and the as-issued 1-day call was 46.7% (below coin
     // flip). A re-scoring sweep showed shifting weight toward mean-reversion
-    // lifts 1-day to ~57-59% — but the SAME shift HURTS the 5-day call
+    // lifts 1-day to ~57-59%, but the SAME shift HURTS the 5-day call
     // (5-day prefers momentum, ~51% vs ~46%). So the fix is HORIZON-AWARE,
     // not a blanket tilt:
     //   short horizon (today/tomorrow)  -> favor mean-reversion, damp momentum
@@ -243,7 +243,7 @@ export function generatePrediction(candles, timeframe = 'today') {
         else if (trendRegime === 'ranging') { mrTilt = 1.6; momTilt = 0.45; } // ranging: strong reversion, suppress momentum
         else { mrTilt = 1.4; momTilt = 0.6; }                                 // unknown/transition: lean reversion
     } else {
-        // Longer horizon: momentum is what works — keep the prior behavior,
+        // Longer horizon: momentum is what works, keep the prior behavior,
         // with a slight momentum favor in confirmed trends.
         if (trendRegime === 'trending') { momTilt = 1.15; mrTilt = 0.9; }
     }
@@ -261,7 +261,7 @@ export function generatePrediction(candles, timeframe = 'today') {
     const reasons = [];
 
     // Per-indicator contribution log. Used downstream by Mia to answer
-    // "why did the model say this?" — surface the 2-3 features that
+    // "why did the model say this?", surface the 2-3 features that
     // moved the score most. Each entry carries a signed contribution
     // (positive = bullish push, negative = bearish push), the human
     // reason text already produced by this branch, and the live value
@@ -282,9 +282,9 @@ export function generatePrediction(candles, timeframe = 'today') {
     if (rsi !== null) {
         const w = 2 * meanReversionBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (rsi < 30) { bullScore += w; const r = `RSI oversold at ${rsi.toFixed(1)} — reversal likely`; reasons.push(r); addContrib('rsi', 'bull', w, rsi, r); }
+        if (rsi < 30) { bullScore += w; const r = `RSI oversold at ${rsi.toFixed(1)}, reversal likely`; reasons.push(r); addContrib('rsi', 'bull', w, rsi, r); }
         else if (rsi < 40) { bullScore += w * 0.5; const r = `RSI approaching oversold (${rsi.toFixed(1)})`; reasons.push(r); addContrib('rsi', 'bull', w * 0.5, rsi, r); }
-        else if (rsi > 70) { bearScore += w; const r = `RSI overbought at ${rsi.toFixed(1)} — pullback likely`; reasons.push(r); addContrib('rsi', 'bear', w, rsi, r); }
+        else if (rsi > 70) { bearScore += w; const r = `RSI overbought at ${rsi.toFixed(1)}, pullback likely`; reasons.push(r); addContrib('rsi', 'bear', w, rsi, r); }
         else if (rsi > 60) { bearScore += w * 0.5; const r = `RSI elevated (${rsi.toFixed(1)})`; reasons.push(r); addContrib('rsi', 'bear', w * 0.5, rsi, r); }
         else { reasons.push(`RSI neutral at ${rsi.toFixed(1)}`); }
     }
@@ -292,8 +292,8 @@ export function generatePrediction(candles, timeframe = 'today') {
     if (macd) {
         const w = 2.5 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (macd.crossover) { bullScore += w; const r = `MACD bullish crossover — strong buy signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : volumeConfirmedFactor < 1 ? ' (thin volume — caution)' : ''}`; reasons.push(r); addContrib('macd', 'bull', w, macd.histogram, r); }
-        else if (macd.crossunder) { bearScore += w; const r = `MACD bearish crossunder — strong sell signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('macd', 'bear', w, macd.histogram, r); }
+        if (macd.crossover) { bullScore += w; const r = `MACD bullish crossover, strong buy signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : volumeConfirmedFactor < 1 ? ' (thin volume, caution)' : ''}`; reasons.push(r); addContrib('macd', 'bull', w, macd.histogram, r); }
+        else if (macd.crossunder) { bearScore += w; const r = `MACD bearish crossunder, strong sell signal${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('macd', 'bear', w, macd.histogram, r); }
         else if (macd.histogram > 0 && macd.macd > 0) { bullScore += w * 0.6; const r = 'MACD positive momentum'; reasons.push(r); addContrib('macd', 'bull', w * 0.6, macd.histogram, r); }
         else if (macd.histogram < 0 && macd.macd < 0) { bearScore += w * 0.6; const r = 'MACD negative momentum'; reasons.push(r); addContrib('macd', 'bear', w * 0.6, macd.histogram, r); }
         else if (macd.histogram > 0) { bullScore += w * 0.2; const r = 'MACD histogram turning positive'; reasons.push(r); addContrib('macd', 'bull', w * 0.2, macd.histogram, r); }
@@ -303,19 +303,19 @@ export function generatePrediction(candles, timeframe = 'today') {
     if (bb) {
         const w = 2 * meanReversionBonus;
         totalWeight += w;
-        if (bb.percentB < 0) { bullScore += w; const r = 'Price below lower Bollinger Band — mean reversion expected'; reasons.push(r); addContrib('bb', 'bull', w, bb.percentB, r); }
+        if (bb.percentB < 0) { bullScore += w; const r = 'Price below lower Bollinger Band, mean reversion expected'; reasons.push(r); addContrib('bb', 'bull', w, bb.percentB, r); }
         else if (bb.percentB < 0.2) { bullScore += w * 0.75; const r = `Price near lower band (${(bb.percentB * 100).toFixed(0)}%B)`; reasons.push(r); addContrib('bb', 'bull', w * 0.75, bb.percentB, r); }
-        else if (bb.percentB > 1) { bearScore += w; const r = 'Price above upper Bollinger Band — overextended'; reasons.push(r); addContrib('bb', 'bear', w, bb.percentB, r); }
+        else if (bb.percentB > 1) { bearScore += w; const r = 'Price above upper Bollinger Band, overextended'; reasons.push(r); addContrib('bb', 'bear', w, bb.percentB, r); }
         else if (bb.percentB > 0.8) { bearScore += w * 0.75; const r = `Price near upper band (${(bb.percentB * 100).toFixed(0)}%B)`; reasons.push(r); addContrib('bb', 'bear', w * 0.75, bb.percentB, r); }
     }
 
     if (maCross) {
         const w = 2 * trendWeightBonus * volumeConfirmedFactor;
         totalWeight += w;
-        if (maCross.bullishCross) { bullScore += w; const r = `Golden cross — 9 MA crossed above 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bull', w, 'golden', r); }
-        else if (maCross.bearishCross) { bearScore += w; const r = `Death cross — 9 MA crossed below 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bear', w, 'death', r); }
-        else if (maCross.bullish) { bullScore += w * 0.5; const r = 'Short MA above long MA — bullish trend'; reasons.push(r); addContrib('maCross', 'bull', w * 0.5, 'short>long', r); }
-        else { bearScore += w * 0.5; const r = 'Short MA below long MA — bearish trend'; reasons.push(r); addContrib('maCross', 'bear', w * 0.5, 'short<long', r); }
+        if (maCross.bullishCross) { bullScore += w; const r = `Golden cross, 9 MA crossed above 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bull', w, 'golden', r); }
+        else if (maCross.bearishCross) { bearScore += w; const r = `Death cross, 9 MA crossed below 21 MA${volumeConfirmedFactor > 1 ? ' (volume confirmed)' : ''}`; reasons.push(r); addContrib('maCross', 'bear', w, 'death', r); }
+        else if (maCross.bullish) { bullScore += w * 0.5; const r = 'Short MA above long MA, bullish trend'; reasons.push(r); addContrib('maCross', 'bull', w * 0.5, 'short>long', r); }
+        else { bearScore += w * 0.5; const r = 'Short MA below long MA, bearish trend'; reasons.push(r); addContrib('maCross', 'bear', w * 0.5, 'short<long', r); }
     }
 
     if (volumeData && volumes.length > 20) {
@@ -328,15 +328,15 @@ export function generatePrediction(candles, timeframe = 'today') {
     }
 
     if (adx !== null && adx > 25) {
-        // ADX-confirm AMPLIFIES the prevailing trend call — pure momentum, so
+        // ADX-confirm AMPLIFIES the prevailing trend call, pure momentum, so
         // it rides momTilt (suppressed at the short horizon where momentum
         // under-performs, kept at the longer horizon where it works).
         const wa = 1.5 * momTilt;
         totalWeight += wa;
-        if (bullScore > bearScore) { bullScore += wa; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bull', wa, adx, r); }
-        else if (bearScore > bullScore) { bearScore += wa; const r = `ADX ${adx.toFixed(1)} — strong trend in motion`; reasons.push(r); addContrib('adx', 'bear', wa, adx, r); }
+        if (bullScore > bearScore) { bullScore += wa; const r = `ADX ${adx.toFixed(1)}, strong trend in motion`; reasons.push(r); addContrib('adx', 'bull', wa, adx, r); }
+        else if (bearScore > bullScore) { bearScore += wa; const r = `ADX ${adx.toFixed(1)}, strong trend in motion`; reasons.push(r); addContrib('adx', 'bear', wa, adx, r); }
     } else if (adx !== null && adx < 20) {
-        reasons.push(`ADX ${adx.toFixed(1)} — ranging market, breakouts often fail`);
+        reasons.push(`ADX ${adx.toFixed(1)}, ranging market, breakouts often fail`);
     }
 
     if (mfi !== null) {
@@ -344,10 +344,10 @@ export function generatePrediction(candles, timeframe = 'today') {
         // rides the same horizon/regime tilt as RSI/BB.
         const wm = 1.5 * meanReversionBonus;
         totalWeight += wm;
-        if (mfi < 20) { bullScore += wm; const r = `MFI ${mfi.toFixed(1)} — oversold with weak money flow, bounce likely`; reasons.push(r); addContrib('mfi', 'bull', wm, mfi, r); }
-        else if (mfi < 30) { bullScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)} — approaching oversold money flow`; reasons.push(r); addContrib('mfi', 'bull', wm * 0.5, mfi, r); }
-        else if (mfi > 80) { bearScore += wm; const r = `MFI ${mfi.toFixed(1)} — overbought, money flow exhausted`; reasons.push(r); addContrib('mfi', 'bear', wm, mfi, r); }
-        else if (mfi > 70) { bearScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)} — elevated money flow`; reasons.push(r); addContrib('mfi', 'bear', wm * 0.5, mfi, r); }
+        if (mfi < 20) { bullScore += wm; const r = `MFI ${mfi.toFixed(1)}, oversold with weak money flow, bounce likely`; reasons.push(r); addContrib('mfi', 'bull', wm, mfi, r); }
+        else if (mfi < 30) { bullScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)}, approaching oversold money flow`; reasons.push(r); addContrib('mfi', 'bull', wm * 0.5, mfi, r); }
+        else if (mfi > 80) { bearScore += wm; const r = `MFI ${mfi.toFixed(1)}, overbought, money flow exhausted`; reasons.push(r); addContrib('mfi', 'bear', wm, mfi, r); }
+        else if (mfi > 70) { bearScore += wm * 0.5; const r = `MFI ${mfi.toFixed(1)}, elevated money flow`; reasons.push(r); addContrib('mfi', 'bear', wm * 0.5, mfi, r); }
     }
 
     if (divs.bullish) {
@@ -413,7 +413,7 @@ export function generatePrediction(candles, timeframe = 'today') {
 
 // Pulls the top-N contributions across all timeframes weighted the same
 // way generateMultiTimeframePrediction blends them (50/25/25 daily/weekly/4h).
-// Returns a flat list sorted by aggregate magnitude — what Mia answers
+// Returns a flat list sorted by aggregate magnitude, what Mia answers
 // "what drove this call?" with.
 export function summarizeAttribution(prediction, topN = 3) {
     if (!prediction || !prediction.breakdown) return [];
@@ -485,13 +485,13 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
         ...weeklyPred.reasons.slice(0, 2).map(r => `[Weekly] ${r}`),
         ...fourHourPred.reasons.slice(0, 1).map(r => `[4H] ${r}`),
     ];
-    if (allAgree) allReasons.unshift(`All timeframes align ${finalSignal} — high confluence`);
-    if (hardConflict) allReasons.unshift('Daily vs Weekly conflict — proceed with caution');
+    if (allAgree) allReasons.unshift(`All timeframes align ${finalSignal}, high confluence`);
+    if (hardConflict) allReasons.unshift('Daily vs Weekly conflict, proceed with caution');
 
     const priceTargets = calculatePriceTargets(multiData.daily.candles, finalSignal, baseConfidence, timeframe);
 
     // ---------------- Abstain gate ----------------
-    // The engine is around 52% directional on calibration data — barely
+    // The engine is around 52% directional on calibration data, barely
     // above coin-flip. Forcing a BUY/SELL on every symbol means publishing
     // a lot of low-conviction noise. The abstain gate converts the weakest
     // calls into NO_TRADE so the user only sees high-conviction prints.
@@ -503,7 +503,7 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
     //      (Ranges fail breakouts; small edge in a range = noise.)
     //   3. If the engine returned NEUTRAL with low confidence → abstain.
     //      (NEUTRAL with low confidence is "I have no information",
-    //       which IS abstaining — just say so.)
+    //       which IS abstaining, just say so.)
     //   4. If the daily timeframe's normalized score is below the
     //      decision threshold (|score| < 0.10) → abstain regardless.
     //      That's the engine literally saying it's at chance.
@@ -523,13 +523,13 @@ export function generateMultiTimeframePrediction(multiData, timeframe = 'today')
         abstainReason = 'Daily and Weekly disagree, and confidence is too low to call.';
     } else if (ranging && thinEdge && lowConvidence) {
         abstain = true;
-        abstainReason = 'Ranging market with no clear directional edge — breakouts often fail here.';
+        abstainReason = 'Ranging market with no clear directional edge, breakouts often fail here.';
     } else if (finalSignal === 'NEUTRAL' && baseConfidence < 50) {
         abstain = true;
         abstainReason = 'Indicators are too mixed to have a directional view.';
     } else if (veryThinEdge) {
         abstain = true;
-        abstainReason = 'Bull/bear scores are too close — engine has no conviction.';
+        abstainReason = 'Bull/bear scores are too close, engine has no conviction.';
     }
 
     if (abstain) {
@@ -627,7 +627,7 @@ export function calculatePriceTargets(candles, signal, confidence, timeframe = '
     const highPct = ((predictedHigh - currentPrice) / currentPrice) * 100;
     const lowPct = ((predictedLow - currentPrice) / currentPrice) * 100;
 
-    // Probable band — narrower target zone biased toward the predicted
+    // Probable band, narrower target zone biased toward the predicted
     // direction. Possible band shows what's plausible (ATR × ~1); probable
     // band shows what's likely (ATR × ~0.3, asymmetric toward the call).
     // Widens slightly when confidence is low; tightens when high.

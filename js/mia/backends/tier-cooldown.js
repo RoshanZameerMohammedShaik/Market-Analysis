@@ -6,7 +6,7 @@
 // know the cooldown is over and try fresh.
 //
 // State persists in localStorage so a page reload doesn't lose what we
-// learned mid-session — particularly important for daily-cap exhaustion
+// learned mid-session, particularly important for daily-cap exhaustion
 // where the reset window is hours away.
 //
 // Design intent: KEEP SIMPLE. We don't try to predict quota exhaustion
@@ -19,11 +19,11 @@ const LS_KEY = 'mia-gemini-tier-cooldown';
 
 // Per-tier defaults in ms when Gemini doesn't tell us how long to wait.
 // 429 with no retry-After hint usually means RPM hit; 60s is generous.
-// Daily caps reset on a 24h rolling window — treating a generic 429 as
+// Daily caps reset on a 24h rolling window, treating a generic 429 as
 // 60s and waiting for the actual retry-After hint when present is the
 // right balance.
 const DEFAULT_COOLDOWN_MS = 60 * 1000;
-// Max cooldown we'll honor from a server hint — protects against weird
+// Max cooldown we'll honor from a server hint, protects against weird
 // retry-Afters like "86400s" parking us for a day.
 const MAX_HINT_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -141,7 +141,7 @@ export function getCooldownState() {
     return out;
 }
 
-// Manual clear — useful for the "I just rotated my key" UX or for tests.
+// Manual clear, useful for the "I just rotated my key" UX or for tests.
 export function clearCooldown(model) {
     const map = readMap();
     if (model) {

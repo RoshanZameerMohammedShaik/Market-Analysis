@@ -1,7 +1,7 @@
 // Sector relative-strength heatmap.
 //
 // A one-glance grid showing where money is rotating across the 11 SPDR
-// sectors — each tile color-graded by its 5-day move (the same metric
+// sectors, each tile color-graded by its 5-day move (the same metric
 // the engine already uses for per-symbol sector alignment in sectors.js,
 // so the heatmap and the signal card never disagree).
 //
@@ -27,23 +27,23 @@ function heatClass(pct) {
 
 function renderTiles(trends) {
     if (!trends || !trends.length) {
-        return '<div class="sector-heatmap-empty">Sector data unavailable right now — try refreshing.</div>';
+        return '<div class="sector-heatmap-empty">Sector data unavailable right now, try refreshing.</div>';
     }
     // Diverging horizontal BAR CHART: sectors sorted strongest→weakest, each a
-    // bar that grows from a center zero-line — right (green) for gainers, left
+    // bar that grows from a center zero-line, right (green) for gainers, left
     // (red) for laggards. Bar length is scaled to the largest absolute move so
     // the leader/laggard spread is obvious at a glance. Each row is clickable
     // (loads that sector's ETF into the search/chart).
     const sorted = [...trends].sort((a, b) => b.pct5d - a.pct5d);
     const maxAbs = Math.max(1, ...sorted.map(t => Math.abs(t.pct5d)));
-    const explain = `<div class="sector-chart-explain">Each bar is a sector ETF's move over the last 5 trading days — <b style="color:var(--green)">right/green</b> = money flowing in, <b style="color:var(--red)">left/red</b> = flowing out. Longer bar = bigger move. This is where capital is rotating; the engine uses the same read to align each signal with its sector. Click a sector to chart its ETF.</div>`;
+    const explain = `<div class="sector-chart-explain">Each bar is a sector ETF's move over the last 5 trading days, <b style="color:var(--green)">right/green</b> = money flowing in, <b style="color:var(--red)">left/red</b> = flowing out. Longer bar = bigger move. This is where capital is rotating, the engine uses the same read to align each signal with its sector. Click a sector to chart its ETF.</div>`;
     const rows = sorted.map(t => {
         const up = t.pct5d >= 0;
         const sign = up ? '+' : '';
         const widthPct = (Math.abs(t.pct5d) / maxAbs) * 50;   // half-width = center→edge
         return `
             <button class="sector-bar-row ${heatClass(t.pct5d)}" data-etf="${t.etf}" type="button"
-                    title="${t.name} (${t.etf}) — ${sign}${t.pct5d.toFixed(2)}% over 5 trading days">
+                    title="${t.name} (${t.etf}), ${sign}${t.pct5d.toFixed(2)}% over 5 trading days">
                 <span class="sector-bar-label">${t.name}</span>
                 <span class="sector-bar-track">
                     <span class="sector-bar-fill ${up ? 'up' : 'down'}" style="--w:${widthPct.toFixed(1)}%"></span>
@@ -71,7 +71,7 @@ async function loadInto(grid, { force = false } = {}) {
 }
 
 export function initSectorHeatmap() {
-    // Mount after the Full Ledger (scanner) section — same power-user zone.
+    // Mount after the Full Ledger (scanner) section, same power-user zone.
     if (document.getElementById('sector-heatmap-section')) return;
     const after = document.getElementById('scanner-section') || document.querySelector('.hotpicks-section');
     if (!after) return;
@@ -80,7 +80,7 @@ export function initSectorHeatmap() {
             <details class="sector-heatmap-details">
                 <summary class="sector-heatmap-summary">
                     <span class="sector-heatmap-title">🗺️ Sector Heatmap</span>
-                    <span class="sector-heatmap-hint">Where money is rotating — 5-day relative strength across all 11 sectors</span>
+                    <span class="sector-heatmap-hint">Where money is rotating, 5-day relative strength across all 11 sectors</span>
                     <button class="sector-heatmap-refresh" id="sector-heatmap-refresh" title="Refresh sector data">↻</button>
                 </summary>
                 <div class="sector-heatmap-grid" id="sector-heatmap-grid"></div>
@@ -125,7 +125,7 @@ export function initSectorHeatmap() {
     });
 }
 
-// Programmatic open — used by Mia's open_sector_heatmap tool. Expands the
+// Programmatic open, used by Mia's open_sector_heatmap tool. Expands the
 // section, scrolls it into view, and ensures data is loaded.
 export function openSectorHeatmap() {
     initSectorHeatmap();

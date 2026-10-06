@@ -23,7 +23,7 @@ const T = {
 };
 
 // Each declaration: { name, description, parameters: JSONSchema }.
-// Descriptions are critical — they're what Gemini reads to decide
+// Descriptions are critical, they're what Gemini reads to decide
 // "should I call this tool?". Be explicit about WHEN to use vs. not use.
 export const TOOL_DECLARATIONS = [
     // ── Read tools ──────────────────────────────────────────────────
@@ -39,7 +39,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_live_price',
-        description: 'Fetch the LIVE current price for a symbol from a fresh data feed (Binance for crypto, Stooq snapshot for stocks). MANDATORY for any "current price" / "live price" / "what is X trading at" question — DO NOT quote a price from get_current_signal or memory; that data is from the last analysis run, not live. Returns { symbol, priceUSD, source, delayed, bid, ask, spreadUSD, spreadPct, fetchedAt }. For stocks with a realtime quote, bid/ask/spread are filled in: use them for any spread or trading-cost question.',
+        description: 'Fetch the LIVE current price for a symbol from a fresh data feed (Binance for crypto, Stooq snapshot for stocks). MANDATORY for any "current price" / "live price" / "what is X trading at" question. DO NOT quote a price from get_current_signal or memory; that data is from the last analysis run, not live. Returns { symbol, priceUSD, source, delayed, bid, ask, spreadUSD, spreadPct, fetchedAt }. For stocks with a realtime quote, bid/ask/spread are filled in: use them for any spread or trading-cost question.',
         parameters: {
             type: T.OBJECT,
             properties: { symbol: { type: T.STRING, description: 'Ticker symbol (e.g. AAPL, BTCUSDT, HUBC)' } },
@@ -48,7 +48,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_current_signal',
-        description: 'Full on-screen signal for the symbol the user is currently viewing — confidence, trend regime, indicators, price targets, and the calibrated 7-day High/Low forecast band. Use when the user asks about the current view OR signal/confidence specifically. Do NOT use this for live price questions — call get_live_price instead, since this returns the price from the last analysis snapshot which can be minutes stale.',
+        description: 'Full on-screen signal for the symbol the user is currently viewing, confidence, trend regime, indicators, price targets, and the calibrated 7-day High/Low forecast band. Use when the user asks about the current view OR signal/confidence specifically. Do NOT use this for live price questions, call get_live_price instead, since this returns the price from the last analysis snapshot which can be minutes stale.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
@@ -67,7 +67,7 @@ export const TOOL_DECLARATIONS = [
         parameters: {
             type: T.OBJECT,
             properties: {
-                signal: { type: T.STRING, description: 'BUY or SELL — match same-direction predictions' },
+                signal: { type: T.STRING, description: 'BUY or SELL, match same-direction predictions' },
                 k: { type: T.INTEGER, description: 'Number of nearest neighbors (default 20)' },
                 region: { type: T.STRING, description: 'Optional region filter: NYSE, NSE, HKEX, TYO, LSE, DAX, ASX' },
             },
@@ -75,7 +75,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'explain_prediction',
-        description: 'Top features that drove the current signal — which indicators contributed most to the score. Use when the user asks why the engine predicted what it did.',
+        description: 'Top features that drove the current signal, which indicators contributed most to the score. Use when the user asks why the engine predicted what it did.',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -97,7 +97,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'compare_symbols',
-        description: 'Compare up to 4 symbols side by side — signal, confidence, trend, price.',
+        description: 'Compare up to 4 symbols side by side, signal, confidence, trend, price.',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -196,7 +196,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'research_symbol',
-        description: 'Parallel multi-source research bundle — news, reddit, macro, positioning — all in one call. Prefer this when the user asks for a deep read on a symbol; saves multiple sequential tool calls.',
+        description: 'Parallel multi-source research bundle, news, reddit, macro, positioning, all in one call. Prefer this when the user asks for a deep read on a symbol, saves multiple sequential tool calls.',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -262,7 +262,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'get_top_losers',
-        description: 'Biggest 1-day movers from the live ledger\'s most-recent resolved trading day, scoped to the engine\'s ~530-symbol universe. Use for engine-scope questions; for general market facts (worst stock IN THE WORLD) use web_search instead.',
+        description: 'Biggest 1-day movers from the live ledger\'s most-recent resolved trading day, scoped to the engine\'s ~530-symbol universe. Use for engine-scope questions, for general market facts (worst stock IN THE WORLD) use web_search instead.',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -296,7 +296,7 @@ export const TOOL_DECLARATIONS = [
     // opened a $25,000 book nobody asked for.
     {
         name: 'get_desk_status',
-        description: "Mia's own auto-trading desk (PAPER money, runs on a schedule): armed or not, equity, P&L, cash, how many distinct symbols it holds across all strategy sleeves, fills, costs, the per-strategy leaderboard, and when it last ran. This is NOT the user's manual practice portfolio — use get_portfolio for that. Call this for any question about how Mia's own trading is going.",
+        description: "Mia's own auto-trading desk (PAPER money, runs on a schedule): armed or not, equity, P&L, cash, how many distinct symbols it holds across all strategy sleeves, fills, costs, the per-strategy leaderboard, and when it last ran. This is NOT the user's manual practice portfolio, use get_portfolio for that. Call this for any question about how Mia's own trading is going.",
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
@@ -311,7 +311,7 @@ export const TOOL_DECLARATIONS = [
     // ── Control tools (UI mutations) ────────────────────────────────
     {
         name: 'select_symbol',
-        description: 'Load a symbol into the app — switches what is on screen. Use when the user wants to look at a specific ticker (e.g. "show me AAPL", "switch to NVDA").',
+        description: 'Load a symbol into the app, switches what is on screen. Use when the user wants to look at a specific ticker (e.g. "show me AAPL", "switch to NVDA").',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -365,12 +365,12 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'toggle_engine_signals',
-        description: 'Toggle the chart Engine Signals mode (our candle chart with past BUY/SELL call markers — green hit / red miss). Pass on:true|false to set explicitly, or omit to flip.',
+        description: 'Toggle the chart Engine Signals mode (our candle chart with past BUY/SELL call markers, green hit / red miss). Pass on:true|false to set explicitly, or omit to flip.',
         parameters: { type: T.OBJECT, properties: { on: { type: T.BOOLEAN } } },
     },
     {
         name: 'open_trade_modal',
-        description: 'Open the practice-portfolio Buy/Sell trade ticket for a symbol (requires an instantiated portfolio). Use when the user wants to act on a symbol; place_trade then executes. side defaults to BUY.',
+        description: 'Open the practice-portfolio Buy/Sell trade ticket for a symbol (requires an instantiated portfolio). Use when the user wants to act on a symbol, place_trade then executes. side defaults to BUY.',
         parameters: {
             type: T.OBJECT,
             properties: { symbol: { type: T.STRING }, side: { type: T.STRING, description: 'BUY or SELL' } },
@@ -379,7 +379,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'refresh_hot_picks',
-        description: 'Re-scan the market and rebuild the Hot Picks list from scratch. Takes around 30 seconds because it analyses the whole universe, so say it is running rather than waiting silently. Use only when the user explicitly asks for a refresh; get_hot_picks reads the existing list instantly.',
+        description: 'Re-scan the market and rebuild the Hot Picks list from scratch. Takes around 30 seconds because it analyses the whole universe, so say it is running rather than waiting silently. Use only when the user explicitly asks for a refresh, get_hot_picks reads the existing list instantly.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
@@ -431,7 +431,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'toggle_currency',
-        description: 'Flip between USD and INR. If the user NAMES a currency (yen, euro, pounds…), use set_currency instead — this only handles those two.',
+        description: 'Flip between USD and INR. If the user NAMES a currency (yen, euro, pounds…), use set_currency instead, this only handles those two.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {
@@ -463,7 +463,7 @@ export const TOOL_DECLARATIONS = [
                 investment: { type: T.NUMBER, description: 'Dollars to invest. Omit when sizing by targetNetUSD.' },
                 buyPrice: { type: T.NUMBER },
                 currentPrice: { type: T.NUMBER, description: 'Sell / target price. Optional: uses the live price if omitted.' },
-                targetNetUSD: { type: T.NUMBER, description: 'Net profit to aim for; the calculator solves for shares.' },
+                targetNetUSD: { type: T.NUMBER, description: 'Net profit to aim for, the calculator solves for shares.' },
                 plan: { type: T.STRING, description: 'ibkr-pro-tiered, ibkr-pro-fixed, ibkr-lite, public-wholesale, public-smart or public-lit. Omit to use the saved choice.' },
                 orderType: { type: T.STRING, description: 'limit (fills at your prices, no spread) or market (pays the spread). Omit to use the saved choice.' },
             },
@@ -472,7 +472,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'focus_search',
-        description: 'Scroll to the search box and prefill an optional query. Does NOT auto-pick — use select_symbol when the user names a specific symbol.',
+        description: 'Scroll to the search box and prefill an optional query. Does NOT auto-pick, use select_symbol when the user names a specific symbol.',
         parameters: {
             type: T.OBJECT,
             properties: { query: { type: T.STRING } },
@@ -494,7 +494,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'place_trade',
-        description: 'Execute a market BUY or SELL on the practice portfolio. Long-only. Confirm with the user before calling — never trade silently.',
+        description: 'Execute a market BUY or SELL on the practice portfolio. Long-only. Confirm with the user before calling, never trade silently.',
         parameters: {
             type: T.OBJECT,
             properties: {
@@ -571,7 +571,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'set_price_alert',
-        description: 'Set a price alert above and/or below thresholds for a symbol (crypto realtime; auto-stars it). Pass nulls to clear. Confirm before setting.',
+        description: 'Set a price alert above and/or below thresholds for a symbol (crypto realtime, auto-stars it). Pass nulls to clear. Confirm before setting.',
         parameters: {
             type: T.OBJECT,
             properties: { symbol: { type: T.STRING }, above: { type: T.NUMBER }, below: { type: T.NUMBER } },
@@ -620,7 +620,7 @@ export const TOOL_DECLARATIONS = [
     },
     {
         name: 'reset_portfolio',
-        description: 'Wipe the practice portfolio. DESTRUCTIVE — confirm with the user first; never call without explicit confirmation.',
+        description: 'Wipe the practice portfolio. DESTRUCTIVE, confirm with the user first, never call without explicit confirmation.',
         parameters: { type: T.OBJECT, properties: {} },
     },
     {

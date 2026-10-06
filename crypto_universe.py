@@ -1,5 +1,5 @@
 """
-Crypto universe — Python mirror of js/crypto-universe.js. Used by:
+Crypto universe. Python mirror of js/crypto-universe.js. Used by:
 
   - ledger_universe.ALL_SYMBOLS: cron records + resolves predictions on
     every coin in here every day.
@@ -7,9 +7,9 @@ Crypto universe — Python mirror of js/crypto-universe.js. Used by:
   - record_predictions.py: when --region CRYPTO, walks this list.
 
 Plus the runtime hotpicks scan pulls CoinGecko's /search/trending at
-scan time on top of this list — same hybrid pattern as pennies.
+scan time on top of this list, same hybrid pattern as pennies.
 
-If you edit this list, also update js/crypto-universe.js — JS is the
+If you edit this list, also update js/crypto-universe.js. JS is the
 source of truth, this file mirrors for the cron + LSTM.
 """
 

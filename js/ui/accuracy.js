@@ -25,7 +25,7 @@ export function renderAccuracyStrip() {
         </div>` : `
         <div class="acc-block">
             <div class="acc-label">Your live hit rate</div>
-            <div class="acc-value muted">—</div>
+            <div class="acc-value muted">-</div>
             <div class="acc-meta">${stats.pending} prediction${stats.pending === 1 ? '' : 's'} pending</div>
         </div>`;
 

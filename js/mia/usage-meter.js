@@ -1,7 +1,7 @@
 // Usage meter pill at the top of the Mia panel. Always visible once a
 // backend is configured so the user can see how close they are to the
 // rate limit BEFORE Mia hits a 429 mid-stream. The bar fills based on
-// the tightest of (requests-per-minute, tokens-per-minute) — whichever
+// the tightest of (requests-per-minute, tokens-per-minute), whichever
 // is closer to exhaustion. Pulses red as remaining drops below 20%.
 
 import { getUsage, getRoutingSummary, getModelStatus } from './llm-client.js';
@@ -33,7 +33,7 @@ function ensureCoolingListener(container) {
 
 // Tick down the countdown text every second so users see the cooldown
 // shrinking in real time instead of frozen at "cooling 14m" until some
-// other event triggers a re-render. We patch only the text node — no
+// other event triggers a re-render. We patch only the text node, no
 // full re-render, no flicker, no ResizeObserver thrash. The badges have
 // a data-model attribute so we can find them; the secondsRemaining
 // comes from getModelStatus() each tick (re-reads from localStorage
@@ -42,7 +42,7 @@ function ensureCountdownTicker(container) {
     if (countdownTimer) return;
     countdownTimer = setInterval(() => {
         const badges = container.querySelectorAll('.mia-cooldown-badge[data-model]');
-        if (!badges.length) return; // nothing to tick — leave it alone
+        if (!badges.length) return; // nothing to tick, leave it alone
         const status = getModelStatus();
         const liveByModel = Object.fromEntries(status.cooling.map(c => [c.model, c.secondsRemaining]));
         let anyChanged = false;
@@ -50,14 +50,14 @@ function ensureCountdownTicker(container) {
             const model = badge.dataset.model;
             const remaining = liveByModel[model];
             if (remaining == null) {
-                // Cooldown expired since last render — re-render to drop
+                // Cooldown expired since last render, re-render to drop
                 // the badge entirely (and update the active-model line).
                 anyChanged = true;
                 break;
             }
             // Replace just the text content of the badge while preserving
             // the × button at the end. The badge layout is: short ":"
-            // cooling Xm × — we can rebuild the leading text node.
+            // cooling Xm ×, we can rebuild the leading text node.
             const short = modelShortName(model);
             const expected = `${short}: cooling ${fmtCoolingTime(remaining)}`;
             // First text node holds the status string. Rebuild it.
@@ -98,7 +98,7 @@ export function renderUsageMeter(container) {
     if (!s.backend) {
         container.innerHTML = `<div class="mia-usage idle">
             <span class="mia-usage-dot"></span>
-            <span>No backend configured — add a key in welcome.</span>
+            <span>No backend configured, add a key in welcome.</span>
         </div>`;
         return;
     }
@@ -107,9 +107,9 @@ export function renderUsageMeter(container) {
     const fallbackTag = routing.fallback ? ` → ${routing.fallback} (auto-fallback)` : '';
 
     // Smart-routing rule: per-model cooling badges add noise during normal
-    // operation (the chain just routes around the cooling model — that's
+    // operation (the chain just routes around the cooling model, that's
     // its job, the user doesn't need to see each one). Only surface a
-    // badge when EVERY Gemini model is cooling — that's the genuinely
+    // badge when EVERY Gemini model is cooling, that's the genuinely
     // notable state where the user is waiting on the earliest reset and
     // we'd be falling through to Cloudflare. We compute the soonest
     // reset across all cooling models so the countdown reflects "when
@@ -120,12 +120,11 @@ export function renderUsageMeter(container) {
     let coolingBadges = '';
     if (allCooling && modelStatus.cooling.length > 0) {
         const soonestSecs = Math.min(...modelStatus.cooling.map(c => c.secondsRemaining));
-        // Find the model that hits soonest so the × button targets it —
-        // clearing only that one is enough to unstick the chain.
+        // Find the model that hits soonest so the × button targets it, // clearing only that one is enough to unstick the chain.
         const soonest = modelStatus.cooling.reduce((a, b) => a.secondsRemaining < b.secondsRemaining ? a : b);
-        coolingBadges = `<span class="mia-cooldown-badge" data-model="${soonest.model}" title="All Gemini models exhausted. Earliest one resets in ${fmtCoolingTime(soonestSecs)}. Click × to force-retry now.">All models cooling — back in ${fmtCoolingTime(soonestSecs)}<button class="mia-cooldown-clear" data-model="${soonest.model}" type="button" aria-label="Force retry now">×</button></span>`;
+        coolingBadges = `<span class="mia-cooldown-badge" data-model="${soonest.model}" title="All Gemini models exhausted. Earliest one resets in ${fmtCoolingTime(soonestSecs)}. Click × to force-retry now.">All models cooling, back in ${fmtCoolingTime(soonestSecs)}<button class="mia-cooldown-clear" data-model="${soonest.model}" type="button" aria-label="Force retry now">×</button></span>`;
     }
-    // Active tier indicator — which model the most recent reply came
+    // Active tier indicator, which model the most recent reply came
     // from. Helps the user understand "wait, is it on Lite or Flash?"
     const activeTag = modelStatus.activeModel
         ? ` • on <strong>${modelShortName(modelStatus.activeModel)}</strong>`
@@ -161,8 +160,8 @@ export function renderUsageMeter(container) {
     const bar = Array.from({ length: segments }, (_, i) => `<i class="${i < filled ? 'on' : 'off'}"></i>`).join('');
     const allAxes = axes.map(a => `${Math.round(a.rem)} / ${a.lim} ${a.label}`).join(' • ');
     const tipSuffix = s.backend === 'gemini'
-        ? ' — Gemini per-minute and per-day caps. Resets continuously.'
-        : ' — Cloudflare daily free quota. Resets at UTC midnight.';
+        ? '. Gemini per-minute and per-day caps. Resets continuously.'
+        : '. Cloudflare daily free quota. Resets at UTC midnight.';
     container.innerHTML = `<div class="mia-usage ${tone}" title="${allAxes}${tipSuffix}">
         <span class="mia-usage-dot"></span>
         <span class="mia-usage-text">${provLabel}${fallbackTag}${activeTag} • ${pct}% ${tightest.label} left</span>

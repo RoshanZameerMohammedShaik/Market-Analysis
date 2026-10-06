@@ -46,7 +46,7 @@ function refreshButtonState() {
     const pos = loaded ? getPortfolio().positions[sym] : null;
     const holds = !!(pos && pos.units > 1e-9);
     sellBtn.disabled = !holds;
-    sellBtn.title = holds ? `You hold ${pos.units} units — click to sell` : 'You do not hold this symbol';
+    sellBtn.title = holds ? `You hold ${pos.units} units, click to sell` : 'You do not hold this symbol';
 }
 
 function onBuyClick() {
@@ -134,7 +134,7 @@ export function openTradeModal(sym, side) {
             toast('Enter a positive value.', 'neg');
             return;
         }
-        // amountUSD comes in as the user's display currency — convert to USD
+        // amountUSD comes in as the user's display currency, convert to USD
         // before handing to trade.js, which thinks in USD only.
         let quote;
         if (mode === 'amountUSD') {
@@ -152,7 +152,7 @@ export function openTradeModal(sym, side) {
             const verb = side === 'BUY' ? 'Bought' : 'Sold';
             const detail = side === 'BUY'
                 ? `for ${cur} ${(fromUSDCached(res.costUSD, cur) ?? res.costUSD).toFixed(2)} @ $${formatPrice(res.fillPriceUSD)}`
-                : `for ${cur} ${(fromUSDCached(res.proceedsUSD, cur) ?? res.proceedsUSD).toFixed(2)} @ $${formatPrice(res.fillPriceUSD)} — realized ${res.realizedUSD >= 0 ? '+' : ''}$${res.realizedUSD.toFixed(2)}`;
+                : `for ${cur} ${(fromUSDCached(res.proceedsUSD, cur) ?? res.proceedsUSD).toFixed(2)} @ $${formatPrice(res.fillPriceUSD)}, realized ${res.realizedUSD >= 0 ? '+' : ''}$${res.realizedUSD.toFixed(2)}`;
             toast(`${verb} ${formatUnits(res.units)} ${sym} ${detail}`, 'pos');
         } catch (err) {
             toast(`${side === 'BUY' ? 'Buy' : 'Sell'} failed: ${err.message}`, 'neg');
@@ -168,7 +168,7 @@ async function convertLocalToUSD(localAmount, currency) {
 }
 
 function formatPrice(p) {
-    if (!Number.isFinite(p)) return '—';
+    if (!Number.isFinite(p)) return '';
     if (p >= 1000) return p.toFixed(2);
     if (p >= 1) return p.toFixed(3);
     if (p >= 0.01) return p.toFixed(4);
@@ -176,7 +176,7 @@ function formatPrice(p) {
 }
 
 function formatUnits(n) {
-    if (!Number.isFinite(n)) return '—';
+    if (!Number.isFinite(n)) return '';
     if (n >= 100) return n.toFixed(2);
     if (n >= 1) return n.toFixed(4);
     return n.toFixed(8);

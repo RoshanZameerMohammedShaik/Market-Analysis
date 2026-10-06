@@ -18,7 +18,7 @@ EVERY GUARD FROM THE LEDGER VERSION IS KEPT, BECAUSE EACH ONE CAUGHT A REAL LIE
   * MARKET-NEUTRAL excess returns. Holding everything for 20 days "worked" at t=2.93
     on the ledger purely because the window rose. Beta is not skill.
   * OVERLAP CORRECTION, t and Sharpe divided by sqrt(horizon). Consecutive h-day
-    forward returns share h-1 days; uncorrected, a 20-day horizon inflates t about
+    forward returns share h-1 days, uncorrected, a 20-day horizon inflates t about
     4.5x and turned a t*=0.94 into a headline t=6.00.
   * CONSERVATIVE, price-tiered COSTS that round against us.
   * 1% WINSORISATION per tail, because two unflagged splits once moved a 1,096-row

@@ -1,4 +1,4 @@
-// News Fetching Module — STRICT relevance filtering, locale-aware.
+// News Fetching Module. STRICT relevance filtering, locale-aware.
 // Pulls RSS news search (Bing, then Google) for the active market's locale + Yahoo Finance.
 
 import { fetchWithProxy } from './data.js';
