@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "generatedAt": "2026-10-07T13:43:45Z",
-  "roundTrips": 3,
-  "tradeRows": 12,
+  "generatedAt": "2026-10-07T14:28:41Z",
+  "roundTrips": 4,
+  "tradeRows": 13,
   "trialsExamined": 2,
   "deflatedTBar": 2.0,
   "minRoundTrips": 20,
@@ -27,14 +27,14 @@
     },
     "mia-ai": {
       "stats": {
-        "n": 1,
-        "meanNetPct": 6.1965,
-        "sdNetPct": null,
-        "t": null,
-        "hitRate": 1.0
+        "n": 2,
+        "meanNetPct": 2.009,
+        "sdNetPct": 5.9221,
+        "t": 0.48,
+        "hitRate": 0.5
       },
       "belief": 0.0,
-      "beliefReason": "only 1 closed round trips, need 20",
+      "beliefReason": "only 2 closed round trips, need 20",
       "frozen": false,
       "capitalWeight": 0.5,
       "entryPctileShift": 0.0
@@ -43,7 +43,7 @@
   "walkForward": {
     "status": "insufficient",
     "need": 40,
-    "have": 3
+    "have": 4
   },
   "acting": 0,
   "verdict": "no conclusion drawn yet: not enough closed round trips clear the deflated significance bar"
