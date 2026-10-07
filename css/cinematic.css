@@ -300,72 +300,60 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 /* Hidden only while the splash copy is in flight toward it (see index.html). */
 .app-header .header-content .app-title.title-pending { visibility: hidden; }
 
-/* THE RUN. The traced artwork is a REARING bull, front legs high, so sliding it down the title
-   as drawn read as a bull hopping along on its hind legs (Roshan, 2026-10-07: "it comes from M
-   to R with its front legs up, which it should not be, it should be as if it's running"). So
-   for the run the whole bull is pitched forward 20 degrees on its hind hoof, which brings the
-   back level and the front legs down and reaching: a charge. Measured, not guessed: the rear
-   in the artwork is 30 degrees, and 18 to 20 is where the back reads flat without the head
-   dropping into the letters. At its spot it rears back up onto the candles, and the candles
-   push up under its front as it does.
+/* THE ENTRANCE. The bull glides in from behind the M on one smooth, slow slide, level, with no
+   stride and no hop. The traced outline cannot move its legs, so any bounce reads as a string of
+   little jumps (Roshan, 2026-10-07: "it looks like it's doing multiple jumps, I don't want that,
+   just make it smooth"). At its spot it does not jump either: the candles, arrow and all, shoot
+   up under its front and lift it into the rearing pose of the logo, fast, then settle.
 
-   Three layers, one job each:
-     .bull-bull   travels and pitches. translate and rotate are separate properties so each
-                  keeps its own easing, and rotate turns about the hind hoof wherever it is.
-     .bull-gait   the bounding stride, only while travelling: four strides, then still.
-                  Nothing loops. A bull that keeps moving on the candles reads as dancing.
-     .bull-bars and .bull-arrow   the push that lifts the bull's front.
+   Two layers, one job each:
+     .bull-bull   slides (translate) and is lifted (rotate about the hind hoof). Separate
+                  properties, so each keeps its own easing.
+     .bull-bars and .bull-arrow   the lift.
    Every duration comes from --run-ms, which the splash script sets from its RUN_MS, so the CSS
-   and the script cannot drift apart. */
+   and the script cannot drift apart. Each keyframe offset appears once, because a second block
+   at the same offset can leave a property on the default easing. */
 .app-title-bull.running .bull-bull {
     transform-box: fill-box;
     transform-origin: 29% 98%;
     animation:
-        bull-travel var(--run-ms, 1800ms) linear both,
-        bull-pitch var(--run-ms, 1800ms) linear both;
+        bull-slide var(--run-ms, 2500ms) linear both,
+        bull-lift var(--run-ms, 2500ms) linear both;
 }
 /* --bull-run is the distance back to the M, in the SVG's own units: a CSS translate on an SVG
    child is applied in user space, so a pixel figure would be off by the viewBox scale. The
    splash script measures it on every run, so it holds at any header width. */
-@keyframes bull-travel {
+@keyframes bull-slide {
     0%   { translate: calc(var(--bull-run) * 1px) 0; opacity: 0;
-           animation-timing-function: cubic-bezier(0.35, 0.35, 0.8, 1); }
+           animation-timing-function: cubic-bezier(0.42, 0, 0.3, 1); }
     6%   { opacity: 1; }
-    /* Arrival: the pitched bull's front hooves at the foot of the chart, 24 units short of its
-       spot, so the climb is a lunge up onto the candles rather than a bull run through them. */
-    58%  { translate: -24px 0; animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
-    74%  { translate: -4px -8%; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+    80%  { translate: 0 0; }
     100% { translate: 0 0; opacity: 1; }
 }
-@keyframes bull-pitch {
+/* Level for the slide. The traced bull is rearing, so it is pitched forward 20 degrees on its
+   hind hoof, which lays the back flat and brings the front legs down. Measured, not guessed: the
+   artwork's rear is 30 degrees, and 18 to 20 is where the back reads flat without the head
+   dropping into the letters. The lift then carries it back to the logo's own pose. */
+@keyframes bull-lift {
     0%   { rotate: 20deg; }
-    58%  { rotate: 20deg; animation-timing-function: cubic-bezier(0.25, 0.8, 0.35, 1); }
-    78%  { rotate: -3deg; animation-timing-function: ease-in-out; }
+    80%  { rotate: 20deg; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
+    87%  { rotate: -3deg; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
     100% { rotate: 0deg; }
 }
-.app-title-bull.running .bull-gait {
-    transform-box: fill-box;
-    transform-origin: 50% 80%;
-    animation: bull-gait calc(var(--run-ms, 1800ms) * 0.15) ease-in-out 4 both;
-}
-@keyframes bull-gait {
-    0%, 100% { translate: 0 0; rotate: 0deg; }
-    35%      { translate: 0 -9%; rotate: -4deg; }
-    70%      { translate: 0 -2%; rotate: 3deg; }
-}
-/* The candles lift it. Bars and arrow scale up together from the chart's baseline, so the
-   arrow stays on the bar tops while the whole chart rises under the bull's front. */
+/* The candles lift it. Bars and arrow scale up together from the chart's baseline, so the arrow
+   stays on the bar tops while the whole chart shoots up under the bull's front, on the same
+   frames and the same easing as the bull's rise. */
 .app-title-bull.running .bull-bars,
 .app-title-bull.running .bull-arrow {
     transform-box: view-box;
     transform-origin: 0 74.28px;
-    animation: candle-push var(--run-ms, 1800ms) linear both;
+    animation: candle-lift var(--run-ms, 2500ms) linear both;
 }
-@keyframes candle-push {
-    0%, 62% { scale: 1 1; }
-    62%     { animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
-    75%     { scale: 1 1.14; animation-timing-function: cubic-bezier(0.5, 0, 0.4, 1); }
-    100%    { scale: 1 1; }
+@keyframes candle-lift {
+    0%   { scale: 1 1; }
+    80%  { scale: 1 1; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
+    87%  { scale: 1 1.22; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
+    100% { scale: 1 1; }
 }
 
 /* THE SHIMMER THE BULL MAKES, made unmistakable on 2026-10-07 (Roshan: "the shimmering effect
@@ -437,7 +425,6 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 @media (prefers-reduced-motion: reduce) {
     .app-title-bull.running .bull-bull,
-    .app-title-bull.running .bull-gait,
     .app-title-bull.running .bull-bars,
     .app-title-bull.running .bull-arrow { animation: none; }
     .app-title-bull.arming .bull-bull { opacity: 1; }
