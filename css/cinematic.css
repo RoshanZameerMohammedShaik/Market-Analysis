@@ -303,7 +303,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .app-title-bull.running .bull-bull {
     transform-box: fill-box;
     transform-origin: 30% 85%;
-    animation: bull-run 0.95s cubic-bezier(0.3, 0, 0.2, 1) both;
+    animation: bull-run 1.8s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
 /* --bull-run is the distance back to the M, in the SVG's own units: a CSS translate on an SVG
    child is applied in user space, so a pixel figure would be off by the viewBox scale. The
@@ -317,7 +317,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 
 /* The shimmer the bull makes. A band travels across the title at the bull's speed, so each
-   letter lights as the bull passes behind it: the same easing and the same 62% of 0.95s as the
+   letter lights as the bull passes behind it: the same easing and the same 62% of 1.8s as the
    run reaching the R.
 
    WHY A CUSTOM PROPERTY AND NOT background-position. .app-title.app-title-static above sets
@@ -346,7 +346,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    animation: title-sweep 0.59s cubic-bezier(0.3, 0, 0.2, 1) both;
+    animation: title-sweep 1.12s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
 @keyframes title-sweep {
     from { --sweep: -15%; }

@@ -81,7 +81,7 @@
             /* ONE shimmer pass, then hold. The old sweep was 5 seconds long and its bright band
                only entered the text after about 1.5s, so on any normal load the splash was gone
                before the highlight ever appeared: Roshan saw no shimmer at all. This one is
-               0.75s, starts at first paint, and the band is in the text for most of it. */
+               1.5s, starts at first paint, and the band is in the text for most of it. */
             background-image: linear-gradient(100deg,
                 #c9d3e2 0%, #c9d3e2 40%, #ffffff 48%, #ffffff 52%, #c9d3e2 60%, #c9d3e2 100%);
             background-size: 260% 100%;
@@ -91,7 +91,7 @@
             background-clip: text;
             -webkit-text-fill-color: transparent;
             color: transparent;
-            animation: splash-sweep 0.75s cubic-bezier(0.45, 0, 0.25, 1) 0.05s 1 both;
+            animation: splash-sweep 1.5s cubic-bezier(0.45, 0, 0.25, 1) 0.1s 1 both;
         }
         @keyframes splash-sweep {
             from { background-position: 100% 0; }
@@ -472,8 +472,11 @@
             if (overlay && pendingTitle && !reduce) pendingTitle.classList.add('title-pending');
             if (!overlay) { if (mark) runBull(); return; }
             var splashTitle = overlay.querySelector('.splash-title');
-            var SWEEP_MS = 800;           // the one shimmer pass, plus its start delay
-            var FLY_MS = 300;             // title hits back into the header
+            // Timing, doubled on 2026-10-07 at Roshan's request. RUN_MS must match bull-run in
+            // css/cinematic.css, and title-sweep there is 62% of it.
+            var SWEEP_MS = 1650;          // the one shimmer pass, plus its start delay
+            var FLY_MS = 600;             // title hits back into the header
+            var RUN_MS = 1800;            // the bull's run and climb
             var started = Date.now();
             var done = false;
 
@@ -510,7 +513,7 @@
                             { transform: 'scale(1.06, 0.9)' },
                             { transform: 'scale(0.99, 1.02)', offset: 0.55 },
                             { transform: 'scale(1)' }
-                        ], { duration: 170, easing: 'ease-out' });
+                        ], { duration: 300, easing: 'ease-out' });
                     }
                     finish();
                 };
@@ -542,7 +545,7 @@
                 setTimeout(function () {
                     mark.classList.remove('running');
                     title.classList.remove('title-sweep');
-                }, 1000);
+                }, RUN_MS + 100);
             }
             window.__replayBull = runBull;
 
