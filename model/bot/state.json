@@ -1,32 +1,43 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-07T10:42:25Z",
-  "runs": 1420,
+  "updatedAt": "2026-10-07T13:43:45Z",
+  "runs": 1430,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10058.904838,
-    "cashUSD": 3976.518113,
+    "equityUSD": 9706.568796,
+    "cashUSD": 2833.183633,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 6082.386725,
+    "holdingsUSD": 6873.385163,
     "realizedUSD": -19.313092,
-    "unrealizedUSD": 78.21793,
-    "feesUSD": 11.280956,
-    "pnlUSD": 58.904838,
-    "pnlPct": 0.589,
-    "trades": 11
+    "unrealizedUSD": -274.118112,
+    "feesUSD": 12.309032,
+    "pnlUSD": -293.431204,
+    "pnlPct": -2.9343,
+    "trades": 12
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 2407.019958,
-      "positions": {},
+      "cashUSD": 1263.685478,
+      "positions": {
+        "UPST": {
+          "units": 48.16809632241798,
+          "lots": [
+            {
+              "units": 48.16809632241798,
+              "costUSD": 1143.33448005,
+              "openedAt": "2026-10-07T13:43:45Z"
+            }
+          ]
+        }
+      },
       "pendingUSD": 0.0,
       "realizedUSD": -92.917281,
-      "feesUSD": 4.254022,
-      "trades": 4
+      "feesUSD": 5.282098,
+      "trades": 5
     },
     "reversion": {
       "id": "reversion",
@@ -123,7 +134,11 @@
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [],
-    "openedToday": {},
+    "openedToday": {
+      "2026-10-07": {
+        "UPST": 48.16809632241798
+      }
+    },
     "lastAccrual": "2026-10-07",
     "violations": []
   },
@@ -134,9 +149,12 @@
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "reversion:DYN": "2026-09-08T18:29:28Z",
-      "mia-ai:UPST": "2026-10-05T14:59:49Z"
+      "mia-ai:UPST": "2026-10-05T14:59:49Z",
+      "engine:UPST": "2026-10-07T13:43:45Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "engine": 1
+    },
     "day": "2026-10-07"
   },
   "equityOpen": {
