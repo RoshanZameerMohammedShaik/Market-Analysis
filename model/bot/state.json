@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-06T19:57:41Z",
-  "runs": 1381,
+  "updatedAt": "2026-10-07T00:41:01Z",
+  "runs": 1400,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9736.003759,
-    "cashUSD": 2935.033321,
-    "unsettledCashUSD": 1041.484792,
-    "holdingsUSD": 5759.485646,
+    "equityUSD": 10087.536986,
+    "cashUSD": 3976.518113,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 6111.018873,
     "realizedUSD": -19.313092,
-    "unrealizedUSD": -244.68315,
+    "unrealizedUSD": 106.850078,
     "feesUSD": 11.280956,
-    "pnlUSD": -263.996241,
-    "pnlPct": -2.64,
+    "pnlUSD": 87.536986,
+    "pnlPct": 0.8754,
     "trades": 11
   },
   "sleeves": {
@@ -21,9 +21,9 @@
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1365.535166,
+      "cashUSD": 2407.019958,
       "positions": {},
-      "pendingUSD": 1041.484792,
+      "pendingUSD": 0.0,
       "realizedUSD": -92.917281,
       "feesUSD": 4.254022,
       "trades": 4
@@ -119,17 +119,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [
-      {
-        "amountUSD": 1041.484792,
-        "settlesOn": "2026-10-07"
-      }
-    ],
+    "pending": [],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [],
     "openedToday": {},
-    "lastAccrual": "2026-10-06",
+    "lastAccrual": "2026-10-07",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -141,10 +136,8 @@
       "reversion:DYN": "2026-09-08T18:29:28Z",
       "mia-ai:UPST": "2026-10-05T14:59:49Z"
     },
-    "tradesToday": {
-      "engine": 1
-    },
-    "day": "2026-10-06"
+    "tradesToday": {},
+    "day": "2026-10-07"
   },
   "equityOpen": {
     "engine": 2500.0,
@@ -152,7 +145,5 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {
-    "engine": 1041.484792
-  }
+  "pendingBySleeve": {}
 }
