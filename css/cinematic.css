@@ -296,20 +296,36 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .header-content .app-title { position: relative; z-index: 2; }
 .app-title-bull { position: relative; z-index: 1; }
 
+/* Before the entrance the bull is hidden and the chart is down in the ground, so nothing sits
+   where the bull will stop. Only this script adds .arming, so a page where it never runs still
+   shows the finished logo. */
 .app-title-bull.arming .bull-bull { opacity: 0; }
+.app-title-bull.arming .bull-bars,
+.app-title-bull.arming .bull-arrow,
+.app-title-bull.running .bull-bars,
+.app-title-bull.running .bull-arrow {
+    /* The chart's baseline, in viewBox units: every scale here grows up out of the ground. */
+    transform-box: view-box;
+    transform-origin: 0 74.28px;
+}
+.app-title-bull.arming .bull-bars,
+.app-title-bull.arming .bull-arrow { scale: 1 0; }
 /* Hidden only while the splash copy is in flight toward it (see index.html). */
 .app-header .header-content .app-title.title-pending { visibility: hidden; }
 
-/* THE ENTRANCE. The bull glides in from behind the M on one smooth, slow slide, level, with no
-   stride and no hop. The traced outline cannot move its legs, so any bounce reads as a string of
-   little jumps (Roshan, 2026-10-07: "it looks like it's doing multiple jumps, I don't want that,
-   just make it smooth"). At its spot it does not jump either: the candles, arrow and all, shoot
-   up under its front and lift it into the rearing pose of the logo, fast, then settle.
+/* THE ENTRANCE. The bull glides in from behind the M on one smooth slide, level, with no stride
+   and no hop. The traced outline cannot move its legs, so any bounce reads as a string of little
+   jumps (Roshan, 2026-10-07: "it looks like it's doing multiple jumps, I don't want that, just
+   make it smooth").
+   It stops on flat ground. The chart is not there yet: when the candles were already standing,
+   the level bull slid over them and they showed through it ("you can clearly see the candles
+   through bull"). Instead the candles, arrow and all, rise out of the ground together under its
+   front and lift it into the rearing pose of the logo, fast, then settle.
 
    Two layers, one job each:
      .bull-bull   slides (translate) and is lifted (rotate about the hind hoof). Separate
                   properties, so each keeps its own easing.
-     .bull-bars and .bull-arrow   the lift.
+     .bull-bars and .bull-arrow   the rise.
    Every duration comes from --run-ms, which the splash script sets from its RUN_MS, so the CSS
    and the script cannot drift apart. Each keyframe offset appears once, because a second block
    at the same offset can leave a property on the default easing. */
@@ -317,8 +333,8 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     transform-box: fill-box;
     transform-origin: 29% 98%;
     animation:
-        bull-slide var(--run-ms, 2500ms) linear both,
-        bull-lift var(--run-ms, 2500ms) linear both;
+        bull-slide var(--run-ms, 2150ms) linear both,
+        bull-lift var(--run-ms, 2150ms) linear both;
 }
 /* --bull-run is the distance back to the M, in the SVG's own units: a CSS translate on an SVG
    child is applied in user space, so a pixel figure would be off by the viewBox scale. The
@@ -327,32 +343,30 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     0%   { translate: calc(var(--bull-run) * 1px) 0; opacity: 0;
            animation-timing-function: cubic-bezier(0.42, 0, 0.3, 1); }
     6%   { opacity: 1; }
-    80%  { translate: 0 0; }
+    77%  { translate: 0 0; }
     100% { translate: 0 0; opacity: 1; }
 }
 /* Level for the slide. The traced bull is rearing, so it is pitched forward 20 degrees on its
    hind hoof, which lays the back flat and brings the front legs down. Measured, not guessed: the
    artwork's rear is 30 degrees, and 18 to 20 is where the back reads flat without the head
-   dropping into the letters. The lift then carries it back to the logo's own pose. */
+   dropping into the letters. The lift starts on the same frame as the candles and runs a touch
+   ahead of them, so the bull's front stays above the rising chart and nothing shows through it. */
 @keyframes bull-lift {
     0%   { rotate: 20deg; }
-    80%  { rotate: 20deg; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
-    87%  { rotate: -3deg; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
+    77%  { rotate: 20deg; animation-timing-function: cubic-bezier(0.15, 0.95, 0.3, 1); }
+    87%  { rotate: -2deg; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
     100% { rotate: 0deg; }
 }
-/* The candles lift it. Bars and arrow scale up together from the chart's baseline, so the arrow
-   stays on the bar tops while the whole chart shoots up under the bull's front, on the same
-   frames and the same easing as the bull's rise. */
+/* The rise. Bars and arrow grow out of the baseline together, so the arrow stays on the bar
+   tops the whole way up, overshoot a little, and settle at the logo's own height. */
 .app-title-bull.running .bull-bars,
 .app-title-bull.running .bull-arrow {
-    transform-box: view-box;
-    transform-origin: 0 74.28px;
-    animation: candle-lift var(--run-ms, 2500ms) linear both;
+    animation: candle-rise var(--run-ms, 2150ms) linear both;
 }
-@keyframes candle-lift {
-    0%   { scale: 1 1; }
-    80%  { scale: 1 1; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
-    87%  { scale: 1 1.22; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
+@keyframes candle-rise {
+    0%   { scale: 1 0; }
+    77%  { scale: 1 0; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
+    87%  { scale: 1 1.08; animation-timing-function: cubic-bezier(0.45, 0, 0.4, 1); }
     100% { scale: 1 1; }
 }
 
@@ -428,6 +442,8 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     .app-title-bull.running .bull-bars,
     .app-title-bull.running .bull-arrow { animation: none; }
     .app-title-bull.arming .bull-bull { opacity: 1; }
+    .app-title-bull.arming .bull-bars,
+    .app-title-bull.arming .bull-arrow { scale: none; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {

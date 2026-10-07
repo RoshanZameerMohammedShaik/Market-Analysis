@@ -499,13 +499,13 @@
             // --run-ms, so the stylesheet never needs its own copy.
             var SWEEP_MS = 1650;          // the one shimmer pass, plus its start delay
             var FLY_MS = 600;             // title hits back into the header
-            var RUN_MS = 2500;            // the bull's slide (80%) and the candles' lift
+            var RUN_MS = 2150;            // the bull's slide (77%) and the candles' rise
             var overlay = document.getElementById('splash-overlay');
             var mark = document.querySelector('.app-title-bull');
             var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             var runSeq = 0, endTimer = 0;
-            // Hide the bull until its entrance. Added here rather than in the markup, so a page
-            // where this script never runs still shows the finished logo.
+            // Hide the bull, and sink the candles, until the entrance. Added here rather than in
+            // the markup, so a page where this script never runs still shows the finished logo.
             if (mark && !reduce) mark.classList.add('arming');
             // The header title is hidden until the flying copy lands on it, so the hit has an
             // empty spot to land in. Same rule as the bull: only hidden by this script, so a page
@@ -557,7 +557,8 @@
             }
 
             // 4. THE SLIDE. The bull starts behind the M, glides level behind the letters to
-            // its spot, and the candles shoot up under its front and lift it into the logo pose.
+            // its spot on flat ground, and the candles rise out of the ground under its front and
+            // lift it into the logo pose.
             function runBull() {
                 if (!mark) return;
                 if (reduce) { mark.classList.remove('arming'); return; }
