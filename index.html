@@ -69,6 +69,7 @@
             pointer-events: auto;
         }
         #splash-overlay .splash-title {
+            position: relative;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 1.8rem;
             font-weight: 900;
@@ -78,27 +79,63 @@
             white-space: nowrap;
             transform-origin: 0 0;
             will-change: transform;
-            /* ONE shimmer pass, then hold. The old sweep was 5 seconds long and its bright band
-               only entered the text after about 1.5s, so on any normal load the splash was gone
-               before the highlight ever appeared: Roshan saw no shimmer at all. This one is
-               1.5s, starts at first paint, and the band is in the text for most of it. */
+            /* ONE shimmer pass, and strong enough to be unmistakable (Roshan, 2026-10-07: "the
+               shimmering effect should be stronger and clearly visible"). The old pass was a
+               white band on pale grey text, so there was almost nothing to see. Now the title
+               starts dim, a blazing white band with blue edges crosses it, and the letters it
+               has passed stay bright: a reveal. It ends on the header title's own colour, so the
+               hit into the header has no colour jump. The band's position is --ss, a registered
+               number, so the gradient here and the glowing copy below move as one. */
             background-image: linear-gradient(100deg,
-                #c9d3e2 0%, #c9d3e2 40%, #ffffff 48%, #ffffff 52%, #c9d3e2 60%, #c9d3e2 100%);
-            background-size: 260% 100%;
-            background-position: 100% 0;
+                #e8eef5 calc((var(--ss, 1.3) - 0.24) * 100%),
+                #9cc8ff calc((var(--ss, 1.3) - 0.1) * 100%),
+                #ffffff calc(var(--ss, 1.3) * 100%),
+                #9cc8ff calc((var(--ss, 1.3) + 0.06) * 100%),
+                #4b5566 calc((var(--ss, 1.3) + 0.16) * 100%));
+            background-size: 100% 100%;
             background-repeat: no-repeat;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             color: transparent;
-            animation: splash-sweep 1.5s cubic-bezier(0.45, 0, 0.25, 1) 0.1s 1 both;
+            animation: splash-sweep 1.5s cubic-bezier(0.42, 0, 0.58, 1) 0.1s 1 both;
+        }
+        /* The bloom: a white copy of the title with a blue glow, masked to the band. The box is
+           grown 18px on every side and padded back by the same, so the copy's letters sit
+           exactly on the title's while the glow has room. The empty alt text after the slash
+           keeps a screen reader from hearing the title twice. */
+        #splash-overlay .splash-title::after {
+            content: attr(data-text);
+            content: attr(data-text) / "";
+            position: absolute;
+            inset: -18px;
+            padding: 18px;
+            pointer-events: none;
+            color: #ffffff;
+            -webkit-text-fill-color: #ffffff;
+            text-shadow: 0 0 4px #4a9eff, 0 0 12px rgba(74, 158, 255, 0.9), 0 0 28px rgba(74, 158, 255, 0.6);
+            -webkit-mask-image: linear-gradient(100deg,
+                transparent calc((var(--ss, 1.3) - 0.14) * (100% - 36px) + 18px),
+                #000 calc((var(--ss, 1.3) - 0.03) * (100% - 36px) + 18px),
+                #000 calc((var(--ss, 1.3) + 0.03) * (100% - 36px) + 18px),
+                transparent calc((var(--ss, 1.3) + 0.14) * (100% - 36px) + 18px));
+            mask-image: linear-gradient(100deg,
+                transparent calc((var(--ss, 1.3) - 0.14) * (100% - 36px) + 18px),
+                #000 calc((var(--ss, 1.3) - 0.03) * (100% - 36px) + 18px),
+                #000 calc((var(--ss, 1.3) + 0.03) * (100% - 36px) + 18px),
+                transparent calc((var(--ss, 1.3) + 0.14) * (100% - 36px) + 18px));
+        }
+        @property --ss {
+            syntax: '<number>';
+            inherits: true;
+            initial-value: -0.2;
         }
         @keyframes splash-sweep {
-            from { background-position: 100% 0; }
-            to   { background-position: 0% 0; }
+            from { --ss: -0.2; }
+            to   { --ss: 1.3; }
         }
         @media (prefers-reduced-motion: reduce) {
-            #splash-overlay .splash-title { animation: none; background-position: 50% 0; }
+            #splash-overlay .splash-title { animation: none; --ss: 1.3; }
         }
     </style>
     <!-- Debug capture must run before any module loads so we catch
@@ -112,14 +149,13 @@
          Inline markup and inline CSS, so it paints before any module or stylesheet arrives.
          The choreography script at the end of <body> takes it from there. -->
     <div id="splash-overlay" class="splash-overlay">
-        <h1 class="splash-title">MARKET ANALYZER</h1>
-    </div>
+        <h1 class="splash-title" data-text="MARKET ANALYZER">MARKET ANALYZER</h1>
     </div>
 
     <header class="app-header">
         <div class="header-content">
             <div class="app-title-wrap">
-                <h1 class="app-title app-title-static">MARKET ANALYZER</h1>
+                <h1 class="app-title app-title-static" data-text="MARKET ANALYZER">MARKET ANALYZER</h1>
                 <span class="app-title-bull" aria-hidden="true">
                     <svg class="bull-svg" viewBox="8.88 24.22 73.40 51.56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <g class="bull-bars">
@@ -127,11 +163,11 @@
                             <path class="bull-bar bar-2" d="M64.62 74.28L59.3 74.19L59.12 73.83L59.12 67.15L59.57 67.06L60.47 67.6L64.8 63.99L64.89 74.01L64.62 74.28Z"/>
                             <path class="bull-bar bar-3" d="M74.55 74.28L70.4 74.28L70.22 74.1L69.68 74.28L69.22 73.83L69.22 60.47L74.91 55.51L75 74.01L74.55 74.28Z"/>
                         </g>
-                        <g class="bull-bull">
+                        <g class="bull-bull"><g class="bull-gait">
                             <path class="bull-body" d="M35.74 74.28L35.56 74.1L35.38 74.28L34.93 73.83L34.93 71.84L32.85 68.14L32.76 70.58L33.66 72.74L33.66 74.01L33.39 74.28L33.21 74.1L33.03 74.28L31.23 74.28L31.05 74.1L30.87 74.28L30.42 73.47L30.42 71.48L28.97 68.05L29.15 65.88L26.44 59.57L26.62 56.5L27.35 55.23L29.33 53.25L27.98 54.06L27.17 55.23L25.81 56.23L23.65 56.77L22.2 56.77L20.76 56.23L19.58 55.23L19.04 53.79L19.22 52.89L19.04 51.62L18.23 50.45L17.33 50.09L12.45 50.09L11.1 49.1L10.38 47.11L10.74 44.95L11.82 43.32L13.63 41.88L13.99 40.97L15.16 39.8L17.15 39.08L18.59 39.08L20.04 39.62L21.21 40.61L19.49 40.7L17.96 42.6L16.79 43.41L14.08 43.95L12.36 45.85L12.18 47.47L13 48.29L18.23 48.29L19.49 48.65L20.67 49.82L21.03 52.17L21.39 52.89L22.2 53.52L23.1 53.52L24.37 53.16L25.99 52.26L28.07 50.18L29.33 48.38L32.13 45.94L34.84 44.68L38.09 44.13L40.07 42.87L42.33 39.71L45.58 32.85L47.92 28.88L50 26.81L51.99 25.9L56.14 25.72L59.39 26.62L60.29 27.17L61.91 27.53L64.8 28.79L66.88 30.87L67.6 32.13L67.96 33.39L69.13 34.57L70.04 34.57L72.38 33.84L74.91 33.84L75.09 34.03L77.17 33.39L76.53 34.21L75.27 34.93L72.74 35.29L72.2 35.47L71.84 36.01L72.74 35.83L76.71 36.01L77.98 35.65L79.42 34.75L79.87 34.84L79.33 35.38L79.42 35.65L79.06 35.65L78.52 36.19L76.71 37.09L75.27 37.45L73.47 37.45L71.93 38.27L72.29 39.53L72.29 40.61L70.85 43.32L70.49 46.75L69.4 48.38L68.59 49.01L67.51 48.83L67.15 48.47L66.06 48.47L65.25 47.83L64.89 45.85L63.63 43.5L63.27 41.88L62.91 41.34L63.09 44.4L60.92 46.75L60.92 47.47L61.19 47.74L61.91 47.56L63.72 47.74L64.35 48.56L64.35 50.18L63.45 53.07L63.09 55.96L62.27 57.13L61.19 57.49L60.83 57.31L56.77 57.4L56.77 55.42L57.13 53.97L57.58 53.52L58.12 53.52L60.11 54.42L60.92 53.43L61.1 51.62L60.83 51.53L59.39 52.26L57.22 52.8L55.6 52.8L53.61 52.08L52.8 51.26L52.08 49.82L52.08 47.65L52.53 46.48L51.9 47.47L51.53 49.46L52.08 51.26L53.16 52.71L52.53 53.52L49.28 55.14L46.57 55.69L43.32 55.69L40.61 56.95L38.9 59.03L38 61.19L36.55 62.82L36.55 64.08L35.83 66.06L35.83 67.33L36.37 68.77L36.73 70.94L37.64 72.56L37.82 74.01L35.74 74.28Z"/>
                             <path class="bull-hoof" d="M69.13 54.78L68.59 54.78L67.51 53.52L66.61 53.7L65.7 53.16L63.81 53.25L64.62 49.55L67.69 50.45L69.86 50.63L70.76 50.99L71.93 51.99L69.13 54.78Z"/>
                             <path class="bull-mane" d="M40.7 45.31L42.69 43.32L44.49 40.79L47.02 35.92L47.56 34.3L47.92 34.12L47.74 33.94L48.65 31.95L49.73 30.14L50.9 28.79L52.89 27.53L50.9 28.43L49.19 30.14L46.84 34.48L44.31 40.07L42.15 43.5L40.52 45.31L40.7 45.31Z"/>
-                        </g>
+                        </g></g>
                         <path class="bull-arrow" d="M60.29 65.79L57.94 64.71L57.4 64.17L56.86 64.17L46.39 58.94L45.67 59.12L40.07 63.45L39.53 63.63L39.08 63.36L39.08 61.37L42.78 58.39L46.03 56.23L60.11 63.09L76.71 49.37L76.99 48.92L76.53 48.1L80.14 47.02L80.78 47.11L80.78 47.83L79.42 51.17L78.7 50.81L78.16 50.99L60.29 65.79Z"/>
                     </svg>
                 </span>
@@ -459,9 +495,15 @@
          failed module load cannot strand the user behind the overlay. -->
     <script>
         (function () {
+            // Timing. RUN_MS drives every part of the run: the script hands it to the CSS as
+            // --run-ms, so the stylesheet never needs its own copy.
+            var SWEEP_MS = 1650;          // the one shimmer pass, plus its start delay
+            var FLY_MS = 600;             // title hits back into the header
+            var RUN_MS = 1800;            // the bull's run and climb
             var overlay = document.getElementById('splash-overlay');
             var mark = document.querySelector('.app-title-bull');
             var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            var runSeq = 0, endTimer = 0;
             // Hide the bull until its entrance. Added here rather than in the markup, so a page
             // where this script never runs still shows the finished logo.
             if (mark && !reduce) mark.classList.add('arming');
@@ -472,11 +514,6 @@
             if (overlay && pendingTitle && !reduce) pendingTitle.classList.add('title-pending');
             if (!overlay) { if (mark) runBull(); return; }
             var splashTitle = overlay.querySelector('.splash-title');
-            // Timing, doubled on 2026-10-07 at Roshan's request. RUN_MS must match bull-run in
-            // css/cinematic.css, and title-sweep there is 62% of it.
-            var SWEEP_MS = 1650;          // the one shimmer pass, plus its start delay
-            var FLY_MS = 600;             // title hits back into the header
-            var RUN_MS = 1800;            // the bull's run and climb
             var started = Date.now();
             var done = false;
 
@@ -519,8 +556,8 @@
                 };
             }
 
-            // 4. THE RUN. The bull starts behind the M, runs behind the letters to the R while a
-            // highlight travels across them at the same speed, then leaps onto the candles.
+            // 4. THE RUN. The bull starts behind the M, runs level behind the letters to its
+            // spot, then rears up onto the candles as they push up under it.
             function runBull() {
                 if (!mark) return;
                 if (reduce) { mark.classList.remove('arming'); return; }
@@ -528,6 +565,11 @@
                 var svg = mark.querySelector('.bull-svg');
                 var bull = mark.querySelector('.bull-bull');
                 if (!title || !svg || !bull) { mark.classList.remove('arming'); return; }
+                // Back to rest first, so a replay measures the resting spot, not a frame of the
+                // run in progress.
+                mark.classList.remove('running');
+                title.classList.remove('title-sweep');
+                void mark.offsetWidth;
                 var vb = (svg.getAttribute('viewBox') || '0 0 100 100').split(/\s+/).map(Number);
                 var sr = svg.getBoundingClientRect();
                 var perUnit = sr.width / (vb[2] || 100);
@@ -535,19 +577,47 @@
                 // own units, because a CSS translate on an SVG child is applied in user space.
                 var tr = title.getBoundingClientRect();
                 var br = bull.getBoundingClientRect();
-                var runPx = br.left - tr.left;
-                mark.style.setProperty('--bull-run', (-runPx / perUnit).toFixed(2));
-                mark.classList.remove('arming', 'running');
-                title.classList.remove('title-sweep');
-                void mark.offsetWidth;
+                mark.style.setProperty('--bull-run', (-(br.left - tr.left) / perUnit).toFixed(2));
+                mark.style.setProperty('--run-ms', RUN_MS + 'ms');
+                mark.classList.remove('arming');
                 mark.classList.add('running');
                 title.classList.add('title-sweep');
-                setTimeout(function () {
+                followBull(title, bull, br.width, ++runSeq);
+                clearTimeout(endTimer);
+                endTimer = setTimeout(function () {
                     mark.classList.remove('running');
                     title.classList.remove('title-sweep');
                 }, RUN_MS + 100);
             }
             window.__replayBull = runBull;
+
+            // 5. THE SHIMMER FOLLOWS THE BULL. Every frame the light is put on the letters the
+            // bull is behind, measured from the bull itself, so it cannot drift from the run at
+            // any header width or speed. It comes up as the bull appears and goes down as the
+            // bull starts its climb, so it never just switches off.
+            function followBull(title, bull, restWidth, id) {
+                var anim = bull.getAnimations ? bull.getAnimations()[0] : null;
+                title.style.setProperty('--band', (restWidth * 0.6).toFixed(1) + 'px');
+                (function tick() {
+                    if (id !== runSeq) return;
+                    if (!mark.classList.contains('running')) {
+                        title.style.removeProperty('--sweep-x');
+                        title.style.removeProperty('--shine');
+                        title.style.removeProperty('--band');
+                        return;
+                    }
+                    var t = anim && anim.currentTime != null ? anim.currentTime / RUN_MS : 0;
+                    var tr = title.getBoundingClientRect();
+                    var br = bull.getBoundingClientRect();
+                    var seen = parseFloat(getComputedStyle(bull).opacity) || 0;
+                    var fade = 1 - Math.min(1, Math.max(0, (t - 0.58) / 0.16));
+                    // A touch behind the bull's middle, so the light trails it like a wake and the M is
+                    // already lit as the bull appears behind it.
+                    title.style.setProperty('--sweep-x', (br.left + br.width * 0.4 - tr.left).toFixed(1) + 'px');
+                    title.style.setProperty('--shine', Math.round(100 * seen * fade) + '%');
+                    requestAnimationFrame(tick);
+                })();
+            }
 
             // 1. ONE SHIMMER, then go as soon as the app has loaded. Whichever comes later.
             function whenReady() {
@@ -563,7 +633,7 @@
             var wrap = document.querySelector('.app-title-wrap');
             var last = 0;
             if (wrap && !reduce) wrap.addEventListener('mouseenter', function () {
-                if (Date.now() - last < 1200 || document.getElementById('splash-overlay')) return;
+                if (Date.now() - last < RUN_MS + 200 || document.getElementById('splash-overlay')) return;
                 last = Date.now();
                 runBull();
             });

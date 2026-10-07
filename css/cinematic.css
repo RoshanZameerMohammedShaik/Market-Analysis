@@ -300,61 +300,146 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 /* Hidden only while the splash copy is in flight toward it (see index.html). */
 .app-header .header-content .app-title.title-pending { visibility: hidden; }
 
+/* THE RUN. The traced artwork is a REARING bull, front legs high, so sliding it down the title
+   as drawn read as a bull hopping along on its hind legs (Roshan, 2026-10-07: "it comes from M
+   to R with its front legs up, which it should not be, it should be as if it's running"). So
+   for the run the whole bull is pitched forward 20 degrees on its hind hoof, which brings the
+   back level and the front legs down and reaching: a charge. Measured, not guessed: the rear
+   in the artwork is 30 degrees, and 18 to 20 is where the back reads flat without the head
+   dropping into the letters. At its spot it rears back up onto the candles, and the candles
+   push up under its front as it does.
+
+   Three layers, one job each:
+     .bull-bull   travels and pitches. translate and rotate are separate properties so each
+                  keeps its own easing, and rotate turns about the hind hoof wherever it is.
+     .bull-gait   the bounding stride, only while travelling: four strides, then still.
+                  Nothing loops. A bull that keeps moving on the candles reads as dancing.
+     .bull-bars and .bull-arrow   the push that lifts the bull's front.
+   Every duration comes from --run-ms, which the splash script sets from its RUN_MS, so the CSS
+   and the script cannot drift apart. */
 .app-title-bull.running .bull-bull {
     transform-box: fill-box;
-    transform-origin: 30% 85%;
-    animation: bull-run 1.8s cubic-bezier(0.3, 0, 0.2, 1) both;
+    transform-origin: 29% 98%;
+    animation:
+        bull-travel var(--run-ms, 1800ms) linear both,
+        bull-pitch var(--run-ms, 1800ms) linear both;
 }
 /* --bull-run is the distance back to the M, in the SVG's own units: a CSS translate on an SVG
    child is applied in user space, so a pixel figure would be off by the viewBox scale. The
    splash script measures it on every run, so it holds at any header width. */
-@keyframes bull-run {
-    0%   { transform: translateX(calc(var(--bull-run) * 1px)) rotate(2deg); opacity: 0; }
-    8%   { opacity: 1; }
-    62%  { transform: translateX(calc(var(--bull-run) * 0.04px)) rotate(3deg); }   /* at the R */
-    80%  { transform: translateX(0) translateY(-12%) rotate(-6deg); }              /* the climb */
-    100% { transform: none; opacity: 1; }
+@keyframes bull-travel {
+    0%   { translate: calc(var(--bull-run) * 1px) 0; opacity: 0;
+           animation-timing-function: cubic-bezier(0.35, 0.35, 0.8, 1); }
+    6%   { opacity: 1; }
+    /* Arrival: the pitched bull's front hooves at the foot of the chart, 24 units short of its
+       spot, so the climb is a lunge up onto the candles rather than a bull run through them. */
+    58%  { translate: -24px 0; animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+    74%  { translate: -4px -8%; animation-timing-function: cubic-bezier(0.45, 0, 0.3, 1); }
+    100% { translate: 0 0; opacity: 1; }
+}
+@keyframes bull-pitch {
+    0%   { rotate: 20deg; }
+    58%  { rotate: 20deg; animation-timing-function: cubic-bezier(0.25, 0.8, 0.35, 1); }
+    78%  { rotate: -3deg; animation-timing-function: ease-in-out; }
+    100% { rotate: 0deg; }
+}
+.app-title-bull.running .bull-gait {
+    transform-box: fill-box;
+    transform-origin: 50% 80%;
+    animation: bull-gait calc(var(--run-ms, 1800ms) * 0.15) ease-in-out 4 both;
+}
+@keyframes bull-gait {
+    0%, 100% { translate: 0 0; rotate: 0deg; }
+    35%      { translate: 0 -9%; rotate: -4deg; }
+    70%      { translate: 0 -2%; rotate: 3deg; }
+}
+/* The candles lift it. Bars and arrow scale up together from the chart's baseline, so the
+   arrow stays on the bar tops while the whole chart rises under the bull's front. */
+.app-title-bull.running .bull-bars,
+.app-title-bull.running .bull-arrow {
+    transform-box: view-box;
+    transform-origin: 0 74.28px;
+    animation: candle-push var(--run-ms, 1800ms) linear both;
+}
+@keyframes candle-push {
+    0%, 62% { scale: 1 1; }
+    62%     { animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1); }
+    75%     { scale: 1 1.14; animation-timing-function: cubic-bezier(0.5, 0, 0.4, 1); }
+    100%    { scale: 1 1; }
 }
 
-/* The shimmer the bull makes. A band travels across the title at the bull's speed, so each
-   letter lights as the bull passes behind it: the same easing and the same 62% of 1.8s as the
-   run reaching the R.
+/* THE SHIMMER THE BULL MAKES, made unmistakable on 2026-10-07 (Roshan: "the shimmering effect
+   should be stronger and clearly visible"). The old band was white on near-white text, so it
+   barely registered. Now there are two layers:
+     the letters themselves take a vivid band, accent-blue edges around a white core, and
+     a glowing copy of the title, masked to the same band, blooms over it.
+   Both read their position from --sweep-x, which the splash script sets every frame from where
+   the bull actually is, so the light is always on the letters the bull is behind. There is no
+   second clock to keep in step with the run. --band is half the band's width (the bull's own
+   half width) and --shine fades the whole effect in with the bull and out as it climbs.
 
-   WHY A CUSTOM PROPERTY AND NOT background-position. .app-title.app-title-static above sets
-   background: none !important (the static title is meant to be solid), and an !important
-   declaration beats a keyframe animation, so no background-position animation can ever run on
-   this element. That is also why the old title shimmer never showed. --sweep is a separate,
-   registered property, so it animates freely, and the gradient reads its band position from
-   it. The !important flags here win that tie on specificity (four classes against two). This
-   file is also first in the cascade (it is @imported at the top of style.css), which is why
-   every selector in this block is raised. */
-@property --sweep {
-    syntax: '<percentage>';
-    inherits: false;
-    initial-value: -15%;
-}
+   WHY !important AND STOPS RATHER THAN background-position: .app-title.app-title-static above
+   sets background: none !important, and an !important declaration beats any animation, so the
+   gradient here must be !important too and must move by its stops. This file is also first in
+   the cascade (it is @imported at the top of style.css), which is why every selector in this
+   block is raised. */
 .app-header .header-content .app-title.title-sweep {
+    --shine-core: #ffffff;
+    --shine-edge: rgb(var(--accent-rgb));
     background-image: linear-gradient(100deg,
-        var(--text-primary) calc(var(--sweep) - 11%),
-        #8db8ff calc(var(--sweep) - 4%),
-        #ffffff var(--sweep),
-        #8db8ff calc(var(--sweep) + 4%),
-        var(--text-primary) calc(var(--sweep) + 11%)) !important;
+        var(--text-primary) calc(var(--sweep-x, -200px) - var(--band, 28px)),
+        color-mix(in srgb, var(--shine-edge) var(--shine, 0%), var(--text-primary)) calc(var(--sweep-x, -200px) - var(--band, 28px) * 0.45),
+        color-mix(in srgb, var(--shine-core) var(--shine, 0%), var(--text-primary)) var(--sweep-x, -200px),
+        color-mix(in srgb, var(--shine-edge) var(--shine, 0%), var(--text-primary)) calc(var(--sweep-x, -200px) + var(--band, 28px) * 0.45),
+        var(--text-primary) calc(var(--sweep-x, -200px) + var(--band, 28px))) !important;
     background-size: 100% 100% !important;
     background-position: 0 0 !important;
     background-repeat: no-repeat !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
-    animation: title-sweep 1.12s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
-@keyframes title-sweep {
-    from { --sweep: -15%; }
-    to   { --sweep: 115%; }
+/* The bloom. The copy sits exactly on the title's own glyphs: the box is grown by 14px on every
+   side and padded back by the same 14px, so the text lands in the same place while the glow has
+   room inside the mask. The empty alt text after the slash keeps a screen reader from hearing
+   the title twice. */
+.app-header .header-content .app-title.title-sweep::after {
+    content: attr(data-text);
+    content: attr(data-text) / "";
+    position: absolute;
+    inset: -14px;
+    padding: 14px;
+    pointer-events: none;
+    white-space: nowrap;
+    color: var(--shine-core);
+    -webkit-text-fill-color: var(--shine-core);
+    text-shadow:
+        0 0 3px rgba(var(--accent-rgb), 1),
+        0 0 9px rgba(var(--accent-rgb), 0.95),
+        0 0 20px rgba(var(--accent-rgb), 0.7);
+    opacity: var(--shine, 0%);
+    -webkit-mask-image: linear-gradient(100deg,
+        transparent calc(var(--sweep-x, -200px) + 14px - var(--band, 28px)),
+        #000 calc(var(--sweep-x, -200px) + 14px - var(--band, 28px) * 0.35),
+        #000 calc(var(--sweep-x, -200px) + 14px + var(--band, 28px) * 0.35),
+        transparent calc(var(--sweep-x, -200px) + 14px + var(--band, 28px)));
+    mask-image: linear-gradient(100deg,
+        transparent calc(var(--sweep-x, -200px) + 14px - var(--band, 28px)),
+        #000 calc(var(--sweep-x, -200px) + 14px - var(--band, 28px) * 0.35),
+        #000 calc(var(--sweep-x, -200px) + 14px + var(--band, 28px) * 0.35),
+        transparent calc(var(--sweep-x, -200px) + 14px + var(--band, 28px)));
+}
+/* On the light theme a white core would vanish into the light header, so the light itself is
+   the accent and the edges a paler blue. */
+[data-theme="light"] .app-header .header-content .app-title.title-sweep {
+    --shine-core: rgb(var(--accent-rgb));
+    --shine-edge: color-mix(in srgb, rgb(var(--accent-rgb)) 55%, #ffffff);
 }
 @media (prefers-reduced-motion: reduce) {
     .app-title-bull.running .bull-bull,
-    .app-header .header-content .app-title.title-sweep { animation: none; }
+    .app-title-bull.running .bull-gait,
+    .app-title-bull.running .bull-bars,
+    .app-title-bull.running .bull-arrow { animation: none; }
     .app-title-bull.arming .bull-bull { opacity: 1; }
 }
 
