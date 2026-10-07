@@ -276,82 +276,86 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     display: block;
 }
 
-/* NOTHING ANIMATES UNTIL .play IS ADDED, and the resting state is the FINISHED mark.
-   The first version animated on CSS parse, which is the one moment nobody can see it: the
-   splash overlay covers the header until window.load + 1.6s, so the whole sequence had already
-   finished before the header was ever on screen. The splash script adds .play as the overlay
-   fades, and because the resting state is the end state, a browser that never runs that script
-   still shows a correct logo rather than an invisible one. */
-.bull-bar  { fill: rgb(var(--accent-rgb)); }
-.bull-arrow { fill: var(--green); }
-.bull-bull { fill: var(--text-primary); }
-/* The mane line is the reference's page colour showing THROUGH the bull. Filling it like the
-   body loses the detail; filling it with the header background restores it. */
-.bull-mane { fill: var(--bg-secondary, #0f131a); }
+/* THE ENTRANCE, driven by the splash script in index.html (Roshan, 2026-10-07):
+   the title hits back into the header, the candles are already there, and the bull comes from
+   behind the title, runs from the M to the R lighting the letters as it passes, then climbs the
+   candles. The resting state is the finished logo: .arming hides the bull only while the script
+   is about to run it, so a page where the script never runs still shows a complete mark.
 
-.app-title-bull.play .bull-bar {
-    transform-origin: center bottom;
+   Candles and arrow do not animate at all now. They are already sitting there when the title
+   lands, which is what makes the bull's arrival read as the event. */
+.bull-bar   { fill: rgb(var(--accent-rgb)); }
+.bull-arrow { fill: var(--green); }
+.bull-bull  { fill: var(--text-primary); }
+/* The mane line is the reference's page colour showing THROUGH the bull, so it is knocked out
+   to the header background. It lives inside the bull group so it travels with the run. */
+.bull-mane  { fill: var(--bg-secondary, #0f131a); }
+
+/* BEHIND THE LETTERS. The title paints only its glyphs, so stacking it above the mark lets the
+   bull show between the letters and pass behind each one. */
+.header-content .app-title { position: relative; z-index: 2; }
+.app-title-bull { position: relative; z-index: 1; }
+
+.app-title-bull.arming .bull-bull { opacity: 0; }
+/* Hidden only while the splash copy is in flight toward it (see index.html). */
+.app-header .header-content .app-title.title-pending { visibility: hidden; }
+
+.app-title-bull.running .bull-bull {
     transform-box: fill-box;
-    animation: bull-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.app-title-bull.play .bull-bar.bar-1 { animation-delay: 0.02s; }
-.app-title-bull.play .bull-bar.bar-2 { animation-delay: 0.11s; }
-.app-title-bull.play .bull-bar.bar-3 { animation-delay: 0.20s; }
-@keyframes bull-bar-grow {
-    from { transform: scaleY(0); opacity: 0.5; }
-    to   { transform: scaleY(1); opacity: 1; }
-}
-.app-title-bull.play .bull-arrow {
-    /* The arrow is a FILLED traced shape, not a stroke, so stroke-dashoffset cannot draw it.
-       A clip wipe left to right is the honest equivalent and keeps the reference's arrowhead. */
-    animation: bull-arrow-wipe 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
-}
-@keyframes bull-arrow-wipe {
-    from { clip-path: inset(0 100% 0 0); }
-    to   { clip-path: inset(0 0 0 0); }
-}
-/* ONE LEAP, THEN STILL.
-   A looping gallop was tried on 2026-10-06 and removed the next day: an outline that pitches
-   and bobs forever on top of a chart reads as the bull dancing on the candles, not running
-   (Roshan: "it looks like that bull is dancing on those candles. I hate it."). The arrival
-   plays once, the bull lands, and nothing moves after that. The landing is also damped: the
-   old 1.35 overshoot made the touchdown itself bounce, which is the same problem in miniature.
-   A brand mark at rest should be at rest. */
-.app-title-bull.play .bull-bull {
     transform-origin: 30% 85%;
-    transform-box: fill-box;
-    animation: bull-leap 0.8s cubic-bezier(0.22, 1.08, 0.36, 1) 0.34s both;
+    animation: bull-run 0.95s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
-@keyframes bull-leap {
-    from { transform: translate(-18%, 16%) rotate(-12deg) scale(0.8); opacity: 0; }
-    55%  { opacity: 1; }
-    to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
+/* --bull-run is the distance back to the M, in the SVG's own units: a CSS translate on an SVG
+   child is applied in user space, so a pixel figure would be off by the viewBox scale. The
+   splash script measures it on every run, so it holds at any header width. */
+@keyframes bull-run {
+    0%   { transform: translateX(calc(var(--bull-run) * 1px)) rotate(2deg); opacity: 0; }
+    8%   { opacity: 1; }
+    62%  { transform: translateX(calc(var(--bull-run) * 0.04px)) rotate(3deg); }   /* at the R */
+    80%  { transform: translateX(0) translateY(-12%) rotate(-6deg); }              /* the climb */
+    100% { transform: none; opacity: 1; }
 }
-/* Hover the title and the arrival sequence runs again. */
-.app-title-wrap:hover .bull-bar {
-    transform-origin: center bottom; transform-box: fill-box;
-    animation: bull-bar-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+/* The shimmer the bull makes. A band travels across the title at the bull's speed, so each
+   letter lights as the bull passes behind it: the same easing and the same 62% of 0.95s as the
+   run reaching the R.
+
+   WHY A CUSTOM PROPERTY AND NOT background-position. .app-title.app-title-static above sets
+   background: none !important (the static title is meant to be solid), and an !important
+   declaration beats a keyframe animation, so no background-position animation can ever run on
+   this element. That is also why the old title shimmer never showed. --sweep is a separate,
+   registered property, so it animates freely, and the gradient reads its band position from
+   it. The !important flags here win that tie on specificity (four classes against two). This
+   file is also first in the cascade (it is @imported at the top of style.css), which is why
+   every selector in this block is raised. */
+@property --sweep {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: -15%;
 }
-.app-title-wrap:hover .bull-arrow {
-    animation: bull-arrow-wipe 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+.app-header .header-content .app-title.title-sweep {
+    background-image: linear-gradient(100deg,
+        var(--text-primary) calc(var(--sweep) - 11%),
+        #8db8ff calc(var(--sweep) - 4%),
+        #ffffff var(--sweep),
+        #8db8ff calc(var(--sweep) + 4%),
+        var(--text-primary) calc(var(--sweep) + 11%)) !important;
+    background-size: 100% 100% !important;
+    background-position: 0 0 !important;
+    background-repeat: no-repeat !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: title-sweep 0.59s cubic-bezier(0.3, 0, 0.2, 1) both;
 }
-.app-title-wrap:hover .bull-bull {
-    transform-origin: 30% 85%; transform-box: fill-box;
-    animation: bull-leap 0.8s cubic-bezier(0.22, 1.08, 0.36, 1) both;
+@keyframes title-sweep {
+    from { --sweep: -15%; }
+    to   { --sweep: 115%; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .app-title-bull.play .bull-bar,
-    .app-title-bull.play .bull-arrow,
-    .app-title-bull.play .bull-bull,
-    .app-title-wrap:hover .bull-bar,
-    .app-title-wrap:hover .bull-arrow,
-    .app-title-wrap:hover .bull-bull {
-        animation: none;
-        transform: none;
-        translate: none;
-        opacity: 1;
-        clip-path: none;
-    }
+    .app-title-bull.running .bull-bull,
+    .app-header .header-content .app-title.title-sweep { animation: none; }
+    .app-title-bull.arming .bull-bull { opacity: 1; }
 }
 
 .mia-ecg-svg .mia-ecg-blip {
