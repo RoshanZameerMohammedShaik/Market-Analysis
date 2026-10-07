@@ -117,7 +117,7 @@ worst = max(tilts)
 mean_tilt = sum(tilts) / len(tilts)
 # Some false positives are unavoidable at any finite threshold; what matters is that
 # shrinkage keeps their EFFECT small rather than that they never occur.
-print(f'    acted on {acted}/800 noise samples; worst 50/50 deviation {worst:.4f}, '
+print(f'    acted on {acted}/800 noise samples, worst 50/50 deviation {worst:.4f}, '
       f'mean {mean_tilt:.5f}')
 ck('noise rarely clears the bar at all', acted < 120, f'{acted}/800')
 ck('a no-information learner stays near equal weight on average', mean_tilt < 0.01,

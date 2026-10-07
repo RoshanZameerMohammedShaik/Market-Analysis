@@ -209,7 +209,7 @@ def main():
             print(f'  {i}/{len(syms)} ({used} with trades, {len(rows):,} trades)', flush=True)
     T = pd.DataFrame(rows)
     if len(T) < 5000:
-        print(f'ERROR: only {len(T)} trades; refusing to publish a calibration this thin.', file=sys.stderr)
+        print(f'ERROR: only {len(T)} trades, refusing to publish a calibration this thin.', file=sys.stderr)
         sys.exit(1)
     T['vixBand'] = T.vix.map(vix_band)
     fit, ver = T[T.date < split], T[T.date >= split]
@@ -244,7 +244,7 @@ def main():
         'whyNotDirection': 'Next-day direction on these same entries is 53.4%, and the app\'s own '
                            'live ledger grades all committed BUY/SELL at 50.4%. A 71-feature '
                            'gradient-boosted model walked forward over 440 stocks and 12 years '
-                           'reached AUC 0.519. Direction at this horizon is not answerable; this '
+                           'reached AUC 0.519. Direction at this horizon is not answerable, this '
                            'question is.',
         'entry': {'rsi2Max': RSI2_MAX, 'minPrice': MIN_PRICE, 'minDollarVolume': MIN_DOLLAR_VOL,
                   'requireAbove200dma': True},

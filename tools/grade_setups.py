@@ -157,7 +157,7 @@ def main():
     payload = {
         'generatedAt': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),
         'since': graded[0]['session'] if graded else None,
-        'rule': 'Buy at the next open; sell at the open after the first close above the 5-day average, '
+        'rule': 'Buy at the next open. Sell at the open after the first close above the 5-day average, '
                 'or after 10 sessions. No stop. Net of 6 bps.',
         'overall': summarize(graded),
         'byCell': {k: summarize(v) for k, v in sorted(cells.items())},

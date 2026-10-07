@@ -185,7 +185,7 @@ def main():
 
     universe = len({s for s in symbols_for_region('NYSE') if '.' not in s and '-' not in s})
     if len(forecasts) < 0.5 * universe:
-        sys.exit(f'ERROR: only {len(forecasts)}/{universe} forecasts; not publishing.')
+        sys.exit(f'ERROR: only {len(forecasts)}/{universe} forecasts, not publishing.')
 
     with open(OUT, 'w', encoding='utf-8') as fh:
         json.dump({'generatedAt': datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ'),

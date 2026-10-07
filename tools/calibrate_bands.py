@@ -472,7 +472,7 @@ def main():
         'realizedCoveragePerDay': coverage_per_day,
         # Earnings-aware families (see the method note at the top). Absent keys mean "not
         # enough windows to fit", and the band uses the pooled z for that cell.
-        'earningsSource': 'yfinance get_earnings_dates; reaction session per earnings_calendar.py',
+        'earningsSource': 'yfinance get_earnings_dates, reaction session per earnings_calendar.py',
         'zEarn': fam_z.get('zEarn', {}),
         'zNoEarn': fam_z.get('zNoEarn', {}),
         'zPerDayEarn': fam_z.get('zPerDayEarn', {}),

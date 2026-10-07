@@ -105,7 +105,7 @@ def is_open(market, now_utc=None):
         return False, f'unknown market {m}'
     if not _TZ_OK:
         # Refusing to trade beats guessing a UTC offset and trading a closed market.
-        return False, 'zoneinfo unavailable; refusing to guess session hours'
+        return False, 'zoneinfo unavailable, refusing to guess session hours'
 
     local = _local_now(spec['tz'], now_utc)
     if local.weekday() not in spec['days']:

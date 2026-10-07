@@ -126,7 +126,7 @@ def main():
     args = ap.parse_args()
 
     if not ALIASES:
-        print('[corp-check] no alias configured; path/email/hostname rules still active',
+        print('[corp-check] no alias configured, path/email/hostname rules still active',
               file=sys.stderr)
 
     paths = staged_files() if args.staged else tracked_files()

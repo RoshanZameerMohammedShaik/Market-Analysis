@@ -201,7 +201,7 @@ def main():
             if args.neutral:
                 print(f'    {"all names":<14}{s["dates"]:>7,}{s["indep"]:>8.0f}'
                       f'{s["gross"]:>+9.3f}{s["cost"]:>7.2f}{s["net"]:>+9.3f}'
-                      f'{"n/a":>7}{"n/a":>8}{"":>7}  zero by construction; cost drag')
+                      f'{"n/a":>7}{"n/a":>8}{"":>7}  zero by construction, cost drag')
             else:
                 line(s, 'reference: this is the MARKET')
         for k in KS:

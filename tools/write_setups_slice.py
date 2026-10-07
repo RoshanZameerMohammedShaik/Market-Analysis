@@ -99,14 +99,14 @@ def main():
         'sessionDate': session,
         'confirmed': confirmed,
         'vix': round(vix, 2) if vix is not None else None,
-        'rule': 'Enter at the next open; sell at the open after the first close above the 5-day '
-                'average (trigger); at most 10 sessions; no stop.',
+        'rule': 'Enter at the next open. Sell at the open after the first close above the 5-day '
+                'average (trigger), at most 10 sessions. No stop.',
         'scanned': scanned,
         'unflagged': unflagged,
         'setups': setups,
     }
     if scanned < 0.5 * len(syms):
-        print(f'ERROR: only {scanned}/{len(syms)} symbols scanned; not publishing.', file=sys.stderr)
+        print(f'ERROR: only {scanned}/{len(syms)} symbols scanned, not publishing.', file=sys.stderr)
         sys.exit(1)
     with open(OUT, 'w', encoding='utf-8') as f:
         json.dump(payload, f, separators=(',', ':'), allow_nan=False)

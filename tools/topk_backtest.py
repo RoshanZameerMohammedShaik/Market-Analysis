@@ -191,7 +191,7 @@ def main():
     ap.add_argument('--min-price', type=float, default=0.0)
     ap.add_argument('--mode', default='long', choices=['long', 'longshort'])
     ap.add_argument('--neutral', action='store_true',
-                    help='excess return vs the same-date cross-section; removes beta')
+                    help='excess return vs the same-date cross-section, removes beta')
     ap.add_argument('--min-names', type=int, default=30,
                     help='a date needs this many scored names to rank meaningfully')
     args = ap.parse_args()
@@ -206,7 +206,7 @@ def main():
     print(f'\nTOP-K RANKING BACKTEST   {scope}')
     print('=' * 104)
     print(f'  {len(rows):,} ledger rows in scope')
-    print('  cost = conservative price-tiered round trip; returns winsorised 1% per tail')
+    print('  cost = conservative price-tiered round trip, returns winsorised 1% per tail')
     print('  returns: ' + ('EXCESS vs same-date cross-section (market-neutral)'
                            if args.neutral else 'RAW (includes the market move)'))
     print('  t* and Sharpe* are divided by sqrt(horizon) to correct overlapping windows')

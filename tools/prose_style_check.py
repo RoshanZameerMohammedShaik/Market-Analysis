@@ -26,10 +26,12 @@ entity, or when the text looks like code (contains {, }, =>, or ends a statement
   python tools/prose_style_check.py          report only, exits 1 if anything is found
   python tools/prose_style_check.py --fix    rewrite in place
 """
+import io
 import json
 import os
 import re
 import sys
+import tokenize
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EM, EN = '—', '–'
@@ -74,7 +76,7 @@ def fix_semicolons(s):
     is left exactly as it is.
     """
     if any(t in s for t in ('{', '}', '=>', '://', 'function', 'var ', 'const ', 'let ',
-                            '!important', '&#')):
+                            '!important', '&#', 'Mozilla/', 'compatible;')):
         return s
 
     css_decl = re.compile(r'(?:^|;)\s*[-\w]+\s*:\s*\S')
@@ -153,6 +155,65 @@ def py_spans(src):
     return out
 
 
+def fix_py(src):
+    """Python files, via the real tokenizer.
+
+    The first version paired quotes with a regex, and an apostrophe in a nearby comment
+    ("doesn't") shifted every pairing after it, so whole runs of strings were never examined:
+    31 semicolon splices survived a --fix, including refusal reasons that Mia's desk shows in
+    its timeline. tokenize knows exactly where every literal starts and ends, including
+    prefixes, triple quotes and f-strings, so the question "is this inside a string" stops
+    being a guess.
+
+    Single-line literals are copy: dashes AND semicolon splices. Triple-quoted ones are
+    docstrings or prompts: dashes only. Comments: dashes only.
+    """
+    try:
+        toks = list(tokenize.generate_tokens(io.StringIO(src).readline))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        return fix_dashes(src)
+    lines = src.splitlines(keepends=True)
+    starts = [0]
+    for ln in lines:
+        starts.append(starts[-1] + len(ln))
+
+    def off(rc):
+        return starts[rc[0] - 1] + rc[1]
+
+    edits = []
+    fs_middle = getattr(tokenize, 'FSTRING_MIDDLE', None)
+    for t in toks:
+        if t.type == tokenize.STRING:
+            text = t.string
+            m = re.match(r'([rRbBuUfF]*)("""|\'\'\'|"|\')', text)
+            if not m or 'b' in m.group(1).lower():
+                continue
+            q = m.group(2)
+            body = text[len(m.group(0)):len(text) - len(q)]
+            new = fix_prose(body, semicolons=(len(q) == 1))
+            if new != body:
+                edits.append((off(t.start), off(t.end), m.group(0) + new + q))
+        elif fs_middle is not None and t.type == fs_middle:
+            new = fix_prose(t.string, semicolons=('\n' not in t.string))
+            if new != t.string:
+                edits.append((off(t.start), off(t.end), new))
+        elif t.type == tokenize.COMMENT:
+            new = fix_dashes(t.string)
+            if new != t.string:
+                edits.append((off(t.start), off(t.end), new))
+    if not edits:
+        return src
+    out, last = [], 0
+    for a, b, rep in sorted(edits):
+        if a < last:
+            continue
+        out.append(src[last:a])
+        out.append(rep)
+        last = b
+    out.append(src[last:])
+    return ''.join(out)
+
+
 def apply_spans(src, spans, semicolons=True):
     spans = sorted(set(spans))
     out, last, changed = [], 0, 0
@@ -178,8 +239,7 @@ def process(path, fix):
         src, _ = apply_spans(src, js_spans(src), semicolons=True)
         src = fix_dashes_outside_literals(src)
     elif path.endswith('.py'):
-        src, _ = apply_spans(src, py_spans(src), semicolons=True)
-        src = fix_dashes_outside_literals(src)
+        src = fix_py(src)
     elif path.endswith('.html'):
         src = fix_html(src)
     elif path.endswith('.json'):

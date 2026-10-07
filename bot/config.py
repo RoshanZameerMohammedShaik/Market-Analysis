@@ -292,7 +292,7 @@ def validate(cfg):
         print(f"[config] unknown accountType {cfg.get('accountType')!r}; using {CASH}")
         cfg['accountType'] = CASH
     if cfg.get('commissionPlan') not in (PLAN_LITE, PLAN_PRO_TIERED, PLAN_PRO_FIXED):
-        print(f"[config] unknown commissionPlan; using {PLAN_PRO_TIERED}")
+        print(f"[config] unknown commissionPlan, using {PLAN_PRO_TIERED}")
         cfg['commissionPlan'] = PLAN_PRO_TIERED
 
 

@@ -545,7 +545,7 @@ def approve(intent, sleeve, broker, cfg, prices, state_meta, today, traded_today
     rt_cost = round_trip_cost_pct(px, sym)
     cost_cap = float(risk.get('maxRoundTripCostPct', 0.25))
     if rt_cost is None or rt_cost > cost_cap:
-        return False, 0.0, (f'round trip {rt_cost:.2f}% exceeds the {cost_cap:.2f}% cap; only the cheapest '
+        return False, 0.0, (f'round trip {rt_cost:.2f}% exceeds the {cost_cap:.2f}% cap, only the cheapest '
                             f'execution tier is net-positive at any holding period')
 
     # ONLY TRADE WHEN THE SYSTEM EXPECTS A PROFIT AFTER COSTS.
@@ -710,7 +710,7 @@ def main():
         return
 
     if not cfg.get('enabled', True):
-        log('disabled in config; nothing to do')
+        log('disabled in config, nothing to do')
         return
 
     # ── the desk does NOTHING until Roshan starts it ──
@@ -729,7 +729,7 @@ def main():
         log('NOT ARMED. Waiting for a starting allocation. Nothing to do.')
         return
     if not cfg.get('allocationUSD'):
-        log('armed but allocationUSD is missing or zero; refusing to trade on an '
+        log('armed but allocationUSD is missing or zero, refusing to trade on an '
             'undefined pot.')
         return
 
@@ -800,12 +800,12 @@ def main():
         universe = candidate_universe(cfg, held, live)
     else:
         universe = [s for s in held if market_of(s) in live]
-        log(f'entry budget spent in every sleeve; watching {len(universe)} held position(s) '
+        log(f'entry budget spent in every sleeve, watching {len(universe)} held position(s) '
             f'only instead of re-scanning the universe')
     if not universe:
         record_run(cfg, acct, started, live, closed, [], [],
                    note='no candidates in the open markets', dry=args.dry_run)
-        log('no candidates; nothing to do')
+        log('no candidates, nothing to do')
         return
 
     # ── think (Node: the app's real engine + Mia's LLM) ──
@@ -847,7 +847,7 @@ def main():
         log(f'{len(stale)} candidate(s) dropped as stale')
     if not fresh:
         record_run(cfg, acct, started, live, closed, [], [],
-                   note='every quote was stale; market likely closed or feed down',
+                   note='every quote was stale, market likely closed or feed down',
                    dry=args.dry_run)
         log('all quotes stale, treating as closed')
         return

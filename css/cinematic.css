@@ -310,40 +310,22 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     from { clip-path: inset(0 100% 0 0); }
     to   { clip-path: inset(0 0 0 0); }
 }
-/* THE GALLOP.
-   The bull is a single traced outline, so its legs are not separate shapes and cannot be
-   swung individually -- claiming otherwise would mean splitting the silhouette and it would
-   look broken. What IS separate is the front hoof (navy[4] in the trace), and a body that
-   pitches and drives while that hoof reaches is what actually reads as running. The leap
-   plays once on arrival, then the gallop idles. */
+/* ONE LEAP, THEN STILL.
+   A looping gallop was tried on 2026-10-06 and removed the next day: an outline that pitches
+   and bobs forever on top of a chart reads as the bull dancing on the candles, not running
+   (Roshan: "it looks like that bull is dancing on those candles. I hate it."). The arrival
+   plays once, the bull lands, and nothing moves after that. The landing is also damped: the
+   old 1.35 overshoot made the touchdown itself bounce, which is the same problem in miniature.
+   A brand mark at rest should be at rest. */
 .app-title-bull.play .bull-bull {
     transform-origin: 30% 85%;
     transform-box: fill-box;
-    animation: bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) 0.34s both,
-               bull-gallop 1.15s ease-in-out 1.25s infinite;
+    animation: bull-leap 0.8s cubic-bezier(0.22, 1.08, 0.36, 1) 0.34s both;
 }
 @keyframes bull-leap {
     from { transform: translate(-18%, 16%) rotate(-12deg) scale(0.8); opacity: 0; }
     55%  { opacity: 1; }
     to   { transform: translate(0, 0) rotate(0) scale(1); opacity: 1; }
-}
-@keyframes bull-gallop {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    25%      { transform: translate(0.8%, -5%) rotate(-2.6deg); }   /* gather and rise */
-    50%      { transform: translate(0, -1.5%) rotate(0.4deg); }     /* extend */
-    75%      { transform: translate(-0.8%, -4%) rotate(2.2deg); }   /* drive */
-}
-/* The front hoof reaches on the opposite half of the stride to the body's rise, which is what
-   stops the two motions reading as one rigid wobble. */
-.app-title-bull.play .bull-hoof {
-    transform-origin: 50% 0%;
-    transform-box: fill-box;
-    animation: bull-hoof-step 1.15s ease-in-out 1.25s infinite;
-}
-@keyframes bull-hoof-step {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    30%      { transform: translate(-6%, 10%) rotate(-11deg); }
-    60%      { transform: translate(4%, -4%) rotate(7deg); }
 }
 /* Hover the title and the arrival sequence runs again. */
 .app-title-wrap:hover .bull-bar {
@@ -355,14 +337,12 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 }
 .app-title-wrap:hover .bull-bull {
     transform-origin: 30% 85%; transform-box: fill-box;
-    animation: bull-leap 0.78s cubic-bezier(0.2, 1.35, 0.4, 1) both,
-               bull-gallop 1.15s ease-in-out 0.9s infinite;
+    animation: bull-leap 0.8s cubic-bezier(0.22, 1.08, 0.36, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
     .app-title-bull.play .bull-bar,
     .app-title-bull.play .bull-arrow,
     .app-title-bull.play .bull-bull,
-    .app-title-bull.play .bull-hoof,
     .app-title-wrap:hover .bull-bar,
     .app-title-wrap:hover .bull-arrow,
     .app-title-wrap:hover .bull-bull {

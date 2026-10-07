@@ -259,7 +259,7 @@ def main():
     print('    rate is 53.58%, i.e. skill of -0.23pp: no edge, despite looking like')
     print('    +3.35 against an assumed 50%.')
     print('    IC is measured PER DATE because every symbol on one day shares a single')
-    print('    market move; pooling dates treats one common factor as thousands of')
+    print('    market move, pooling dates treats one common factor as thousands of')
     print('    independent observations.')
     print('    TRIAL COUNT: this report cannot know how many variants were tried to')
     print('    reach these numbers. Around 20 attempts produce a false p<0.05 result,')

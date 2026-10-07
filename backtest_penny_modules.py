@@ -229,7 +229,7 @@ def main():
             ],
         }
         if not confident:
-            result['caveats'].insert(0, f'Sample size {with_total} below 50 to 95% CI ±{round(ci_pp,1)}pp; treat as preliminary.')
+            result['caveats'].insert(0, f'Sample size {with_total} below 50 to 95% CI ±{round(ci_pp,1)}pp, treat as preliminary.')
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     with open(OUTPUT_PATH, 'w') as f:

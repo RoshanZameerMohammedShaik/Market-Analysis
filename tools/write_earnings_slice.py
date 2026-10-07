@@ -126,7 +126,7 @@ def main():
     # Refuse to publish a slice that is mostly failures: a blank file would read as
     # "nothing scheduled anywhere" to anyone who forgot the absent-vs-empty rule.
     if len(result) < 0.5 * len(symbols):
-        print(f'ERROR: only {len(result)}/{len(symbols)} lookups answered; not publishing.', file=sys.stderr)
+        print(f'ERROR: only {len(result)}/{len(symbols)} lookups answered, not publishing.', file=sys.stderr)
         sys.exit(1)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w', encoding='utf-8') as f:

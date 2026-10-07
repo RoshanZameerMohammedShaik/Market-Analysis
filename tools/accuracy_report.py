@@ -103,7 +103,7 @@ def main():
           f'NEUTRAL {sig.get("NEUTRAL",0):,}, NO_TRADE {sig.get("NO_TRADE",0):,} (abstained)')
     directional = sig.get('BUY', 0) + sig.get('SELL', 0)
     print(f'  Directional calls  : {directional:,} '
-          f'({100*directional/len(rows):.1f}% of rows; the rest are not graded for direction)')
+          f'({100*directional/len(rows):.1f}% of rows, the rest are not graded for direction)')
 
     # Split by grading provenance FIRST. Mixing the two is how the 70%+ figure
     # survived as long as it did.

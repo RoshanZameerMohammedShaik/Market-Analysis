@@ -303,7 +303,7 @@ def target_reachable(cand, exits=None):
     if sigma is None:
         sigma = cand.get('atrPct')
     if not isinstance(sigma, (int, float)) or sigma <= 0:
-        return True, {'reason': 'no volatility estimate; not filtered'}
+        return True, {'reason': 'no volatility estimate, not filtered'}
     days = float(e.get('windowDays') or 20)
     window = float(sigma) * (days ** 0.5)
     need = float(pct) / window if window > 0 else 99.0

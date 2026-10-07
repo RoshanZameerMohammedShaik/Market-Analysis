@@ -219,7 +219,7 @@ def main():
           f'{len({o["date"] for o in obs})} dates')
     print('=' * 100)
     print(f'  cost model: round trip = 2 x half-spread(price tier) + 2 x {SLIPPAGE_PCT}% slippage')
-    print('              conservative on purpose; see the module docstring')
+    print('              conservative on purpose, see the module docstring')
 
     def report(title, keyfn):
         groups = collections.defaultdict(list)

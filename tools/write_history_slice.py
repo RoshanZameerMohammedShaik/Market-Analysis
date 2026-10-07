@@ -154,7 +154,7 @@ def main():
         # Overwriting a good slice with an empty one would take seven features down until the next
         # cron. Leaving yesterday's in place is strictly better: they degrade to slightly stale
         # rather than blank.
-        print('no rows in window; refusing to overwrite the existing slice', file=sys.stderr)
+        print('no rows in window, refusing to overwrite the existing slice', file=sys.stderr)
         return 1
 
     tmp = OUT_PATH + '.tmp'
@@ -173,7 +173,7 @@ def main():
     # Catch it here, where the fix is --days, rather than at the edge.
     if size > 20 * 1024 * 1024:
         print(f'::error title=history slice too large::{size / 1048576:.1f} MB approaches '
-              f"Cloudflare's 25 MiB per-file limit; lower --days", file=sys.stderr)
+              f"Cloudflare's 25 MiB per-file limit, lower --days", file=sys.stderr)
         return 1
     return 0
 
