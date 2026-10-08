@@ -155,7 +155,7 @@
     <header class="app-header">
         <div class="header-content">
             <div class="app-title-wrap">
-                <h1 class="app-title app-title-static" data-text="MARKET ANALYZER">MARKET ANALYZER</h1>
+                <h1 class="app-title app-title-static">MARKET ANALYZER</h1>
                 <span class="app-title-bull" aria-hidden="true">
                     <svg class="bull-svg" viewBox="8.88 24.22 73.40 51.56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <g class="bull-bars">
@@ -556,9 +556,9 @@
                 };
             }
 
-            // 4. THE SLIDE. The bull starts behind the M, glides level behind the letters to
-            // its spot on flat ground, and the candles rise out of the ground under its front and
-            // lift it into the logo pose.
+            // 4. THE SLIDE. The bull starts behind the M and glides level behind the letters to
+            // its spot on flat ground, revealing the name as it goes. Then the candles rise out of
+            // the ground under its front and lift it into the logo pose.
             function runBull() {
                 if (!mark) return;
                 if (reduce) { mark.classList.remove('arming'); return; }
@@ -569,7 +569,7 @@
                 // Back to rest first, so a replay measures the resting spot, not a frame of the
                 // run in progress.
                 mark.classList.remove('running');
-                title.classList.remove('title-sweep');
+                title.classList.remove('title-reveal');
                 void mark.offsetWidth;
                 var vb = (svg.getAttribute('viewBox') || '0 0 100 100').split(/\s+/).map(Number);
                 var sr = svg.getBoundingClientRect();
@@ -582,42 +582,31 @@
                 mark.style.setProperty('--run-ms', RUN_MS + 'ms');
                 mark.classList.remove('arming');
                 mark.classList.add('running');
-                title.classList.add('title-sweep');
-                followBull(title, bull, br.width, perUnit, ++runSeq);
+                title.classList.add('title-reveal');
+                followBull(title, bull, br.width, ++runSeq);
                 clearTimeout(endTimer);
                 endTimer = setTimeout(function () {
                     mark.classList.remove('running');
-                    title.classList.remove('title-sweep');
+                    title.classList.remove('title-reveal');
                 }, RUN_MS + 100);
             }
             window.__replayBull = runBull;
 
-            // 5. THE SHIMMER FOLLOWS THE BULL. Every frame the light is put on the letters the
-            // bull is behind, measured from the bull itself, so it cannot drift from the slide at
-            // any header width or speed. It comes up as the bull appears and goes down over the
-            // bull's last half length before its spot, read from the bull's own translate, so it
-            // never just switches off and no timing constant has to match the keyframes.
-            function followBull(title, bull, restPx, perUnit, id) {
-                var restUnits = restPx / perUnit;
-                title.style.setProperty('--band', (restPx * 0.6).toFixed(1) + 'px');
+            // 5. THE BULL REVEALS THE NAME. Every frame the reveal edge is put where the bull is,
+            // measured from the bull itself, so it cannot drift from the slide at any header
+            // width or speed. It starts at the bull's tail and moves up to its middle as the bull
+            // fades in, so the M is uncovered by the bull passing it rather than all at once.
+            function followBull(title, bull, restPx, id) {
                 (function tick() {
                     if (id !== runSeq) return;
                     if (!mark.classList.contains('running')) {
-                        title.style.removeProperty('--sweep-x');
-                        title.style.removeProperty('--shine');
-                        title.style.removeProperty('--band');
+                        title.style.removeProperty('--reveal-x');
                         return;
                     }
                     var tr = title.getBoundingClientRect();
                     var br = bull.getBoundingClientRect();
-                    var cs = getComputedStyle(bull);
-                    var seen = parseFloat(cs.opacity) || 0;
-                    var left = Math.abs(parseFloat(cs.translate)) || 0;   // SVG units to go
-                    var fade = Math.min(1, left / (restUnits * 0.5));
-                    // A touch behind the bull's middle, so the light trails it like a wake and the M is
-                    // already lit as the bull appears behind it.
-                    title.style.setProperty('--sweep-x', (br.left + br.width * 0.4 - tr.left).toFixed(1) + 'px');
-                    title.style.setProperty('--shine', Math.round(100 * seen * fade) + '%');
+                    var seen = parseFloat(getComputedStyle(bull).opacity) || 0;
+                    title.style.setProperty('--reveal-x', (br.left - tr.left + restPx * 0.5 * seen).toFixed(1) + 'px');
                     requestAnimationFrame(tick);
                 })();
             }

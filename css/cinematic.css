@@ -235,6 +235,7 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     line-height: 1;
     color: var(--text-primary);
     text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: text-shadow 0.6s ease;
 }
 
 /* Header portfolio mark, three growing candles (small/medium/tall)
@@ -370,77 +371,48 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     100% { scale: 1 1; }
 }
 
-/* THE SHIMMER THE BULL MAKES, made unmistakable on 2026-10-07 (Roshan: "the shimmering effect
-   should be stronger and clearly visible"). The old band was white on near-white text, so it
-   barely registered. Now there are two layers:
-     the letters themselves take a vivid band, accent-blue edges around a white core, and
-     a glowing copy of the title, masked to the same band, blooms over it.
-   Both read their position from --sweep-x, which the splash script sets every frame from where
-   the bull actually is, so the light is always on the letters the bull is behind. There is no
-   second clock to keep in step with the run. --band is half the band's width (the bull's own
-   half width) and --shine fades the whole effect in with the bull and out as it climbs.
+/* THE BULL REVEALS THE NAME (Roshan, 2026-10-08: "if the Bull's coming actually reveals the name
+   instead of shimmering"). The title still hits back into the header bright, then the light drains
+   out of it to a faint imprint, and the bull brings it back: every letter it has passed is solid,
+   every letter ahead of it is still the imprint. No glow and no band, just the reveal.
 
-   WHY !important AND STOPS RATHER THAN background-position: .app-title.app-title-static above
-   sets background: none !important, and an !important declaration beats any animation, so the
-   gradient here must be !important too and must move by its stops. This file is also first in
-   the cascade (it is @imported at the top of style.css), which is why every selector in this
-   block is raised. */
-.app-header .header-content .app-title.title-sweep {
-    --shine-core: #ffffff;
-    --shine-edge: rgb(var(--accent-rgb));
+   The reveal edge is --reveal-x, which the splash script sets every frame from where the bull
+   actually is, so the edge cannot drift from the slide at any header width or speed. --ghost-pct
+   is how much of the title survives the drain. It is a registered property, so the drain animates
+   instead of snapping.
+
+   WHY !important AND STOPS: .app-title.app-title-static above sets background: none !important,
+   which beats any normal declaration, so the gradient here must be !important too. This file is
+   also first in the cascade (it is @imported at the top of style.css), which is why every selector
+   in this block is raised. The text-shadow glow goes for the reveal because a shadow paints over a
+   text-clipped background, and it would light up the imprint letters the bull has not reached. */
+@property --ghost-pct {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 100%;
+}
+.app-header .header-content .app-title.title-reveal {
     background-image: linear-gradient(100deg,
-        var(--text-primary) calc(var(--sweep-x, -200px) - var(--band, 28px)),
-        color-mix(in srgb, var(--shine-edge) var(--shine, 0%), var(--text-primary)) calc(var(--sweep-x, -200px) - var(--band, 28px) * 0.45),
-        color-mix(in srgb, var(--shine-core) var(--shine, 0%), var(--text-primary)) var(--sweep-x, -200px),
-        color-mix(in srgb, var(--shine-edge) var(--shine, 0%), var(--text-primary)) calc(var(--sweep-x, -200px) + var(--band, 28px) * 0.45),
-        var(--text-primary) calc(var(--sweep-x, -200px) + var(--band, 28px))) !important;
+        var(--text-primary) calc(var(--reveal-x, -24px) - 12px),
+        color-mix(in srgb, var(--text-primary) var(--ghost-pct), transparent) calc(var(--reveal-x, -24px) + 12px)) !important;
     background-size: 100% 100% !important;
     background-position: 0 0 !important;
     background-repeat: no-repeat !important;
     -webkit-background-clip: text !important;
     background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
+    text-shadow: none !important;
+    animation: title-drain 0.3s ease-out both;
 }
-/* The bloom. The copy sits exactly on the title's own glyphs: the box is grown by 14px on every
-   side and padded back by the same 14px, so the text lands in the same place while the glow has
-   room inside the mask. The empty alt text after the slash keeps a screen reader from hearing
-   the title twice. */
-.app-header .header-content .app-title.title-sweep::after {
-    content: attr(data-text);
-    content: attr(data-text) / "";
-    position: absolute;
-    inset: -14px;
-    padding: 14px;
-    pointer-events: none;
-    white-space: nowrap;
-    color: var(--shine-core);
-    -webkit-text-fill-color: var(--shine-core);
-    text-shadow:
-        0 0 3px rgba(var(--accent-rgb), 1),
-        0 0 9px rgba(var(--accent-rgb), 0.95),
-        0 0 20px rgba(var(--accent-rgb), 0.7);
-    opacity: var(--shine, 0%);
-    -webkit-mask-image: linear-gradient(100deg,
-        transparent calc(var(--sweep-x, -200px) + 14px - var(--band, 28px)),
-        #000 calc(var(--sweep-x, -200px) + 14px - var(--band, 28px) * 0.35),
-        #000 calc(var(--sweep-x, -200px) + 14px + var(--band, 28px) * 0.35),
-        transparent calc(var(--sweep-x, -200px) + 14px + var(--band, 28px)));
-    mask-image: linear-gradient(100deg,
-        transparent calc(var(--sweep-x, -200px) + 14px - var(--band, 28px)),
-        #000 calc(var(--sweep-x, -200px) + 14px - var(--band, 28px) * 0.35),
-        #000 calc(var(--sweep-x, -200px) + 14px + var(--band, 28px) * 0.35),
-        transparent calc(var(--sweep-x, -200px) + 14px + var(--band, 28px)));
-}
-/* On the light theme a white core would vanish into the light header, so the light itself is
-   the accent and the edges a paler blue. */
-[data-theme="light"] .app-header .header-content .app-title.title-sweep {
-    --shine-core: rgb(var(--accent-rgb));
-    --shine-edge: color-mix(in srgb, rgb(var(--accent-rgb)) 55%, #ffffff);
+@keyframes title-drain {
+    from { --ghost-pct: 100%; }
+    to   { --ghost-pct: 11%; }
 }
 @media (prefers-reduced-motion: reduce) {
     .app-title-bull.running .bull-bull,
     .app-title-bull.running .bull-bars,
-    .app-title-bull.running .bull-arrow { animation: none; }
+    .app-title-bull.running .bull-arrow,
+    .app-header .header-content .app-title.title-reveal { animation: none; }
     .app-title-bull.arming .bull-bull { opacity: 1; }
     .app-title-bull.arming .bull-bars,
     .app-title-bull.arming .bull-arrow { scale: none; }
