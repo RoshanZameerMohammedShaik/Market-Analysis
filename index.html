@@ -595,8 +595,12 @@
             // 5. THE BULL REVEALS THE NAME. Every frame the reveal edge is put where the bull is,
             // measured from the bull itself, so it cannot drift from the slide at any header
             // width or speed. It starts at the bull's tail and moves up to its middle as the bull
-            // fades in, so the M is uncovered by the bull passing it rather than all at once.
+            // fades in, so the M is uncovered by the bull passing it rather than all at once. It
+            // only ever moves forward, because the bull's box shifts back a little as the candles
+            // tip it up, and once the bull is at its spot the whole name is out, so a narrow
+            // phone header cannot leave the R half revealed.
             function followBull(title, bull, restPx, id) {
+                var reached = -Infinity;
                 (function tick() {
                     if (id !== runSeq) return;
                     if (!mark.classList.contains('running')) {
@@ -605,8 +609,12 @@
                     }
                     var tr = title.getBoundingClientRect();
                     var br = bull.getBoundingClientRect();
-                    var seen = parseFloat(getComputedStyle(bull).opacity) || 0;
-                    title.style.setProperty('--reveal-x', (br.left - tr.left + restPx * 0.5 * seen).toFixed(1) + 'px');
+                    var cs = getComputedStyle(bull);
+                    var seen = parseFloat(cs.opacity) || 0;
+                    var arrived = Math.abs(parseFloat(cs.translate) || 0) < 0.5 && seen > 0.99;
+                    var x = arrived ? tr.width + 24 : br.left - tr.left + restPx * 0.5 * seen;
+                    reached = Math.max(reached, x);
+                    title.style.setProperty('--reveal-x', reached.toFixed(1) + 'px');
                     requestAnimationFrame(tick);
                 })();
             }
