@@ -277,16 +277,15 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
     display: block;
 }
 
-/* THE ENTRANCE, driven by the splash script in index.html (Roshan, 2026-10-07):
-   the title hits back into the header, the candles are already there, and the bull comes from
-   behind the title, runs from the M to the R lighting the letters as it passes, then climbs the
-   candles. The resting state is the finished logo: .arming hides the bull only while the script
-   is about to run it, so a page where the script never runs still shows a complete mark.
-
-   Candles and arrow do not animate at all now. They are already sitting there when the title
-   lands, which is what makes the bull's arrival read as the event. */
+/* THE MARK'S COLOURS (Roshan, 2026-10-08). The candles take each theme's accent, except on
+   Daylight, where they are green. The arrow is red in every theme. It is a fixed red rather than
+   the theme's --red because two themes tint that toward pink (Forest #fb7185, Aurora #ff5c8a),
+   and on Daylight it is the deeper red so it holds up on white. The entrance that animates all of
+   this is further down. */
 .bull-bar   { fill: rgb(var(--accent-rgb)); }
-.bull-arrow { fill: var(--green); }
+.bull-arrow { fill: #ef4444; }
+[data-theme="light"] .bull-bar   { fill: var(--green); }
+[data-theme="light"] .bull-arrow { fill: #dc2626; }
 .bull-bull  { fill: var(--text-primary); }
 /* The mane line is the reference's page colour showing THROUGH the bull, so it is knocked out
    to the header background. It lives inside the bull group so it travels with the run. */
