@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-09T08:36:25Z",
-  "runs": 1540,
+  "updatedAt": "2026-10-09T13:38:16Z",
+  "runs": 1549,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 10013.643779,
-    "cashUSD": 4000.25698,
-    "unsettledCashUSD": 0.0,
-    "holdingsUSD": 6013.386799,
-    "realizedUSD": -45.272118,
-    "unrealizedUSD": 58.915897,
-    "feesUSD": 13.392646,
-    "pnlUSD": 13.643779,
-    "pnlPct": 0.1364,
-    "trades": 13
+    "equityUSD": 9824.419769,
+    "cashUSD": 4000.227676,
+    "unsettledCashUSD": 958.26821,
+    "holdingsUSD": 4865.923883,
+    "realizedUSD": -273.018736,
+    "unrealizedUSD": 97.438505,
+    "feesUSD": 15.05378,
+    "pnlUSD": -175.580231,
+    "pnlPct": -1.7558,
+    "trades": 14
   },
   "sleeves": {
     "engine": {
@@ -43,7 +43,7 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 126.485172,
+      "cashUSD": 126.455868,
       "positions": {
         "TJX": {
           "units": 9.184036308861328,
@@ -54,22 +54,12 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
-        },
-        "DYN": {
-          "units": 57.41028946698018,
-          "lots": [
-            {
-              "units": 57.41028946698018,
-              "costUSD": 1186.0148281356096,
-              "openedAt": "2026-09-08T18:29:28Z"
-            }
-          ]
         }
       },
-      "pendingUSD": 0.0,
-      "realizedUSD": 0.0,
-      "feesUSD": 1.897123,
-      "trades": 2
+      "pendingUSD": 958.26821,
+      "realizedUSD": -227.746618,
+      "feesUSD": 3.558257,
+      "trades": 3
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -120,7 +110,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [],
+    "pending": [
+      {
+        "amountUSD": 958.26821,
+        "settlesOn": "2026-10-12"
+      }
+    ],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
@@ -136,10 +131,11 @@
       "reversion:TJX": "2026-09-08T18:14:44Z",
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
-      "reversion:DYN": "2026-09-08T18:29:28Z",
       "engine:UPST": "2026-10-07T13:43:45Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "reversion": 1
+    },
     "day": "2026-10-09"
   },
   "equityOpen": {
@@ -148,5 +144,7 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {}
+  "pendingBySleeve": {
+    "reversion": 958.26821
+  }
 }
