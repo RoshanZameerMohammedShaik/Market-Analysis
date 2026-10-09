@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-09T13:38:16Z",
-  "runs": 1549,
+  "updatedAt": "2026-10-09T13:53:11Z",
+  "runs": 1550,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9824.419769,
-    "cashUSD": 4000.227676,
-    "unsettledCashUSD": 958.26821,
-    "holdingsUSD": 4865.923883,
-    "realizedUSD": -273.018736,
-    "unrealizedUSD": 97.438505,
-    "feesUSD": 15.05378,
-    "pnlUSD": -175.580231,
-    "pnlPct": -1.7558,
-    "trades": 14
+    "equityUSD": 9812.85338,
+    "cashUSD": 4000.200053,
+    "unsettledCashUSD": 2224.273274,
+    "holdingsUSD": 3588.380052,
+    "realizedUSD": -194.513672,
+    "unrealizedUSD": 7.367051,
+    "feesUSD": 15.968227,
+    "pnlUSD": -187.14662,
+    "pnlPct": -1.8715,
+    "trades": 15
   },
   "sleeves": {
     "engine": {
@@ -43,23 +43,12 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 126.455868,
-      "positions": {
-        "TJX": {
-          "units": 9.184036308861328,
-          "lots": [
-            {
-              "units": 9.184036308861328,
-              "costUSD": 1187.5,
-              "openedAt": "2026-09-08T18:14:44Z"
-            }
-          ]
-        }
-      },
-      "pendingUSD": 958.26821,
-      "realizedUSD": -227.746618,
-      "feesUSD": 3.558257,
-      "trades": 3
+      "cashUSD": 126.428245,
+      "positions": {},
+      "pendingUSD": 2224.273274,
+      "realizedUSD": -149.241554,
+      "feesUSD": 4.472704,
+      "trades": 4
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -114,6 +103,10 @@
       {
         "amountUSD": 958.26821,
         "settlesOn": "2026-10-12"
+      },
+      {
+        "amountUSD": 1266.005064,
+        "settlesOn": "2026-10-12"
       }
     ],
     "debitUSD": 0.0,
@@ -128,13 +121,12 @@
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
   "meta": {
     "openedAt": {
-      "reversion:TJX": "2026-09-08T18:14:44Z",
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "engine:UPST": "2026-10-07T13:43:45Z"
     },
     "tradesToday": {
-      "reversion": 1
+      "reversion": 2
     },
     "day": "2026-10-09"
   },
@@ -145,6 +137,6 @@
     "control": 2500.0
   },
   "pendingBySleeve": {
-    "reversion": 958.26821
+    "reversion": 2224.273274
   }
 }
