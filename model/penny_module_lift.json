@@ -1,9 +1,9 @@
 {
-  "runDate": "2026-10-09T11:26:45.695994Z",
-  "sampleSize": 3979,
+  "runDate": "2026-10-10T10:34:40.815344Z",
+  "sampleSize": 4019,
   "hitRateWith": 50.8,
   "hitRateWithout": 50.8,
-  "liftPp": 0.1,
+  "liftPp": 0.0,
   "ciHalfWidthPp": 2.2,
   "confident": true,
   "finraSamples": 50,
