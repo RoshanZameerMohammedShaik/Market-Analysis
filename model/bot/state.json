@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-11T15:53:30Z",
-  "runs": 1660,
+  "updatedAt": "2026-10-12T00:02:13Z",
+  "runs": 1680,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9878.641925,
-    "cashUSD": 4000.200053,
-    "unsettledCashUSD": 2224.273274,
-    "holdingsUSD": 3654.168598,
+    "equityUSD": 9883.662841,
+    "cashUSD": 6224.473327,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 3659.189514,
     "realizedUSD": -194.513672,
-    "unrealizedUSD": 73.155597,
+    "unrealizedUSD": 78.176513,
     "feesUSD": 15.968227,
-    "pnlUSD": -121.358075,
-    "pnlPct": -1.2136,
+    "pnlUSD": -116.337159,
+    "pnlPct": -1.1634,
     "trades": 15
   },
   "sleeves": {
@@ -43,9 +43,9 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 126.428245,
+      "cashUSD": 2350.701519,
       "positions": {},
-      "pendingUSD": 2224.273274,
+      "pendingUSD": 0.0,
       "realizedUSD": -149.241554,
       "feesUSD": 4.472704,
       "trades": 4
@@ -99,23 +99,14 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [
-      {
-        "amountUSD": 958.26821,
-        "settlesOn": "2026-10-12"
-      },
-      {
-        "amountUSD": 1266.005064,
-        "settlesOn": "2026-10-12"
-      }
-    ],
+    "pending": [],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
       "2026-10-07"
     ],
     "openedToday": {},
-    "lastAccrual": "2026-10-11",
+    "lastAccrual": "2026-10-12",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -126,7 +117,7 @@
       "engine:UPST": "2026-10-07T13:43:45Z"
     },
     "tradesToday": {},
-    "day": "2026-10-11"
+    "day": "2026-10-12"
   },
   "equityOpen": {
     "engine": 2500.0,
@@ -134,7 +125,5 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {
-    "reversion": 2224.273274
-  }
+  "pendingBySleeve": {}
 }
