@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-12T14:08:43Z",
-  "runs": 1707,
+  "updatedAt": "2026-10-12T16:38:54Z",
+  "runs": 1717,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9767.64601,
-    "cashUSD": 5107.890105,
+    "equityUSD": 9754.904051,
+    "cashUSD": 3954.225528,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 4659.755904,
+    "holdingsUSD": 5800.678523,
     "realizedUSD": -194.513672,
-    "unrealizedUSD": -37.840318,
-    "feesUSD": 16.972248,
-    "pnlUSD": -232.35399,
-    "pnlPct": -2.3235,
-    "trades": 16
+    "unrealizedUSD": -50.582277,
+    "feesUSD": 18.009612,
+    "pnlUSD": -245.095949,
+    "pnlPct": -2.451,
+    "trades": 17
   },
   "sleeves": {
     "engine": {
@@ -65,7 +65,7 @@
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 1360.08633,
+      "cashUSD": 206.421753,
       "positions": {
         "MAN": {
           "units": 20.749076792761297,
@@ -76,12 +76,22 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
+        },
+        "UPST": {
+          "units": 47.807018347539724,
+          "lots": [
+            {
+              "units": 47.807018347539724,
+              "costUSD": 1153.664576850306,
+              "openedAt": "2026-10-12T16:38:54Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": 47.645163,
-      "feesUSD": 4.964674,
-      "trades": 5
+      "feesUSD": 6.002038,
+      "trades": 6
     },
     "control": {
       "id": "control",
@@ -118,7 +128,8 @@
     ],
     "openedToday": {
       "2026-10-12": {
-        "MAN": 21.482364726454456
+        "MAN": 21.482364726454456,
+        "UPST": 47.807018347539724
       }
     },
     "lastAccrual": "2026-10-12",
@@ -130,10 +141,12 @@
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "engine:UPST": "2026-10-07T13:43:45Z",
-      "reversion:MAN": "2026-10-12T14:08:43Z"
+      "reversion:MAN": "2026-10-12T14:08:43Z",
+      "mia-ai:UPST": "2026-10-12T16:38:54Z"
     },
     "tradesToday": {
-      "reversion": 1
+      "reversion": 1,
+      "mia-ai": 1
     },
     "day": "2026-10-12"
   },
