@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-12T10:03:38Z",
-  "runs": 1700,
+  "updatedAt": "2026-10-12T14:08:43Z",
+  "runs": 1707,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9879.798253,
-    "cashUSD": 6224.473327,
+    "equityUSD": 9767.64601,
+    "cashUSD": 5107.890105,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 3655.324926,
+    "holdingsUSD": 4659.755904,
     "realizedUSD": -194.513672,
-    "unrealizedUSD": 74.311925,
-    "feesUSD": 15.968227,
-    "pnlUSD": -120.201747,
-    "pnlPct": -1.202,
-    "trades": 15
+    "unrealizedUSD": -37.840318,
+    "feesUSD": 16.972248,
+    "pnlUSD": -232.35399,
+    "pnlPct": -2.3235,
+    "trades": 16
   },
   "sleeves": {
     "engine": {
@@ -43,12 +43,23 @@
       "id": "reversion",
       "name": "Mean Reversion",
       "blurb": "Buys oversold, sells strength. The one component measured with real positive IC (+0.05, t 3.3) before costs.",
-      "cashUSD": 2350.701519,
-      "positions": {},
+      "cashUSD": 1234.118297,
+      "positions": {
+        "MAN": {
+          "units": 21.482364726454456,
+          "lots": [
+            {
+              "units": 21.482364726454456,
+              "costUSD": 1116.5832215250002,
+              "openedAt": "2026-10-12T14:08:43Z"
+            }
+          ]
+        }
+      },
       "pendingUSD": 0.0,
       "realizedUSD": -149.241554,
-      "feesUSD": 4.472704,
-      "trades": 4
+      "feesUSD": 5.476725,
+      "trades": 5
     },
     "mia-ai": {
       "id": "mia-ai",
@@ -105,7 +116,11 @@
     "dayTrades": [
       "2026-10-07"
     ],
-    "openedToday": {},
+    "openedToday": {
+      "2026-10-12": {
+        "MAN": 21.482364726454456
+      }
+    },
     "lastAccrual": "2026-10-12",
     "violations": []
   },
@@ -114,9 +129,12 @@
     "openedAt": {
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
-      "engine:UPST": "2026-10-07T13:43:45Z"
+      "engine:UPST": "2026-10-07T13:43:45Z",
+      "reversion:MAN": "2026-10-12T14:08:43Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "reversion": 1
+    },
     "day": "2026-10-12"
   },
   "equityOpen": {
