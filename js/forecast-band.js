@@ -60,6 +60,71 @@ export function bandAnchor(candles, region, nowMs = Date.now()) {
 }
 
 const CAL_URL = 'model/band_calibration.json';
+const LIVE_URL = 'model/band_live.json';
+let _live = null;
+let _livePromise = null;
+
+/** The live correction (tools/write_band_live.py). MIRRORS forecast_band.load_live. */
+export async function loadBandLive() {
+    if (_live !== null) return _live || null;
+    if (_livePromise) return _livePromise;
+    _livePromise = (async () => {
+        try {
+            const r = await fetch(LIVE_URL, { cache: 'no-cache' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const j = await r.json();
+            _live = j && j.cells && typeof j.cells === 'object' ? j : false;
+        } catch (_) { _live = false; }
+        return _live || null;
+    })();
+    return _livePromise;
+}
+export function setBandLive(d) { _live = d && d.cells ? d : false; _livePromise = null; }
+
+const BLEND_URL = 'model/band_blend.json';
+let _blend = null;
+let _blendPromise = null;
+/** The blended band's z (tools/calibrate_band_blend.py). MIRRORS forecast_band.load_blend. */
+export async function loadBandBlend() {
+    if (_blend !== null) return _blend || null;
+    if (_blendPromise) return _blendPromise;
+    _blendPromise = (async () => {
+        try {
+            const r = await fetch(BLEND_URL, { cache: 'no-cache' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const j = await r.json();
+            _blend = j && j.zPerDay && j.horizons ? j : false;
+        } catch (_) { _blend = false; }
+        return _blend || null;
+    })();
+    return _blendPromise;
+}
+export function setBandBlend(d) { _blend = d && d.zPerDay ? d : false; _blendPromise = null; }
+/** The blend's held-out record, for the card's explanation. */
+export function blendHeldOut() { return (_blend && _blend.heldOut) || null; }
+
+/** Liquid US listing, the population the blend was fitted on. MIRRORS forecast_band.blend_eligible. */
+export function blendEligible(candles, region) {
+    if (String(region || '').toUpperCase() !== 'NYSE' || !Array.isArray(candles) || candles.length < 20) return false;
+    const tail = candles.slice(-20);
+    const px = tail[tail.length - 1].close ?? 0;
+    const dv = tail.reduce((a, c) => a + (c.close ?? 0) * (c.volume ?? 0), 0) / 20;
+    return px >= 5 && dv >= 5e7;
+}
+
+const dayBucket = (h) => (h === 1 ? '1' : h <= 3 ? '2-3' : h <= 6 ? '4-6' : '7-10');
+
+/** One band day's live multiplier. MIRRORS forecast_band.live_multiplier. */
+export function liveMultiplier(live, region, tier, h, earn, source = 'trail') {
+    if (!live || !region) return 1;
+    const cells = live.cells || {};
+    const fam = earn ? 'earn' : 'ord';
+    const sfx = source === 'blend' ? ':blend' : '';
+    const spec = cells[`${String(region).toUpperCase()}:${tier}:${dayBucket(h)}:${fam}${sfx}`];
+    if (spec && (spec.n || 0) >= (live.minSpecific ?? 120)) return Number(spec.m) || 1;
+    const pooled = cells[`ALL:${tier}:${dayBucket(h)}:${fam}${sfx}`];
+    return pooled ? (Number(pooled.m) || 1) : 1;
+}
 const VOL_LOOKBACK = 30;
 
 let _cal = null;
@@ -225,13 +290,28 @@ function zTablesFor(cal, mode, earningsDay) {
 }
 
 export function forecastBands({ candles, currentPrice, cryptoMode = false,
-                                mode = 'perDay', now = null, earningsDay = null }) {
-    const cal = _cal || FALLBACK;
+                                mode = 'perDay', now = null, earningsDay = null, region = null, live = undefined,
+                                sigmaVol = null, blend = undefined }) {
+    let cal = _cal || FALLBACK;
+    const lv = region && mode === 'perDay' ? (live !== undefined ? live : (_live || null)) : null;
+    const ms = [];
     const price = Number(currentPrice);
     if (!(price > 0)) return null;
 
-    const sigma = rangeSigma(candles, cal.volLookbackDays || VOL_LOOKBACK);
+    let sigma = rangeSigma(candles, cal.volLookbackDays || VOL_LOOKBACK);
     if (!sigma) return null;
+    // THE BLEND for a liquid US listing (forecast_band.py has the evidence): sqrt(30-day sigma *
+    // the volatility forecast), with the blend's own z.
+    const sigmaTrail = sigma;
+    let source = 'trail';
+    const bl = mode === 'perDay' && sigmaVol > 0 && sigmaVol <= MAX_SIGMA && !cal._fallback
+        ? (blend !== undefined ? blend : (_blend || null)) : null;
+    if (bl) {
+        sigma = Math.sqrt(sigma * sigmaVol);
+        cal = { ...cal, tierEdges: bl.tierEdges, zPerDay: bl.zPerDay, zPerDayEarn: bl.zPerDayEarn,
+                zPerDayNoEarn: bl.zPerDayNoEarn, horizons: bl.horizons };
+        source = 'blend';
+    }
 
     // Sub-penny assets are EXCLUDED from the calibration sample (MIN_PRICE in
     // tools/calibrate_bands.py), so the z values were never validated at this
@@ -255,7 +335,9 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
         // A split cell too thin to fit falls back to the pooled one rather than dropping the row.
         const z = tableFor(h)?.[tier]?.[String(h)] ?? zTable?.[tier]?.[String(h)] ?? null;
         const zz = z ?? 1.96;   // placeholder ONLY for the uncalibrated path
-        const move = zz * sigma * Math.sqrt(h);
+        const m = z === null ? 1 : liveMultiplier(lv, region, tier, h, !!(aware && earningsDay && h >= earningsDay), source);
+        ms.push(+m.toFixed(4));
+        const move = zz * m * sigma * Math.sqrt(h);
         const high = price * Math.exp(move);
         const low = price * Math.exp(-move);
         return {
@@ -280,5 +362,9 @@ export function forecastBands({ candles, currentPrice, cryptoMode = false,
         // r = earnings z from band day r onward.
         earningsDay: aware ? earningsDay : null,
         days,
+        // The live correction per day, only when one applied. MIRRORS forecast_band.py.
+        ...(ms.some(m => Math.abs(m - 1) > 1e-9) ? { m: ms } : {}),
+        ...(source === 'blend' ? { sigmaSource: 'blend', sigmaTrail: +(sigmaTrail * 100).toFixed(2),
+                                   sigmaVol: +(sigmaVol * 100).toFixed(2) } : {}),
     };
 }

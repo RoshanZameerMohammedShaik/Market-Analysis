@@ -70,6 +70,12 @@ const MODEL_OPTIONAL = [
 const MODEL = [
     'model/backtest_results.json',
     'model/band_calibration.json',
+    // The band's live correction and record (tools/write_band_live.py), read by js/forecast-band.js.
+    'model/band_live.json',
+    // The live "today" range's calibration (tools/calibrate_intraday.py), read by js/ui/forecast-cards.js.
+    'model/band_intraday.json',
+    // The blended band's z for liquid US listings (tools/calibrate_band_blend.py), read by js/forecast-band.js.
+    'model/band_blend.json',
     'model/live_calibration.json',
     'model/lstm_weights.json',
     'model/lstm_weights_penny.json',

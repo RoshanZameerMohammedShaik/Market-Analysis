@@ -41,7 +41,7 @@ import yfinance as yf
 
 from backtest import generate_prediction
 from price_round import round_price
-from forecast_band import forecast_bands, band_anchor, bar_is_complete, next_session
+from forecast_band import forecast_bands, band_anchor, bar_is_complete, next_session, blend_eligible
 from earnings_calendar import earnings_day as earnings_band_day
 from trend_gate import trend_state, gate as trend_gate_why
 from ai_infer import ai_prediction
@@ -134,6 +134,21 @@ def fetch_recent_candles(symbol: str, period='1y'):
         if attempt < _FETCH_RETRIES - 1:
             time.sleep(_FETCH_BACKOFF_S[attempt])
     return None, last_why
+
+
+_VOL_SLICE = None
+
+
+def vol_slice():
+    """model/vol_forecasts.json, last night's volatility forecasts (tools/write_vol_slice.py)."""
+    global _VOL_SLICE
+    if _VOL_SLICE is None:
+        try:
+            with open(os.path.join(SCRIPT_DIR, 'model', 'vol_forecasts.json'), encoding='utf-8') as f:
+                _VOL_SLICE = json.load(f)
+        except Exception:
+            _VOL_SLICE = {}
+    return _VOL_SLICE
 
 
 def candles_as_records(close, high, low, volume, n=120):
@@ -237,7 +252,15 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         except Exception:
             earn_day = None
         band_candles = candles_as_records(close[:k + 1], high[:k + 1], low[:k + 1], volume[:k + 1])
-        band = forecast_bands(band_candles, float(close[k]), mode='perDay', earnings_day=earn_day)
+        # A liquid US listing is sized by the blend of its 30-day range and last night's volatility
+        # forecast, when that forecast is for the same session the band starts from.
+        sigma_vol = None
+        vs = vol_slice()
+        fc = (vs.get('forecasts') or {}).get(symbol)
+        if fc and vs.get('sessionDate') == anchor_session and blend_eligible(band_candles, region):
+            sigma_vol = fc.get('s')
+        band = forecast_bands(band_candles, float(close[k]), mode='perDay', earnings_day=earn_day,
+                              region=region, sigma_vol=sigma_vol)
         if band:
             band['anchor'] = {'session': anchor_session, 'price': round_price(float(close[k])), 'day1': day1}
 

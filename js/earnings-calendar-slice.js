@@ -21,14 +21,43 @@ export const BAND_SESSIONS = 10;
 
 // Exchange close times and trading days. MIRRORS bot/sessions.py MARKETS, which is the one table.
 const MARKETS = {
-    NYSE:  { tz: 'America/New_York', close: [16, 0],  days: [1, 2, 3, 4, 5] },
-    LSE:   { tz: 'Europe/London',    close: [16, 30], days: [1, 2, 3, 4, 5] },
-    XETRA: { tz: 'Europe/Berlin',    close: [17, 30], days: [1, 2, 3, 4, 5] },
-    NSE:   { tz: 'Asia/Kolkata',     close: [15, 30], days: [1, 2, 3, 4, 5] },
-    HKEX:  { tz: 'Asia/Hong_Kong',   close: [16, 0],  days: [1, 2, 3, 4, 5] },
-    TYO:   { tz: 'Asia/Tokyo',       close: [15, 30], days: [1, 2, 3, 4, 5] },
-    ASX:   { tz: 'Australia/Sydney', close: [16, 0],  days: [1, 2, 3, 4, 5] },
+    NYSE:  { tz: 'America/New_York', open: [9, 30],  close: [16, 0],  lunch: null, days: [1, 2, 3, 4, 5] },
+    LSE:   { tz: 'Europe/London',    open: [8, 0],   close: [16, 30], lunch: null, days: [1, 2, 3, 4, 5] },
+    XETRA: { tz: 'Europe/Berlin',    open: [9, 0],   close: [17, 30], lunch: null, days: [1, 2, 3, 4, 5] },
+    NSE:   { tz: 'Asia/Kolkata',     open: [9, 15],  close: [15, 30], lunch: null, days: [1, 2, 3, 4, 5] },
+    HKEX:  { tz: 'Asia/Hong_Kong',   open: [9, 30],  close: [16, 0],  lunch: [[12, 0], [13, 0]], days: [1, 2, 3, 4, 5] },
+    TYO:   { tz: 'Asia/Tokyo',       open: [9, 0],   close: [15, 30], lunch: [[11, 30], [12, 30]], days: [1, 2, 3, 4, 5] },
+    ASX:   { tz: 'Australia/Sydney', open: [10, 0],  close: [16, 0],  lunch: null, days: [1, 2, 3, 4, 5] },
 };
+
+/**
+ * Is the session trading now, and what share of it is still to trade (lunch breaks excluded)?
+ * Crypto's "session" is the UTC day. Returns null when the market is not in session.
+ */
+export function sessionProgress(region, nowMs = Date.now()) {
+    const reg = String(region || '').toUpperCase();
+    if (reg === 'CRYPTO') {
+        const d = new Date(nowMs);
+        const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+        return { f: Math.max(0.001, 1 - mins / 1440) };
+    }
+    const m = MARKETS[reg];
+    if (!m) return null;
+    const { date, hour, minute } = localParts(nowMs, m.tz);
+    if (!isSession(reg, date, m.days)) return null;
+    const now = hour * 60 + minute;
+    const o = m.open[0] * 60 + m.open[1], c = m.close[0] * 60 + m.close[1];
+    if (now < o || now >= c) return null;
+    const ls = m.lunch ? m.lunch[0][0] * 60 + m.lunch[0][1] : null;
+    const le = m.lunch ? m.lunch[1][0] * 60 + m.lunch[1][1] : null;
+    const total = (c - o) - (m.lunch ? le - ls : 0);
+    let left = c - now;
+    if (m.lunch) {
+        if (now < ls) left -= (le - ls);            // the whole break is still ahead
+        else if (now < le) left -= (le - now);       // inside the break: only trading time counts
+    }
+    return { f: Math.max(0.001, Math.min(1, left / total)) };
+}
 
 let _slice = null;
 let _slicePromise = null;

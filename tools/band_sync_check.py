@@ -45,14 +45,15 @@ def synth(seed, n=N_CANDLES, base=100.0, drift=0.0, spread=0.02):
     return bars
 
 
-def py_forecast(cal, candles, price, mode='perDay', earnings_day=None):
+def py_forecast(cal, candles, price, mode='perDay', earnings_day=None, region=None, live=None, sigma_vol=None):
     """Delegate to the REAL module. This file used to carry its own copy of the
     band math, which made it a third implementation and therefore a third thing
     to drift: a parity test that reimplements the code under test can pass while
     both sides are wrong together. forecast_band.py is now the only Python band,
     used by the cron and validated here against the JS."""
     return forecast_band.forecast_bands(candles, price, mode=mode, cal=cal,
-                                       earnings_day=earnings_day)
+                                       earnings_day=earnings_day, region=region, live=live or {},
+                                       sigma_vol=sigma_vol)
 
 
 def anchor_cases():
@@ -186,6 +187,23 @@ def build_fixtures(live=False):
         bars = synth(2, spread=0.022)
         payload[f'SYNTH_EARN_D{state}'] = {'candles': bars, 'price': bars[-1]['close'],
                                            'crypto': False, 'earningsDay': state}
+    # THE LIVE CORRECTION. A region-specific cell with enough graded days, a thin one that must
+    # fall back to the all-regions cell, and an earnings cell, so both languages pick the same
+    # cell and apply the same multiplier.
+    LIVE = {'minSpecific': 120, 'cells': {
+        'NYSE:calm:1:ord': {'n': 500, 'm': 1.18}, 'NYSE:calm:2-3:ord': {'n': 40, 'm': 0.85},
+        'ALL:calm:2-3:ord': {'n': 2000, 'm': 1.07}, 'ALL:calm:4-6:earn': {'n': 900, 'm': 1.31},
+        'ALL:calm:7-10:ord': {'n': 900, 'm': 0.92}}}
+    for state in (None, 4):
+        bars = synth(2, spread=0.022)
+        payload[f'SYNTH_LIVE_E{state}'] = {'candles': bars, 'price': bars[-1]['close'], 'crypto': False,
+                                          'earningsDay': state, 'region': 'NYSE', 'live': LIVE}
+    # THE BLEND: the same bars sized by sqrt(30-day sigma * a volatility forecast), with and without
+    # an earnings day, across two forecast levels, so both languages pick the blend's z the same way.
+    for sv, state in ((0.012, None), (0.031, 0), (0.019, 3)):
+        bars = synth(2, spread=0.022)
+        payload[f'SYNTH_BLEND_{int(sv * 1000)}_E{state}'] = {'candles': bars, 'price': bars[-1]['close'], 'crypto': False,
+                                                             'earningsDay': state, 'sigmaVol': sv}
     if live:
         import datetime, time, urllib.request
         ua = {'User-Agent': 'Mozilla/5.0'}
@@ -246,7 +264,8 @@ def main():
 
     print(f'{"case":<15}{"tier":<9}{"sigma%":>8}{"conf":>6}{"max diff":>11}  result')
     for name, o in payload.items():
-        p = py_forecast(cal, o['candles'], o['price'], earnings_day=o.get('earningsDay'))
+        p = py_forecast(cal, o['candles'], o['price'], earnings_day=o.get('earningsDay'),
+                        region=o.get('region'), live=o.get('live'), sigma_vol=o.get('sigmaVol'))
         j = js.get(name)
         if p is None or j is None:
             print(f'{name:<15}{"-":<9}{"-":>8}{"-":>6}{"-":>11}  '
@@ -266,7 +285,10 @@ def main():
               and j['confidence'] == round(cal['targetConfidence'] * 100)
               # Which z family drew the band has to agree too, or one side is silently
               # using the pooled z while the other widens for earnings.
-              and j.get('earningsDay') == p.get('earningsDay'))
+              and j.get('earningsDay') == p.get('earningsDay')
+              # And the live correction must be the same multipliers, day by day.
+              and (j.get('m') or None) == (p.get('m') or None)
+              and (j.get('sigmaSource') or None) == (p.get('sigmaSource') or None))
         failures += 0 if ok else 1
         print(f'{name:<15}{p["volTier"]:<9}{p["sigmaDaily"]:>8.2f}{j["confidence"]:>5}%'
               f'{worst:>11.4f}  {"OK" if ok else "MISMATCH"}')

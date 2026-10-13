@@ -19,7 +19,7 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday } from './forecast-cards.js';
 import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
 
 let lastShownConfidence = null;
@@ -455,6 +455,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             todayBar: lastDone ? null : todayPartialBar(candles, region),
             news: prediction.news || newsData || [], dirRec: directionRecord(),
             setupsLive: rec?.overall?.n ? { ...rec.overall, since: rec.since } : null,
+            intraday: await loadIntraday(),
         });
     } catch (_) { cardsHTML = ''; }
     // Per-symbol confidence-trend placeholder, filled async after paint

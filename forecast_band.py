@@ -28,6 +28,11 @@ from price_round import round_price
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 CAL_PATH = os.path.join(_HERE, 'model', 'band_calibration.json')
+LIVE_PATH = os.path.join(_HERE, 'model', 'band_live.json')
+BLEND_PATH = os.path.join(_HERE, 'model', 'band_blend.json')
+# Who gets the blended sigma (tools/calibrate_band_blend.py): the population it was fitted on.
+BLEND_MIN_DOLLAR_VOL = 5e7
+BLEND_MIN_PRICE = 5.0
 
 # MUST match js/forecast-band.js and tools/calibrate_bands.py.
 MIN_PRICE = 0.01
@@ -57,6 +62,78 @@ def load_calibration(path=None):
         return _cal
     except Exception:
         return None
+
+
+_live = None
+_live_tried = False
+
+
+def load_live(path=None):
+    """model/band_live.json (tools/write_band_live.py), memoised. None when unavailable."""
+    global _live, _live_tried
+    if path is None and _live_tried:
+        return _live
+    try:
+        with open(path or LIVE_PATH, encoding='utf-8') as f:
+            d = json.load(f)
+        d = d if isinstance(d.get('cells'), dict) else None
+    except Exception:
+        d = None
+    if path is None:
+        _live, _live_tried = d, True
+    return d
+
+
+_blend = None
+_blend_tried = False
+
+
+def load_blend(path=None):
+    """model/band_blend.json, memoised. None when unavailable."""
+    global _blend, _blend_tried
+    if path is None and _blend_tried:
+        return _blend
+    try:
+        with open(path or BLEND_PATH, encoding='utf-8') as f:
+            d = json.load(f)
+        d = d if d.get('zPerDay') and d.get('horizons') else None
+    except Exception:
+        d = None
+    if path is None:
+        _blend, _blend_tried = d, True
+    return d
+
+
+def blend_eligible(candles, region):
+    """Liquid US listing: the population the blended band was fitted on."""
+    if str(region or '').upper() != 'NYSE' or not candles or len(candles) < 20:
+        return False
+    tail = list(candles)[-20:]
+    px = tail[-1].get('close') or 0
+    dv = sum((c.get('close') or 0) * (c.get('volume') or 0) for c in tail) / 20
+    return px >= BLEND_MIN_PRICE and dv >= BLEND_MIN_DOLLAR_VOL
+
+
+def day_bucket(h):
+    return '1' if h == 1 else '2-3' if h <= 3 else '4-6' if h <= 6 else '7-10'
+
+
+def live_multiplier(live, region, tier, h, earn, source='trail'):
+    """The live correction for one band day (tools/write_band_live.py), 1.0 without data.
+
+    The region's own cell when it has enough graded days, else the all-regions cell.
+    """
+    if not live or not region:
+        return 1.0
+    cells = live.get('cells') or {}
+    fam = 'earn' if earn else 'ord'
+    b = day_bucket(h)
+    suffix = ':blend' if source == 'blend' else ''
+    spec = cells.get(f'{str(region).upper()}:{tier}:{b}:{fam}{suffix}')
+    if spec and spec.get('n', 0) >= live.get('minSpecific', 120):
+        return float(spec.get('m') or 1.0)
+    pooled = cells.get(f'ALL:{tier}:{b}:{fam}{suffix}')
+    return float(pooled.get('m') or 1.0) if pooled else 1.0
 
 
 def range_sigma(candles, n=VOL_LOOKBACK):
@@ -191,7 +268,8 @@ def _z_tables(c, mode, earnings_day):
     return (lambda h: earn if (earnings_day and h >= earnings_day) else ordinary), True
 
 
-def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day=None):
+def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day=None, region=None, live=None,
+                   sigma_vol=None, blend=None):
     """7-day High/Low band. Returns None when it cannot be stated honestly.
 
     mode='perDay'     day h's OWN session extremes. What the UI shows.
@@ -199,8 +277,16 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day
                       basis for a STOP, since a stop can be hit on any day.
     earnings_day      None (unknown), 0 (none inside the band) or the first band day an
                       earnings announcement moves. From earnings_calendar.earnings_day().
+    region            with it, the per-day band takes the live correction for its kind
+                      (tools/write_band_live.py), recorded in 'm' so the grade can undo it.
+    sigma_vol         the volatility model's forecast (vol_forecast.py), for a liquid US listing
+                      (blend_eligible). With it the per-day band is sized by the BLEND
+                      sqrt(30-day sigma * forecast) and uses the blend's own z
+                      (tools/calibrate_band_blend.py): it held 79-80% in every VIX regime where
+                      the 30-day band fell to 72.6% above VIX 30 (liquid US, 2022-2026).
     """
     c = cal or load_calibration()
+    lv = (live if live is not None else load_live()) if (region and mode == 'perDay') else None
     if not c:
         return None
     try:
@@ -221,6 +307,12 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day
     sigma = range_sigma(candles, c.get('volLookbackDays', VOL_LOOKBACK))
     if not sigma:
         return None
+    source, sigma_trail = 'trail', sigma
+    bl = (blend if blend is not None else load_blend()) if (mode == 'perDay' and sigma_vol) else None
+    if bl and isinstance(sigma_vol, (int, float)) and 0 < sigma_vol <= MAX_SIGMA:
+        sigma = math.sqrt(sigma * sigma_vol)
+        c = {**c, **{k: bl[k] for k in ('tierEdges', 'zPerDay', 'zPerDayEarn', 'zPerDayNoEarn', 'horizons') if k in bl}}
+        source = 'blend'
 
     edges = [tuple(e) for e in c['tierEdges']]
     tier = tier_for(sigma, edges)
@@ -230,6 +322,7 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day
     table_for, earnings_aware = _z_tables(c, mode, earnings_day)
 
     days = []
+    ms = []
     for h in c['horizons']:
         # A split cell too thin to fit falls back to the pooled one rather than dropping the row.
         z = (table_for(h).get(tier) or {}).get(str(h))
@@ -237,7 +330,9 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day
             z = table[tier].get(str(h))
         if z is None:
             continue
-        dist = z * sigma * math.sqrt(h)
+        m = live_multiplier(lv, region, tier, h, bool(earnings_aware and earnings_day and h >= earnings_day), source)
+        ms.append(round(m, 4))
+        dist = z * m * sigma * math.sqrt(h)
         hi = price * math.exp(dist)
         lo = price * math.exp(-dist)
         days.append({'day': h, 'low': round_price(lo), 'high': round_price(hi),
@@ -256,4 +351,9 @@ def forecast_bands(candles, current_price, mode='perDay', cal=None, earnings_day
         # r = earnings z from band day r. The UI marks those rows.
         'earningsDay': earnings_day if earnings_aware else None,
         'days': days,
+        # The live correction per day, only when one applied (tools/write_band_live.py).
+        **({'m': ms} if any(abs(m - 1.0) > 1e-9 for m in ms) else {}),
+        # Which volatility sized it, and the two inputs when it was the blend.
+        **({'sigmaSource': 'blend', 'sigmaTrail': round(sigma_trail * 100, 2),
+            'sigmaVol': round(sigma_vol * 100, 2)} if source == 'blend' else {}),
     }

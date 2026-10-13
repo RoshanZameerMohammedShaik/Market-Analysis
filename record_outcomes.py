@@ -396,6 +396,81 @@ def resolve_horizon(row: dict, h_days: int, bars):
     }
 
 
+def band_day_dates(row):
+    """Session dates of a band's days, from its anchor (the cron's own definition), or []."""
+    fb = row.get('forecastBand') or {}
+    anc = fb.get('anchor') or {}
+    if not anc.get('session') or not fb.get('days'):
+        return []
+    from forecast_band import next_session
+    out, d = [], anc['session']
+    for _ in fb['days']:
+        d = next_session(row.get('region'), d)
+        out.append(d)
+    return out
+
+
+def grade_band(row, bars, now=None):
+    """Grade each band day whose session has closed. Returns how many days were newly graded.
+
+    Stores forecastBand['x']: per day, how far that session's high and low reached as a share of
+    the day's half-width, the larger of the two sides (1.0 or less means both stayed inside). The
+    half-width is taken BEFORE any live adjustment (forecastBand['m']), so tools/write_band_live.py
+    measures every band against the same base and the correction cannot feed back on itself.
+    """
+    fb = row.get('forecastBand') or {}
+    anc = fb.get('anchor') or {}
+    days = fb.get('days') or []
+    A = anc.get('price')
+    if not days or not isinstance(A, (int, float)) or not A > 0:
+        return 0
+    from forecast_band import bar_is_complete
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    dates = band_day_dates(row)
+    xs = list(fb.get('x') or [])
+    xs += [None] * (len(days) - len(xs))
+    ms = fb.get('m') or []
+    n = 0
+    for k, (d, iso) in enumerate(zip(days, dates)):
+        if xs[k] is not None:
+            continue
+        j = bars['index'].get(iso)
+        if j is None:
+            # A missing bar after the session should exist means a halt or a data gap: leave the
+            # day ungraded rather than score it against some other session.
+            continue
+        if not bar_is_complete(row.get('region'), datetime.date.fromisoformat(iso), now):
+            break
+        hi, lo = bars['high'][j], bars['low'][j]
+        try:
+            wu, wd = math.log(d['high'] / A), math.log(A / d['low'])
+        except (KeyError, ValueError, ZeroDivisionError, TypeError):
+            continue
+        if not (wu > 0 and wd > 0 and hi > 0 and lo > 0):
+            continue
+        m = ms[k] if k < len(ms) and isinstance(ms[k], (int, float)) and ms[k] > 0 else 1.0
+        xs[k] = round(max(math.log(hi / A) / wu, math.log(A / lo) / wd) * m, 3)
+        n += 1
+    while xs and xs[-1] is None:
+        xs.pop()
+    if n:
+        fb['x'] = xs
+    return n
+
+
+def band_due(row, today):
+    """Does this row still have a band day to grade, by the calendar?"""
+    fb = row.get('forecastBand') or {}
+    if not (fb.get('anchor') or {}).get('session') or not fb.get('days'):
+        return False
+    x = fb.get('x') or []
+    graded = sum(1 for v in x if v is not None)
+    if graded >= len(fb['days']):
+        return False
+    dates = band_day_dates(row)
+    return bool(dates) and dates[min(graded, len(dates) - 1)] <= today.isoformat()
+
+
 RERESOLVE = False
 stats = defaultdict(int)
 
@@ -452,11 +527,13 @@ def main():
             # gate never self-corrects, and the manual --reresolve task needs a hand to start it.
             unresolved_horizons = [h for h in HORIZONS_DAYS if passed >= h and (
                 row['horizons'].get(str(h)) is None or stale_anchor(row['horizons'].get(str(h))))]
-        if not unresolved_horizons:
+        bands_due = band_due(row, today)
+        if not unresolved_horizons and not bands_due:
             if any(row['horizons'].get(str(h)) is None for h in HORIZONS_DAYS):
                 skipped_immature += 1
             continue
-        rows_with_unresolved_due += 1
+        if unresolved_horizons:
+            rows_with_unresolved_due += 1
 
         sym = row['symbol']
         if sym not in bars_cache:
@@ -475,6 +552,11 @@ def main():
         bars = bars_cache.get(sym)
         if not bars:
             continue
+
+        if bands_due:
+            g = grade_band(row, bars)
+            if g:
+                stats['band days graded'] += g
 
         for h in unresolved_horizons:
             outcome = resolve_horizon(row, h, bars)

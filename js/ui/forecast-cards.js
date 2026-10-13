@@ -13,10 +13,29 @@
 // (week-card.js), which stated the same forecast in percentages nobody could use.
 
 import { fmtPriceTag } from './format.js';
-import { bandDates, exchangeToday, barSessionDate } from '../earnings-calendar-slice.js';
+import { bandDates, exchangeToday, barSessionDate, sessionProgress } from '../earnings-calendar-slice.js';
 import { isSession } from '../market-sessions.js';
+import { blendHeldOut } from '../forecast-band.js';
 
 const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
+
+let _intraday = null;
+let _intradayPromise = null;
+/** model/band_intraday.json (tools/calibrate_intraday.py), memoised; null when unavailable. */
+export async function loadIntraday() {
+    if (_intraday !== null) return _intraday || null;
+    if (_intradayPromise) return _intradayPromise;
+    _intradayPromise = (async () => {
+        try {
+            const r = await fetch('model/band_intraday.json', { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('not json');
+            const j = await r.json();
+            _intraday = j && j.z ? j : false;
+        } catch (_) { _intraday = false; }
+        return _intraday || null;
+    })();
+    return _intradayPromise;
+}
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 const addDays = (iso, n) => {
@@ -160,6 +179,45 @@ function bigBar({ low, high, price, co }) {
 
 // ── the days ─────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * THE LIVE "TODAY" RANGE (tools/calibrate_intraday.py). While the session trades, the rest of the
+ * day only has the time left to move in, and the range can never be narrower than what has
+ * already traded:  low = min(low so far, price * e^(-z * sigma * sqrt(f))), high likewise, with
+ * f the share of the session still to trade and z measured per (tier, f) on two years of hourly
+ * bars. Returns null outside the session or without the calibration.
+ */
+export function liveToday({ intraday, band, price, todayBar, region, nowMs = Date.now() }) {
+    if (!intraday?.z || !band || !todayBar || !(price > 0)) return null;
+    const prog = sessionProgress(region, nowMs);
+    if (!prog) return null;
+    const sigma = Number(band.sigmaDaily) / 100;
+    const zt = intraday.z[band.volTier];
+    if (!(sigma > 0) || !zt) return null;
+    // Interpolated between bucket centres, so the range does not jump when f crosses a bucket edge.
+    const edges = intraday.fEdges || [0, 0.2, 0.4, 0.6, 0.8, 1];
+    const pts = [];
+    for (let i = 0; i < edges.length - 1; i++) {
+        const v = Number(zt[String(i)]);
+        if (Number.isFinite(v)) pts.push([(edges[i] + edges[i + 1]) / 2, v]);
+    }
+    if (!pts.length) return null;
+    let z = pts[0][1];
+    if (prog.f >= pts[pts.length - 1][0]) z = pts[pts.length - 1][1];
+    else for (let i = 1; i < pts.length; i++) {
+        if (prog.f <= pts[i][0]) {
+            const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+            z = prog.f <= x0 ? y0 : y0 + (y1 - y0) * (prog.f - x0) / (x1 - x0);
+            break;
+        }
+    }
+    const move = z * sigma * Math.sqrt(prog.f);
+    return {
+        low: Math.min(todayBar.low, price * Math.exp(-move)),
+        high: Math.max(todayBar.high, price * Math.exp(move)),
+        f: prog.f, confidence: Math.round((intraday.targetConfidence ?? 0.8) * 100),
+    };
+}
+
 /** Session dates of the band's rows, from its own day 1. */
 function bandRowDates(band, region, cryptoMode) {
     const day1 = band?.anchor?.day1;
@@ -192,7 +250,15 @@ function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
             : 'Rebuilt from only the prices available before that session.');
         return items;
     }
-    if (Number.isFinite(sigma)) {
+    if (band.sigmaSource === 'blend' && Number.isFinite(band.sigmaTrail) && Number.isFinite(band.sigmaVol)) {
+        items.push(`How much this stock is expected to move: about ±${sigma.toFixed(2)}% a day, the blend of how much it moved over the last 30 sessions (±${band.sigmaTrail.toFixed(2)}%) and the volatility forecast (±${band.sigmaVol.toFixed(2)}%). This is the main input.`);
+        items.push(`The volatility forecast reads the market's fear gauge (<a href="https://www.cboe.com/tradable_products/vix/" target="_blank" rel="noopener">VIX, Cboe</a>) and its term structure, this stock's own options prices (<a href="https://www.dolthub.com/repositories/post-no-preference/options" target="_blank" rel="noopener">options data, DoltHub</a>) and the earnings calendar, so it moves before the price history does.`);
+        const ho = blendHeldOut();
+        if (ho?.blend?.byVix) {
+            const v = Object.values(ho.blend.byVix).filter(Number.isFinite);
+            items.push(`Sized this way, the range held ${pct(Math.min(...v))} to ${pct(Math.max(...v))} in every VIX regime on 2022 to 2026, years it was not fitted on${ho.trail?.byVix?.['30+'] ? `, where sizing by the 30-day range alone fell to ${pct(ho.trail.byVix['30+'])} when the VIX was above 30` : ''}.`);
+        }
+    } else if (Number.isFinite(sigma)) {
         items.push(`How much this stock has been moving: about ±${sigma.toFixed(2)}% a day over the last 30 sessions (${esc(tier || '')} volatility). This is the main input.`);
     }
     if (k > 1) items.push(`${k} sessions ahead: the range widens with each session because the uncertainty adds up.`);
@@ -202,6 +268,10 @@ function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
         items.push('No earnings fall in this window (checked against the earnings calendar).');
     }
     items.push(`The width is set so the day's high and low both stay inside ${band.confidence}% of the time, measured on past prices of stocks this volatile, not assumed from a formula.`);
+    const m = Array.isArray(band.m) ? band.m[k - 1] : null;
+    if (Number.isFinite(m) && Math.abs(m - 1) >= 0.01) {
+        items.push(`Checked against the live record: recent ranges like this one needed to be ${Math.abs(Math.round((m - 1) * 100))}% ${m > 1 ? 'wider' : 'narrower'} to hold ${band.confidence}% of the time, so this one is.`);
+    }
     return items;
 }
 
@@ -237,6 +307,7 @@ function dayRow(row, x, opts) {
                 ${has ? `<div class="fc-pred-line">Expected: low <b>${fmtPriceTag(row.low, co)}</b>, high <b>${fmtPriceTag(row.high, co)}</b>.</div>` : ''}
                 ${conf != null && row.kind !== 'past' ? `<div class="fc-conf-line"><b>${conf}%</b> chance the day's high and low both land inside this range.</div>` : ''}
                 ${row.kind === 'today' && Number.isFinite(row.actualLow) ? `<div class="fc-conf-line">So far today: ${fmtPriceTag(row.actualLow, co)} to ${fmtPriceTag(row.actualHigh, co)}.</div>` : ''}
+                ${Number.isFinite(row.liveF) ? `<div class="fc-conf-line">Updated live: ${Math.round(row.liveF * 100)}% of the session is left to trade, so the rest of the day can only move so far. Before the open the range was ${fmtPriceTag(row.morningLow, co)} to ${fmtPriceTag(row.morningHigh, co)}.</div>` : ''}
                 <div class="fc-sub">Why</div>
                 <ul>${why.map(t => `<li>${t}</li>`).join('')}</ul>
                 ${news}
@@ -249,7 +320,7 @@ function dayRow(row, x, opts) {
  * history: buildBandHistory() output (past sessions, locked or replayed); band: the live band with
  * an anchor; todayBar: today's partial daily bar while the session runs.
  */
-export function weekRows({ band, history, region, cryptoMode, todayBar = null }) {
+export function weekRows({ band, history, region, cryptoMode, todayBar = null, live = null }) {
     const today = cryptoMode ? new Date().toISOString().slice(0, 10) : exchangeToday(region);
     if (!today) return null;
     const dates = bandRowDates(band, region, cryptoMode);
@@ -258,9 +329,13 @@ export function weekRows({ band, history, region, cryptoMode, todayBar = null })
     const build = (iso) => {
         const f = iso >= today ? byDate.get(iso) : null;
         if (f) {
-            const live = iso === today && todayBar && Number.isFinite(todayBar.high);
-            return { date: iso, kind: live ? 'today' : 'future', low: f.low, high: f.high, k: f.k,
-                     confidence: band.confidence, actualLow: live ? todayBar.low : null, actualHigh: live ? todayBar.high : null };
+            const trading = iso === today && todayBar && Number.isFinite(todayBar.high);
+            const lv = trading && live ? live : null;
+            return { date: iso, kind: trading ? 'today' : 'future', k: f.k,
+                     low: lv ? lv.low : f.low, high: lv ? lv.high : f.high,
+                     morningLow: lv ? f.low : null, morningHigh: lv ? f.high : null, liveF: lv ? lv.f : null,
+                     confidence: lv ? lv.confidence : band.confidence,
+                     actualLow: trading ? todayBar.low : null, actualHigh: trading ? todayBar.high : null };
         }
         const p = past.get(iso);
         if (p) {
@@ -293,16 +368,17 @@ function weekCard(title, rows, x, opts) {
  */
 export function renderForecastCards({ symbol, band, history = null, rs = null, owned = null, price = null,
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
-                                      news = [], dirRec = null, setupsLive = null } = {}) {
+                                      news = [], dirRec = null, setupsLive = null, intraday = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
-    const rows = band.anchor ? weekRows({ band, history, region, cryptoMode, todayBar }) : null;
+    const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region });
+    const rows = band.anchor ? weekRows({ band, history, region, cryptoMode, todayBar, live }) : null;
     const call = decideCall({ rs, owned, setupsLive });
 
     // Today's range on the big bar: the row for today when the session is today, else the next one.
     const todayRow = rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => r.kind === 'today' || r.kind === 'future') : null;
     const d = todayRow && Number.isFinite(todayRow.low) ? todayRow : { low: band.days[0].low, high: band.days[0].high, date: band.anchor?.day1 };
-    const whenLabel = rows && d.date ? (d.date === rows.today ? "Today's expected range" : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
+    const whenLabel = rows && d.date ? (d.date === rows.today ? (Number.isFinite(d.liveF) ? "Today's expected range, updated live" : "Today's expected range") : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
 
     const evidence = callEvidence(call, rs, co, symbol, dirRec);
     const signalCard = `

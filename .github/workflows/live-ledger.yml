@@ -215,6 +215,15 @@ jobs:
         if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
         run: python record_outcomes.py
 
+      # The band's live record and the correction that keeps it at its stated 80%: every band day
+      # the resolver just graded, by kind of band (tools/write_band_live.py). Read by the cron's
+      # next lock and by the browser. continue-on-error: a failure here leaves last night's file,
+      # which is a slightly staler correction, never a reason to lose the ledger rows.
+      - name: Publish the band's live correction
+        if: steps.decide.outputs.task == 'resolve-and-recalibrate' || steps.decide.outputs.task == 'resolve-outcomes'
+        continue-on-error: true
+        run: python tools/write_band_live.py
+
       # Did every region actually WRITE on every day it should have? Nothing asked that
       # until now, and on 2026-08-27 the answer was no: the NYSE cron analysed its
       # universe, wrote 924 rows to the runner's disk, then failed in the commit step and
@@ -414,6 +423,9 @@ jobs:
           if [ -f model/live_calibration.json ]; then
             git add -f model/live_calibration.json
           fi
+          if [ -f model/band_live.json ]; then
+            git add -f model/band_live.json
+          fi
           # The browser's only route to the macro series. Unstaged, it would be rebuilt every
           # run and published never, leaving the `market` source dead in the app.
           if [ -f model/earnings.json ]; then
@@ -496,6 +508,7 @@ jobs:
               predict-ASX)         python record_predictions.py --region ASX    ;;
               resolve-and-recalibrate)
                 python record_outcomes.py
+                python tools/write_band_live.py || true
                 python recalibrate_from_ledger.py
                 ;;
               # These three were MISSING, so a push rejection on any of them fell
@@ -504,7 +517,7 @@ jobs:
               # it went unnoticed: it broke exactly the manually-dispatched halves,
               # and only when a concurrent push forced a retry.
               # tools/workflow_task_coverage.py now asserts this stays complete.
-              resolve-outcomes)    python record_outcomes.py ;;
+              resolve-outcomes)    python record_outcomes.py && (python tools/write_band_live.py || true) ;;
               recalibrate)         python recalibrate_from_ledger.py ;;
               publish-earnings)    python tools/write_earnings_slice.py && python tools/write_setups_slice.py && python tools/grade_setups.py && python tools/write_vol_slice.py ;;
               reresolve-outcomes)  python record_outcomes.py --reresolve ;;
@@ -559,6 +572,9 @@ jobs:
             git add -fA model/ledger/ || true
             if [ -f model/live_calibration.json ]; then
               git add -f model/live_calibration.json
+            fi
+            if [ -f model/band_live.json ]; then
+              git add -f model/band_live.json
             fi
             # Same staging as the happy path. The two lists drifting apart is its own bug:
             # a file only staged on the non-recovery path is published only when nothing

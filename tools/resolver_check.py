@@ -130,6 +130,43 @@ check('date is stale', ro.stale_anchor({'anchorHow': 'date'}))
 check('match-latest is current', not ro.stale_anchor({'anchorHow': 'match-latest'}))
 check('an empty horizon is not "stale" (it is unresolved)', not ro.stale_anchor(None))
 
+print('\n=== the band is graded day by day against its own sessions ===')
+import math  # noqa: E402
+import datetime  # noqa: E402
+# Anchored on the 03-02 close of 100: day 1 is 03-03, day 2 03-04, day 3 03-05. Half-widths are
+# log(102/100) and log(100/98) for day 1, wider after.
+BAND_ROW = {'symbol': 'B', 'region': 'NYSE', 'date': '2026-03-03', 'horizons': {},
+            'forecastBand': {'anchor': {'session': '2026-03-02', 'price': 100.0, 'day1': '2026-03-03'},
+                             'days': [{'day': 1, 'low': 98.0, 'high': 102.0},
+                                      {'day': 2, 'low': 97.0, 'high': 103.0},
+                                      {'day': 3, 'low': 96.0, 'high': 104.0}]}}
+BARS = bars([
+    ('2026-03-02', 100.0, 100.5, 99.5),
+    ('2026-03-03', 101.0, 101.0, 99.0),    # inside: reaches half of each side
+    ('2026-03-04', 103.5, 103.5, 100.0),   # breaks the high
+    ('2026-03-05', 101.0, 101.5, 99.0),
+])
+late = datetime.datetime(2026, 3, 6, 22, 0, tzinfo=datetime.timezone.utc)
+n = ro.grade_band(BAND_ROW, BARS, now=late)
+x = BAND_ROW['forecastBand'].get('x')
+check('three band days graded', n == 3, str(n))
+check('day 1 inside, reached ~half of the room', x and 0.4 < x[0] < 0.6, str(x))
+check('day 2 broke the high: x > 1', x and x[1] > 1.0, str(x))
+check('day 3 inside', x and x[2] <= 1.0, str(x))
+check('x is the larger side', x and abs(x[0] - max(math.log(101 / 100) / math.log(1.02), math.log(100 / 99) / math.log(100 / 98))) < 0.002, str(x))
+# A live session is not graded until it closes.
+ROW2 = {**BAND_ROW, 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None}}
+early = datetime.datetime(2026, 3, 3, 17, 0, tzinfo=datetime.timezone.utc)   # 12:00 New York
+check('a session still trading is not graded', ro.grade_band(ROW2, BARS, now=early) == 0)
+# A live adjustment widened the band: x is measured against the BASE width.
+ROW3 = {**BAND_ROW, 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None, 'm': [1.25, 1.25, 1.25]}}
+ro.grade_band(ROW3, BARS, now=late)
+check('x is scaled back to the unadjusted width', abs(ROW3['forecastBand']['x'][0] - x[0] * 1.25) < 0.003,
+      str(ROW3['forecastBand']['x']))
+check('band_due: an anchored band with ungraded days past their date is due',
+      ro.band_due({**BAND_ROW, 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None}}, datetime.date(2026, 3, 9)))
+check('band_due: fully graded is not due', not ro.band_due(BAND_ROW, datetime.date(2026, 3, 9)))
+
 print('\n=== a FLAT close validates neither direction ===')
 FLAT = bars([('2026-03-02', 50.0, 50.0, 50.0), ('2026-03-03', 50.0, 50.0, 50.0),
              ('2026-03-04', 50.0, 50.0, 50.0)])

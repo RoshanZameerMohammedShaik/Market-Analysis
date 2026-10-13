@@ -28,6 +28,7 @@ globalThis.fetch = async (u) => {
 
 const mod = await import(pathToFileURL(path.join(repoRoot, 'js/forecast-band.js')).href);
 const cal = await mod.loadBandCalibration();
+await mod.loadBandBlend();
 if (cal._fallback) {
     console.error('ERROR: calibration did not load; refusing to compare against a fallback.');
     process.exit(3);
@@ -63,6 +64,11 @@ for (const [sym, o] of Object.entries(input)) {
         cryptoMode: !!o.crypto,
         // null / 0 / 1..7 selects the pooled, ordinary-week or earnings z family.
         earningsDay: o.earningsDay ?? null,
+        // The live correction (tools/write_band_live.py), when the fixture carries one.
+        region: o.region ?? null,
+        live: o.live ?? null,
+        // The blended band for a liquid US listing (tools/calibrate_band_blend.py).
+        sigmaVol: o.sigmaVol ?? null,
         // Pinned so date labels are deterministic across runs.
         now: new Date('2026-01-02T00:00:00Z'),
     });
@@ -73,6 +79,8 @@ for (const [sym, o] of Object.entries(input)) {
         uncalibratedReason: r.uncalibratedReason ?? null,
         confidence: r.confidence,
         earningsDay: r.earningsDay ?? null,
+        m: r.m ?? null,
+        sigmaSource: r.sigmaSource ?? null,
         days: r.days.map(d => ({ day: d.day, low: d.low, high: d.high })),
     };
 }

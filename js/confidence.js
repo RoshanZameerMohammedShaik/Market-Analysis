@@ -28,7 +28,7 @@ import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js
 import { evaluateVolForecast, loadVolRecord } from './vol-forecast.js';
 import { loadMarketSessions } from './market-sessions.js';
 import { loadReversionCalibration, loadPublishedSetups, loadSetupsRecord, recordFor, evaluateReversionSetup } from './reversion-setup.js';
-import { forecastBands, loadBandCalibration, bandAnchor } from './forecast-band.js';
+import { forecastBands, loadBandCalibration, loadBandLive, loadBandBlend, bandAnchor, blendEligible } from './forecast-band.js';
 import { roundPrice } from './price-round.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
@@ -516,38 +516,6 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // the output means the stated 80% no longer describes the band drawn. If
     // squeeze should widen the band, it has to widen SIGMA before calibration,
     // not the answer afterwards.
-    let forecastBand = null;
-    try {
-        const candles = multiData?.daily?.candles || [];
-        const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
-        await loadMarketSessions();
-        // FROM THE LAST COMPLETED CLOSE (forecast-band.js bandAnchor), day 1 the session after
-        // it, exactly as the cron locks it and as the z values were fitted. A live price would
-        // start the band mid-session and the grade would then ask it to hold two sessions.
-        const anchor = bandAnchor(candles, region);
-        if (anchor && candles.length) {
-            await loadBandCalibration();
-            // EARNINGS-AWARE BAND. Which day of the 7 an announcement moves selects the z family
-            // (see js/earnings-calendar-slice.js): null keeps the pooled z the band always used,
-            // so a symbol with no calendar entry is unaffected. Counted from the band's own day 1,
-            // as the cron does, so the displayed band and the graded one stay identical.
-            let earningsDay = null;
-            try {
-                const slice = await loadEarningsSlice();
-                const sess = anchor.day1 || sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
-                earningsDay = earningsDayFor(symbolOrCoinId, region, sess, slice);
-            } catch (_) { earningsDay = null; }
-            forecastBand = forecastBands({
-                candles: candles.slice(0, anchor.index + 1),
-                currentPrice: anchor.price,
-                cryptoMode: mode === 'crypto',
-                earningsDay,
-            });
-            if (forecastBand) {
-                forecastBand.anchor = { session: anchor.session, price: roundPrice(anchor.price), day1: anchor.day1 };
-            }
-        }
-    } catch (_) { forecastBand = null; }
 
     // The pullback setup: a separate, answerable question (does price recover to its 5-day average
     // within 10 sessions), measured at 66% held out where next-day direction is a coin flip. See
@@ -609,6 +577,46 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     // NOTE: the targets live on technicalPred.priceTargets, not a local. They
     // are only read at return time (see the `priceTargets:` key below), so this
     // mutates the object in place.
+    let forecastBand = null;
+    try {
+        const candles = multiData?.daily?.candles || [];
+        const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
+        await loadMarketSessions();
+        // FROM THE LAST COMPLETED CLOSE (forecast-band.js bandAnchor), day 1 the session after
+        // it, exactly as the cron locks it and as the z values were fitted. A live price would
+        // start the band mid-session and the grade would then ask it to hold two sessions.
+        const anchor = bandAnchor(candles, region);
+        if (anchor && candles.length) {
+            await Promise.all([loadBandCalibration(), loadBandLive(), loadBandBlend()]);
+            // EARNINGS-AWARE BAND. Which day of the 7 an announcement moves selects the z family
+            // (see js/earnings-calendar-slice.js): null keeps the pooled z the band always used,
+            // so a symbol with no calendar entry is unaffected. Counted from the band's own day 1,
+            // as the cron does, so the displayed band and the graded one stay identical.
+            let earningsDay = null;
+            try {
+                const slice = await loadEarningsSlice();
+                const sess = anchor.day1 || sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
+                earningsDay = earningsDayFor(symbolOrCoinId, region, sess, slice);
+            } catch (_) { earningsDay = null; }
+            // The volatility forecast for the SAME completed session the band starts from, for a
+            // liquid US listing: then the band is sized by the blend of the two (forecast-band.js).
+            const bandCandles = candles.slice(0, anchor.index + 1);
+            const sigmaVol = volForecast && volForecast.session === anchor.session && blendEligible(bandCandles, region)
+                ? volForecast.sigma : null;
+            forecastBand = forecastBands({
+                candles: bandCandles,
+                currentPrice: anchor.price,
+                cryptoMode: mode === 'crypto',
+                earningsDay,
+                region,
+                sigmaVol,
+            });
+            if (forecastBand) {
+                forecastBand.anchor = { session: anchor.session, price: roundPrice(anchor.price), day1: anchor.day1 };
+            }
+        }
+    } catch (_) { forecastBand = null; }
+
     const _pt = technicalPred?.priceTargets;
     if (_pt && forecastBand?.calibrated && forecastBand.days?.length) {
         // The row for the session being asked about: Tomorrow's headline is day 2 of the band.
