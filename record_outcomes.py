@@ -472,6 +472,7 @@ def band_due(row, today):
 
 
 RERESOLVE = False
+REGRADE_BUDGET = 300      # extra symbols fetched a night only to regrade old anchors
 stats = defaultdict(int)
 
 
@@ -515,6 +516,17 @@ def main():
         if sym and d and (sym not in earliest or d < earliest[sym]):
             earliest[sym] = d
 
+    # Symbols that need a fetch anyway tonight (an unresolved horizon or a band day due). A symbol
+    # whose ONLY work is regrading old anchors joins them up to REGRADE_BUDGET a night, so the
+    # one-time regrade spreads over a few nights instead of stretching one run past the next
+    # region's open (a queued predict run can be cancelled by the one behind it).
+    needed = set()
+    for row in rows:
+        passed = trading_days_passed(row['date'], today)
+        if any(row['horizons'].get(str(h)) is None and passed >= h for h in HORIZONS_DAYS) or band_due(row, today):
+            needed.add(row['symbol'])
+    regrade_extra = set()
+
     for row in rows:
         passed = trading_days_passed(row['date'], today)
         if RERESOLVE:
@@ -528,6 +540,12 @@ def main():
             unresolved_horizons = [h for h in HORIZONS_DAYS if passed >= h and (
                 row['horizons'].get(str(h)) is None or stale_anchor(row['horizons'].get(str(h))))]
         bands_due = band_due(row, today)
+        if (unresolved_horizons and not RERESOLVE and row['symbol'] not in needed
+                and row['symbol'] not in regrade_extra):
+            if len(regrade_extra) >= REGRADE_BUDGET:
+                unresolved_horizons = []
+            else:
+                regrade_extra.add(row['symbol'])
         if not unresolved_horizons and not bands_due:
             if any(row['horizons'].get(str(h)) is None for h in HORIZONS_DAYS):
                 skipped_immature += 1
@@ -573,6 +591,8 @@ def main():
 
     save_rows(path, rows)
     print(f"Resolved horizons: {updated}, fetched: {fetched}, immature: {skipped_immature}, errors: {errors}")
+    if regrade_extra:
+        print(f"Regrade-only symbols fetched tonight: {len(regrade_extra)} (budget {REGRADE_BUDGET})")
     print(f"Rows considered for resolution: {rows_with_unresolved_due} (of {len(rows)} total in {year}.jsonl)")
     if stats:
         print('Grading breakdown:')
