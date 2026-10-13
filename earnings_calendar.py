@@ -41,7 +41,7 @@ import market_sessions
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 SLICE_PATH = os.path.join(_HERE, 'model', 'earnings.json')
-BAND_SESSIONS = 7
+BAND_SESSIONS = 10
 
 _slice = None
 _slice_tried = False

@@ -8,7 +8,6 @@ import { isDev } from '../dev-mode.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
 import { getCalibrationSource, regionFor } from '../calibration.js';
 import { renderTrustPanel } from './trust-panel.js';
-import { renderForecastBand } from './forecast-band-panel.js';
 import { renderConfidenceDial, animateDials } from './confidence-dial.js';
 import { renderConfidenceTrendPlaceholder, mountConfidenceTrend } from './confidence-trend.js';
 import { sharePredictionCard } from './share-card.js';
@@ -19,8 +18,9 @@ import { signalLanded } from './ui-sound.js';
 import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
-import { renderWeekCard } from './week-card.js';
 import { directionRecord } from './suggested-decision.js';
+import { renderForecastCards, todayPartialBar } from './forecast-cards.js';
+import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
 
 let lastShownConfidence = null;
 let lastShownSymbol = null;
@@ -425,99 +425,54 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
     // trust panel header literally says "Why trust this {confidence}%?", so
     // it must reason about the same confidence/consensus the user sees.
     const trustHTML = renderTrustPanel(view);
-    // 7-day expected trading range. Sits right after the price targets because
-    // both are about price levels; the band is the calibrated, direction-free one.
-    let bandHTML = '';
+    // THE PREDICTION CARDS (js/ui/forecast-cards.js): the call with today's range on one bar, then
+    // this week and next week, a bar per trading day. They replace the 7-session table and the
+    // "Typical week" card. The past days are scored against the band that applied to each, using
+    // the daily bars the engine already fetched and the band the cron locked where the recent slice
+    // has it (a no-lookahead replay otherwise).
+    let cardsHTML = '';
     try {
-        // Score the band against the sessions that have already happened. Uses the daily bars
-        // the engine already fetched (so the actual highs and lows are free) and prefers the
-        // band the cron actually LOCKED for a date when the recent slice carries it, falling
-        // back to a no-lookahead replay for older sessions. A forecast with no visible track
-        // record asks to be trusted; one shown next to "held on 5 of 7" asks to be judged.
+        const region = state.mode === 'crypto' ? 'CRYPTO' : regionFor(state.currentSymbol);
+        const candles = prediction?.dailyCandles || null;
+        const last = Array.isArray(candles) && candles.length ? candles[candles.length - 1] : null;
+        const lastDone = !!(last && Number.isFinite(last.time) && isBarComplete(region, barSessionDate(region, last.time)));
         let bandHistory = null;
         try {
             const lockedRows = await readSymbolRowsFromSlice(state.currentSymbol);
             bandHistory = buildBandHistory({
-                candles: prediction?.dailyCandles || null,
-                lockedRows,
-                sessions: 7,
-                cryptoMode: state.mode === 'crypto',
+                candles, lockedRows, sessions: 7, cryptoMode: state.mode === 'crypto', includeLast: lastDone,
             });
         } catch (_) { bandHistory = null; }
-        bandHTML = renderForecastBand(view.forecastBand, {
-            region: state.mode === 'crypto' ? 'CRYPTO' : regionFor(state.currentSymbol),
-            currency: cur, currentPrice: view.priceTargets?.currentPrice ?? null,
-            history: bandHistory,
-            cryptoMode: state.mode === 'crypto',
+        // The locked band when it says where it starts; rows locked before 2026-10-13 do not, and
+        // the live band (built the same way the cron now builds it) stands in for them.
+        const band = view.forecastBand?.anchor ? view.forecastBand : (prediction.forecastBand || view.forecastBand);
+        const rec = prediction.reversionSetup?.record;
+        cardsHTML = renderForecastCards({
+            symbol: state.currentSymbol, band, history: bandHistory,
+            rs: prediction.reversionSetup || null, owned: await ownedNow(state.currentSymbol),
+            price: view.priceTargets?.currentPrice ?? prediction.priceTargets?.currentPrice ?? null,
+            currency: cur, region, cryptoMode: state.mode === 'crypto',
+            todayBar: lastDone ? null : todayPartialBar(candles, region),
+            news: prediction.news || newsData || [], dirRec: directionRecord(),
+            setupsLive: rec?.overall?.n ? { ...rec.overall, since: rec.since } : null,
         });
-    } catch (_) { bandHTML = ''; }
+    } catch (_) { cardsHTML = ''; }
     // Per-symbol confidence-trend placeholder, filled async after paint
     // from the live ledger (removed if there isn't enough history).
     const trendHTML = renderConfidenceTrendPlaceholder(state.currentSymbol);
 
-    // US stocks with a volatility forecast lead with ONE compact block (js/ui/week-card.js) and
-    // drop the direction widgets above the fold: next-day direction is a coin flip, and six blocks
-    // repeating the same numbers in different words was the complaint. Everything else keeps the
-    // full layout until the volatility model covers it.
-    const volLed = !!prediction.volForecast;
-    if (volLed) {
-        const tickerNow = state.currentSymbol || '';
-        section.innerHTML = `
-        <div class="signal-box wk-box">
+    const tickerNow = state.currentSymbol || '';
+    section.innerHTML = `
+        <div class="signal-box fc-box">
             <div class="signal-header">
-                <span class="signal-label wk-label">${tickerNow} · next 5 sessions</span>
+                <span class="signal-label wk-label">${tickerNow}</span>
                 <button class="refresh-btn small" id="share-prediction" title="Share this prediction as an image">⤴</button>
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
-            ${renderWeekCard(prediction.volForecast, {
-                price: view.priceTargets?.currentPrice ?? null, currency: cur,
-                rs: state.timeframe === 'today' ? prediction.reversionSetup : (prediction.reversionSetup?.record ? { record: prediction.reversionSetup.record, trigger: prediction.reversionSetup.trigger } : null),
-                dirRec: directionRecord(), record: prediction.volForecast?.record,
-            })}
-            ${bandHTML}
+            ${cardsHTML}
             ${newsHTML}
-            ${technicalHTML}
             <div class="risk-disclaimer">
                 <strong>Not financial advice.</strong> Forecasts are statistical, not guarantees.
-            </div>
-        </div>`;
-    } else
-    section.innerHTML = `
-        <div class="signal-box ${signalClass}">
-            <div class="signal-header">
-                <span class="signal-arrow ${arrowClass}">${arrow}</span>
-                <span class="signal-label ${signalClass}">${signalDisplay}</span>
-                ${rangeHTML}
-                ${trendChip}
-                ${macroChip}
-                ${calibrationBadge}
-                <button class="refresh-btn small" id="share-prediction" title="Share this prediction as an image">⤴</button>
-                <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
-            </div>
-            ${calibrationDelta ? `<div class="cal-delta-row">${calibrationDelta}</div>` : ''}
-            ${suggestedDecisionHTML}
-            ${renderVolPanel(prediction.volForecast, { currency: cur, price: view.priceTargets?.currentPrice ?? null, record: prediction.volForecast?.record })}
-            ${/* The pullback setup: today only, since it is defined at this session's close. */''}
-            ${state.timeframe === 'today' ? renderReversionPanel(prediction.reversionSetup, { currency: cur }) : ''}
-            <div class="signal-dial-row">
-                ${dialHTML}
-            </div>
-            ${statusHTML}
-            ${trustHTML}
-            ${trendHTML}
-            ${breakdownHTML}
-            ${pennyDashboardHTML}
-            <div class="insight-summary">${insightSummary}</div>
-            ${attributionHTML}
-            ${priceTargetHTML}
-            ${bandHTML}
-            ${newsHTML}
-            ${technicalHTML}
-            <div class="signal-meta" style="margin-top: 12px;">
-                Timeframe: ${state.timeframe === 'today' ? 'Today' : 'Tomorrow'} · ${methodLabel}
-            </div>
-            <div class="risk-disclaimer">
-                <strong>Not financial advice.</strong> Predictions are statistical signals, not guarantees. Past performance does not predict future results. Trade at your own risk.
             </div>
         </div>`;
 
@@ -573,6 +528,18 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const period = 4 - ((confidence - 38) / 50) * 2.4;
         priceEl.style.setProperty('--price-pulse-period', `${period.toFixed(2)}s`);
     }
+}
+
+/** true / false when the practice portfolio is set up, null when it is not (ownership unknown). */
+async function ownedNow(sym) {
+    try {
+        const { isInstantiated, heldSymbols } = await import('../portfolio/state.js');
+        if (!isInstantiated()) return null;
+        const held = heldSymbols().map(x => String(x).toUpperCase());
+        const key = String(sym || '').toUpperCase();
+        // Crypto positions are stored as e.g. BTC-USD; match either form.
+        return held.includes(key) || held.includes(`${key}-USD`) || held.includes(key.replace(/-USD$/, ''));
+    } catch (_) { return null; }
 }
 
 function generateHumanInsight(prediction, sentiment) {

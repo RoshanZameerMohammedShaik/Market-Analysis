@@ -17,7 +17,7 @@
 const SLICE_URL = 'model/earnings.json';
 import { isSession } from './market-sessions.js';
 
-export const BAND_SESSIONS = 7;
+export const BAND_SESSIONS = 10;
 
 // Exchange close times and trading days. MIRRORS bot/sessions.py MARKETS, which is the one table.
 const MARKETS = {

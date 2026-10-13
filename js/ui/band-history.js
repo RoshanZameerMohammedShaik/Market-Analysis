@@ -119,7 +119,7 @@ export const HIT_LABELS_SHORT = {
  * @param {boolean} opts.cryptoMode  passed through to forecastBands for date labelling
  * @returns {Object|null} { rows, metCount, scored, coveragePct, medianFillPct, claimedPct }
  */
-export function buildBandHistory({ candles, lockedRows = [], sessions = 7, cryptoMode = false } = {}) {
+export function buildBandHistory({ candles, lockedRows = [], sessions = 7, cryptoMode = false, includeLast = false } = {}) {
     if (!Array.isArray(candles) || candles.length < MIN_BARS_FOR_REPLAY) return null;
 
     // Only bars that actually traded. Yahoo emits a placeholder with close=null for a session
@@ -133,7 +133,8 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
     // EXCLUDE the final bar. It is the current session, its high and low are still forming,
     // and the forward-looking table already shows it as "Today". Scoring an unfinished
     // session would report a miss-free day simply because the range has not happened yet.
-    const lastComplete = bars.length - 2;
+    // includeLast: the caller knows that session has closed (after the bell), so it can be scored.
+    const lastComplete = includeLast ? bars.length - 1 : bars.length - 2;
     const firstScored = Math.max(30, lastComplete - sessions + 1);
 
     // date -> locked day-1 band, so the ledger overrides the replay where it exists.

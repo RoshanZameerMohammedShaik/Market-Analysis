@@ -70,7 +70,7 @@ let _calPromise = null;
 const FALLBACK = {
     targetConfidence: 0.80,
     volLookbackDays: VOL_LOOKBACK,
-    horizons: [1, 2, 3, 4, 5, 6, 7],
+    horizons: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     tierEdges: [[0, 0.015, 'calm'], [0.015, 0.025, 'normal'],
                 [0.025, 0.040, 'active'], [0.040, 9.99, 'wild']],
     z: null,

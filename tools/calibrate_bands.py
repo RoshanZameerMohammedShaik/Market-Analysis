@@ -57,7 +57,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UA = {'User-Agent': 'Mozilla/5.0 (compatible; Market-Analysis band calibrator)'}
 OUT_PATH = os.path.join('model', 'band_calibration.json')
 
-HORIZONS = [1, 2, 3, 4, 5, 6, 7]
+HORIZONS = list(range(1, 11))   # this week and next: up to 10 sessions ahead
 VOL_LOOKBACK = 30
 
 # Tier edges on daily sigma (fraction, not %). A name is placed by its own
