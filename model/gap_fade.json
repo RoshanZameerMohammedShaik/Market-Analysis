@@ -1,0 +1,100 @@
+{
+ "generatedAt": "2026-10-13T20:30:30Z",
+ "rule": "liquid the day before, open >= 2 x 30-day sigma above the previous close, no earnings within a session",
+ "k": 2.0,
+ "from": 2014,
+ "to": 2026,
+ "n": 2270,
+ "dates": 1055,
+ "closedBelowOpen": 0.5828,
+ "ci95": [
+  0.5624,
+  0.6029
+ ],
+ "baseClosedBelowOpen": 0.4885,
+ "meanFadeBps": 45.7,
+ "netFadeBps": 39.7,
+ "yearsAboveBase": 12,
+ "years": 13,
+ "byYear": [
+  {
+   "year": 2014,
+   "n": 131,
+   "down": 0.6718,
+   "base": 0.4779
+  },
+  {
+   "year": 2015,
+   "n": 163,
+   "down": 0.7362,
+   "base": 0.4921
+  },
+  {
+   "year": 2016,
+   "n": 105,
+   "down": 0.5333,
+   "base": 0.4718
+  },
+  {
+   "year": 2017,
+   "n": 140,
+   "down": 0.6643,
+   "base": 0.4743
+  },
+  {
+   "year": 2018,
+   "n": 122,
+   "down": 0.582,
+   "base": 0.4994
+  },
+  {
+   "year": 2019,
+   "n": 101,
+   "down": 0.6139,
+   "base": 0.4706
+  },
+  {
+   "year": 2020,
+   "n": 322,
+   "down": 0.5714,
+   "base": 0.4966
+  },
+  {
+   "year": 2021,
+   "n": 174,
+   "down": 0.5575,
+   "base": 0.4993
+  },
+  {
+   "year": 2022,
+   "n": 138,
+   "down": 0.442,
+   "base": 0.5029
+  },
+  {
+   "year": 2023,
+   "n": 172,
+   "down": 0.5756,
+   "base": 0.4779
+  },
+  {
+   "year": 2024,
+   "n": 318,
+   "down": 0.5063,
+   "base": 0.4927
+  },
+  {
+   "year": 2025,
+   "n": 187,
+   "down": 0.6364,
+   "base": 0.4848
+  },
+  {
+   "year": 2026,
+   "n": 197,
+   "down": 0.5685,
+   "base": 0.5033
+  }
+ ],
+ "source": "tools/calibrate_gap_fade.py, with the full test in tools/_exp7/q5_other.py"
+}

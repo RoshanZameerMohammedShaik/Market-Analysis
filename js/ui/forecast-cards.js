@@ -81,7 +81,7 @@ const dayLabel = (iso, today) => {
  *     for a holder; for anyone else there is nothing left to buy.
  * With neither, nothing measured points either way, and the card says so instead of guessing.
  */
-export function decideCall({ rs = null, owned = null, setupsLive = null } = {}) {
+export function decideCall({ rs = null, owned = null, setupsLive = null, gap = null } = {}) {
     const own = owned === true;
     const entries = rs?.record?.symbol || [];
     const pending = entries.find(e => e.status === 'pending');
@@ -93,7 +93,7 @@ export function decideCall({ rs = null, owned = null, setupsLive = null } = {}) 
         return { ...base, kind: own ? 'HOLD' : 'BUY', tone: 'up', confidence: rs.cell.hitRate, n: rs.cell.n, source: 'setup',
             title: own ? 'HOLD' : 'BUY',
             line: `${rs.forming ? 'A dip-recovery setup is forming today (it confirms at the close, and the measured entry is the next open).' : 'A dip-recovery setup is live: the measured entry is the next open.'} `
-                + `${pct(rs.cell.hitRate)} of ${rs.cell.n.toLocaleString()} like it closed back above the 5-day average within 10 sessions.` };
+                + `${pct(rs.cell.hitRate)} of ${rs.cell.n.toLocaleString()} trades like it were profitable, ${signedPct(rs.cell.netBps)} on average after costs.` };
     }
     // 2. Its exit fired: the recovery has happened.
     if (exiting) {
@@ -108,7 +108,7 @@ export function decideCall({ rs = null, owned = null, setupsLive = null } = {}) 
         return { ...base, kind: own ? 'HOLD' : 'BUY', tone: 'up', confidence: pending.hitRate ?? rs?.cell?.hitRate ?? null, source: 'setup-pending', entry: pending,
             title: own ? 'HOLD' : 'BUY',
             line: `A dip-recovery setup fired at the ${shortDay(pending.session)} close, so this session's open is the measured entry. `
-                + `${pct(pending.hitRate ?? rs?.cell?.hitRate ?? 0)} of setups like it closed back above the 5-day average within 10 sessions.` };
+                + `${pct(pending.hitRate ?? rs?.cell?.hitRate ?? 0)} of trades like it were profitable${Number.isFinite(pending.expNetBps) ? `, ${signedPct(pending.expNetBps)} on average after costs` : ''}.` };
     }
     // 4. A trade from an earlier day is still running.
     if (open) {
@@ -118,10 +118,39 @@ export function decideCall({ rs = null, owned = null, setupsLive = null } = {}) 
                 ? 'A dip-recovery trade is still open: it sells after the first close above the 5-day average, or after 10 sessions.'
                 : `This setup's entry was the ${shortDay(open.entryDate)} open. Buying later is not the measured trade.` };
     }
+    // 5. A big gap up this morning with no earnings behind it: the one direction signal that
+    //    measured better than a coin flip (tools/calibrate_gap_fade.py). About today only.
+    if (gap) {
+        return { ...base, kind: own ? 'HOLD' : 'DONT_BUY', tone: own ? 'flat' : 'down', confidence: own ? null : gap.rec.closedBelowOpen,
+            source: 'gap', gap,
+            title: own ? 'HOLD' : "DON'T BUY",
+            line: own
+                ? `It opened ${gap.pct}% above yesterday's close with no earnings behind it. Opens like this closed below the open ${pct(gap.rec.closedBelowOpen)} of the time, so expect it to give some back today. Tomorrow is a coin flip again.`
+                : `Don't chase this open: it gapped ${gap.pct}% above yesterday's close, more than twice its normal move, with no earnings behind it. ${pct(gap.rec.closedBelowOpen)} of ${gap.rec.n.toLocaleString()} opens like this closed below the open, against ${pct(gap.rec.baseClosedBelowOpen)} on other days.` };
+    }
     return { ...base, kind: own ? 'HOLD' : 'DONT_BUY', tone: 'flat', confidence: null, source: 'none',
         title: own ? 'HOLD' : "DON'T BUY",
         line: own ? 'No sell signal: nothing with a measured record points down today.'
             : 'No buy signal: nothing with a measured record points up today.' };
+}
+
+const signedPct = (bps) => `${bps >= 0 ? '+' : ''}${(bps / 100).toFixed(2)}%`;
+
+/**
+ * Today's gap test (tools/calibrate_gap_fade.py), from what the band already knows: its anchor is
+ * yesterday's close and its sigma the 30 sessions to yesterday. Only while the session trades, for
+ * a liquid US listing, with the earnings calendar known and no reaction today or tomorrow.
+ */
+export function gapSignal({ rec, band, todayBar, liquid, region, nowMs = Date.now() }) {
+    if (!rec?.n || !band?.anchor || !todayBar || !(todayBar.open > 0) || !liquid) return null;
+    if (String(region || '').toUpperCase() !== 'NYSE' || !sessionProgress(region, nowMs)) return null;
+    if (band.earningsDay == null || band.earningsDay === 1 || band.earningsDay === 2) return null;
+    const sigma = Number(band.sigmaSource === 'blend' ? band.sigmaTrail : band.sigmaDaily) / 100;
+    const prev = Number(band.anchor.price);
+    if (!(sigma > 0) || !(prev > 0)) return null;
+    const g = Math.log(todayBar.open / prev);
+    if (g < (rec.k || 2) * sigma) return null;
+    return { rec, gap: g, pct: (Math.expm1(g) * 100).toFixed(1), sigmaPct: (sigma * 100).toFixed(2) };
 }
 
 function shortDay(iso) {
@@ -148,16 +177,23 @@ function callEvidence(call, rs, co, symbol, dirRec) {
     if (rs && rs.eligible === false && rs.reason) items.push(`Setup not available: ${esc(rs.reason)}.`);
     const c = rs?.cell;
     if (c && ['setup', 'setup-pending', 'setup-open'].includes(call.source)) {
-        items.push(`Track record for this volatility and market mood: ${pct(c.hitRate)} of ${c.n.toLocaleString()} setups recovered, `
-            + `average ${(c.netBps / 100).toFixed(2)}% per trade after costs, positive in ${c.positiveYears} of ${c.years} years.`);
+        items.push(`Track record for this volatility and market mood: ${pct(c.hitRate)} of ${c.n.toLocaleString()} trades were profitable, `
+            + `average ${signedPct(c.netBps)} per trade after costs, positive in ${c.positiveYears} of ${c.years} years.`);
+        items.push('Where the odds come from: in a 2014 to 2026 test, buying any stock in an uptrend below its 5-day average with the same exit was profitable about as often (67.5%). What this sharper dip adds is size: about 0.15% more per trade than an ordinary dip bought the same day.');
         if (rs.heldOut) items.push(`On 2023 to 2026, years the rule was not fitted on: ${pct(rs.heldOut.hitRate)} of ${rs.heldOut.n.toLocaleString()}.`);
         if (Number.isFinite(rs.trigger)) items.push(`It sells at the open after the first close above the 5-day average (now ${fmtPriceTag(rs.trigger, co)}), or after 10 sessions. No stop: every stop tested lost money on this pattern.`);
     }
     if (call.live?.n) {
         items.push(`Live since ${shortDay(call.live.since)}: ${call.live.wins} of ${call.live.n} published setups recovered (${pct(call.live.hitRate)}).`);
     }
+    if (call.source === 'gap' && call.gap) {
+        const r = call.gap.rec;
+        items.push(`Opened ${call.gap.pct}% above yesterday's close. Its normal daily move is about ±${call.gap.sigmaPct}%, so this gap is more than twice that. No earnings today or tomorrow on the earnings calendar.`);
+        items.push(`Record, ${r.from} to ${r.to}: ${pct(r.closedBelowOpen)} of ${r.n.toLocaleString()} gaps like this on liquid US stocks closed below their open (95% range ${pct(r.ci95[0])} to ${pct(r.ci95[1])}), against ${pct(r.baseClosedBelowOpen)} on other days, and in ${r.yearsAboveBase} of ${r.years} years. They gave back ${(r.meanFadeBps / 100).toFixed(2)}% on average by the close.`);
+        items.push('It is about today only: the next session after a gap like this is a coin flip. It is not a reason to sell short: after costs the margin is thin.');
+    }
     if (dirRec?.n >= 30) {
-        items.push(`Plain "up or down tomorrow" calls are right ${pct(dirRec.hitRate)} of the time on ${dirRec.n.toLocaleString()} live calls, so they never make this call.`);
+        items.push(`Plain "up or down tomorrow" calls are right ${pct(dirRec.hitRate)} of the time on ${dirRec.n.toLocaleString()} live calls, so they never make this call. Of every direction signal tested on 2014 to 2026 data (earnings surprises, analyst ratings, momentum, short interest, options), only the gap rule above beat its base rate by a useful margin.`);
     }
     items.push(`Prices: <a href="https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}/history" target="_blank" rel="noopener">Yahoo Finance daily history</a>.`);
     return items;
@@ -408,12 +444,13 @@ function weekCard(title, rows, x, opts) {
 export function renderForecastCards({ symbol, band, history = null, rs = null, owned = null, price = null,
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
-                                      spike = null, spikeRecord = null } = {}) {
+                                      spike = null, spikeRecord = null, gapRec = null, liquid = false } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region });
     const rows = band.anchor ? weekRows({ band, history, region, cryptoMode, todayBar, live }) : null;
-    const call = decideCall({ rs, owned, setupsLive });
+    const gap = gapSignal({ rec: gapRec, band, todayBar, liquid, region: cryptoMode ? 'CRYPTO' : region });
+    const call = decideCall({ rs, owned, setupsLive, gap });
 
     // Today's range on the big bar: the row for today when the session is today, else the next one.
     const todayRow = rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => r.kind === 'today' || r.kind === 'future') : null;
@@ -451,5 +488,23 @@ export function todayPartialBar(candles, region, nowMs = Date.now()) {
     if (!c || !Number.isFinite(c.time)) return null;
     const iso = barSessionDate(region, c.time);
     const today = region === 'CRYPTO' ? new Date(nowMs).toISOString().slice(0, 10) : exchangeToday(region, nowMs);
-    return iso === today && c.high > 0 && c.low > 0 ? { high: c.high, low: c.low } : null;
+    return iso === today && c.high > 0 && c.low > 0 ? { high: c.high, low: c.low, open: c.open } : null;
+}
+
+let _gapRec = null;
+let _gapPromise = null;
+/** model/gap_fade.json (tools/calibrate_gap_fade.py), memoised. */
+export async function loadGapRecord() {
+    if (_gapRec !== null) return _gapRec || null;
+    if (_gapPromise) return _gapPromise;
+    _gapPromise = (async () => {
+        try {
+            const r = await fetch('model/gap_fade.json', { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('not json');
+            const j = await r.json();
+            _gapRec = j && j.n ? j : false;
+        } catch (_) { _gapRec = false; }
+        return _gapRec || null;
+    })();
+    return _gapPromise;
 }

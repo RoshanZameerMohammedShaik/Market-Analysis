@@ -40,6 +40,9 @@ on:
       - 'spike_odds.py'
       - 'tools/train_spike_model.py'
       - 'tools/spike_sync_check.py'
+      - 'js/ui/forecast-cards.js'
+      - 'model/gap_fade.json'
+      - 'tools/forecast_cards_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -150,6 +153,9 @@ on:
       - 'spike_odds.py'
       - 'tools/train_spike_model.py'
       - 'tools/spike_sync_check.py'
+      - 'js/ui/forecast-cards.js'
+      - 'model/gap_fade.json'
+      - 'tools/forecast_cards_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -418,6 +424,10 @@ jobs:
       # same features built over whole histories: the two must agree to the last digit.
       - name: Check the nightly spike features equal the trained ones
         run: pip install pandas scikit-learn && python tools/spike_sync_check.py
+      # The card's call: only measured patterns make it, every state routes right, and the gap rule
+      # fires only on a real gap, in session, liquid, with the earnings calendar known and clear.
+      - name: Check the prediction card's call
+        run: node tools/forecast_cards_check.mjs
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

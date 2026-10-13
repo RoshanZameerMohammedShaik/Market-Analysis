@@ -19,7 +19,8 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord } from './forecast-cards.js';
+import { blendEligible } from '../forecast-band.js';
 import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
 
 let lastShownConfidence = null;
@@ -466,6 +467,10 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                          trainedOn: spikeMeta?.backtest?.trainedOn ?? null };
             })(),
             spikeRecord: spikeMeta,
+            gapRec: await loadGapRecord(),
+            // Liquid as of the session the band starts from (the gap rule's own gate).
+            liquid: band?.anchor && Array.isArray(candles)
+                ? blendEligible(candles.slice(0, Math.max(0, candles.length - (lastDone ? 0 : 1))), region) : false,
         });
     } catch (_) { cardsHTML = ''; }
     // Per-symbol confidence-trend placeholder, filled async after paint
