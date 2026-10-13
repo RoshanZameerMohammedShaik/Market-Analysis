@@ -169,7 +169,9 @@ export async function evaluateVolForecast({ history, symbol, region, nowMs = Dat
     let f = null;
     if (pub) {
         f = { sigma: pub.s, lo: pub.lo, hi: pub.hi, past20: pub.p20, pUp: pub.pUp, confidence: pub.c,
-              call: pub.call, earnIn: pub.e === 1, earnKnown: pub.e != null, published: true };
+              call: pub.call, earnIn: pub.e === 1, earnKnown: pub.e != null, published: true,
+              // Spike odds for the NEXT session (spike_odds.py), published only, never guessed here.
+              spike: Number.isFinite(pub.spk) ? { p: pub.spk, move: pub.spkMove } : null };
     } else {
         // Market state more than a few days older than the bars would describe a different week.
         const age = (Date.parse(`${last}T12:00:00Z`) - Date.parse(`${slice.sessionDate}T12:00:00Z`)) / 864e5;

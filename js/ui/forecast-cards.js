@@ -19,6 +19,24 @@ import { blendHeldOut } from '../forecast-band.js';
 
 const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
 
+let _spikeRec = null;
+let _spikePromise = null;
+/** model/spike_record.json: the spike odds' backtest and live grade (tools/write_vol_slice.py). */
+export async function loadSpikeRecord() {
+    if (_spikeRec !== null) return _spikeRec || null;
+    if (_spikePromise) return _spikePromise;
+    _spikePromise = (async () => {
+        try {
+            const r = await fetch('model/spike_record.json', { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('not json');
+            const j = await r.json();
+            _spikeRec = j && typeof j === 'object' ? { ...j, walkForward: j.backtest?.walkForward || null } : false;
+        } catch (_) { _spikeRec = false; }
+        return _spikeRec || null;
+    })();
+    return _spikePromise;
+}
+
 let _intraday = null;
 let _intradayPromise = null;
 /** model/band_intraday.json (tools/calibrate_intraday.py), memoised; null when unavailable. */
@@ -240,6 +258,22 @@ function weekOf(iso, region, cryptoMode) {
     return out;
 }
 
+/** The spike odds for the band's first session, with the evidence behind the number. */
+function spikeBlock(spike, record, row, co) {
+    const p = spike.p, base = spike.base || 0.066;
+    const movePct = (spike.move * 100).toFixed(1);
+    const lines = [];
+    lines.push(`<div class="fc-conf-line"><b>${pct(p, p < 0.1 ? 1 : 0)}</b> chance this session moves at least ±${movePct}% (twice this stock's normal day), either way. The usual chance for a stock: ${pct(base, 1)}.</div>`);
+    const ev = [];
+    const t = spike.trainedOn;
+    ev.push(`From a model trained on ${t?.symbols ? `${t.symbols} US stocks, ${String(t.from).slice(0, 4)} to ${String(t.to).slice(0, 4)},` : 'years of US stock prices'} and scored only on years it never saw: it reads recent ranges, gaps and volume, the VIX and its term structure, this stock's own options prices, its own record of big days, and the earnings calendar.`);
+    if (spike.backtest?.top10pctLift) ev.push(`Its top tenth of days moved twice normal ${pct(spike.backtest.top10pctRate)} of the time, ${spike.backtest.top10pctLift}x the usual rate.`);
+    const b = (record?.byOdds || []).find(x => p >= x.lo && p < x.hi);
+    if (b && b.n >= 30) ev.push(`Live since ${esc(record.since)}: on ${b.n.toLocaleString()} days given odds like this, ${pct(b.spiked / b.n)} had a big move (the odds said ${pct(b.predicted / b.n)}).`);
+    lines.push(`<ul>${ev.map(t => `<li>${t}</li>`).join('')}</ul>`);
+    return `<div class="fc-sub">Big-move odds</div>${lines.join('')}`;
+}
+
 function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
     const items = [];
     if (row.kind === 'past') {
@@ -286,12 +320,16 @@ function dayRow(row, x, opts) {
         ? `${row.actualHigh > row.high ? seg(row.high, row.actualHigh, 'fc-out') : ''}${row.actualLow < row.low ? seg(row.actualLow, row.low, 'fc-out') : ''}` : '';
     const now = (row.kind === 'today' || row.kind === 'future') && Number.isFinite(opts.price)
         ? `<span class="fc-now" style="left:${x(opts.price).toFixed(2)}%"></span>` : '';
+    // A big-move flag on the row itself when the odds are at least twice the usual.
+    const spikeFlag = (row.kind !== 'past' && row.k === 1 && opts.spike && opts.spike.p >= 2 * (opts.spike.base || 0.066))
+        ? `<span class="fc-spike" title="Chance of a move at least twice the normal size">big move ${pct(opts.spike.p)}</span>` : '';
     const verdict = row.kind === 'past'
         ? (row.met ? '<span class="fc-v fc-v-in">held</span>' : '<span class="fc-v fc-v-out">broke</span>')
         : row.kind === 'today' ? '<span class="fc-v fc-v-live">today</span>' : '';
     const conf = Number.isFinite(row.confidence) ? row.confidence : null;
     const why = dayWhy({ row: { ...row, co }, band: opts.band, k: row.k, earningsDay: opts.earningsDay,
         symbol: opts.symbol, sigma: opts.sigma, tier: opts.tier });
+    const spikeHtml = (row.kind !== 'past' && row.k === 1 && opts.spike) ? spikeBlock(opts.spike, opts.spikeRecord, row, co) : '';
     const news = (row.kind !== 'past' && row.k === 1 && opts.news?.length)
         ? `<div class="fc-news"><div class="fc-sub">Latest headlines (for context: the range does not use news)</div>${opts.news.slice(0, 3).map(n =>
             `<a href="${esc(n.url || '#')}" target="_blank" rel="noopener">${esc(n.title)}</a><span>${esc(n.source || '')}</span>`).join('')}</div>` : '';
@@ -301,13 +339,14 @@ function dayRow(row, x, opts) {
                 <span class="fc-day-label">${dayLabel(row.date, today)}</span>
                 <span class="fc-day-bar">${has ? seg(row.low, row.high, 'fc-pred') : ''}${actual}${outside}${now}</span>
                 <span class="fc-day-nums">${has ? `${fmtPriceTag(row.low, co)} to ${fmtPriceTag(row.high, co)}` : 'no range'}</span>
-                ${verdict}
+                ${verdict || spikeFlag}
             </summary>
             <div class="fc-day-body">
                 ${has ? `<div class="fc-pred-line">Expected: low <b>${fmtPriceTag(row.low, co)}</b>, high <b>${fmtPriceTag(row.high, co)}</b>.</div>` : ''}
                 ${conf != null && row.kind !== 'past' ? `<div class="fc-conf-line"><b>${conf}%</b> chance the day's high and low both land inside this range.</div>` : ''}
                 ${row.kind === 'today' && Number.isFinite(row.actualLow) ? `<div class="fc-conf-line">So far today: ${fmtPriceTag(row.actualLow, co)} to ${fmtPriceTag(row.actualHigh, co)}.</div>` : ''}
                 ${Number.isFinite(row.liveF) ? `<div class="fc-conf-line">Updated live: ${Math.round(row.liveF * 100)}% of the session is left to trade, so the rest of the day can only move so far. Before the open the range was ${fmtPriceTag(row.morningLow, co)} to ${fmtPriceTag(row.morningHigh, co)}.</div>` : ''}
+                ${spikeHtml}
                 <div class="fc-sub">Why</div>
                 <ul>${why.map(t => `<li>${t}</li>`).join('')}</ul>
                 ${news}
@@ -368,7 +407,8 @@ function weekCard(title, rows, x, opts) {
  */
 export function renderForecastCards({ symbol, band, history = null, rs = null, owned = null, price = null,
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
-                                      news = [], dirRec = null, setupsLive = null, intraday = null } = {}) {
+                                      news = [], dirRec = null, setupsLive = null, intraday = null,
+                                      spike = null, spikeRecord = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region });
@@ -399,7 +439,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
     const x = scale([...all.flatMap(r => [r.low, r.high, r.actualLow, r.actualHigh]), price]);
     if (!x) return signalCard;
     const opts = { co, today: rows.today, price, band, earningsDay: band.earningsDay ?? null, symbol,
-                   sigma: band.sigmaDaily, tier: band.volTier, news };
+                   sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord };
     return signalCard
         + weekCard('This week', rows.thisWeek, x, opts)
         + weekCard('Next week', rows.nextWeek, x, opts);

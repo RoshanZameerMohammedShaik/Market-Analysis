@@ -27,13 +27,19 @@ sys.path.insert(0, os.path.join(REPO, 'tools'))
 
 import earnings_calendar as ec  # noqa: E402
 import fetch_vol_inputs as fvi  # noqa: E402
+import spike_odds as so  # noqa: E402
 import vol_forecast as vf  # noqa: E402
+from forecast_band import next_session  # noqa: E402
 from ledger_universe import symbols_for_region  # noqa: E402
 
 M = os.path.join(REPO, 'model')
 OUT = os.path.join(M, 'vol_forecasts.json')
 PENDING = os.path.join(M, 'vol_pending.json')
 RECORD = os.path.join(M, 'vol_record.json')
+# Spike odds (spike_odds.py): published beside each forecast, graded the next night.
+SPIKE_PENDING = os.path.join(M, 'spike_pending.json')
+SPIKE_RECORD = os.path.join(M, 'spike_record.json')
+SPIKE_BUCKETS = ((0, 0.04), (0.04, 0.08), (0.08, 0.15), (0.15, 0.3), (0.3, 1.01))
 BATCH = 80
 PER_SYMBOL_KEEP = 8
 SERIES_KEEP = 120
@@ -52,7 +58,43 @@ def completed(df):
 
 def bars_of(sub):
     return [{'open': float(r.Open), 'high': float(r.High), 'low': float(r.Low), 'close': float(r.Close),
-             'volume': float(r.Volume)} for r in sub.itertuples()]
+             'volume': float(r.Volume), 'date': r.Index.strftime('%Y-%m-%d')} for r in sub.itertuples()]
+
+
+def grade_spike(p, sub):
+    """A pending spike forecast against the session after it, or None until that session closes."""
+    dates = [d.strftime('%Y-%m-%d') for d in sub.index]
+    if p['session'] not in dates:
+        return None
+    i = dates.index(p['session'])
+    if i + 1 >= len(dates):
+        return None
+    c = sub.Close.values
+    move = math.log(c[i + 1] / c[i])
+    return {**p, 'next': dates[i + 1], 'spiked': abs(move) >= p['move'], 'moved': round(move, 4)}
+
+
+def aggregate_spikes(rec, graded):
+    o = rec.setdefault('overall', {'n': 0, 'spiked': 0, 'predicted': 0.0})
+    buckets = {b['key']: b for b in rec.setdefault('byOdds', [])}
+    days = {d['session']: d for d in rec.setdefault('series', [])}
+    for g in graded:
+        o['n'] += 1
+        o['spiked'] += int(g['spiked'])
+        o['predicted'] = round(o['predicted'] + g['p'], 4)
+        for lo, hi in SPIKE_BUCKETS:
+            if lo <= g['p'] < hi:
+                key = f'{lo:.2f}'
+                b = buckets.setdefault(key, {'key': key, 'lo': lo, 'hi': hi, 'n': 0, 'spiked': 0, 'predicted': 0.0})
+                b['n'] += 1
+                b['spiked'] += int(g['spiked'])
+                b['predicted'] = round(b['predicted'] + g['p'], 4)
+        d = days.setdefault(g['session'], {'session': g['session'], 'n': 0, 'spiked': 0, 'predicted': 0.0})
+        d['n'] += 1
+        d['spiked'] += int(g['spiked'])
+        d['predicted'] = round(d['predicted'] + g['p'], 4)
+    rec['byOdds'] = sorted(buckets.values(), key=lambda b: b['lo'])
+    rec['series'] = sorted(days.values(), key=lambda d: d['session'])[-SERIES_KEEP:]
 
 
 def next_day(d):
@@ -123,6 +165,7 @@ def main():
     model = vf.load_model()
     if not model:
         sys.exit('ERROR: model/vol_model.json missing; run tools/train_vol_model.py')
+    spike_model = so.load_model()
     mk = {}
     for t in ('^VIX', 'SPY'):
         d = yf.download(t, period='6mo', progress=False, auto_adjust=False)
@@ -153,7 +196,7 @@ def main():
     for i in range(0, len(syms), BATCH):
         chunk = syms[i:i + BATCH]
         try:
-            df = yf.download(chunk, period='1y', interval='1d', progress=False, auto_adjust=False,
+            df = yf.download(chunk, period='2y', interval='1d', progress=False, auto_adjust=False,
                              group_by='ticker', threads=True)
         except Exception as e:
             print(f'  [warn] batch {i}: {type(e).__name__}', file=sys.stderr)
@@ -171,16 +214,29 @@ def main():
                 continue                      # stale or halted: its market features would not match
             session = msession
             eday = ec.earnings_day(s, 'NYSE', next_day(last), eslice, n=vf.H)
-            f = vf.features(bars_of(sub), market, bool(eday), last.weekday(), stock_iv.get(s))
+            bl = bars_of(sub)
+            f = vf.features(bl, market, bool(eday), last.weekday(), stock_iv.get(s))
             p = vf.predict(model, f)
             if not p:
                 continue
+            # Spike odds for the NEXT session: the earnings calendar says whether a reaction lands on
+            # it and how many sessions until the next one (capped at 20, as trained).
+            spk = None
+            if spike_model:
+                try:
+                    nxt = next_session('NYSE', last.isoformat())
+                    e20 = ec.earnings_day(s, 'NYSE', datetime.date.fromisoformat(nxt), eslice, n=20)
+                    ex = so.extras(bl, nxt, e20 == 1, e20 if e20 else 20)
+                    spk = so.predict(spike_model, f, ex)
+                except Exception:
+                    spk = None
             forecasts[s] = {'s': r4(p['sigma']), 'lo': r4(p['lo']), 'hi': r4(p['hi']), 'p20': r4(p['past20']),
                             'pUp': r4(p['pUp']), 'c': r4(p['confidence']), 'call': p['call'],
                             'e': 1 if p['earnIn'] else (0 if eday == 0 else None),
                             # Liquid by the trend gate's bar. The landing outlook lists only these:
                             # "calmer after a 60% day" on a penny stock is true and useless.
-                            'liq': 1 if (f['l_dv'] >= math.log(LIQ_DOLLAR_VOL) and sub.Close.values[-1] >= LIQ_PRICE) else 0}
+                            'liq': 1 if (f['l_dv'] >= math.log(LIQ_DOLLAR_VOL) and sub.Close.values[-1] >= LIQ_PRICE) else 0,
+                            **({'spk': r4(spk['p']), 'spkMove': r4(spk['move'])} if spk else {})}
         time.sleep(1.0)
 
     universe = len({s for s in symbols_for_region('NYSE') if '.' not in s and '-' not in s})
@@ -218,6 +274,37 @@ def main():
     rec['backtest'] = {'accuracyByConfidence': model['accuracyByConfidence'], 'walkForward': model['walkForward']}
     with open(PENDING, 'w', encoding='utf-8') as fh:
         json.dump(still, fh, separators=(',', ':'))
+
+    # Spike odds: grade last night's (one session later), queue tonight's.
+    spk_pending = json.load(open(SPIKE_PENDING, encoding='utf-8')) if os.path.exists(SPIKE_PENDING) else []
+    spk_still, spk_graded = [], []
+    for sp in spk_pending:
+        sub = bars_by.get(sp['symbol'])
+        g = grade_spike(sp, sub) if sub is not None else None
+        if g:
+            spk_graded.append(g)
+        elif sp['session'] >= (datetime.date.fromisoformat(session) - datetime.timedelta(days=14)).isoformat():
+            spk_still.append(sp)
+    have_s = {(sp['session'], sp['symbol']) for sp in spk_still}
+    for sym_, x in forecasts.items():
+        if 'spk' in x and (session, sym_) not in have_s:
+            spk_still.append({'session': session, 'symbol': sym_, 'p': x['spk'], 'move': x['spkMove']})
+    srec = json.load(open(SPIKE_RECORD, encoding='utf-8')) if os.path.exists(SPIKE_RECORD) else {}
+    srec.setdefault('since', session)
+    aggregate_spikes(srec, spk_graded)
+    srec['generatedAt'] = datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+    srec['pending'] = len(spk_still)
+    if spike_model:
+        srec['backtest'] = {'walkForward': spike_model.get('walkForward'), 'buckets': spike_model.get('buckets'),
+                            'trainedOn': spike_model.get('trainedOn')}
+    with open(SPIKE_PENDING, 'w', encoding='utf-8') as fh:
+        json.dump(spk_still, fh, separators=(',', ':'))
+    with open(SPIKE_RECORD, 'w', encoding='utf-8') as fh:
+        json.dump(srec, fh, separators=(',', ':'), allow_nan=False)
+    so_ = srec['overall']
+    n_spk = sum(1 for x in forecasts.values() if 'spk' in x)
+    print(f'  spike odds for {n_spk} symbols, graded {len(spk_graded)} tonight, '
+          f'{so_["n"]} all-time ({so_["spiked"]} spiked against {so_["predicted"]:.0f} expected)')
     with open(RECORD, 'w', encoding='utf-8') as fh:
         json.dump(rec, fh, separators=(',', ':'), allow_nan=False)
     o = rec['overall']

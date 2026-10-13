@@ -37,6 +37,9 @@ on:
       - 'model/vol_model.json'
       - 'tools/vol_sync_check.py'
       - 'tools/vol_sync_check.mjs'
+      - 'spike_odds.py'
+      - 'tools/train_spike_model.py'
+      - 'tools/spike_sync_check.py'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -144,6 +147,9 @@ on:
       - 'model/vol_model.json'
       - 'tools/vol_sync_check.py'
       - 'tools/vol_sync_check.mjs'
+      - 'spike_odds.py'
+      - 'tools/train_spike_model.py'
+      - 'tools/spike_sync_check.py'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -408,6 +414,10 @@ jobs:
       # The volatility forecast runs in Python nightly and in the browser on the card: one model.
       - name: Check the volatility forecast agrees across languages
         run: pip install pandas && python tools/vol_sync_check.py
+      # The spike odds are computed nightly from one symbol's bars, and the model was trained on the
+      # same features built over whole histories: the two must agree to the last digit.
+      - name: Check the nightly spike features equal the trained ones
+        run: pip install pandas scikit-learn && python tools/spike_sync_check.py
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.

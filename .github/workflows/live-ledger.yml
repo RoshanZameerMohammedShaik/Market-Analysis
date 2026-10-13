@@ -446,6 +446,12 @@ jobs:
           if [ -f model/vol_record.json ]; then
             git add -f model/vol_record.json
           fi
+          if [ -f model/spike_pending.json ]; then
+            git add -f model/spike_pending.json
+          fi
+          if [ -f model/spike_record.json ]; then
+            git add -f model/spike_record.json
+          fi
           if [ -f model/market_sessions.json ]; then
             git add -f model/market_sessions.json
           fi
@@ -596,6 +602,12 @@ jobs:
             fi
             if [ -f model/vol_record.json ]; then
               git add -f model/vol_record.json
+            fi
+            if [ -f model/spike_pending.json ]; then
+              git add -f model/spike_pending.json
+            fi
+            if [ -f model/spike_record.json ]; then
+              git add -f model/spike_record.json
             fi
             if [ -f model/market_sessions.json ]; then
               git add -f model/market_sessions.json

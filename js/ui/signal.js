@@ -19,7 +19,7 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar, loadIntraday } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord } from './forecast-cards.js';
 import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
 
 let lastShownConfidence = null;
@@ -447,6 +447,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         // the live band (built the same way the cron now builds it) stands in for them.
         const band = view.forecastBand?.anchor ? view.forecastBand : (prediction.forecastBand || view.forecastBand);
         const rec = prediction.reversionSetup?.record;
+        const spikeMeta = await loadSpikeRecord();
         cardsHTML = renderForecastCards({
             symbol: state.currentSymbol, band, history: bandHistory,
             rs: prediction.reversionSetup || null, owned: await ownedNow(state.currentSymbol),
@@ -456,6 +457,15 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             news: prediction.news || newsData || [], dirRec: directionRecord(),
             setupsLive: rec?.overall?.n ? { ...rec.overall, since: rec.since } : null,
             intraday: await loadIntraday(),
+            // Spike odds are published for the session after the forecast's own; they apply to
+            // the band's first day only when the band starts from that same session.
+            spike: (() => {
+                const vf = prediction.volForecast;
+                if (!vf?.spike || !band?.anchor || vf.session !== band.anchor.session) return null;
+                return { ...vf.spike, base: spikeMeta?.walkForward?.baseRate ?? null, backtest: spikeMeta?.walkForward ?? null,
+                         trainedOn: spikeMeta?.backtest?.trainedOn ?? null };
+            })(),
+            spikeRecord: spikeMeta,
         });
     } catch (_) { cardsHTML = ''; }
     // Per-symbol confidence-trend placeholder, filled async after paint

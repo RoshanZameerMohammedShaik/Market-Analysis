@@ -90,6 +90,8 @@
 .fc-v-in { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
 .fc-v-out { color: var(--yellow); background: color-mix(in srgb, var(--yellow) 14%, transparent); }
 .fc-v-live { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.fc-spike { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; text-align: center; padding: 2px 4px;
+    border-radius: 6px; color: var(--yellow); background: color-mix(in srgb, var(--yellow) 16%, transparent); white-space: nowrap; }
 .fc-day-body { padding: 4px 12px 12px 12px; font-size: 0.86rem; color: var(--text-secondary); line-height: 1.5; }
 .fc-pred-line, .fc-conf-line { margin: 4px 0; color: var(--text-primary); }
 .fc-conf-line b { color: var(--green); }

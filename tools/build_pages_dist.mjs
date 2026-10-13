@@ -93,6 +93,8 @@ const MODEL = [
     'model/market_sessions.json',
     'model/vol_forecasts.json',
     'model/vol_record.json',
+    // Spike odds' live grade (tools/write_vol_slice.py), read by js/ui/forecast-cards.js.
+    'model/spike_record.json',
     'model/ledger/recent.json',
     // The 30-day compact history. Seven features read it (confidence trend, signal markers, equity
     // curve, accuracy-by-setup, ledger history, scanner aggregation, watchlist signals) and all of
