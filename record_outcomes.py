@@ -166,33 +166,79 @@ def fetch_window(symbol: str, start_iso: str, days_needed: int = 0):
             'index': {d: i for i, d in enumerate(dates)}}
 
 
-def find_anchor(bars, row_date: str, entry: float):
+# How each outcome's anchor bar was chosen. The two pre-2026-10-13 labels mark outcomes graded by
+# the earliest-match search below, which the nightly run regrades once (see main()).
+ANCHOR_HOW_CURRENT = ('entry-session', 'match-latest', 'session-date')
+ANCHOR_HOW_STALE = ('entry-match', 'date')
+
+
+def session_date_of(row):
+    """Exchange-local session date at the row's lock instant, or None.
+
+    The row's `date` is the UTC date of the cron run, which for ASX (open 23:00 UTC) is the day
+    BEFORE the Sydney session, so grading off it shifted every ASX outcome by one session.
+    """
+    try:
+        from earnings_calendar import session_date_for
+        t = row.get('predictedAt')
+        if not t:
+            return None
+        epoch = datetime.datetime.fromisoformat(t.replace('Z', '+00:00')).timestamp()
+        d = session_date_for(row.get('region'), epoch)
+        return d.isoformat() if d else None
+    except Exception:
+        return None
+
+
+def _locked_after_close(row, session_iso):
+    """Was the row locked after its session's close? Unknown counts as no."""
+    try:
+        from forecast_band import bar_is_complete
+        t = datetime.datetime.fromisoformat(row['predictedAt'].replace('Z', '+00:00'))
+        return bar_is_complete(row.get('region'), datetime.date.fromisoformat(session_iso), t)
+    except Exception:
+        return False
+
+
+def find_anchor(bars, row_date: str, entry: float, row=None):
     """Which bar does this row's `entry` price actually correspond to?
 
     Returns (index, how) or (None, reason).
 
-    This exists because the ledger's stored `entry` matches its own date's close
-    only ~25% of the time: record_predictions.py takes `close[-1]` at the
-    market-open cron, which is usually the PREVIOUS session. Grading by date
-    therefore treats a 2-day forecast as a 1-day one. Measured effect of
-    anchoring on the matching bar instead: out-of-sample day-1 band coverage
-    68.4% -> 84.1%.
+    `entry` is close[-1] when the cron ran: the PREVIOUS session's close before the open, a live
+    price after it. Rows written since 2026-10-13 carry `entrySession`, the date of that bar, and
+    are anchored on it exactly. Older rows are matched by price.
 
-    Price match is tried first and preferred, within a +/-4 session window so a
-    coincidental match far away cannot win. Falling back to the date keeps older
-    rows gradable, but the choice is recorded on the outcome so it is auditable
-    rather than silent.
+    THE MATCH IS SEARCHED NEWEST FIRST. close[-1] is the most recent close at lock time, so when
+    several bars in the window share a close, the latest one is the bar the cron saw. The old
+    search ran oldest first and took the first match, which on thin stocks that print the same
+    close for days, and on liquid ones whose close a few sessions back happened to land within
+    0.1%, anchored up to four sessions early: 24% of stock rows from 2026-09-29 to 10-12 were
+    graded on a window that ended BEFORE the prediction was made, and scored 54.0% against 50.9%
+    for the rest. The window never reaches past the lock session, for the same reason.
     """
-    idx = bars['index'].get(row_date)
     closes = bars['close']
-    if entry and entry > 0:
-        lo = max(0, (idx - 4) if idx is not None else 0)
-        hi = min(len(closes), (idx + 2) if idx is not None else len(closes))
-        for i in range(lo, hi):
+    if row and row.get('entrySession'):
+        i = bars['index'].get(row['entrySession'])
+        if i is not None:
+            return i, 'entry-session'
+    local = (session_date_of(row) if row else None) or row_date
+    idx = bars['index'].get(local)
+    # The closes the cron could have seen: every bar strictly before the lock session, and the
+    # lock session's own close only when the lock came after it. Matching the lock session's
+    # FINAL close otherwise would anchor a pre-open entry on a close that did not exist yet.
+    top = None
+    if idx is not None and row and _locked_after_close(row, local):
+        top = idx
+    else:
+        earlier = [i for i, d in enumerate(bars['dates']) if d < local]
+        top = earlier[-1] if earlier else None
+    if entry and entry > 0 and top is not None:
+        for i in range(top, max(-1, top - 4), -1):
             if abs(closes[i] - entry) / entry < 0.001:
-                return i, 'entry-match'
+                return i, 'match-latest'
     if idx is not None:
-        return idx, 'date'
+        return idx, 'session-date'
     return None, 'no-bar-for-date'
 
 
@@ -245,7 +291,7 @@ def resolve_horizon(row: dict, h_days: int, bars):
     if not isinstance(entry, (int, float)) or entry != entry or entry <= 0:
         return None  # NaN or absent entry: 650 such rows exist; never gradable
 
-    a_idx, a_how = find_anchor(bars, row.get('date'), float(entry))
+    a_idx, a_how = find_anchor(bars, row.get('date'), float(entry), row)
     if a_idx is None:
         return None
 
@@ -354,6 +400,11 @@ RERESOLVE = False
 stats = defaultdict(int)
 
 
+def stale_anchor(outcome):
+    """True for an outcome whose anchor came from the pre-2026-10-13 earliest-match search."""
+    return isinstance(outcome, dict) and outcome.get('anchorHow') in ANCHOR_HOW_STALE
+
+
 def main():
     import sys
     global RERESOLVE
@@ -396,7 +447,11 @@ def main():
             # never self-correct. --reresolve rebuilds every matured horizon.
             unresolved_horizons = [h for h in HORIZONS_DAYS if passed >= h]
         else:
-            unresolved_horizons = [h for h in HORIZONS_DAYS if row['horizons'].get(str(h)) is None and passed >= h]
+            # Unresolved horizons, plus any graded by the old earliest-match anchor search. Those
+            # are regraded once, here, by the nightly run: a wrong value frozen under the `is None`
+            # gate never self-corrects, and the manual --reresolve task needs a hand to start it.
+            unresolved_horizons = [h for h in HORIZONS_DAYS if passed >= h and (
+                row['horizons'].get(str(h)) is None or stale_anchor(row['horizons'].get(str(h))))]
         if not unresolved_horizons:
             if any(row['horizons'].get(str(h)) is None for h in HORIZONS_DAYS):
                 skipped_immature += 1

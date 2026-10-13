@@ -52,9 +52,11 @@ const moneyText = (v, cur) => fmtPrice(v, { srcCurrency: cur });
 // Stocks: the rows ARE the exchange's sessions, holidays skipped (js/market-sessions.js). Row 1
 // is the session in progress or the most recent one, the same anchor the earnings check uses, so
 // on a Saturday it reads "Fri, Oct 2", not "Today", and a row lands on Monday only if Monday trades.
-function sessionLabels(n, region) {
+function sessionLabels(n, region, day1 = null) {
     const today = exchangeToday(region);
-    const sess = sessionDateFor(region);
+    // A band that says where it starts is labelled from its own day 1 (the session after the
+    // close it is anchored on). Without that, the session in progress or the most recent one.
+    const sess = day1 || sessionDateFor(region);
     const dates = bandDates(sess, region, n);
     if (!today || dates.length !== n) return null;
     const tomorrow = new Date(`${today}T12:00:00Z`);
@@ -67,12 +69,26 @@ function sessionLabels(n, region) {
     });
 }
 
-function dayLabels(n, cryptoMode, region = null) {
+function dayLabels(n, cryptoMode, region = null, day1 = null) {
     if (!cryptoMode && region && region !== 'CRYPTO') {
         try {
-            const s = sessionLabels(n, region);
+            const s = sessionLabels(n, region, day1);
             if (s) return s;
         } catch (_) { /* fall through to the weekday labels */ }
+    }
+    if (cryptoMode && day1) {
+        // Crypto trades every day, so its rows are consecutive UTC days from day 1.
+        const today = new Date().toISOString().slice(0, 10);
+        const out = [];
+        for (let i = 0; i < n; i++) {
+            const d = new Date(`${day1}T12:00:00Z`);
+            d.setUTCDate(d.getUTCDate() + i);
+            const iso = d.toISOString().slice(0, 10);
+            const t = new Date(`${today}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + 1);
+            out.push(iso === today ? 'Today' : iso === t.toISOString().slice(0, 10) ? 'Tomorrow'
+                : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }));
+        }
+        return out;
     }
     const out = ['Today', 'Tomorrow'];
     let dates = [];
@@ -188,7 +204,7 @@ export function renderForecastBand(band, { currency = 'USD', currentPrice = null
     // carries only {day, low, high, widthPct}, so BTC's table skipped Saturday and Sunday and
     // labelled its last two rows Mon/Tue, days the coin trades like any other.
     const isCrypto = cryptoMode != null ? cryptoMode === true : (band.mode === 'crypto' || band.cryptoMode === true);
-    const labels = dayLabels(band.days.length, isCrypto, region);
+    const labels = dayLabels(band.days.length, isCrypto, region, band.anchor?.day1 || null);
     // Rows from the earnings day on are drawn with the wider earnings z (see
     // js/earnings-calendar-slice.js). Saying which ones, and why, is the difference between "the
     // band suddenly jumped on Thursday" and "Thursday is the earnings reaction".

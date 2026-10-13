@@ -23,12 +23,13 @@ import { fetchOptionsPositioning, optionsAdjustment } from './options-iv.js';
 import { detectSqueeze, squeezeAdjustment } from './squeeze-detector.js';
 import { timeframeAgreement, timeframeAgreementAdjustment } from './timeframe-agreement.js';
 import { sessionAnchorFromCandles } from './ui/market-session.js';
-import { loadEarningsSlice, earningsDayFor, sessionDateFor } from './earnings-calendar-slice.js';
+import { loadEarningsSlice, earningsDayFor, sessionDateFor, bandDates, nextSessionAfter } from './earnings-calendar-slice.js';
 import { trendState, trendGate, REASONS as TREND_REASONS } from './trend-gate.js';
 import { evaluateVolForecast, loadVolRecord } from './vol-forecast.js';
 import { loadMarketSessions } from './market-sessions.js';
 import { loadReversionCalibration, loadPublishedSetups, loadSetupsRecord, recordFor, evaluateReversionSetup } from './reversion-setup.js';
-import { forecastBands, loadBandCalibration } from './forecast-band.js';
+import { forecastBands, loadBandCalibration, bandAnchor } from './forecast-band.js';
+import { roundPrice } from './price-round.js';
 import { computeVwapClassifier, vwapAdjustment } from './vwap.js';
 import { getSectorRotation, rotationAdjustment } from './sector-rotation.js';
 import { computeVolumeProfile, volumeProfileAdjustment } from './volume-profile.js';
@@ -518,27 +519,33 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
     let forecastBand = null;
     try {
         const candles = multiData?.daily?.candles || [];
-        const closes = candles.map(c => c.close);
-        const currentPrice = multiData?.daily?.currentPrice || closes[closes.length - 1];
-        if (currentPrice && candles.length) {
+        const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
+        await loadMarketSessions();
+        // FROM THE LAST COMPLETED CLOSE (forecast-band.js bandAnchor), day 1 the session after
+        // it, exactly as the cron locks it and as the z values were fitted. A live price would
+        // start the band mid-session and the grade would then ask it to hold two sessions.
+        const anchor = bandAnchor(candles, region);
+        if (anchor && candles.length) {
             await loadBandCalibration();
             // EARNINGS-AWARE BAND. Which day of the 7 an announcement moves selects the z family
             // (see js/earnings-calendar-slice.js): null keeps the pooled z the band always used,
-            // so a symbol with no calendar entry is unaffected. The cron locks the same decision
-            // into the ledger row, so the displayed band and the graded one stay identical.
+            // so a symbol with no calendar entry is unaffected. Counted from the band's own day 1,
+            // as the cron does, so the displayed band and the graded one stay identical.
             let earningsDay = null;
             try {
-                const region = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
-                const [slice] = await Promise.all([loadEarningsSlice(), loadMarketSessions()]);
-                const sess = sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
+                const slice = await loadEarningsSlice();
+                const sess = anchor.day1 || sessionDateFor(region, sessionAnchorFromCandles(candles)?.openedAtMs ?? Date.now());
                 earningsDay = earningsDayFor(symbolOrCoinId, region, sess, slice);
             } catch (_) { earningsDay = null; }
             forecastBand = forecastBands({
-                candles,
-                currentPrice,
+                candles: candles.slice(0, anchor.index + 1),
+                currentPrice: anchor.price,
                 cryptoMode: mode === 'crypto',
                 earningsDay,
             });
+            if (forecastBand) {
+                forecastBand.anchor = { session: anchor.session, price: roundPrice(anchor.price), day1: anchor.day1 };
+            }
         }
     } catch (_) { forecastBand = null; }
 
@@ -607,7 +614,22 @@ export async function computeFullConfidence(multiData, mode, symbolOrCoinId, tim
         // The row for the session being asked about: Tomorrow's headline is day 2 of the band.
         // It was always day 1, so the Tomorrow view printed TODAY's range under
         // "Expected Price Range. Tomorrow" while the table right below it showed tomorrow's.
-        const dayIdx = timeframe === 'tomorrow' && forecastBand.days.length > 1 ? 1 : 0;
+        // Chosen by DATE when the band says where it starts: day 1 is the session after the last
+        // completed close, so after the bell day 1 is already tomorrow and "day 2" would skip a
+        // session. Index order is the fallback for a band without an anchor.
+        let dayIdx = -1;
+        try {
+            const reg = mode === 'crypto' ? 'CRYPTO' : regionFor(symbolOrCoinId);
+            const day1 = forecastBand.anchor?.day1;
+            const dates = day1 ? (reg === 'CRYPTO'
+                ? forecastBand.days.map((_, i) => { const d = new Date(`${day1}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + i); return d.toISOString().slice(0, 10); })
+                : bandDates(day1, reg, forecastBand.days.length)) : [];
+            const today = reg === 'CRYPTO' ? new Date().toISOString().slice(0, 10) : sessionDateFor(reg);
+            const want = timeframe === 'tomorrow' ? nextSessionAfter(reg, today) : today;
+            dayIdx = dates.indexOf(want);
+            if (dayIdx < 0 && timeframe !== 'tomorrow' && dates.length) dayIdx = 0;   // today has closed: the next session
+        } catch (_) { dayIdx = -1; }
+        if (dayIdx < 0) dayIdx = timeframe === 'tomorrow' && forecastBand.days.length > 1 ? 1 : 0;
         const d1 = forecastBand.days[dayIdx];
         const cp = _pt.currentPrice;
         if (cp > 0 && Number.isFinite(d1.high) && Number.isFinite(d1.low)) {

@@ -55,6 +55,112 @@ def py_forecast(cal, candles, price, mode='perDay', earnings_day=None):
                                        earnings_day=earnings_day)
 
 
+def anchor_cases():
+    """Where a band starts, in both languages: completed-session tests across markets, DST and
+    a Sydney session that opens on the previous UTC day, the next session across real holidays,
+    and the bar a band anchors on."""
+    import datetime
+    complete = [
+        {'region': 'NYSE', 'bar': '2026-10-13', 'now': '2026-10-13T19:00:00Z'},   # 15:00 New York
+        {'region': 'NYSE', 'bar': '2026-10-13', 'now': '2026-10-13T20:05:00Z'},   # 16:05, settling
+        {'region': 'NYSE', 'bar': '2026-10-13', 'now': '2026-10-13T20:15:00Z'},   # 16:15, closed
+        {'region': 'NYSE', 'bar': '2026-10-12', 'now': '2026-10-13T14:00:00Z'},
+        {'region': 'NYSE', 'bar': '2026-12-15', 'now': '2026-12-15T21:15:00Z'},   # EST, 16:15
+        {'region': 'ASX', 'bar': '2026-10-14', 'now': '2026-10-13T23:30:00Z'},    # 10:30 Sydney
+        {'region': 'ASX', 'bar': '2026-10-14', 'now': '2026-10-14T05:15:00Z'},    # 16:15 Sydney
+        {'region': 'TYO', 'bar': '2026-10-13', 'now': '2026-10-13T06:45:00Z'},    # 15:45 Tokyo
+        {'region': 'LSE', 'bar': '2026-10-13', 'now': '2026-10-13T15:45:00Z'},    # 16:45 London
+        {'region': 'CRYPTO', 'bar': '2026-10-13', 'now': '2026-10-13T12:00:00Z'},
+        {'region': 'CRYPTO', 'bar': '2026-10-13', 'now': '2026-10-14T00:01:00Z'},
+    ]
+    nxt = [{'region': r, 'iso': d} for r, d in (
+        ('NYSE', '2026-10-09'), ('TYO', '2026-10-09'), ('HKEX', '2026-09-30'), ('NSE', '2026-10-01'),
+        ('NYSE', '2026-11-25'), ('LSE', '2026-12-24'), ('CRYPTO', '2026-10-13'), ('ASX', '2026-10-16'))]
+
+    def epoch(iso_utc):
+        return int(datetime.datetime.fromisoformat(iso_utc.replace('Z', '+00:00')).timestamp())
+
+    session_of = [{'region': 'ASX', 'time': epoch('2026-10-13T23:00:00Z')},   # Sydney 10-14 open
+                  {'region': 'NYSE', 'time': epoch('2026-10-13T13:30:00Z')},
+                  {'region': 'CRYPTO', 'time': epoch('2026-10-13T00:00:00Z')}]
+
+    def series(opens):
+        return [{'time': epoch(t), 'open': 100 + i, 'high': 101 + i, 'low': 99 + i, 'close': 100.5 + i}
+                for i, t in enumerate(opens)]
+
+    nyse = series(['2026-10-08T13:30:00Z', '2026-10-09T13:30:00Z', '2026-10-12T13:30:00Z', '2026-10-13T13:30:00Z'])
+    asx = series(['2026-10-12T23:00:00Z', '2026-10-13T23:00:00Z'])
+    anchor = [{'region': 'NYSE', 'candles': nyse, 'now': '2026-10-13T17:00:00Z'},   # live: previous bar
+              {'region': 'NYSE', 'candles': nyse, 'now': '2026-10-13T21:00:00Z'},   # closed: last bar
+              {'region': 'ASX', 'candles': asx, 'now': '2026-10-14T01:00:00Z'}]
+    return {'complete': complete, 'next': nxt, 'sessionOf': session_of, 'anchor': anchor}
+
+
+def check_anchors(cases, js):
+    """Python vs JS for the anchor helpers. Returns the number of disagreements."""
+    import datetime
+    from earnings_calendar import session_date_for
+    print('where a band starts (Python vs JS):')
+    if not js:
+        print('  JS returned no anchor results')
+        return 1
+    bad = 0
+
+    def t(iso):
+        return datetime.datetime.fromisoformat(iso.replace('Z', '+00:00'))
+
+    def session_of(region, epoch):
+        if region == 'CRYPTO':
+            return datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).date().isoformat()
+        return session_date_for(region, epoch).isoformat()
+
+    for c, j in zip(cases['complete'], js['complete']):
+        p = forecast_band.bar_is_complete(c['region'], datetime.date.fromisoformat(c['bar']), t(c['now']))
+        if p != j:
+            print(f'  complete {c}: python {p}, js {j}')
+            bad += 1
+    for c, j in zip(cases['next'], js['next']):
+        p = forecast_band.next_session(c['region'], c['iso'])
+        if p != j:
+            print(f'  next {c}: python {p}, js {j}')
+            bad += 1
+    for c, j in zip(cases['sessionOf'], js['sessionOf']):
+        p = session_of(c['region'], c['time'])
+        if p != j:
+            print(f'  session of {c}: python {p}, js {j}')
+            bad += 1
+    for c, j in zip(cases['anchor'], js['anchor']):
+        dates = [datetime.date.fromisoformat(session_of(c['region'], x['time'])) for x in c['candles']]
+        k = forecast_band.band_anchor(dates, c['region'], t(c['now']))
+        p = None if k is None else {'index': k, 'session': dates[k].isoformat(),
+                                    'day1': forecast_band.next_session(c['region'], dates[k].isoformat())}
+        if p != j:
+            print(f'  anchor {c["region"]} at {c["now"]}: python {p}, js {j}')
+            bad += 1
+    # The stated answers, so both sides cannot agree on a wrong one.
+    expect_complete = [False, False, True, True, True, False, True, True, True, False, True]
+    if js['complete'] != expect_complete:
+        print(f'  completeness: {js["complete"]}, expected {expect_complete}')
+        bad += 1
+    expect_next = ['2026-10-12', '2026-10-13', '2026-10-02', '2026-10-05', '2026-11-27', '2026-12-29',
+                   '2026-10-14', '2026-10-19']
+    if js['next'] != expect_next:
+        print(f'  next session: {js["next"]}, expected {expect_next}')
+        bad += 1
+    if js['sessionOf'] != ['2026-10-14', '2026-10-13', '2026-10-13']:
+        print(f'  session of a bar: {js["sessionOf"]}')
+        bad += 1
+    expect_anchor = [{'index': 2, 'session': '2026-10-12', 'day1': '2026-10-13'},
+                     {'index': 3, 'session': '2026-10-13', 'day1': '2026-10-14'},
+                     {'index': 0, 'session': '2026-10-13', 'day1': '2026-10-14'}]
+    if js['anchor'] != expect_anchor:
+        print(f'  anchors: {js["anchor"]}, expected {expect_anchor}')
+        bad += 1
+    n = sum(len(v) for v in cases.values())
+    print(f'  {"OK" if not bad else str(bad) + " mismatch(es)"}: {n} cases\n')
+    return bad
+
+
 def build_fixtures(live=False):
     # Spread across tiers on purpose: a fixture set that only exercises 'calm'
     # would not catch a tier-lookup bug.
@@ -115,6 +221,7 @@ def main():
         cal = json.load(f)
 
     payload = build_fixtures(args.live)
+    payload['_anchors'] = anchor_cases()
 
     # Temp file must sit inside the repo: under Git Bash on Windows a /tmp path
     # reaches native node as C:\tmp\... and fails with an empty stdout.
@@ -135,8 +242,9 @@ def main():
         sys.exit(1)
     js = json.loads(proc.stdout)
 
+    failures = check_anchors(payload.pop('_anchors'), js.pop('_anchors', None))
+
     print(f'{"case":<15}{"tier":<9}{"sigma%":>8}{"conf":>6}{"max diff":>11}  result')
-    failures = 0
     for name, o in payload.items():
         p = py_forecast(cal, o['candles'], o['price'], earnings_day=o.get('earningsDay'))
         j = js.get(name)

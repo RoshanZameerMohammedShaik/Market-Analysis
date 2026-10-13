@@ -39,6 +39,8 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEDGER = os.path.join(REPO, 'model', 'ledger')
+# Anchor labels written by the pre-2026-10-13 earliest-match search (record_outcomes.py).
+STALE_HOW = ('entry-match', 'date')
 HORIZONS = ('1', '3', '5', '10', '20')
 
 
@@ -113,8 +115,10 @@ def main():
             o = (r.get('horizons') or {}).get(h)
             if not o:
                 continue
-            prov['legacy (no anchorHow: positional grading)' if 'anchorHow' not in o
-                 else f'fixed resolver, anchor={o["anchorHow"]}'] += 1
+            how = o.get('anchorHow')
+            prov['legacy (no anchorHow: positional grading)' if how is None
+                 else (f'pre-2026-10-13 anchor search, {how}' if how in STALE_HOW
+                       else f'current resolver, anchor={how}')] += 1
     print('\n  HOW EACH OUTCOME WAS GRADED')
     tot_o = sum(prov.values()) or 1
     for k, v in prov.most_common():
@@ -123,6 +127,11 @@ def main():
     if legacy:
         print(f'    NOTE: {100*legacy/tot_o:.1f}% still carry the broken grading. Run the')
         print('          reresolve-outcomes workflow task to rebuild them.')
+    old = sum(v for k, v in prov.items() if k.startswith('pre-2026-10-13'))
+    if old:
+        print(f'    NOTE: {100*old/tot_o:.1f}% were anchored by the pre-2026-10-13 search, which')
+        print('          could pick a bar up to four sessions before the prediction. The nightly')
+        print('          resolve regrades them, and until then they stay out of the headline.')
 
     def table(title, keep):
         print(f'\n  {title}')
@@ -155,8 +164,10 @@ def main():
         if not any_row:
             print('    (no rows in this group)')
 
-    table('GRADED BY THE FIXED RESOLVER  <- the only trustworthy numbers',
-          lambda o: 'anchorHow' in o)
+    table('GRADED BY THE CURRENT RESOLVER  <- the only trustworthy numbers',
+          lambda o: o.get('anchorHow') is not None and o.get('anchorHow') not in STALE_HOW)
+    table('PRE-2026-10-13 ANCHOR SEARCH  <- awaiting the nightly regrade, shown for contrast only',
+          lambda o: o.get('anchorHow') in STALE_HOW)
     table('LEGACY POSITIONAL GRADING  <- known broken, shown for contrast only',
           lambda o: 'anchorHow' not in o)
 
@@ -168,7 +179,7 @@ def main():
         if r.get('signal') not in ('BUY', 'SELL'):
             continue
         o = (r.get('horizons') or {}).get('1')
-        if not o or 'anchorHow' not in o or o.get('unresolvable'):
+        if not o or o.get('anchorHow') is None or o.get('anchorHow') in STALE_HOW or o.get('unresolvable'):
             continue
         dm = o.get('directionMatch')
         c = r.get('confidence')

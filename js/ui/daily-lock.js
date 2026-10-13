@@ -135,7 +135,13 @@ export function lockCall(symbol, prediction, anchor = null) {
     // supposed to be the same one. My own test caught it.
     const scale = (openPrice != null && visitPrice > 0) ? (openPrice / visitPrice) : 1;
     const slide = (v) => (Number.isFinite(v) ? +(v * scale).toFixed(6) : null);
-    const lockedBand = rescaleBand(prediction.forecastBand, scale);
+    // A band that carries its own anchor starts from the last completed close, which does not
+    // move during the session, so it is already the same for every viewer and is kept as is.
+    // Re-centring it on the open would give it an anchor the z values were never fitted on.
+    // Only an anchorless band (the old live-price kind) still needs moving.
+    const lockedBand = prediction.forecastBand?.anchor
+        ? prediction.forecastBand
+        : rescaleBand(prediction.forecastBand, scale);
     // The headline high/low are READ OFF the band whenever there is one, rather than derived in
     // parallel from priceTargets. Two independent derivations of one displayed value is the whole
     // defect being fixed here, so the second derivation is only a fallback for the case where no

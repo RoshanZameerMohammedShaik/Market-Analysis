@@ -41,8 +41,8 @@ import yfinance as yf
 
 from backtest import generate_prediction
 from price_round import round_price
-from forecast_band import forecast_bands
-from earnings_calendar import earnings_day as earnings_band_day, session_date_for
+from forecast_band import forecast_bands, band_anchor, bar_is_complete, next_session
+from earnings_calendar import earnings_day as earnings_band_day
 from trend_gate import trend_state, gate as trend_gate_why
 from ai_infer import ai_prediction
 from shared_features import extract_ohlcv
@@ -121,11 +121,15 @@ def fetch_recent_candles(symbol: str, period='1y'):
         if df is not None and not df.empty:
             try:
                 ohlcv = extract_ohlcv(df)
+                # Exchange-local bar dates, so the band can tell a finished session from the one
+                # still trading (forecast_band.band_anchor).
+                dates = [d.date() if hasattr(d, 'date') else datetime.date.fromisoformat(str(d)[:10])
+                         for d in df.index.tolist()]
             except Exception as e:
                 # An extract failure is deterministic (data-shape issue), not
                 # transient, don't waste retries on it.
                 return None, f'extract-failed: {e}'
-            return ohlcv, None
+            return (*ohlcv, dates), None
         # Transient empty/raise: back off and retry, except after the last try.
         if attempt < _FETCH_RETRIES - 1:
             time.sleep(_FETCH_BACKOFF_S[attempt])
@@ -152,20 +156,11 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
     if already_predicted_today(path, date_iso, symbol):
         return ('skipped-dup', symbol)
 
-    # Which band day an earnings announcement lands on (None = unknown; see earnings_calendar).
-    # The band's day 1 is THIS market's session, in its own calendar: date_iso is the UTC date
-    # of the cron run, and for ASX (23:00 UTC open) that is the day before the Sydney session.
-    try:
-        sess = session_date_for(region) or datetime.date.fromisoformat(date_iso)
-        earn_day = earnings_band_day(symbol, region, sess)
-    except Exception:
-        earn_day = None
-
     candles_data, why = fetch_recent_candles(symbol)
     if candles_data is None:
         _add_diag('skipped-no-data', symbol, why or 'unknown')
         return ('skipped-no-data', symbol)
-    close, high, low, volume = candles_data
+    close, high, low, volume, bar_dates = candles_data
     if len(close) < 30:
         _add_diag('skipped-thin', symbol, f'len(close)={len(close)}')
         return ('skipped-thin', symbol)
@@ -218,6 +213,33 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         gated_from = pred['signal']
         pred = {**pred, 'signal': 'NEUTRAL', 'confidence': min(int(pred.get('confidence') or 0), 50)}
     entry_price = float(close[-1])
+    # Where that price came from: the session of the last bar, and whether that session was still
+    # trading. record_outcomes.py anchors on entrySession directly instead of guessing the bar
+    # from the price, which picked a bar up to four sessions too early on 24% of recent rows.
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    entry_session = bar_dates[-1]
+    entry_live = not bar_is_complete(region, entry_session, now_utc)
+
+    # THE BAND STARTS FROM THE LAST COMPLETED CLOSE (forecast_band.band_anchor), with day 1 the
+    # session after it: exactly what the z values were fitted on. Anchoring on a live price and
+    # grading against the next session made a one-session band hold two, which is why those rows
+    # held 69.6% where correctly anchored ones held 86-88%.
+    band = None
+    earn_day = None
+    k = band_anchor(bar_dates, region, now_utc)
+    if k is not None and k >= 30:
+        anchor_session = bar_dates[k].isoformat()
+        day1 = next_session(region, anchor_session)
+        # Which band day an earnings announcement lands on (None = unknown; earnings_calendar),
+        # counted from day 1 in the exchange's own calendar.
+        try:
+            earn_day = earnings_band_day(symbol, region, datetime.date.fromisoformat(day1))
+        except Exception:
+            earn_day = None
+        band_candles = candles_as_records(close[:k + 1], high[:k + 1], low[:k + 1], volume[:k + 1])
+        band = forecast_bands(band_candles, float(close[k]), mode='perDay', earnings_day=earn_day)
+        if band:
+            band['anchor'] = {'session': anchor_session, 'price': round_price(float(close[k])), 'day1': day1}
 
     # AI inference, same models and same numbers as the browser (ai_infer mirrors
     # js/ai-model.js; tools/ai_sync_check.py asserts they agree to 1e-9).
@@ -246,6 +268,8 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # predictedAt is how long the run took to reach this symbol.
         'batchStartedAt': batch_started,
         'entry': round_price(entry_price),
+        'entrySession': entry_session.isoformat(),
+        'entryLive': entry_live,
         'signal': pred['signal'],
         'confidence': int(pred['confidence']),
         # Provenance: which engine logic produced this call. recalibrate_from_
@@ -327,8 +351,7 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
         # symbol has no calendar entry (the pooled z, i.e. the band exactly as before), 0 when
         # nothing reacts inside the 7 sessions, or the first band day an announcement moves.
         # The band a user sees is this locked row, so the cron has to decide it, not the browser.
-        'forecastBand': forecast_bands(candles, entry_price, mode='perDay',
-                                       earnings_day=earn_day) if candles else None,
+        'forecastBand': band,
         # Stored so the grader can score earnings and ordinary weeks separately later, and so a
         # row stays interpretable after the calendar has moved on.
         'earningsDay': earn_day,

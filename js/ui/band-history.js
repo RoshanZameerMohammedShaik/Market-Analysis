@@ -18,12 +18,12 @@
 //                 js/forecast-band.js the live panel uses.
 //
 // The replay is deliberately built to have no lookahead: sigma comes from bars strictly
-// BEFORE the session being scored, and the band is anchored on that session's OPEN price,
-// which is the information a trader actually had when the session began. Anchoring on the
-// close would let the band see the very move it is being scored against, which would make
-// coverage look far better than it is. (Note the stored 'locked' rows are anchored on the
-// price when the cron ran, often hours into the session, so they had a small genuine
-// information advantage. That is a reason to label the two sources, not to hide either.)
+// BEFORE the session being scored, and the band is anchored on the PREVIOUS session's close,
+// which is exactly how the live band is built (forecast-band.js bandAnchor) and what its z
+// values were fitted on. It used to anchor on the session's own open, a start point the z was
+// never fitted for: it skips the overnight gap the z allows for, so replayed rows held more
+// often than the live band can. Locked rows written since 2026-10-13 carry their own anchor
+// and are filed under the session they were made for, their day 1.
 //
 // WHAT "MET" MEANS
 // ---------------
@@ -140,11 +140,13 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
     const lockedByDate = new Map();
     for (const r of (lockedRows || [])) {
         const d1 = r?.forecastBand?.days?.[0];
-        if (r?.date && d1 && Number.isFinite(d1.low) && Number.isFinite(d1.high)) {
-            lockedByDate.set(r.date, {
+        const anc = r?.forecastBand?.anchor;
+        const key = anc?.day1 || r?.date;
+        if (key && d1 && Number.isFinite(d1.low) && Number.isFinite(d1.high)) {
+            lockedByDate.set(key, {
                 low: d1.low,
                 high: d1.high,
-                anchor: Number.isFinite(r.entry) ? r.entry : null,
+                anchor: Number.isFinite(anc?.price) ? anc.price : (Number.isFinite(r.entry) ? r.entry : null),
                 confidence: r.forecastBand.confidence ?? null,
                 calibrated: r.forecastBand.calibrated === true,
                 // WHEN the band was set, which the reach figures depend on completely.
@@ -179,17 +181,18 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
         let source = pred ? 'locked' : 'modelled';
 
         if (!pred) {
-            // Replay: sigma from bars strictly before this session, anchored on its open.
+            // Replay: sigma from bars strictly before this session, anchored on the close before it.
+            const prevClose = bars[i - 1].close;
             const band = forecastBands({
                 candles: bars.slice(0, i),          // strictly prior -- no lookahead
-                currentPrice: bar.open,
+                currentPrice: prevClose,
                 cryptoMode,
                 mode: 'perDay',
             });
             const d1 = band?.days?.[0];
             if (!d1) continue;
             pred = {
-                low: d1.low, high: d1.high, anchor: bar.open,
+                low: d1.low, high: d1.high, anchor: prevClose,
                 confidence: band.confidence ?? null,
                 calibrated: band.calibrated === true,
             };

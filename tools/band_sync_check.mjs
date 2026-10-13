@@ -35,6 +35,27 @@ if (cal._fallback) {
 
 const input = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 const out = {};
+
+// WHERE A BAND STARTS (forecast-band.js bandAnchor and its helpers), against the same published
+// exchange calendar the Python side reads.
+const anchorCases = input._anchors;
+delete input._anchors;
+if (anchorCases) {
+    const sessions = await import(pathToFileURL(path.join(repoRoot, 'js/market-sessions.js')).href);
+    const calPath = path.join(repoRoot, 'model', 'market_sessions.json');
+    if (fs.existsSync(calPath)) sessions.setMarketSessions(JSON.parse(fs.readFileSync(calPath, 'utf8')));
+    const ecs = await import(pathToFileURL(path.join(repoRoot, 'js/earnings-calendar-slice.js')).href);
+    out._anchors = {
+        complete: anchorCases.complete.map(c => ecs.isBarComplete(c.region, c.bar, Date.parse(c.now))),
+        next: anchorCases.next.map(c => ecs.nextSessionAfter(c.region, c.iso)),
+        sessionOf: anchorCases.sessionOf.map(c => ecs.barSessionDate(c.region, c.time)),
+        anchor: anchorCases.anchor.map(c => {
+            const a = mod.bandAnchor(c.candles, c.region, Date.parse(c.now));
+            return a ? { index: a.index, session: a.session, day1: a.day1 } : null;
+        }),
+    };
+}
+
 for (const [sym, o] of Object.entries(input)) {
     const r = mod.forecastBands({
         candles: o.candles,

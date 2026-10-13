@@ -125,6 +125,47 @@ export function nextSessionDates(region, n, epochMs = Date.now()) {
     return out;
 }
 
+// WHERE A BAND STARTS. MIRRORS forecast_band.py (bar_is_complete, next_session): a band is
+// anchored on the last COMPLETED session's close and day 1 is the session after it, which is what
+// the z values were fitted on. Anchoring on a live price and grading against the next session
+// made a one-session band hold two: those ledger rows held 69.6%, correctly anchored ones 86-88%.
+const CLOSE_SETTLE_MIN = 10;
+
+/** Exchange-local date of the session a daily bar belongs to. epochSec: the bar's time. */
+export function barSessionDate(region, epochSec) {
+    const reg = String(region || '').toUpperCase();
+    if (!Number.isFinite(epochSec)) return null;
+    if (reg === 'CRYPTO') return new Date(epochSec * 1000).toISOString().slice(0, 10);
+    const m = MARKETS[reg];
+    return m ? localParts(epochSec * 1000, m.tz).date : new Date(epochSec * 1000).toISOString().slice(0, 10);
+}
+
+/** Has the session `barIso` (exchange-local) closed at `nowMs`? Unknown region: yes. */
+export function isBarComplete(region, barIso, nowMs = Date.now()) {
+    const reg = String(region || '').toUpperCase();
+    if (!barIso) return true;
+    if (reg === 'CRYPTO') return barIso < new Date(nowMs).toISOString().slice(0, 10);
+    const m = MARKETS[reg];
+    if (!m) return true;
+    const { date, hour, minute } = localParts(nowMs, m.tz);
+    if (barIso < date) return true;
+    if (barIso > date) return false;
+    // Ten minutes past the bell, so a closing auction has printed into the daily bar.
+    return hour * 60 + minute >= m.close[0] * 60 + m.close[1] + CLOSE_SETTLE_MIN;
+}
+
+/** The first session strictly AFTER `iso` (exchange-local, holidays skipped). */
+export function nextSessionAfter(region, iso) {
+    const reg = String(region || '').toUpperCase();
+    if (!iso) return null;
+    let d = addDays(iso, 1);
+    if (reg === 'CRYPTO') return d;
+    const m = MARKETS[reg];
+    const days = m ? m.days : [1, 2, 3, 4, 5];
+    for (let k = 0; k < 15 && !isSession(reg, d, days); k++) d = addDays(d, 1);
+    return d;
+}
+
 /** The n session dates the band's rows describe, day 1 = sessionDate. */
 export function bandDates(sessionDate, region, n = BAND_SESSIONS) {
     const m = MARKETS[String(region || '').toUpperCase()];

@@ -78,13 +78,57 @@ print('\n=== entry price wins over the row date when they disagree ===')
 # treat that as a 1-day forecast when it is really 2.
 skew = {'symbol': 'T', 'date': '2026-03-05', 'entry': 102.0, 'signal': 'BUY', 'horizons': {}}
 o = ro.resolve_horizon(skew, 1, SERIES)
-check('anchored by entry-match, not the row date', o['anchorHow'] == 'entry-match', o['anchorHow'])
+check('anchored by the price match, not the row date', o['anchorHow'] == 'match-latest', o['anchorHow'])
 check('anchor is the bar whose close IS the entry', o['anchorDate'] == '2026-03-04', o['anchorDate'])
 check('date fallback is used when no close matches',
       ro.resolve_horizon({'symbol': 'T', 'date': '2026-03-05', 'entry': 999.0,
                           'signal': 'BUY', 'horizons': {}}, 1, SERIES) is None
       or ro.resolve_horizon({'symbol': 'T', 'date': '2026-03-05', 'entry': 102.5,
-                             'signal': 'BUY', 'horizons': {}}, 1, SERIES)['anchorHow'] == 'date')
+                             'signal': 'BUY', 'horizons': {}}, 1, SERIES)['anchorHow'] == 'session-date')
+
+print('\n=== the price match is searched NEWEST first (2026-10-13) ===')
+# A thin stock printing one close for days. The cron's close[-1] was the most recent of them, so
+# the newest matching bar is the anchor. The old oldest-first search took the first match, up to
+# four sessions back, and graded 24% of recent stock rows on a window that ended before the
+# prediction was made.
+THIN = bars([
+    ('2026-03-02', 5.00, 5.00, 5.00), ('2026-03-03', 5.00, 5.00, 5.00),
+    ('2026-03-04', 5.00, 5.00, 5.00), ('2026-03-05', 5.00, 5.05, 4.95),
+    ('2026-03-06', 5.20, 5.25, 5.00), ('2026-03-09', 5.10, 5.20, 5.05),
+])
+o = ro.resolve_horizon({'symbol': 'TH', 'date': '2026-03-06', 'entry': 5.00, 'signal': 'BUY',
+                        'region': 'NYSE', 'predictedAt': '2026-03-06T14:35:00Z', 'horizons': {}}, 1, THIN)
+check('several bars share the entry close: the NEWEST before the lock wins',
+      o and o['anchorDate'] == '2026-03-05', str(o and o['anchorDate']))
+check('so h=1 is the lock session itself, never a session before it',
+      o and o['targetDate'] == '2026-03-06', str(o and o['targetDate']))
+o = ro.resolve_horizon({'symbol': 'TH', 'date': '2026-03-06', 'entry': 5.20, 'signal': 'BUY',
+                        'region': 'NYSE', 'predictedAt': '2026-03-06T14:35:00Z', 'horizons': {}}, 1, THIN)
+check("a pre-close lock cannot match its own session's FINAL close",
+      o and o['anchorHow'] == 'session-date' and o['anchorDate'] == '2026-03-06', str(o))
+o = ro.resolve_horizon({'symbol': 'TH', 'date': '2026-03-06', 'entry': 5.20, 'signal': 'BUY',
+                        'region': 'NYSE', 'predictedAt': '2026-03-06T21:30:00Z', 'horizons': {}}, 1, THIN)
+check('an after-close lock CAN match its own session close',
+      o and o['anchorHow'] == 'match-latest' and o['anchorDate'] == '2026-03-06', str(o))
+
+print('\n=== rows written since 2026-10-13 are anchored on entrySession exactly ===')
+o = ro.resolve_horizon({'symbol': 'T', 'date': '2026-03-05', 'entry': 101.0, 'entrySession': '2026-03-03',
+                        'signal': 'BUY', 'horizons': {}}, 1, SERIES)
+check('entrySession is the anchor, no price search', o and o['anchorHow'] == 'entry-session'
+      and o['anchorDate'] == '2026-03-03', str(o))
+
+print('\n=== ASX: the row date is the UTC date, the session is the next Sydney day ===')
+# 23:05 UTC on 03-04 is 10:05 in Sydney on 03-05. A live entry there belongs to the 03-05
+# session; the UTC row date would have shifted the whole grade back one session.
+o = ro.resolve_horizon({'symbol': 'X.AX', 'date': '2026-03-04', 'entry': 103.4, 'signal': 'BUY',
+                        'region': 'ASX', 'predictedAt': '2026-03-04T23:05:00Z', 'horizons': {}}, 1, SERIES)
+check('anchored on the Sydney session, not the UTC date', o and o['anchorDate'] == '2026-03-05', str(o))
+
+print('\n=== outcomes from the old search are flagged for the nightly regrade ===')
+check('entry-match is stale', ro.stale_anchor({'anchorHow': 'entry-match'}))
+check('date is stale', ro.stale_anchor({'anchorHow': 'date'}))
+check('match-latest is current', not ro.stale_anchor({'anchorHow': 'match-latest'}))
+check('an empty horizon is not "stale" (it is unresolved)', not ro.stale_anchor(None))
 
 print('\n=== a FLAT close validates neither direction ===')
 FLAT = bars([('2026-03-02', 50.0, 50.0, 50.0), ('2026-03-03', 50.0, 50.0, 50.0),

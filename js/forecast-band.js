@@ -31,7 +31,33 @@
 // unfounded; see git history.
 
 import { roundPrice } from './price-round.js';
-import { nextSessionDates } from './earnings-calendar-slice.js';
+import { nextSessionDates, barSessionDate, isBarComplete, nextSessionAfter } from './earnings-calendar-slice.js';
+
+/**
+ * Where a band starts: the last COMPLETED daily bar. MIRRORS forecast_band.band_anchor.
+ *
+ * The z values are fitted from a session's close to the sessions after it, so that is the only
+ * start point they describe. A band anchored on a live price mid-session and then scored against
+ * the next session has to hold about two sessions of movement with one session's width; those
+ * ledger rows held 69.6% where correctly anchored ones held 86-88%. Anchoring here also makes
+ * the band stable all session, because nothing it reads changes until the session closes.
+ *
+ * @returns {{index:number, session:string, price:number, day1:string}|null}
+ */
+export function bandAnchor(candles, region, nowMs = Date.now()) {
+    if (!Array.isArray(candles) || !candles.length) return null;
+    let k = candles.length - 1;
+    const sessionOf = (c) => (Number.isFinite(c?.time) ? barSessionDate(region, c.time) : null);
+    // A bar without a timestamp cannot be placed in a session; it is treated as complete, which
+    // is what every caller assumed before this existed.
+    const last = sessionOf(candles[k]);
+    if (last && !isBarComplete(region, last, nowMs)) k -= 1;
+    if (k < 0) return null;
+    const session = sessionOf(candles[k]);
+    const price = candles[k].close ?? candles[k].c;
+    if (!(price > 0)) return null;
+    return { index: k, session, price, day1: session ? nextSessionAfter(region, session) : null };
+}
 
 const CAL_URL = 'model/band_calibration.json';
 const VOL_LOOKBACK = 30;

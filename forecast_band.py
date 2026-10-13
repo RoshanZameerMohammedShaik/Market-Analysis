@@ -34,6 +34,7 @@ MIN_PRICE = 0.01
 MAX_SIGMA = 0.50
 MIN_LIVE_BARS = 20
 VOL_LOOKBACK = 30
+CLOSE_SETTLE_MIN = 10
 
 _cal = None
 _cal_tried = False
@@ -98,6 +99,80 @@ def tier_for(sigma, tier_edges):
         if lo <= sigma < hi:
             return name
     return tier_edges[-1][2]
+
+
+# ── WHERE A BAND STARTS ──────────────────────────────────────────────────────────────────────────
+#
+# A band is anchored on the LAST COMPLETED SESSION'S CLOSE, and day 1 is the session after it.
+# That is exactly what tools/calibrate_bands.py measures (c0 = a close, day h = the h-th session
+# after it), so it is the only anchor the fitted z values describe.
+#
+# Until 2026-10-13 the cron anchored on close[-1] at whatever moment it ran. When it ran after the
+# open, that was a live price inside today's session, and the grader then scored the band against
+# the NEXT session, so a band sized for one session had to hold roughly two. Those rows held the
+# "80%" band 69.6% of the time, while rows whose start point matched the calibration held 86-88%.
+# Same band, same z: only the start point differed.
+
+def bar_is_complete(region, bar_date, now=None):
+    """Has the session this daily bar belongs to closed? bar_date: a date, exchange-local.
+
+    Crypto bars are UTC days. Equities use the exchange's own close in its own timezone
+    (bot/sessions.py MARKETS), so DST needs no table. An unknown region is treated as complete,
+    which is what every caller assumed before this existed.
+    """
+    import datetime
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    reg = str(region or '').upper()
+    if reg == 'CRYPTO':
+        return bar_date < now.astimezone(datetime.timezone.utc).date()
+    try:
+        from zoneinfo import ZoneInfo
+        from bot.sessions import MARKETS
+        spec = MARKETS[reg]
+        local = now.astimezone(ZoneInfo(spec['tz']))
+    except Exception:
+        return True
+    if bar_date < local.date():
+        return True
+    if bar_date > local.date():
+        return False
+    # Ten minutes past the bell, so a closing auction has printed into the daily bar.
+    return local.hour * 60 + local.minute >= spec['close'][0] * 60 + spec['close'][1] + CLOSE_SETTLE_MIN
+
+
+def next_session(region, iso):
+    """Exchange-local ISO date of the first session strictly AFTER `iso` (holidays skipped)."""
+    import datetime
+    d = datetime.date.fromisoformat(iso) + datetime.timedelta(days=1)
+    reg = str(region or '').upper()
+    if reg == 'CRYPTO':
+        return d.isoformat()
+    try:
+        import market_sessions
+        from bot.sessions import MARKETS
+        days = MARKETS[reg]['days']
+    except Exception:
+        market_sessions, days = None, (0, 1, 2, 3, 4)
+    for _ in range(15):
+        ok = market_sessions.is_session(reg, d, weekdays=days) if market_sessions else d.weekday() in days
+        if ok:
+            return d.isoformat()
+        d += datetime.timedelta(days=1)
+    return d.isoformat()
+
+
+def band_anchor(dates, region, now=None):
+    """Index of the bar a band starts from: the last one whose session has closed.
+
+    dates: exchange-local dates of the daily bars, oldest first. Returns None when there is no
+    completed bar.
+    """
+    if not dates:
+        return None
+    k = len(dates) - 1
+    if not bar_is_complete(region, dates[k], now):
+        k -= 1
+    return k if k >= 0 else None
 
 
 def _z_tables(c, mode, earnings_day):
