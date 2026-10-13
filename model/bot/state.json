@@ -1,20 +1,20 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-13T09:30:46Z",
-  "runs": 1760,
+  "updatedAt": "2026-10-13T13:39:45Z",
+  "runs": 1766,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9878.505241,
-    "cashUSD": 3954.225528,
-    "unsettledCashUSD": 0.0,
-    "holdingsUSD": 5924.279713,
-    "realizedUSD": -194.513672,
-    "unrealizedUSD": 73.018913,
-    "feesUSD": 18.009612,
-    "pnlUSD": -121.494759,
-    "pnlPct": -1.2149,
-    "trades": 17
+    "equityUSD": 9717.361819,
+    "cashUSD": 3954.194419,
+    "unsettledCashUSD": 1123.886732,
+    "holdingsUSD": 4639.280668,
+    "realizedUSD": -224.291516,
+    "unrealizedUSD": -58.346664,
+    "feesUSD": 19.05313,
+    "pnlUSD": -282.638181,
+    "pnlPct": -2.8264,
+    "trades": 18
   },
   "sleeves": {
     "engine": {
@@ -65,7 +65,7 @@
       "id": "mia-ai",
       "name": "Mia's Own Call",
       "blurb": "Mia reads the features and decides herself, with her reasoning on every trade. Uses Gemini when a key is present, the LSTM alone when not.",
-      "cashUSD": 206.421753,
+      "cashUSD": 206.390644,
       "positions": {
         "MAN": {
           "units": 20.749076792761297,
@@ -76,22 +76,12 @@
               "openedAt": "2026-09-08T18:14:44Z"
             }
           ]
-        },
-        "UPST": {
-          "units": 47.807018347539724,
-          "lots": [
-            {
-              "units": 47.807018347539724,
-              "costUSD": 1153.664576850306,
-              "openedAt": "2026-10-12T16:38:54Z"
-            }
-          ]
         }
       },
-      "pendingUSD": 0.0,
-      "realizedUSD": 47.645163,
-      "feesUSD": 6.002038,
-      "trades": 6
+      "pendingUSD": 1123.886732,
+      "realizedUSD": 17.867319,
+      "feesUSD": 7.045556,
+      "trades": 7
     },
     "control": {
       "id": "control",
@@ -120,7 +110,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [],
+    "pending": [
+      {
+        "amountUSD": 1123.886732,
+        "settlesOn": "2026-10-14"
+      }
+    ],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
@@ -136,10 +131,11 @@
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "engine:UPST": "2026-10-07T13:43:45Z",
-      "reversion:MAN": "2026-10-12T14:08:43Z",
-      "mia-ai:UPST": "2026-10-12T16:38:54Z"
+      "reversion:MAN": "2026-10-12T14:08:43Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "mia-ai": 1
+    },
     "day": "2026-10-13"
   },
   "equityOpen": {
@@ -148,5 +144,7 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {}
+  "pendingBySleeve": {
+    "mia-ai": 1123.886732
+  }
 }
