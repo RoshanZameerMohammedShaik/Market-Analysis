@@ -252,6 +252,35 @@ def band_anchor(dates, region, now=None):
     return k if k >= 0 else None
 
 
+def last_completed_session(region, now=None):
+    """Exchange-local date of the most recent session that has closed, by the calendar, or None.
+
+    What the last complete daily bar SHOULD be. Yahoo's daily feed sometimes leaves that bar out
+    for the first hours of the next session: at 08:08 UTC on 2026-10-14 SAP.DE and AZN.L came back
+    with the live 10-14 bar and 10-12, but no 10-13, and at 00:03 UTC every crypto pair was missing
+    10-13. band_anchor then starts the band from a close two sessions old, so its day 1 is a
+    session that had already finished. record_predictions.fill_session_gap uses this to notice.
+    """
+    import datetime
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    reg = str(region or '').upper()
+    if reg == 'CRYPTO':
+        return now.astimezone(datetime.timezone.utc).date() - datetime.timedelta(days=1)
+    try:
+        from zoneinfo import ZoneInfo
+        import market_sessions
+        from bot.sessions import MARKETS
+        spec = MARKETS[reg]
+        d = now.astimezone(ZoneInfo(spec['tz'])).date()
+    except Exception:
+        return None
+    for _ in range(15):
+        if market_sessions.is_session(reg, d, weekdays=spec['days']) and bar_is_complete(reg, d, now):
+            return d
+        d -= datetime.timedelta(days=1)
+    return None
+
+
 def _z_tables(c, mode, earnings_day):
     """z table for each horizon, given what is known about earnings (see earnings_calendar.py).
 

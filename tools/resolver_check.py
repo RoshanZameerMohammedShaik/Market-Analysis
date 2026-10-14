@@ -166,6 +166,75 @@ check('x is scaled back to the unadjusted width', abs(ROW3['forecastBand']['x'][
 check('band_due: an anchored band with ungraded days past their date is due',
       ro.band_due({**BAND_ROW, 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None}}, datetime.date(2026, 3, 9)))
 check('band_due: fully graded is not due', not ro.band_due(BAND_ROW, datetime.date(2026, 3, 9)))
+# Locked AFTER day 1 had closed (the feed dropped 03-03, so the band started from 03-02): day 1
+# was history at lock time, so it is 'known', never graded, and day 2 onward still are.
+ROW4 = {**BAND_ROW, 'predictedAt': '2026-03-04T14:00:00Z', 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None}}
+n4 = ro.grade_band(ROW4, BARS, now=late)
+x4 = ROW4['forecastBand'].get('x')
+check('a day that closed before the lock is "known", not graded', x4 and x4[0] == 'known', str(x4))
+check('the days after it are graded as usual', n4 == 2 and isinstance(x4[1], float) and isinstance(x4[2], float), f'{n4} {x4}')
+check('band_due counts a known day as done', not ro.band_due(ROW4, datetime.date(2026, 3, 9)))
+ROW5 = {**BAND_ROW, 'predictedAt': '2026-03-03T14:40:00Z', 'forecastBand': {**BAND_ROW['forecastBand'], 'x': None}}
+ro.grade_band(ROW5, BARS, now=late)
+check('a lock during day 1 (after the open) still grades day 1', isinstance(ROW5['forecastBand']['x'][0], float),
+      str(ROW5['forecastBand']['x']))
+
+print('\n=== the calendar knows which session should be the last complete bar ===')
+from forecast_band import last_completed_session  # noqa: E402
+U = datetime.timezone.utc
+for region, when, want in [
+    ('LSE', datetime.datetime(2026, 10, 14, 8, 8, tzinfo=U), '2026-10-13'),
+    ('XETRA', datetime.datetime(2026, 10, 14, 8, 8, tzinfo=U), '2026-10-13'),
+    ('CRYPTO', datetime.datetime(2026, 10, 14, 0, 3, tzinfo=U), '2026-10-13'),
+    ('NYSE', datetime.datetime(2026, 10, 14, 13, 38, tzinfo=U), '2026-10-13'),
+    ('NYSE', datetime.datetime(2026, 10, 13, 20, 5, tzinfo=U), '2026-10-12'),   # 16:05 New York, still settling
+    ('NYSE', datetime.datetime(2026, 10, 13, 20, 11, tzinfo=U), '2026-10-13'),
+    ('NYSE', datetime.datetime(2026, 10, 12, 13, 0, tzinfo=U), '2026-10-09'),   # Monday morning -> Friday
+]:
+    got = last_completed_session(region, when)
+    check(f'{region} at {when:%m-%d %H:%M}Z -> {want}', got and got.isoformat() == want, str(got))
+
+print('\n=== a session the daily feed left out is rebuilt from hourly bars ===')
+import numpy as np  # noqa: E402
+import session_gap as sg  # noqa: E402
+from zoneinfo import ZoneInfo  # noqa: E402
+BER = ZoneInfo('Europe/Berlin')
+D = [datetime.date(2026, 10, 1) + datetime.timedelta(days=i) for i in range(12)]
+D = [d for d in D if d.weekday() < 5]               # 10-01 .. 10-12, weekdays
+D = D + [datetime.date(2026, 10, 14)]               # the feed skips 10-13, has the live 10-14
+C = np.array([100.0 + i for i in range(len(D))])
+H, L, V = C + 1, C - 1, np.full(len(D), 1e6)
+
+
+def hourly(day, last_hour=17, close=150.0):
+    out = []
+    for hr in range(9, last_hour + 1):
+        ts = datetime.datetime(day.year, day.month, day.day, hr, 0, tzinfo=BER)
+        out.append((ts, close - 1, close + 2, close - 2, close, 1000.0))
+    return out
+
+
+def feed(rows):
+    return lambda sym: tuple(list(z) for z in zip(*rows)) if rows else ([], [], [], [], [], [])
+
+
+when = datetime.datetime(2026, 10, 14, 8, 8, tzinfo=U)
+c2, h2, l2, v2, d2, rebuilt = sg.fill_session_gap('SAP.DE', 'XETRA', C, H, L, V, D, when,
+                                                  fetch=feed(hourly(datetime.date(2026, 10, 13))))
+check('the missing 10-13 is put back', rebuilt == ['2026-10-13'], str(rebuilt))
+check('in its place, before the live bar', [d.isoformat() for d in d2[-3:]] == ['2026-10-12', '2026-10-13', '2026-10-14'],
+      str(d2[-3:]))
+check('with the hourly close, high and low', c2[-2] == 150.0 and h2[-2] == 152.0 and l2[-2] == 148.0, f'{c2[-2]} {h2[-2]} {l2[-2]}')
+check('the arrays stay aligned', len(c2) == len(h2) == len(l2) == len(v2) == len(d2) == len(D) + 1)
+check('so the band now starts from 10-13', d2[sg.band_anchor(d2, 'XETRA', when)].isoformat() == '2026-10-13')
+_, _, _, _, d3, rebuilt3 = sg.fill_session_gap('SAP.DE', 'XETRA', C, H, L, V, D, when,
+                                               fetch=feed(hourly(datetime.date(2026, 10, 13), last_hour=12)))
+check('hourly bars that stop at midday rebuild nothing (no half bars)', rebuilt3 == [] and len(d3) == len(D), str(rebuilt3))
+full = D[:-1] + [datetime.date(2026, 10, 13), datetime.date(2026, 10, 14)]
+_, _, _, _, d4, rebuilt4 = sg.fill_session_gap('SAP.DE', 'XETRA', np.append(C, 1.0), np.append(H, 1.0),
+                                               np.append(L, 1.0), np.append(V, 1.0), full, when,
+                                               fetch=lambda s: (_ for _ in ()).throw(AssertionError('fetched')))
+check('a complete feed is left alone, without even fetching', rebuilt4 == [] and d4 == full)
 
 print('\n=== a FLAT close validates neither direction ===')
 FLAT = bars([('2026-03-02', 50.0, 50.0, 50.0), ('2026-03-03', 50.0, 50.0, 50.0),

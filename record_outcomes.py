@@ -417,6 +417,11 @@ def grade_band(row, bars, now=None):
     the day's half-width, the larger of the two sides (1.0 or less means both stayed inside). The
     half-width is taken BEFORE any live adjustment (forecastBand['m']), so tools/write_band_live.py
     measures every band against the same base and the correction cannot feed back on itself.
+
+    A day whose session had already CLOSED when the row was locked is stored as 'known', never
+    graded: it was history at lock time, not a forecast. That happens when the daily feed left
+    out the last session and the band started from an older close (2026-10-14: every crypto,
+    LSE and XETRA row). Scoring those days would credit the band with sessions it watched happen.
     """
     fb = row.get('forecastBand') or {}
     anc = fb.get('anchor') or {}
@@ -426,13 +431,21 @@ def grade_band(row, bars, now=None):
         return 0
     from forecast_band import bar_is_complete
     now = now or datetime.datetime.now(datetime.timezone.utc)
+    try:
+        locked = datetime.datetime.fromisoformat(str(row.get('predictedAt')).replace('Z', '+00:00'))
+    except ValueError:
+        locked = None
     dates = band_day_dates(row)
     xs = list(fb.get('x') or [])
     xs += [None] * (len(days) - len(xs))
     ms = fb.get('m') or []
-    n = 0
+    n = marked = 0
     for k, (d, iso) in enumerate(zip(days, dates)):
         if xs[k] is not None:
+            continue
+        if locked is not None and bar_is_complete(row.get('region'), datetime.date.fromisoformat(iso), locked):
+            xs[k] = 'known'
+            marked += 1
             continue
         j = bars['index'].get(iso)
         if j is None:
@@ -453,7 +466,7 @@ def grade_band(row, bars, now=None):
         n += 1
     while xs and xs[-1] is None:
         xs.pop()
-    if n:
+    if n or marked:
         fb['x'] = xs
     return n
 

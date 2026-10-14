@@ -42,6 +42,7 @@ import yfinance as yf
 from backtest import generate_prediction
 from price_round import round_price
 from forecast_band import forecast_bands, band_anchor, bar_is_complete, next_session, blend_eligible
+from session_gap import fill_session_gap
 from earnings_calendar import earnings_day as earnings_band_day
 from trend_gate import trend_state, gate as trend_gate_why
 from ai_infer import ai_prediction
@@ -209,6 +210,13 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
     # credit, just at finer granularity, and it survives fixing the other one.
     locked_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
+    # Put back a completed session the daily feed left out (it drops yesterday's bar for the first
+    # hours of some sessions), so the band and the indicators start from the right close.
+    close, high, low, volume, bar_dates, rebuilt = fill_session_gap(
+        symbol, region, close, high, low, volume, bar_dates, datetime.datetime.now(datetime.timezone.utc))
+    if rebuilt:
+        _add_diag('rebuilt-session', symbol, ','.join(rebuilt))
+
     # A YEAR of bars is fetched (fetch_recent_candles) only so the trend gate can see a 200-day
     # average. The engine still reads the trailing 120, exactly as before, so its indicators and
     # therefore its raw call are unchanged by the longer fetch.
@@ -263,6 +271,8 @@ def record_for_symbol(symbol: str, date_iso: str, batch_started: str):
                               region=region, sigma_vol=sigma_vol)
         if band:
             band['anchor'] = {'session': anchor_session, 'price': round_price(float(close[k])), 'day1': day1}
+            if anchor_session in rebuilt:
+                band['anchor']['rebuilt'] = '60m'   # this close came from the hourly bars
 
     # AI inference, same models and same numbers as the browser (ai_infer mirrors
     # js/ai-model.js; tools/ai_sync_check.py asserts they agree to 1e-9).
