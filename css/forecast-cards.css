@@ -210,3 +210,6 @@
 /* The tighter range inside each day's bar (held about half the time, measured): a darker core. */
 .fc-day-bar .fc-core { position: absolute; top: 2px; bottom: 2px; height: auto; border-radius: 999px;
     background: color-mix(in srgb, var(--accent, #60a5fa) 55%, var(--bg-secondary)); opacity: 0.9; }
+.fc-k-core { background: color-mix(in srgb, var(--accent, #60a5fa) 55%, var(--bg-secondary)); }
+.fc-tight-line { margin: 6px 0 2px; font-size: 0.82rem; color: var(--text-secondary); }
+.fc-tight-line b { color: var(--text-primary); font-family: var(--num-font); }

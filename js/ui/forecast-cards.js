@@ -566,7 +566,7 @@ function weekCard(title, rows, x, opts) {
     return `
         <div class="fc-card fc-week">
             <div class="fc-week-head"><span class="fc-week-title">${title}</span><span class="fc-week-span">${span}</span></div>
-            <div class="fc-legend"><span class="fc-k fc-k-pred"></span>expected range <span class="fc-k fc-k-act"></span>where it traded <span class="fc-k fc-k-out"></span>outside <span class="fc-k fc-k-now"></span>price now</div>
+            <div class="fc-legend"><span class="fc-k fc-k-pred"></span>expected range <span class="fc-k fc-k-core"></span>tighter range (holds about half the time) <span class="fc-k fc-k-act"></span>where it traded <span class="fc-k fc-k-out"></span>outside <span class="fc-k fc-k-now"></span>price now</div>
             <div class="fc-days">${rows.map(r => dayRow(r, x, opts)).join('')}</div>
             <div class="fc-week-foot">Tap a day for what is expected, how sure the app is, and why. ${opts.cryptoMode ? 'Crypto trades every day.' : 'Market holidays are left out.'}</div>
         </div>`;
@@ -594,6 +594,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
     // Today's range on the big bar: the row for today when the session is today, else the next one.
     const d = head;
     const headK = (rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => r.date === d.date)?.k : null) ?? 1;
+    const headTight = tighterRange({ low: d.low, high: d.high, band, k: headK, heldout });
     const headHeld = !Number.isFinite(d.liveF)
         ? measuredHeld({ band, k: headK, earnings: !!(band.earningsDay > 0 && headK >= band.earningsDay), heldout }) : null;
     const whenLabel = rows && d.date ? (d.date === rows.today ? (Number.isFinite(d.liveF) ? "Today's expected range, updated live" : "Today's expected range") : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
@@ -609,6 +610,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
             <div class="fc-signal-line">${call.line}</div>
             <div class="fc-when">${whenLabel} <span>· ${headHeld ? `ranges like this held ${pct(headHeld.rate)} of the time on unseen years` : `built to hold ${band.confidence}% of the time`}</span></div>
             ${bigBar({ low: d.low, high: d.high, price, co, date: d.date })}
+            ${headTight ? `<div class="fc-tight-line">Tighter: <b>${fmtPriceTag(headTight.low, co)}</b> to <b>${fmtPriceTag(headTight.high, co)}</b>, ${Math.round((1 - headTight.ratio) * 100)}% narrower, held ${pct(headTight.held)} of the time on unseen years.</div>` : ''}
             <details class="fc-why"><summary>Why this call</summary><ul>${evidence.map(t => `<li>${t}</li>`).join('')}</ul></details>
         </div>`;
 
