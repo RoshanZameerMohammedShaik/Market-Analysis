@@ -171,7 +171,7 @@ function renderHistory(hist, currency) {
             : '';
         const title = `Predicted ${moneyText(r.predLow, currency)} to ${moneyText(r.predHigh, currency)}; actual ${moneyText(r.actualLow, currency)} to ${moneyText(r.actualHigh, currency)}; opened ${moneyText(r.sessionStart, currency)}.${reach}`;
         return `
-            <div class="bh-row" title="${title}">
+            <div class="bh-row" title="${title}" data-date="${r.date}" data-low="${r.predLow}" data-high="${r.predHigh}">
                 <span class="bh-day">${pastLabel(r.date)} ${src}</span>
                 ${rowViz(r)}
                 ${verdict}

@@ -223,7 +223,7 @@ function scale(values) {
 }
 
 /** The signal card's bar: red from the expected low up to the price, green from the price up to the expected high. */
-function bigBar({ low, high, price, co }) {
+function bigBar({ low, high, price, co, date = '' }) {
     if (!(Number.isFinite(low) && Number.isFinite(high) && high > low)) return '';
     const p = Number.isFinite(price) ? price : (low + high) / 2;
     const x = scale([low, high, p]);
@@ -233,7 +233,7 @@ function bigBar({ low, high, price, co }) {
     const note = p > high ? '<div class="fc-bar-note">Already above the expected high.</div>'
         : p < low ? '<div class="fc-bar-note">Already below the expected low.</div>' : '';
     return `
-        <div class="fc-bigbar" role="img" aria-label="Expected low ${low}, now ${p}, expected high ${high}">
+        <div class="fc-bigbar" role="img" aria-label="Expected low ${low}, now ${p}, expected high ${high}" data-date="${esc(date || '')}" data-low="${low}" data-high="${high}">
             <div class="fc-track">${red}${green}<span class="fc-pointer" style="left:${xp.toFixed(2)}%"><span class="fc-pointer-tag" style="${xp < 18 ? 'left:0;transform:none' : xp > 82 ? 'left:auto;right:0;transform:none' : ''}">Now ${fmtPriceTag(p, co)}</span></span></div>
             <div class="fc-scale">
                 <span class="fc-num fc-num-low" style="left:${xl.toFixed(2)}%"><b>${fmtPriceTag(low, co)}</b><i>expected low</i></span>
@@ -390,7 +390,7 @@ function dayRow(row, x, opts) {
         ? `<div class="fc-news"><div class="fc-sub">Latest headlines (for context: the range does not use news)</div>${opts.news.slice(0, 3).map(n =>
             `<a href="${esc(n.url || '#')}" target="_blank" rel="noopener">${esc(n.title)}</a><span>${esc(n.source || '')}</span>`).join('')}</div>` : '';
     return `
-        <details class="fc-day fc-${row.kind}">
+        <details class="fc-day fc-${row.kind}" data-date="${row.date}" data-kind="${row.kind}" data-low="${has ? row.low : ''}" data-high="${has ? row.high : ''}">
             <summary>
                 <span class="fc-day-label">${dayLabel(row.date, today)}</span>
                 <span class="fc-day-bar">${has ? seg(row.low, row.high, 'fc-pred') : ''}${actual}${outside}${now}</span>
@@ -592,7 +592,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
             </div>
             <div class="fc-signal-line">${call.line}</div>
             <div class="fc-when">${whenLabel} <span>· ${band.confidence}% chance the price stays inside</span></div>
-            ${bigBar({ low: d.low, high: d.high, price, co })}
+            ${bigBar({ low: d.low, high: d.high, price, co, date: d.date })}
             <details class="fc-why"><summary>Why this call</summary><ul>${evidence.map(t => `<li>${t}</li>`).join('')}</ul></details>
         </div>`;
 

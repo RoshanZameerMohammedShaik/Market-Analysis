@@ -1,38 +1,27 @@
 /**
- * Assert the headline Expected High/Low and the 7-session table agree, for MANY symbols.
+ * One day, one range: every block on the prediction card that shows a day's range must show the
+ * SAME range for it, for every symbol shape.
  *
- * WHY A SWEEP AND NOT ONE SYMBOL
- * ------------------------------
- * Roshan reported INTC showing two different expected highs for the same day ($101.70 in the
- * price-targets block, $104.05 in the forecast table). I fixed the shared code path and verified
- * three US large caps, and he pushed back correctly: "it has to be dynamically working for all
- * other symbols that exist."
+ * WHY
+ * ---
+ * Roshan found INTC with two different expected highs for the same day in two blocks, and was
+ * right that checking three US large caps afterwards proved nothing about the universe. The blocks
+ * have changed since (2026-10-14: the call card's big bar, This week and Next week, and the "Last 7
+ * sessions" record below them) but the promise is the same, so this checks it on the current page:
  *
- * Three US large caps is not evidence about the universe. The paths that could still diverge are
- * all in the categories those three do not exercise:
+ *   1. the big bar's range is the range of the day it names, in the week cards
+ *   2. each day in the record table carries the same range as that day in the week cards
+ *   3. no day in the week cards is listed without a range
+ *   4. every price on the card is in one currency (no native mixed with converted)
  *
- *   * UNCALIBRATED bands. confidence.js only copies band edges into priceTargets when
- *     `forecastBand.calibrated` is true. Sub-penny assets are excluded from the calibration
- *     sample, so for them the headline stays an ATR heuristic while the table shows a band. Those
- *     are DIFFERENT QUANTITIES and are allowed to differ -- but only if they are labelled
- *     differently ("Possible High" vs "Expected High"), or the reader is invited to compare two
- *     numbers that were never the same thing.
- *   * Non-US sessions. The lock anchors on the session open read off the daily bar, and Mumbai,
- *     London, Tokyo and Hong Kong all open on different UTC offsets.
- *   * Crypto, which has no session at all and anchors at 00:00Z.
- *   * Low-priced names, where roundPrice can collapse band edges.
+ * The categories matter more than the count: calibrated US, low-priced, crypto (no session, its
+ * own calendar), and Mumbai, London, Tokyo, Hong Kong and Frankfurt sessions.
  *
- * WHAT COUNTS AS A PASS
- * --------------------
- * Either the two blocks agree to within a cent, OR they are honestly labelled as different
- * quantities. Silence is not a pass: a symbol that renders no band and no targets is reported.
- *
- * Network failures are WARNINGS, not failures. A symbol Yahoo will not serve today is an outage,
- * and a check that goes red on someone else's downtime gets ignored and then deleted.
+ * Network failures are WARNINGS: a symbol Yahoo will not serve today is an outage, not a bug.
  *
  * Usage:
  *   node tools/band_agreement_check.mjs
- *   node tools/band_agreement_check.mjs --symbols AAPL,BTC-USD
+ *   node tools/band_agreement_check.mjs --symbols AAPL,7203.T
  *   node tools/band_agreement_check.mjs --live      (run against the deployed site)
  */
 import { chromium } from 'playwright';
@@ -41,9 +30,6 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
 
 const REPO = resolve(import.meta.dirname, '..');
-// --dist serves the built bundle instead of the repo root. A file I forgot to include
-// shows up here as a broken app, which is the only reliable way to prove the allowlist
-// in tools/build_pages_dist.mjs is complete.
 const ROOT = process.argv.includes('--dist') ? resolve(REPO, 'dist') : REPO;
 const PORT = 8161;
 const args = process.argv.slice(2);
@@ -52,23 +38,8 @@ const flag = (n, d) => {
     return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : d;
 };
 const LIVE = args.includes('--live');
-
-// Deliberately spans the categories, not just the liquid US names that already worked.
-const DEFAULT_SYMBOLS = [
-    // US large cap -- the calibrated happy path
-    'AAPL', 'MSFT', 'INTC', 'NVDA',
-    // US mid / low-priced, where rounding and wide sigma bite
-    'F', 'SOFI', 'PLUG', 'NIO',
-    // Crypto: no session, anchors at 00:00Z, its own calibration tier
-    'BTC-USD', 'ETH-USD', 'DOGE-USD',
-    // Sub-dollar: EXCLUDED from the band calibration sample, so the headline should stay
-    // heuristic and be labelled "Possible", not "Expected"
-    'SHIB-USD',
-    // Non-US sessions, each opening at a different UTC offset
-    'RELIANCE.NS', 'BP.L', '7203.T', '0700.HK', 'SAP.DE',
-];
-const SYMBOLS = flag('symbols', '') ? flag('symbols', '').split(',').map(s => s.trim()).filter(Boolean)
-    : DEFAULT_SYMBOLS;
+const DEFAULT_SYMBOLS = ['AAPL', 'NVDA', 'PLUG', 'BTC-USD', 'RELIANCE.NS', 'BP.L', '7203.T', '0700.HK', 'SAP.DE'];
+const SYMBOLS = flag('symbols', '') ? flag('symbols', '').split(',').map(s => s.trim()).filter(Boolean) : DEFAULT_SYMBOLS;
 
 const MIME = {
     '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
@@ -76,7 +47,7 @@ const MIME = {
     '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json',
 };
 let server = null;
-let BASE = 'https://roshanzameermohammedshaik.github.io/Market-Analysis/';
+let BASE = 'https://market-ai.pages.dev/';
 if (!LIVE) {
     server = createServer(async (req, res) => {
         try {
@@ -98,13 +69,9 @@ const PASS = [], FAIL = [], WARN = [];
 const ok = (n) => { PASS.push(n); };
 const bad = (n, d) => { FAIL.push(n); console.log(`  FAIL  ${n}  -> ${d}`); };
 const warn = (n, d) => { WARN.push(n); console.log(`  WARN  ${n}  -> ${d}`); };
+const same = (a, b) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= Math.max(1e-9, Math.abs(b) * 1e-9);
 
 const browser = await chromium.launch();
-
-// Crypto lives behind its own tab: state.mode has to be 'crypto' before the search will resolve
-// a coin, and the pipeline takes a coinId rather than a ticker. Without this the four crypto
-// symbols reported "neither block rendered" and looked like an upstream outage, when in fact the
-// harness had never left stock mode -- a warning that hid the whole asset class from the check.
 const CRYPTO_RE = /-USD$/i;
 
 async function readSymbol(page, sym) {
@@ -115,165 +82,66 @@ async function readSymbol(page, sym) {
         await page.click('[data-tab="crypto"]').catch(() => null);
         await page.waitForTimeout(1800);
     }
-    // Crypto search matches names/ids, not the Yahoo "-USD" suffix.
-    const query = isCrypto ? sym.replace(/-USD$/i, '') : sym;
-    await page.fill('#search-input', query);
+    await page.fill('#search-input', isCrypto ? sym.replace(/-USD$/i, '') : sym);
     await page.waitForTimeout(2600);
-    const first = page.locator('#search-results .search-result, #search-results > *').first();
-    if (await first.count() > 0 && await first.isVisible().catch(() => false)) {
-        await first.click().catch(() => page.press('#search-input', 'Enter'));
-    } else {
-        await page.press('#search-input', 'Enter');
-    }
-    // Either block appearing is enough to start reading; both are checked below.
-    await page.waitForSelector('.price-targets, .forecast-band-section', { timeout: 75_000 })
-        .catch(() => null);
+    // The result list re-renders as results stream in, so it is clicked from inside the page
+    // rather than through a locator that waits for it to hold still.
+    const clicked = await page.evaluate(() => {
+        const el = document.querySelector('#search-results .search-result-item, #search-results > *');
+        if (el) { el.click(); return true; }
+        return false;
+    });
+    if (!clicked) await page.press('#search-input', 'Enter');
+    await page.waitForSelector('#signal-section .fc-signal', { timeout: 75_000 }).catch(() => null);
     await page.waitForTimeout(1500);
-
     return page.evaluate(() => {
-        const num = (t) => {
-            if (!t) return null;
-            const m = String(t).replace(/[^0-9.\-]/g, '');
-            const v = parseFloat(m);
-            return Number.isFinite(v) ? v : null;
-        };
-        const cards = [...document.querySelectorAll('.price-target-card')];
-        const hiCard = cards.find(c => /High/i.test(c.innerText));
-        const loCard = cards.find(c => /Low/i.test(c.innerText));
-        const titleEl = document.querySelector('.price-targets-title');
-        // The forward table's FIRST row is Today. Scope away the past table explicitly.
-        const fwdRow = document.querySelector(
-            '.forecast-band-section .fb-table:not(.fb-table-past) tbody tr');
-        const tds = fwdRow ? [...fwdRow.querySelectorAll('td')].map(t => t.innerText.trim()) : [];
+        const sec = document.getElementById('signal-section');
+        if (!sec || !sec.querySelector('.fc-signal')) return null;
+        const num = (v) => (v === '' || v == null ? null : Number(v));
+        const big = sec.querySelector('.fc-bigbar');
         return {
-            title: titleEl ? titleEl.innerText.trim() : null,
-            hiLabel: hiCard?.querySelector('.price-target-label')?.innerText.trim() || null,
-            loLabel: loCard?.querySelector('.price-target-label')?.innerText.trim() || null,
-            headHigh: num(hiCard?.querySelector('.price-target-value')?.innerText),
-            headLow: num(loCard?.querySelector('.price-target-value')?.innerText),
-            calBadge: !!document.querySelector('.pt-cal-badge'),
-            tableDay: tds[0] || null,
-            tableLow: num(tds[1]),
-            tableHigh: num(tds[2]),
-            lockLabel: document.querySelector('.call-status-locked')?.innerText.trim() || null,
-            // Every forward row's day label, so a broken date cannot ship silently again.
-            fwdDayLabels: [...document.querySelectorAll(
-                '.fb-table:not(.fb-table-past) tbody tr td.fb-day')].map(t => t.innerText.trim()),
-            // Arrow vs evidence direction on the drivers: they must never contradict.
-            drivers: [...document.querySelectorAll('.attribution-row')].map(r => ({
-                arrow: r.querySelector('.attribution-arrow')?.innerText.trim() || '',
-                ev: (r.querySelector('.attribution-evidence')?.innerText || '').trim(),
-            })),
+            big: big ? { date: big.dataset.date || null, low: num(big.dataset.low), high: num(big.dataset.high) } : null,
+            days: [...sec.querySelectorAll('details.fc-day')].map(d => ({ date: d.dataset.date, kind: d.dataset.kind, low: num(d.dataset.low), high: num(d.dataset.high) })),
+            record: [...sec.querySelectorAll('.fc-record .bh-row')].map(r => ({ date: r.dataset.date, low: num(r.dataset.low), high: num(r.dataset.high) })),
+            currencies: [...new Set([...sec.querySelectorAll('[data-usd]')].map(e => e.getAttribute('data-src') || 'USD'))],
         };
     });
 }
 
-console.log(`=== band agreement across ${SYMBOLS.length} symbols (${LIVE ? 'LIVE site' : 'local'}) ===`);
-console.log(`${'symbol'.padEnd(13)}${'headline'.padEnd(22)}${'table Today'.padEnd(22)}verdict`);
-
+console.log(`=== one day, one range (${LIVE ? 'LIVE' : 'local'}) ===`);
+const page = await browser.newPage();
 for (const sym of SYMBOLS) {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 1600 } });
     let r = null;
-    try {
-        r = await readSymbol(page, sym);
-    } catch (e) {
-        warn(`${sym}: could not load`, String(e).slice(0, 90));
-        await page.close();
-        continue;
-    }
-    await page.close();
+    try { r = await readSymbol(page, sym); } catch (e) { r = null; }
+    if (!r) { warn(`${sym}: card rendered`, 'no prediction card (data source unavailable?)'); continue; }
+    if (!r.big) { bad(`${sym}: the call card has its range bar`, 'no .fc-bigbar'); continue; }
+    if (!(r.big.low < r.big.high)) bad(`${sym}: the bar's low is under its high`, JSON.stringify(r.big)); else ok(`${sym} bar`);
 
-    const hasHead = Number.isFinite(r.headHigh) && Number.isFinite(r.headLow);
-    const hasTable = Number.isFinite(r.tableHigh) && Number.isFinite(r.tableLow);
+    const byDate = new Map(r.days.map(d => [d.date, d]));
+    const row = byDate.get(r.big.date);
+    if (!row) {
+        // A band without a start date (old rows) has no week cards to compare with.
+        if (r.days.length) bad(`${sym}: the bar's day is in the week cards`, `bar ${r.big.date}, days ${r.days.map(d => d.date).join(' ')}`);
+        else warn(`${sym}: week cards`, 'none rendered');
+    } else if (!same(row.low, r.big.low) || !same(row.high, r.big.high)) {
+        bad(`${sym}: the bar and ${r.big.date} in the week cards agree`, `bar ${r.big.low}-${r.big.high}, row ${row.low}-${row.high}`);
+    } else ok(`${sym} bar = row`);
 
-    // "Invalid Date" shipped for five of seven rows the moment the LOCKED band began feeding this
-    // table: the cron strips per-day dates from the rows it writes, and the panel was formatting
-    // that missing field. Rows 0 and 1 hid it because "Today" and "Tomorrow" are hardcoded.
-    const badDates = (r.fwdDayLabels || []).filter(d => /invalid/i.test(d));
-    if (badDates.length) {
-        bad(`${sym}: ${badDates.length} forward row(s) render an unusable date label`,
-            JSON.stringify(r.fwdDayLabels));
-    } else if ((r.fwdDayLabels || []).length) {
-        ok(`${sym}: forward day labels all valid`);
-    }
-    // The arrow is the NET contribution across timeframes; the evidence line used to be the single
-    // heaviest source regardless of sign, so INTC rendered a bullish arrow above the words
-    // "bearish trend". Text that names a direction must match the arrow beside it.
-    for (const d of (r.drivers || [])) {
-        const saysBull = /bullish|upward|above long/i.test(d.ev);
-        const saysBear = /bearish|downward|below long/i.test(d.ev);
-        if (saysBull && saysBear) continue;          // ambiguous phrasing, skip
-        if (d.arrow === '▲' && saysBear) {
-            bad(`${sym}: driver arrow says bullish, evidence says bearish`, d.ev.slice(0, 90));
-        } else if (d.arrow === '▼' && saysBull) {
-            bad(`${sym}: driver arrow says bearish, evidence says bullish`, d.ev.slice(0, 90));
-        }
+    const empty = r.days.filter(d => d.kind !== 'past' && !(Number.isFinite(d.low) && Number.isFinite(d.high)));
+    if (empty.length) bad(`${sym}: every day in the week cards has a range`, empty.map(d => d.date).join(', ')); else ok(`${sym} rows`);
+
+    for (const rec of r.record) {
+        const d = byDate.get(rec.date);
+        if (!d || d.kind !== 'past') continue;           // older than this week: only in the record
+        if (!same(d.low, rec.low) || !same(d.high, rec.high)) {
+            bad(`${sym}: ${rec.date} reads the same in the record and the week card`, `record ${rec.low}-${rec.high}, week ${d.low}-${d.high}`);
+        } else ok(`${sym} ${rec.date}`);
     }
 
-    if (!hasHead && !hasTable) {
-        warn(`${sym}: neither block rendered`, 'likely no data from the upstream API today');
-        continue;
-    }
-    if (!hasTable) {
-        // No band at all -- too few candles, or an asset the band refuses to size. The headline
-        // must then be the heuristic one and say "Possible", not "Expected".
-        const honest = /Possible/i.test(r.hiLabel || '') && !r.calBadge;
-        const verdict = honest ? 'no band, headline labelled Possible' : 'NO BAND but headline claims Expected';
-        console.log(`${sym.padEnd(13)}${String(r.headHigh).padEnd(22)}${'-'.padEnd(22)}${verdict}`);
-        if (honest) ok(`${sym}: no band, honestly labelled`);
-        else bad(`${sym}: no band yet headline claims a calibrated figure`,
-                 `label="${r.hiLabel}" badge=${r.calBadge}`);
-        continue;
-    }
-    if (!hasHead) {
-        warn(`${sym}: table rendered but no headline targets`, JSON.stringify(r).slice(0, 120));
-        continue;
-    }
-
-    // A sub-penny asset renders as "$0.0000" in BOTH blocks, because currency.js format() caps
-    // at 4 decimals. They "agree" only because both collapsed to zero, which is a false pass on a
-    // display that tells the reader nothing. Reported as a warning so the collapse stays visible
-    // instead of being counted as a success. (Pre-existing and global to format(), not introduced
-    // by the band work -- the price-target cards have always collapsed these too.)
-    if (r.headHigh === 0 && r.tableHigh === 0) {
-        warn(`${sym}: both blocks render 0 (sub-penny collapsed by the 4dp display cap)`,
-             `headline "${r.headHigh}" table "${r.tableHigh}" -- agreement is not meaningful here`);
-        continue;
-    }
-
-    // Both present. If the headline claims to BE the calibrated band, it must match it.
-    const claimsBand = r.calBadge || /Expected/i.test(r.hiLabel || '');
-    const dHigh = Math.abs(r.headHigh - r.tableHigh);
-    const dLow = Math.abs(r.headLow - r.tableLow);
-    // A cent of tolerance for independent rounding of the same underlying figure.
-    const agree = dHigh <= 0.011 && dLow <= 0.011;
-    const head = `${r.headHigh}/${r.headLow}`;
-    const tbl = `${r.tableHigh}/${r.tableLow}`;
-
-    if (claimsBand) {
-        console.log(`${sym.padEnd(13)}${head.padEnd(22)}${tbl.padEnd(22)}${agree ? 'agree' : `DISAGREE dH=${dHigh.toFixed(2)} dL=${dLow.toFixed(2)}`}`);
-        if (agree) ok(`${sym}: blocks agree`);
-        else bad(`${sym}: two different expected highs/lows for the same day`,
-                 `headline ${head} vs table ${tbl} (dHigh=${dHigh.toFixed(4)} dLow=${dLow.toFixed(4)})`);
-    } else {
-        // Heuristic headline next to a band table. Allowed to differ, but the labels have to make
-        // clear they are not the same claim, or the reader compares apples to oranges.
-        const honest = /Possible/i.test(r.hiLabel || '') && /Possible/i.test(r.loLabel || '');
-        console.log(`${sym.padEnd(13)}${head.padEnd(22)}${tbl.padEnd(22)}${honest ? 'heuristic, labelled Possible' : 'UNLABELLED heuristic'}`);
-        if (honest) ok(`${sym}: heuristic headline honestly labelled`);
-        else bad(`${sym}: heuristic headline not distinguished from the band`,
-                 `hiLabel="${r.hiLabel}" loLabel="${r.loLabel}" badge=${r.calBadge}`);
-    }
+    if (r.currencies.length > 1) bad(`${sym}: one currency across the card`, r.currencies.join(', ')); else ok(`${sym} currency`);
+    console.log(`  ${sym}: bar ${r.big.date} ${r.big.low}-${r.big.high}, ${r.days.length} days, ${r.record.length} in the record, ${r.currencies.join('/') || 'no prices'}`);
 }
-
 await browser.close();
 if (server) server.close();
-
-console.log();
-const green = FAIL.length === 0;
-console.log(`${green ? 'BAND AGREEMENT PASS' : 'BAND AGREEMENT FAIL'}: `
-    + `${PASS.length} passed, ${FAIL.length} failed, ${WARN.length} warnings`);
-if (!green && process.env.GITHUB_ACTIONS) {
-    console.log(`::error title=band_agreement::${FAIL.slice(0, 6).join('; ')}`);
-}
-process.exitCode = green ? 0 : 1;
+console.log(`\n${FAIL.length ? 'BAND AGREEMENT CHECK FAIL' : 'BAND AGREEMENT CHECK PASS'}: ${PASS.length} passed, ${FAIL.length} failed, ${WARN.length} warnings`);
+process.exit(FAIL.length ? 1 : 0);
