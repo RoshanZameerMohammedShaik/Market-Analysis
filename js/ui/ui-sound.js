@@ -4,7 +4,7 @@
 // when they sound", and "remove sounds that sound when hovering"):
 //
 //   the analysis lands     one chime, shaped by the call on the card: rising for BUY or HOLD on
-//                          a measured rise, falling for SELL or a DON'T BUY on a measured fall, one
+//                          a measured rise, falling for SELL or DON'T BUY on a measured fall, one
 //                          soft note when nothing is measured. Once per symbol and call.
 //   switching a tab        a tiny tactile tick, like a good keyboard.
 //   flipping a toggle      the same tick, a shade lower.

@@ -1373,9 +1373,11 @@ tbody tr:hover td { background: var(--bg-hover); color: var(--text-primary); }
 }
 .news-list { display: flex; flex-direction: column; gap: 6px; }
 .news-item-sentiment { flex-shrink: 0; font-size: 0.7rem; line-height: 1; }
+/* INLINE, not block: as a block the link filled the whole row, so a click anywhere on a headline
+   card opened the article. Only the title text is the link now; the rest of the card opens it. */
 .news-item-title,
 .news-item-title:visited {
-    display: block;
+    display: inline;
     font-size: 0.84rem;
     line-height: 1.45;
     color: var(--text-primary);

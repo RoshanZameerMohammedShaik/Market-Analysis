@@ -257,7 +257,7 @@ function entryToRow(symbol, entry) {
     return {
         symbol,
         region,
-        signal: call ? call.kind : 'DONT_BUY',
+        signal: call ? call.kind : 'WAIT',
         confidence: call && call.confidence != null ? Math.round(call.confidence * 100) : null,
         call, range,
         entry: last?.close ?? null,

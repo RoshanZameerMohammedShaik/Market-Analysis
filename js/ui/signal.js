@@ -19,7 +19,7 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand, cardCallFor } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand, cardCallFor, loadBandHeldout } from './forecast-cards.js';
 import { loadSetupBaseline } from '../setup-baseline.js';
 import { renderBandHistory } from './forecast-band-panel.js';
 import { blendEligible } from '../forecast-band.js';
@@ -480,6 +480,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             spikeRecord: spikeMeta,
             gapRec: gapRecNow,
             baseline: await loadSetupBaseline(),
+            heldout: await loadBandHeldout(),
             afterSignal: newsHTML,
             afterWeeks: bandHistory?.rows?.length ? `<div class="fc-card fc-record">${renderBandHistory(bandHistory, cur)}</div>` : '',
             // Liquid as of the session the band starts from (the gap rule's own gate).

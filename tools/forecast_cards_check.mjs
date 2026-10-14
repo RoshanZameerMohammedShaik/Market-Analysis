@@ -21,20 +21,20 @@ const check = (name, cond, detail = '') => {
 const cell = { hitRate: 0.6765, n: 15693, netBps: 16.2, positiveYears: 8, years: 11 };
 console.log('=== the call comes only from measured patterns ===');
 let c = fc.decideCall({ rs: null, owned: false });
-check('nothing measured -> DON\'T BUY, no confidence', c.kind === 'DONT_BUY' && c.confidence === null, JSON.stringify(c));
+check('nothing measured -> WAIT, no confidence (DON\'T BUY pairs with SELL, so it needs a measured reason)', c.kind === 'WAIT' && c.confidence === null, JSON.stringify(c));
 c = fc.decideCall({ rs: null, owned: true });
 check('nothing measured, owned -> HOLD, no confidence', c.kind === 'HOLD' && c.confidence === null);
 c = fc.decideCall({ rs: { active: true, reliable: true, cell }, owned: false });
 check('a live setup -> BUY at its measured profitability', c.kind === 'BUY' && c.confidence === cell.hitRate);
 check('...worded as trades that sold above their entry, not "recovered"', /sold above their entry/.test(c.line) && !/recovered|closed back above/.test(c.line), c.line);
 c = fc.decideCall({ rs: { active: true, reliable: false, cell }, owned: false });
-check('an unreliable cell never makes a BUY', c.kind === 'DONT_BUY');
+check('an unreliable cell never makes a BUY', c.kind === 'WAIT');
 const rec = (status, extra = {}) => ({ record: { symbol: [{ status, session: '2026-10-12', entryDate: '2026-10-13', hitRate: 0.67, expNetBps: 25, ...extra }] } });
 check('pending entry, not owned -> BUY', fc.decideCall({ rs: rec('pending'), owned: false }).kind === 'BUY');
 check('pending entry, owned -> HOLD', fc.decideCall({ rs: rec('pending'), owned: true }).kind === 'HOLD');
 check('exit fired, owned -> SELL', fc.decideCall({ rs: rec('exiting'), owned: true }).kind === 'SELL');
 check('exit fired, not owned -> DON\'T BUY', fc.decideCall({ rs: rec('exiting'), owned: false }).kind === 'DONT_BUY');
-check('older open trade, not owned -> DON\'T BUY (buying later is not the trade)', fc.decideCall({ rs: rec('open'), owned: false }).kind === 'DONT_BUY');
+check('older open trade, not owned -> WAIT (buying later is not the trade, and nothing says it falls)', fc.decideCall({ rs: rec('open'), owned: false }).kind === 'WAIT');
 
 console.log('\n=== the gap rule: only on a real gap, in session, liquid, earnings known and clear ===');
 const gapRec = JSON.parse(fs.readFileSync(path.join(repo, 'model', 'gap_fade.json'), 'utf8'));
@@ -52,7 +52,7 @@ check('not a US listing: no', !fc.gapSignal({ rec: gapRec, band, todayBar: big, 
 const g = fc.gapSignal({ rec: gapRec, band, todayBar: big, liquid: true, region: 'NYSE', nowMs: midSession });
 c = fc.decideCall({ rs: null, owned: false, gap: g });
 check('gap, not owned -> DON\'T BUY at the measured rate', c.kind === 'DONT_BUY' && c.confidence === gapRec.closedBelowOpen, JSON.stringify(c).slice(0, 200));
-check('gap, owned -> HOLD, never SELL', fc.decideCall({ rs: null, owned: true, gap: g }).kind === 'HOLD');
+check("gap, owned -> SELL into the open (DON'T BUY pairs with SELL), with the measured rate", (() => { const x = fc.decideCall({ rs: null, owned: true, gap: g }); return x.kind === 'SELL' && x.confidence === g.rec.closedBelowOpen; })());
 check('a live setup outranks the gap note', fc.decideCall({ rs: { active: true, reliable: true, cell }, owned: false, gap: g }).kind === 'BUY');
 
 console.log('\n=== Hot Picks and the card read one range for today (headlineRange) ===');
@@ -86,18 +86,18 @@ const wildLow = { n: 691, hitRate: 0.5687, netBps: -69.5, netBpsLo95: -158.6 };
 const html = fc.renderForecastCards({ symbol: 'DOCN', band: docn, price: 110.16, region: 'NYSE', owned: false,
     rs: { active: true, eligible: true, reliable: false, forming: true, rsi2: 6.2, tier: 'wild', vixBand: 'low',
           cell: wildLow, price: 110.16, ma200: 108.64 } });
-check('an unreliable setup cell: DON\'T BUY, and the card says it has not paid there', /DON'T BUY/.test(html)
+check('an unreliable setup cell: WAIT, and the card says it has not paid there', />WAIT</.test(html)
     && /not where it has paid/.test(html) && /-0\.(69|70)%/.test(html), html.match(/So the dip[^<]*/)?.[0] || 'missing');
 
 console.log('\n=== every list shows the call the card shows (cardCallFor) ===');
 // The engine says BUY 56%: no list may repeat that unless a measured pattern says so.
 const engineBuy = { signal: 'BUY', confidence: 56, forecastBand: docn, reversionSetup: null };
 const listCall = fc.cardCallFor(engineBuy, { region: 'NYSE', candles: [], nowMs: noon });
-check("the engine's own BUY 56% is not the call: no measured pattern -> DON'T BUY", listCall && listCall.kind === 'DONT_BUY' && listCall.confidence === null, JSON.stringify(listCall && { kind: listCall.kind, c: listCall.confidence }));
+check("the engine's own BUY 56% is not the call: no measured pattern -> WAIT", listCall && listCall.kind === 'WAIT' && listCall.confidence === null, JSON.stringify(listCall && { kind: listCall.kind, c: listCall.confidence }));
 const asml = { signal: 'NEUTRAL', confidence: 56, forecastBand: docn, reversionSetup: rec('pending') };
 check('a pullback setup with today\'s open as its entry -> BUY on every list, as on its card', fc.cardCallFor(asml, { region: 'NYSE', candles: [], nowMs: noon }).kind === 'BUY');
 check('...and HOLD for someone who owns it', fc.cardCallFor(asml, { region: 'NYSE', owned: true, candles: [], nowMs: noon }).kind === 'HOLD');
-check('the list badge shows the card\'s word', /DON'T BUY/.test(fc.callBadge(listCall)) && !/56/.test(fc.callBadge(listCall)));
+check('the list badge shows the card\'s word', />WAIT</.test(fc.callBadge(listCall)) && !/56/.test(fc.callBadge(listCall)));
 
 const quirk = fc.todayPartialBar([{ time: Date.parse('2026-10-14T13:30:00Z') / 1000, open: 127.02, high: 126.19, low: 108.08, close: 110.19 }], 'NYSE', noon);
 check("Yahoo's live bar with a high under its open: the open still counts as traded", quirk && quirk.high === 127.02 && quirk.low === 108.08, JSON.stringify(quirk));

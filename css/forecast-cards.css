@@ -6,7 +6,10 @@
     border: 1px solid var(--border); background: var(--bg-secondary); }
 
 /* ── the call ─────────────────────────────────────────────── */
-.fc-signal { border-left: 5px solid var(--text-muted); }
+/* No grey anywhere on a call (Roshan, 2026-10-14: "I hate grey colours"): green for the pair that
+   expects a rise (BUY, HOLD), red for the pair that expects weakness (SELL, DON'T BUY), amber for
+   WAIT, and for HOLD when nothing is measured. */
+.fc-signal { border-left: 5px solid var(--yellow, #fbbf24); }
 .fc-signal.fc-tone-up { border-left-color: var(--green); }
 .fc-signal.fc-tone-down { border-left-color: var(--red); }
 .fc-signal-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -15,8 +18,9 @@
 .fc-badge-buy { color: #fff; background: var(--green); }
 .fc-badge-hold { color: #fff; background: color-mix(in srgb, var(--green) 70%, var(--accent)); }
 .fc-badge-sell { color: #fff; background: var(--red); }
-.fc-badge-dont_buy { color: var(--text-primary); background: color-mix(in srgb, var(--text-muted) 22%, transparent); }
-.fc-tone-down .fc-badge-dont_buy { color: #fff; background: color-mix(in srgb, var(--red) 80%, var(--bg-secondary)); }
+.fc-badge-dont_buy { color: #fff; background: color-mix(in srgb, var(--red) 78%, #f97316); }
+.fc-badge-wait { color: #1f1600; background: var(--yellow, #fbbf24); }
+.fc-tone-flat .fc-badge-hold { color: #1f1600; background: var(--yellow, #fbbf24); }
 .fc-signal-conf { font-size: 0.85rem; color: var(--text-secondary); }
 .fc-signal-conf b { font-size: 1.05rem; color: var(--text-primary); }
 .fc-own-hint { flex-basis: 100%; font-size: 0.75rem; color: var(--text-muted); }
@@ -124,7 +128,7 @@
 }
 .news-weight-bar > span { display: block; height: 100%; }
 .nw-pos { background: var(--green, #22c55e); }
-.nw-neu { background: var(--text-muted, #6b7280); opacity: 0.45; }
+.nw-neu { background: var(--yellow, #fbbf24); opacity: 0.75; }
 .nw-neg { background: var(--red, #ef4444); }
 .news-weight-legend {
     display: flex;
@@ -137,7 +141,7 @@
 .news-weight-legend .nw-note { color: var(--text-muted); }
 .nw-k { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
 .nw-k-pos { background: var(--green, #22c55e); }
-.nw-k-neu { background: var(--text-muted, #6b7280); opacity: 0.6; }
+.nw-k-neu { background: var(--yellow, #fbbf24); }
 .nw-k-neg { background: var(--red, #ef4444); }
 .news-lead {
     margin-top: 10px;
@@ -182,7 +186,7 @@
 }
 .fc-mini-up { color: var(--green, #22c55e); border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
 .fc-mini-down { color: var(--red, #ef4444); border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
-.fc-mini-flat { color: var(--text-secondary); }
+.fc-mini-flat { color: var(--yellow, #fbbf24); border-color: rgba(251, 191, 36, 0.45); background: rgba(251, 191, 36, 0.08); }
 .fc-mini-conf { margin-left: 6px; font-size: var(--fs-2xs, 0.72rem); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .hot-pick-move { font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 2px 0 4px; }
 .hot-pick-move.up { color: var(--green, #22c55e); }
@@ -202,3 +206,7 @@
 }
 .sp-odds-bar { margin-top: 6px; height: 5px; border-radius: 999px; background: var(--bg-tertiary, rgba(255, 255, 255, 0.06)); overflow: hidden; }
 .sp-odds-bar > span { display: block; height: 100%; background: var(--accent, #60a5fa); border-radius: 999px; }
+.hot-pick-confidence.neutral { color: var(--yellow, #fbbf24); }
+/* The tighter range inside each day's bar (held about half the time, measured): a darker core. */
+.fc-day-bar .fc-core { position: absolute; top: 2px; bottom: 2px; height: auto; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent, #60a5fa) 55%, var(--bg-secondary)); opacity: 0.9; }

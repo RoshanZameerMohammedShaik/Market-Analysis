@@ -72,7 +72,13 @@ const dayLabel = (iso, today) => {
 // ── the call ─────────────────────────────────────────────────────────────────────────────────
 
 /**
- * BUY / HOLD / SELL / DON'T BUY, from patterns with a measured record only.
+ * BUY / HOLD / SELL / DON'T BUY / WAIT, from patterns with a measured record only.
+ *
+ * THE PAIRS (Roshan, 2026-10-14: "Don't buy also means SELL, so it goes like SELL if you have and
+ * Don't buy if you have not"). BUY and HOLD go together: a measured reason to expect a rise.
+ * DON'T BUY and SELL go together: a measured reason to expect weakness. WAIT (HOLD for an owner)
+ * is neither: nothing measured points either way, and DON'T BUY there would tell owners to sell
+ * with no evidence at all.
  *
  * Plain next-day up/down is right 51% of the time live (35,034 graded calls), so it never drives
  * this card. What does:
@@ -109,12 +115,12 @@ export function decideCall({ rs = null, owned = null, setupsLive = null, gap = n
         return { ...base, kind: own ? 'HOLD' : 'BUY', tone: 'up', confidence: pending.hitRate ?? rs?.cell?.hitRate ?? null, source: 'setup-pending', entry: pending,
             title: own ? 'HOLD' : 'BUY',
             line: `A dip-recovery setup fired at the ${shortDay(pending.session)} close, so this session's open is the measured entry. `
-                + `${pct(pending.hitRate ?? rs?.cell?.hitRate ?? 0)} of trades like it were profitable${Number.isFinite(pending.expNetBps) ? `, ${signedPct(pending.expNetBps)} on average after costs` : ''}.` };
+                + `${pct(pending.hitRate ?? rs?.cell?.hitRate ?? 0)} of trades like it sold above their entry price${Number.isFinite(pending.expNetBps) ? `, ${signedPct(pending.expNetBps)} on average after costs` : ''}.` };
     }
     // 4. A trade from an earlier day is still running.
     if (open) {
-        return { ...base, kind: own ? 'HOLD' : 'DONT_BUY', tone: own ? 'up' : 'flat', confidence: own ? (open.hitRate ?? null) : null, source: 'setup-open', entry: open,
-            title: own ? 'HOLD' : "DON'T BUY",
+        return { ...base, kind: own ? 'HOLD' : 'WAIT', tone: own ? 'up' : 'flat', confidence: own ? (open.hitRate ?? null) : null, source: 'setup-open', entry: open,
+            title: own ? 'HOLD' : 'WAIT',
             line: own
                 ? 'A dip-recovery trade is still open: it sells after the first close above the 5-day average, or after 10 sessions.'
                 : `This setup's entry was the ${shortDay(open.entryDate)} open. Buying later is not the measured trade.` };
@@ -122,17 +128,17 @@ export function decideCall({ rs = null, owned = null, setupsLive = null, gap = n
     // 5. A big gap up this morning with no earnings behind it: the one direction signal that
     //    measured better than a coin flip (tools/calibrate_gap_fade.py). About today only.
     if (gap) {
-        return { ...base, kind: own ? 'HOLD' : 'DONT_BUY', tone: own ? 'flat' : 'down', confidence: own ? null : gap.rec.closedBelowOpen,
+        return { ...base, kind: own ? 'SELL' : 'DONT_BUY', tone: 'down', confidence: gap.rec.closedBelowOpen,
             source: 'gap', gap,
-            title: own ? 'HOLD' : "DON'T BUY",
+            title: own ? 'SELL' : "DON'T BUY",
             line: own
-                ? `It opened ${gap.pct}% above yesterday's close with no earnings behind it. Opens like this closed below the open ${pct(gap.rec.closedBelowOpen)} of the time, so expect it to give some back today. Tomorrow is a coin flip again.`
+                ? `Sell into this open: it gapped ${gap.pct}% above yesterday's close, more than twice its normal move, with no earnings behind it. ${pct(gap.rec.closedBelowOpen)} of ${gap.rec.n.toLocaleString()} opens like this closed below the open, giving back ${(gap.rec.meanFadeBps / 100).toFixed(2)}% on average by the close. It is about today only: tomorrow is a coin flip again.`
                 : `Don't chase this open: it gapped ${gap.pct}% above yesterday's close, more than twice its normal move, with no earnings behind it. ${pct(gap.rec.closedBelowOpen)} of ${gap.rec.n.toLocaleString()} opens like this closed below the open, against ${pct(gap.rec.baseClosedBelowOpen)} on other days.` };
     }
-    return { ...base, kind: own ? 'HOLD' : 'DONT_BUY', tone: 'flat', confidence: null, source: 'none',
-        title: own ? 'HOLD' : "DON'T BUY",
-        line: own ? 'No sell signal: nothing with a measured record points down today.'
-            : 'No buy signal: nothing with a measured record points up today.' };
+    return { ...base, kind: own ? 'HOLD' : 'WAIT', tone: 'flat', confidence: null, source: 'none',
+        title: own ? 'HOLD' : 'WAIT',
+        line: own ? 'No measured reason to sell today: nothing with a record points down.'
+            : 'No measured edge today, up or down. Nothing with a record says buy, and nothing says it will fall.' };
 }
 
 const signedPct = (bps) => `${bps >= 0 ? '+' : ''}${(bps / 100).toFixed(2)}%`;
@@ -357,7 +363,7 @@ function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
     } else if (earningsDay === 0) {
         items.push('No earnings fall in this window (checked against the earnings calendar).');
     }
-    items.push(`The width is set so the day's high and low both stay inside ${band.confidence}% of the time, measured on past prices of stocks this volatile, not assumed from a formula.`);
+    items.push(`The width is set so the day's high and low both stay inside ${band.confidence}% of the time on past prices of stocks this volatile, not assumed from a formula. How often it really held, on years it was not fitted on, is above.`);
     const m = Array.isArray(band.m) ? band.m[k - 1] : null;
     if (Number.isFinite(m) && Math.abs(m - 1) >= 0.01) {
         items.push(`Checked against the live record: recent ranges like this one needed to be ${Math.abs(Math.round((m - 1) * 100))}% ${m > 1 ? 'wider' : 'narrower'} to hold ${band.confidence}% of the time, so this one is.`);
@@ -383,6 +389,11 @@ function dayRow(row, x, opts) {
         ? (row.met ? '<span class="fc-v fc-v-in">held</span>' : '<span class="fc-v fc-v-out">broke</span>')
         : row.kind === 'today' ? '<span class="fc-v fc-v-live">today</span>' : '';
     const conf = Number.isFinite(row.confidence) ? row.confidence : null;
+    const earnRow = !!(opts.earningsDay > 0 && row.k >= opts.earningsDay);
+    const held = row.kind !== 'past' && has && !Number.isFinite(row.liveF)
+        ? measuredHeld({ band: opts.band, k: row.k, earnings: earnRow, heldout: opts.heldout }) : null;
+    const tight = row.kind !== 'past' && has
+        ? tighterRange({ low: row.low, high: row.high, band: opts.band, k: row.k, heldout: opts.heldout }) : null;
     const why = dayWhy({ row: { ...row, co }, band: opts.band, k: row.k, earningsDay: opts.earningsDay,
         symbol: opts.symbol, sigma: opts.sigma, tier: opts.tier });
     const spikeHtml = (row.kind !== 'past' && row.k === 1 && opts.spike) ? spikeBlock(opts.spike, opts.spikeRecord, row, co) : '';
@@ -393,13 +404,15 @@ function dayRow(row, x, opts) {
         <details class="fc-day fc-${row.kind}" data-date="${row.date}" data-kind="${row.kind}" data-low="${has ? row.low : ''}" data-high="${has ? row.high : ''}">
             <summary>
                 <span class="fc-day-label">${dayLabel(row.date, today)}</span>
-                <span class="fc-day-bar">${has ? seg(row.low, row.high, 'fc-pred') : ''}${actual}${outside}${now}</span>
+                <span class="fc-day-bar">${has ? seg(row.low, row.high, 'fc-pred') : ''}${tight ? seg(tight.low, tight.high, 'fc-core') : ''}${actual}${outside}${now}</span>
                 <span class="fc-day-nums">${has ? `${fmtPriceTag(row.low, co)} to ${fmtPriceTag(row.high, co)}` : 'no range'}</span>
                 ${verdict || spikeFlag}
             </summary>
             <div class="fc-day-body">
                 ${has ? `<div class="fc-pred-line">Expected: low <b>${fmtPriceTag(row.low, co)}</b>, high <b>${fmtPriceTag(row.high, co)}</b>.</div>` : ''}
-                ${conf != null && row.kind !== 'past' ? `<div class="fc-conf-line"><b>${conf}%</b> chance the day's high and low both land inside this range.</div>` : ''}
+                ${held ? `<div class="fc-conf-line">Ranges like this held <b>${pct(held.rate)}</b> of the time on ${held.when} (${held.n.toLocaleString()} of them).</div>`
+                    : conf != null && row.kind !== 'past' ? `<div class="fc-conf-line">Built to hold <b>${conf}%</b> of the time (the live part of today is fitted on two years of hourly bars).</div>` : ''}
+                ${tight ? `<div class="fc-conf-line">Tighter: <b>${fmtPriceTag(tight.low, co)}</b> to <b>${fmtPriceTag(tight.high, co)}</b>, the darker part of the bar. It is ${Math.round((1 - tight.ratio) * 100)}% narrower, and ranges this tight held ${pct(tight.held)} of the time on unseen years: wrong about half the time.</div>` : ''}
                 ${row.kind === 'today' && Number.isFinite(row.actualLow) ? `<div class="fc-conf-line">So far today: ${fmtPriceTag(row.actualLow, co)} to ${fmtPriceTag(row.actualHigh, co)}.</div>` : ''}
                 ${Number.isFinite(row.liveF) ? `<div class="fc-conf-line">Updated live: ${Math.round(row.liveF * 100)}% of the session is left to trade, so the rest of the day can only move so far. Before the open the range was ${fmtPriceTag(row.morningLow, co)} to ${fmtPriceTag(row.morningHigh, co)}.</div>` : ''}
                 ${spikeHtml}
@@ -569,7 +582,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
                                       spike = null, spikeRecord = null, gapRec = null, liquid = false,
                                       baseline = null, afterSignal = '', afterWeeks = '', call: given = null,
-                                      next = false } = {}) {
+                                      next = false, heldout = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     // next: the Tomorrow view, whose big bar is the next session's range even while today trades.
@@ -580,6 +593,9 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
 
     // Today's range on the big bar: the row for today when the session is today, else the next one.
     const d = head;
+    const headK = (rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => r.date === d.date)?.k : null) ?? 1;
+    const headHeld = !Number.isFinite(d.liveF)
+        ? measuredHeld({ band, k: headK, earnings: !!(band.earningsDay > 0 && headK >= band.earningsDay), heldout }) : null;
     const whenLabel = rows && d.date ? (d.date === rows.today ? (Number.isFinite(d.liveF) ? "Today's expected range, updated live" : "Today's expected range") : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
 
     const evidence = callEvidence(call, rs, co, symbol, dirRec, baseline);
@@ -591,7 +607,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                 ${owned == null ? '<span class="fc-own-hint">Own it? Add it to your portfolio and this switches to HOLD or SELL.</span>' : ''}
             </div>
             <div class="fc-signal-line">${call.line}</div>
-            <div class="fc-when">${whenLabel} <span>· ${band.confidence}% chance the price stays inside</span></div>
+            <div class="fc-when">${whenLabel} <span>· ${headHeld ? `ranges like this held ${pct(headHeld.rate)} of the time on unseen years` : `built to hold ${band.confidence}% of the time`}</span></div>
             ${bigBar({ low: d.low, high: d.high, price, co, date: d.date })}
             <details class="fc-why"><summary>Why this call</summary><ul>${evidence.map(t => `<li>${t}</li>`).join('')}</ul></details>
         </div>`;
@@ -603,7 +619,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
     const x = scale([...all.flatMap(r => [r.low, r.high, r.actualLow, r.actualHigh]), price]);
     if (!x) return signalCard + afterSignal + afterWeeks;
     const opts = { co, today: rows.today, price, band, earningsDay: band.earningsDay ?? null, symbol,
-                   sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord, cryptoMode };
+                   sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord, cryptoMode, heldout };
     return signalCard
         + afterSignal
         + weekCard('This week', rows.thisWeek, x, opts)
@@ -623,6 +639,49 @@ export function todayPartialBar(candles, region, nowMs = Date.now()) {
     // 5-minute bars reached $127.10), which drew "where it traded" short of the opening print.
     const prints = [c.open, c.close].filter(v => Number.isFinite(v) && v > 0);
     return { high: Math.max(c.high, ...prints), low: Math.min(c.low, ...prints), open: c.open };
+}
+
+let _heldout = null;
+let _heldoutPromise = null;
+/** model/band_heldout.json (tools/heldout_band_coverage.py): how often ranges held on unseen years. */
+export async function loadBandHeldout() {
+    if (_heldout !== null) return _heldout || null;
+    if (_heldoutPromise) return _heldoutPromise;
+    _heldoutPromise = (async () => {
+        try {
+            const r = await fetch('model/band_heldout.json', { cache: 'no-cache' });
+            if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('not json');
+            const j = await r.json();
+            _heldout = j?.cells ? j : false;
+        } catch (_) { _heldout = false; }
+        return _heldout || null;
+    })();
+    return _heldoutPromise;
+}
+
+/**
+ * How often ranges like this row's actually held, MEASURED, not the 80% target every range is
+ * built to (Roshan, 2026-10-14: "why do I see 80% across all"). Blended ranges carry their own
+ * held-out record; earnings windows the earnings one; the rest their tier and horizon.
+ */
+export function measuredHeld({ band, k, earnings = false, heldout }) {
+    const ho = blendHeldOut();
+    if (band?.sigmaSource === 'blend' && ho?.blend?.coverage) {
+        return { rate: ho.blend.coverage, n: ho.blend.n, when: '2022-2026, years it was not fitted on' };
+    }
+    if (!heldout?.cells) return null;
+    if (earnings && heldout.byFamily?.earn) return { rate: heldout.byFamily.earn.held, n: heldout.byFamily.earn.n, when: `${heldout.tested}, on days with earnings in the window` };
+    const c = heldout.cells[`${band?.volTier}:${k}`];
+    return c ? { rate: c.held, n: c.n, when: `${heldout.tested}, years it was not fitted on` } : null;
+}
+
+/** The tighter range that holds about half the time, around the same middle (measured per cell). */
+export function tighterRange({ low, high, band, k, heldout }) {
+    const cell = heldout?.likely?.['0.50']?.[`${band?.volTier}:${k}`];
+    if (!cell?.widthVs80 || !(low > 0) || !(high > low)) return null;
+    const mid = Math.sqrt(low * high);
+    const w = Math.log(high / mid) * cell.widthVs80;
+    return { low: mid * Math.exp(-w), high: mid * Math.exp(w), held: cell.heldOut, ratio: cell.widthVs80 };
 }
 
 let _gapRec = null;

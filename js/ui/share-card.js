@@ -11,6 +11,8 @@
 // user can drop into a chat with friends, and it carries the URL, not
 // the GitHub repo.
 
+import { fmtPrice } from './format.js';
+
 const SITE = 'market-ai.pages.dev';
 
 // Theme-ish palette pulled from the app's dark identity (the card is
@@ -24,11 +26,16 @@ const PAL = {
 function tierColor(conf) {
     return conf >= 65 ? PAL.green : conf >= 50 ? PAL.amber : PAL.red;
 }
-function signalColor(signal) {
-    return signal === 'BUY' ? PAL.green : signal === 'SELL' ? PAL.red : PAL.muted;
+// The image carries the call the card shows (prediction.cardCall, set by js/ui/signal.js) and the
+// card's own range, never the engine's plain up/down call: that one is a coin flip and no part of
+// the app shows it any more, so a shared image must not either.
+function toneColor(tone) {
+    return tone === 'up' ? PAL.green : tone === 'down' ? PAL.red : PAL.amber;
 }
-function signalLabel(signal) {
-    return signal === 'NO_TRADE' ? 'AVOID' : signal === 'NEUTRAL' ? "DON'T BUY" : signal;
+function callOf(prediction) {
+    const c = prediction?.cardCall;
+    return c ? { title: c.title, tone: c.tone, measured: c.confidence != null ? Math.round(c.confidence * 100) : null }
+        : { title: 'WAIT', tone: 'flat', measured: null };
 }
 
 // Draw the 270° confidence arc centered at (cx,cy).
@@ -53,15 +60,9 @@ function drawDial(ctx, cx, cy, r, conf) {
     ctx.shadowBlur = 0;
 }
 
-function fmtMoney(v) {
-    if (v == null || !Number.isFinite(v)) return '';
-    if (v >= 1000) return '$' + v.toLocaleString('en-US', { maximumFractionDigits: 2 });
-    if (v >= 1) return '$' + v.toFixed(2);
-    return '$' + v.toFixed(4);
-}
 
 // Build the canvas for `prediction` + `symbol`. Returns the canvas.
-export function renderShareCanvas(prediction, symbol) {
+export function renderShareCanvas(prediction, symbol, range = null) {
     const S = 1080;
     const c = document.createElement('canvas');
     c.width = S; c.height = S;
@@ -76,9 +77,7 @@ export function renderShareCanvas(prediction, symbol) {
     glow.addColorStop(0, 'rgba(124,58,237,0.20)'); glow.addColorStop(1, 'rgba(124,58,237,0)');
     ctx.fillStyle = glow; ctx.fillRect(0, 0, S, S);
 
-    const conf = prediction.confidence ?? 0;
-    const signal = prediction.signal || 'NEUTRAL';
-    const tgt = prediction.priceTargets || {};
+    const call = callOf(prediction);
 
     // Header, symbol + wordmark.
     ctx.textBaseline = 'alphabetic';
@@ -89,35 +88,45 @@ export function renderShareCanvas(prediction, symbol) {
     ctx.font = '500 30px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
     ctx.fillText('Market Analyzer', 80, 196);
 
-    // Dial center.
     const cx = S / 2, cy = 540, r = 200;
-    drawDial(ctx, cx, cy, r, conf);
-    // Confidence number + %.
     ctx.textAlign = 'center';
-    ctx.fillStyle = PAL.text;
-    ctx.font = '900 150px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-    ctx.fillText(String(Math.round(conf)), cx, cy + 30);
-    ctx.fillStyle = PAL.muted;
-    ctx.font = '700 48px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-    ctx.fillText('%', cx + ctx.measureText(String(Math.round(conf))).width / 2 + 110, cy - 50);
-    // Verdict below dial.
-    ctx.fillStyle = signalColor(signal);
-    ctx.font = '800 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-    ctx.fillText(signalLabel(signal), cx, cy + 130);
-    ctx.fillStyle = PAL.dim;
-    ctx.font = '500 28px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-    ctx.fillText('engine confidence', cx, cy - 230);
+    if (call.measured != null) {
+        // The measured rate of the pattern behind the call, as the dial.
+        drawDial(ctx, cx, cy, r, call.measured);
+        ctx.fillStyle = PAL.text;
+        ctx.font = '900 150px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText(String(call.measured), cx, cy + 30);
+        ctx.fillStyle = PAL.muted;
+        ctx.font = '700 48px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText('%', cx + ctx.measureText(String(call.measured)).width / 2 + 110, cy - 50);
+        ctx.fillStyle = PAL.dim;
+        ctx.font = '500 28px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText('measured', cx, cy - 230);
+        ctx.fillStyle = toneColor(call.tone);
+        ctx.font = '800 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText(call.title, cx, cy + 130);
+    } else {
+        ctx.fillStyle = toneColor(call.tone);
+        ctx.font = '900 130px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText(call.title, cx, cy);
+        ctx.fillStyle = PAL.muted;
+        ctx.font = '600 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+        ctx.fillText('no measured edge today', cx, cy + 70);
+    }
 
-    // Price-target strip.
-    if (tgt.predictedLow != null && tgt.predictedHigh != null) {
+    // The card's own range.
+    if (range && Number.isFinite(range.low) && Number.isFinite(range.high)) {
         const y = 850;
         ctx.textAlign = 'center';
         ctx.fillStyle = PAL.muted;
         ctx.font = '600 26px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-        ctx.fillText('PREDICTED RANGE', cx, y - 44);
+        ctx.fillText('EXPECTED RANGE', cx, y - 44);
         ctx.fillStyle = PAL.text;
         ctx.font = '800 52px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
-        ctx.fillText(`${fmtMoney(tgt.predictedLow)}  →  ${fmtMoney(tgt.predictedHigh)}`, cx, y + 18);
+        // The same currency path as every other price in the app (a hard-coded "$" read Reliance's
+        // rupees and Toyota's yen as dollars).
+        const co = { srcCurrency: String(prediction.currency || 'USD').toUpperCase() };
+        ctx.fillText(`${fmtPrice(range.low, co)}  →  ${fmtPrice(range.high, co)}`, cx, y + 18);
     }
 
     // Footer wordmark + disclaimer.
@@ -140,12 +149,17 @@ function canvasToBlob(canvas) {
 // Share (or download) a prediction card. `prediction` is the engine
 // result object; `symbol` the ticker.
 export async function sharePredictionCard(prediction, symbol) {
-    if (!prediction || !prediction.signal) {
+    if (!prediction) {
         const { notify } = await import('./notify.js');
         notify('Load a symbol first, then share its prediction.', { kind: 'warn' });
         return;
     }
-    const canvas = renderShareCanvas(prediction, symbol);
+    // The range the card's big bar shows, read off the bar itself so the image matches the page.
+    const bar = document.querySelector('#signal-section .fc-bigbar');
+    const range = bar ? { low: Number(bar.dataset.low), high: Number(bar.dataset.high) } : null;
+    const canvas = renderShareCanvas(prediction, symbol, range);
+    const call = callOf(prediction);
+    const rate = call.measured != null ? ` (${call.measured}% measured)` : '';
     const blob = await canvasToBlob(canvas);
     if (!blob) return;
     const fileName = `${String(symbol || 'prediction').toUpperCase()}-market-analyzer.png`;
@@ -155,8 +169,8 @@ export async function sharePredictionCard(prediction, symbol) {
     // don't call share() on a platform that can't take the file.
     const shareData = {
         files: [file],
-        title: `${String(symbol).toUpperCase()}, ${signalLabel(prediction.signal)} ${Math.round(prediction.confidence)}%`,
-        text: `${String(symbol).toUpperCase()}: ${signalLabel(prediction.signal)} at ${Math.round(prediction.confidence)}%, via ${SITE}`,
+        title: `${String(symbol).toUpperCase()}, ${call.title}${rate}`,
+        text: `${String(symbol).toUpperCase()}: ${call.title}${rate}, via ${SITE}`,
     };
     try {
         if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {

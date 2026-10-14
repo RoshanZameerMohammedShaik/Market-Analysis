@@ -169,7 +169,7 @@ function renderCards(grid, picks, withFooter) {
         const tone = call ? call.tone : 'flat';
         const arrow = tone === 'up' ? '▲' : tone === 'down' ? '▼' : '◆';
         const signalClass = tone === 'up' ? 'buy' : tone === 'down' ? 'sell' : 'neutral';
-        const signalLabel = call ? call.title : "DON'T BUY";
+        const signalLabel = call ? call.title : 'WAIT';
         const confPct = call && call.confidence != null ? Math.round(call.confidence * 100) : null;
         const moved = Number.isFinite(pick.change) && Math.abs(pick.change) >= 0.05
             ? `<div class="hot-pick-move ${pick.change >= 0 ? 'up' : 'down'}">${pick.change >= 0 ? '▲' : '▼'} ${Math.abs(pick.change).toFixed(1)}% today</div>` : '';
