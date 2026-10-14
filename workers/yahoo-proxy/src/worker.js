@@ -698,6 +698,7 @@ async function proxyYahoo(targetUrl) {
 // Both routes build the upstream URL here from a few validated parameters, so neither can be
 // used to fetch anything else.
 const NEWS_RSS_CACHE_TTL_MS = 10 * 60 * 1000;
+const NEWS_RSS_EMPTY_TTL_MS = 2 * 60 * 1000;   // how long an all-sources-failed answer is reused
 const STOCKTWITS_CACHE_TTL_MS = 5 * 60 * 1000;
 const newsRssCache = new Map();
 const stocktwitsCache = new Map();
@@ -746,7 +747,12 @@ async function fetchNewsRss(params) {
             }
         } catch (_) { /* next source */ }
     }
-    return { status: 502, body: JSON.stringify({ error: `no RSS source answered (last status ${lastStatus})` }), type: 'application/json' };
+    // Every source throttled or failed. Answer an EMPTY feed, marked as such, not a 502: a bulk scan
+    // sends dozens of these at once, and each 502 printed a red console error for a condition the
+    // app already handles (no headlines). Cached briefly so a burst stops hitting throttled sources.
+    const empty = `<?xml version="1.0" encoding="UTF-8"?><!-- no RSS source answered (last status ${lastStatus}) --><rss version="2.0"><channel><title>unavailable</title></channel></rss>`;
+    boundedSet(newsRssCache, cacheKey, { ts: Date.now() - NEWS_RSS_CACHE_TTL_MS + NEWS_RSS_EMPTY_TTL_MS, body: empty });
+    return { status: 200, body: empty, type: 'application/rss+xml, charset=utf-8' };
 }
 
 async function fetchStockTwits(symbolRaw) {

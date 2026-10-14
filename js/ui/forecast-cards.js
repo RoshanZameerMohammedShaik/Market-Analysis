@@ -344,6 +344,9 @@ function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
         items.push(`How much this stock has been moving: about ±${sigma.toFixed(2)}% a day over the last 30 sessions (${esc(tier || '')} volatility). This is the main input.`);
     }
     if (k > 1) items.push(`${k} sessions ahead: the range widens with each session because the uncertainty adds up.`);
+    if (row.priceOutside) {
+        items.push('The price has already left the range this day started with, and the price feed has no bar for today yet, so the range is stretched to include the live price. Treat it as broken for today.');
+    }
     if (Number.isFinite(row.fromPrice)) {
         items.push(`Started from the live price, ${fmtPriceTag(row.fromPrice, row.co)}, with ${Math.round(row.fromF * 100)}% of today still to trade, `
             + `because the stock has moved since the ${shortDay(band.anchor?.session)} close the range was built on. From that close it read `
@@ -443,8 +446,13 @@ export function weekRows({ band, history, region, cryptoMode, todayBar = null, l
             const trading = iso === today && tradingToday;
             const lv = trading ? live : null;
             const moved = iso > today ? fromNow(f.k) : null;
+            // Today with no bar from the feed yet: the live price still printed today, so the day's
+            // range has to contain it.
+            const outside = iso === today && !lv && price > 0 && (price < f.low || price > f.high);
             return { date: iso, kind: trading ? 'today' : 'future', k: f.k,
-                     low: lv ? lv.low : moved ? moved.low : f.low, high: lv ? lv.high : moved ? moved.high : f.high,
+                     low: lv ? lv.low : moved ? moved.low : outside ? Math.min(f.low, price) : f.low,
+                     high: lv ? lv.high : moved ? moved.high : outside ? Math.max(f.high, price) : f.high,
+                     priceOutside: outside,
                      morningLow: lv || moved ? f.low : null, morningHigh: lv || moved ? f.high : null,
                      liveF: lv ? lv.f : null, fromPrice: moved ? price : null, fromF: moved ? moved.f : null,
                      confidence: lv ? lv.confidence : band.confidence,

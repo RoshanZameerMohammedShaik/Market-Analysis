@@ -28,6 +28,8 @@ import { getEffectiveLock } from './ui/daily-lock.js';
 import { applyLockToPrediction } from './ui/lock-view.js';
 import { headlineRange, todayPartialBar, loadIntraday, freshestBand, cardCallFor, ownedLookup, loadGapRecord } from './ui/forecast-cards.js';
 import { regionFor } from './calibration.js';
+import { loadPublishedSetups } from './reversion-setup.js';
+import { blendEligible } from './forecast-band.js';
 
 // THE CALL THE USER WILL SEE WHEN THEY OPEN THE SYMBOL.
 //
@@ -254,6 +256,16 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
         ...liquidScored.slice(0, LIQUID_TOP).map(s => s.sym),
         ...pennyScored.slice(0, PENNY_TOP).map(s => s.sym),
     ];
+    // Last night's published pullback setups join the pool, so the measured buys this list leads
+    // with are actually scanned: they rarely sit in a movers screen (ASML, CDNS and VRTX did not).
+    if (!isTomorrow) {
+        try {
+            const pub = await loadPublishedSetups();
+            for (const sym of pub?.bySymbol?.keys() || []) {
+                if (!filteredSymbols.includes(sym)) filteredSymbols.unshift(sym);
+            }
+        } catch (_) { /* the movers still scan */ }
+    }
 
     if (onProgress) onProgress(`Filtered to top ${filteredSymbols.length}. Fetching market conditions…`);
     const marketScore = await getMarketConditionsScore('stock').catch(() => ({ score: 50 }));
@@ -306,6 +318,9 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const ctx = { result, candles: data.candles, price: data.currentPrice || meta.price,
                                   region: regionFor(data.symbol || symbol), intraday, timeframe,
                                   gapRec, owned, symbol: data.symbol || symbol };
+                    // Liquid by the app's usual gate ($5+, $50M+ a day), on completed bars.
+                    let liquid = false;
+                    try { liquid = blendEligible(data.candles.slice(0, -1), ctx.region); } catch (_) { liquid = false; }
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
@@ -316,7 +331,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                             : 0),
                         _sparkline: sparkline,
-                        _lockKey: lockKey, _locked: locked, _live: result, _ctx: ctx,
+                        _lockKey: lockKey, _locked: locked, _live: result, _ctx: ctx, liquid,
                     };
                 } catch (e) {
                     return null;
@@ -373,6 +388,8 @@ export function getHotPicksFloor() {
 // record is a coin flip, and it contradicted the cards (BUY 52% here, DON'T BUY on the card).
 const MEASURED_BUY = new Set(['setup', 'setup-pending']);
 function rankPicks(results, maxPicks, _floor) {
+    // Among the movers, liquid names come before pennies: a sub-dollar print up 300% is not more
+    // useful than a large cap down 14%, and the penny filters still show them.
     const measured = (r) => !!(r.call && MEASURED_BUY.has(r.call.source));
     return results
         .slice()
@@ -380,6 +397,7 @@ function rankPicks(results, maxPicks, _floor) {
             const ma = measured(a), mb = measured(b);
             if (ma !== mb) return ma ? -1 : 1;
             if (ma && mb) return (b.call.confidence ?? 0) - (a.call.confidence ?? 0);
+            if (!!a.liquid !== !!b.liquid) return a.liquid ? -1 : 1;
             return Math.abs(b.change || 0) - Math.abs(a.change || 0);
         })
         .slice(0, maxPicks);
