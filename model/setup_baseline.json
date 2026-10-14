@@ -1,0 +1,14 @@
+{
+ "generatedAt": "2026-10-14T17:22:35Z",
+ "from": 2014,
+ "to": 2026,
+ "setupN": 50510,
+ "setupSoldAbove": 0.6721,
+ "baseN": 244132,
+ "baseSoldAbove": 0.675,
+ "excessPayBps": 15.2,
+ "yearsAboveBase": 6,
+ "years": 13,
+ "rule": "Liquid uptrend stocks. Setup: RSI(2) under 10. Base: any close below the 5-day average. Same exit for both: the open after the first close above the 5-day average, at most 10 sessions.",
+ "source": "tools/calibrate_setup_baseline.py (the research: tools/_exp7/q1_mirror.py)"
+}

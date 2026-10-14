@@ -27,7 +27,7 @@
 // LEAD WITH WHAT IS MEASURED (2026-10-02). For US stocks the headline is no longer the direction
 // call, which said "no clear edge" on nearly every stock because next-day direction IS a coin flip
 // (the engine's live BUY/SELL record is shown beside it, from model/live_calibration.json). In
-// order: an active pullback setup (a buy/sell rule that recovered ~67% of the time, held out),
+// order: an active pullback setup (a buy/sell rule whose trades sold above entry ~67% of the time, held out),
 // else the volatility forecast (calibrated: its 80%+ calls were right 84-94% on unseen years),
 // with direction reduced to one line. Crypto and non-US stocks, which the volatility model was
 // not trained on, keep the direction text below.
@@ -111,7 +111,7 @@ function setupDecision(view, rs, { who, co, owned }) {
     const vf = view.volForecast;
     const cond = rs.forming ? ' if it holds into the close' : '';
     const body = `<strong>${who}</strong> is in a <strong class="sd-num up">pullback setup</strong>: an uptrending stock
-        after a sharp dip. <strong>${pct1(c.hitRate)}</strong> of setups like this recovered to their 5-day average within
+        after a sharp dip. <strong>${pct1(c.hitRate)}</strong> of setups like this sold above their entry price within
         10 sessions, averaging <strong>${c.netBps >= 0 ? '+' : ''}${Math.round(c.netBps)} bps</strong> a trade after costs
         (${c.n.toLocaleString()} trades over 12 years).${rs.forming ? ' It is still forming and confirms at today\'s close.' : ''}
         ${vf ? ` Expect about <strong>±${pct1(vf.sigma)} a day</strong> while you wait.` : ''}`;
@@ -141,7 +141,7 @@ function openTradeDecision(view, e, rs, { who, co, owned }) {
         : `<strong>${who}</strong> was flagged as a <strong class="sd-num up">pullback setup</strong> at the ${shortDate(e.session)} close
             and that trade is still open.${progress} The rule: sell at the open after the first close above the 5-day
             average${rs?.trigger ? ` (about ${fmtPriceTag(rs.trigger, co)} now)` : ''}, by the 10th session at the latest.
-            ${e.hitRate ? `${pct1(e.hitRate)} of trades like it recovered.` : ''}`;
+            ${e.hitRate ? `${pct1(e.hitRate)} of trades like it sold above their entry.` : ''}`;
     return shell({
         toneClass: 'sd-up', state: 'setup-open', arrow: '↺', title: 'Suggested Decision', owned,
         body: `${body}${vf ? ` Expect about <strong>±${pct1(vf.sigma)} a day</strong> meanwhile.` : ''}`,

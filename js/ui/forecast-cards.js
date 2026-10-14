@@ -16,6 +16,7 @@ import { fmtPriceTag } from './format.js';
 import { bandDates, exchangeToday, barSessionDate, sessionProgress } from '../earnings-calendar-slice.js';
 import { isSession } from '../market-sessions.js';
 import { blendHeldOut } from '../forecast-band.js';
+import { baselineSentence } from '../setup-baseline.js';
 
 const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
 
@@ -158,7 +159,7 @@ function shortDay(iso) {
     return new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-function callEvidence(call, rs, co, symbol, dirRec) {
+function callEvidence(call, rs, co, symbol, dirRec, baseline = null) {
     const items = [];
     const e = call.entry;
     if (e && e.rsi2 != null) {
@@ -171,20 +172,21 @@ function callEvidence(call, rs, co, symbol, dirRec) {
     }
     if (rs && Number.isFinite(rs.ma200) && Number.isFinite(rs.price)) {
         items.push(rs.price > rs.ma200
-            ? `Price ${fmtPriceTag(rs.price, co)} is above its 200-day average ${fmtPriceTag(rs.ma200, co)}: an uptrend, where dips have recovered.`
-            : `Price ${fmtPriceTag(rs.price, co)} is below its 200-day average ${fmtPriceTag(rs.ma200, co)}: a downtrend, where this setup does not hold.`);
+            ? `Price ${fmtPriceTag(rs.price, co)} is above its 200-day average ${fmtPriceTag(rs.ma200, co)}: an uptrend, which this setup requires.`
+            : `Price ${fmtPriceTag(rs.price, co)} is below its 200-day average ${fmtPriceTag(rs.ma200, co)}: a downtrend, where this setup does not trade.`);
     }
     if (rs && rs.eligible === false && rs.reason) items.push(`Setup not available: ${esc(rs.reason)}.`);
     const c = rs?.cell;
     if (c && ['setup', 'setup-pending', 'setup-open'].includes(call.source)) {
         items.push(`Track record for this volatility and market mood: ${pct(c.hitRate)} of ${c.n.toLocaleString()} trades were profitable, `
             + `average ${signedPct(c.netBps)} per trade after costs, positive in ${c.positiveYears} of ${c.years} years.`);
-        items.push('Where the odds come from: in a 2014 to 2026 test, buying any stock in an uptrend below its 5-day average with the same exit was profitable about as often (67.5%). What this sharper dip adds is size: about 0.15% more per trade than an ordinary dip bought the same day.');
+        const why = baselineSentence(baseline, { lead: 'Where the odds come from' });
+        if (why) items.push(why);
         if (rs.heldOut) items.push(`On 2023 to 2026, years the rule was not fitted on: ${pct(rs.heldOut.hitRate)} of ${rs.heldOut.n.toLocaleString()}.`);
         if (Number.isFinite(rs.trigger)) items.push(`It sells at the open after the first close above the 5-day average (now ${fmtPriceTag(rs.trigger, co)}), or after 10 sessions. No stop: every stop tested lost money on this pattern.`);
     }
     if (call.live?.n) {
-        items.push(`Live since ${shortDay(call.live.since)}: ${call.live.wins} of ${call.live.n} published setups recovered (${pct(call.live.hitRate)}).`);
+        items.push(`Live since ${shortDay(call.live.since)}: ${call.live.wins} of ${call.live.n} published setups sold above their entry price (${pct(call.live.hitRate)}).`);
     }
     if (call.source === 'gap' && call.gap) {
         const r = call.gap.rec;
@@ -444,7 +446,8 @@ function weekCard(title, rows, x, opts) {
 export function renderForecastCards({ symbol, band, history = null, rs = null, owned = null, price = null,
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
-                                      spike = null, spikeRecord = null, gapRec = null, liquid = false } = {}) {
+                                      spike = null, spikeRecord = null, gapRec = null, liquid = false,
+                                      baseline = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region });
@@ -457,7 +460,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
     const d = todayRow && Number.isFinite(todayRow.low) ? todayRow : { low: band.days[0].low, high: band.days[0].high, date: band.anchor?.day1 };
     const whenLabel = rows && d.date ? (d.date === rows.today ? (Number.isFinite(d.liveF) ? "Today's expected range, updated live" : "Today's expected range") : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
 
-    const evidence = callEvidence(call, rs, co, symbol, dirRec);
+    const evidence = callEvidence(call, rs, co, symbol, dirRec, baseline);
     const signalCard = `
         <div class="fc-card fc-signal fc-tone-${call.tone}" data-tone="${call.tone}" data-call="${call.kind}">
             <div class="fc-signal-head">

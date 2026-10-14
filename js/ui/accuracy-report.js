@@ -58,7 +58,7 @@ function renderReport(data) {
         ${dims}
         <div class="ar-caption">
             Direction = did price close the way we called it. Capture = how much of the predicted price move it actually
-            reached (graded against each call's own stored target; blank on older rows from before target-grading).
+            reached (graded against each call's own stored target, and blank on older rows from before target-grading).
             We don't show a market-regime split (trending/ranging, risk-on/off), that state isn't stored per prediction,
             so showing it would be a guess.
         </div>`;

@@ -352,7 +352,7 @@ function render() {
                 <p class="desk-start-lead">Armed with ${money(cfg.allocationUSD)}.</p>
                 <p class="desk-msg-sub">Her book opens on the next scheduled run, then this
                    fills with her positions and the reason for every trade. Crypto is always
-                   open; stocks wait for their own market hours.</p>
+                   open, and stocks wait for their own market hours.</p>
                 ${cfg.armedAt
                     ? `<p class="desk-msg-sub">Started ${escapeHtml(fmtRelative(cfg.armedAt))}.</p>`
                     : ''}
@@ -699,7 +699,7 @@ function entry(t) {
                     ${Number.isFinite(t.costBasisUSD) ? kv('Cost basis sold', money(t.costBasisUSD, 2), 'FIFO: the oldest lots are consumed first.') : ''}
                     ${kv('Realized to date', signed(cum, 2, true), 'Running total across every fill in the log, not just the ones shown.')}
                     ${kv('Account', `${escapeHtml(String(t.accountType || '').toUpperCase())}`,
-                         'Cash accounts settle T+1 and cannot spend unsettled proceeds; margin accounts get Reg T buying power and accrue interest. Mia respects both.')}
+                         'Cash accounts settle T+1 and cannot spend unsettled proceeds. Margin accounts get Reg T buying power and accrue interest. Mia respects both.')}
                     ${kv('Market', escapeHtml(t.market || 'n/a'))}
                     ${kv('Conviction', `${(num(t.conviction) * 100).toFixed(0)}%`,
                          'How strongly the strategy wanted this trade. Drives position size.')}

@@ -31,6 +31,7 @@ import spike_odds as so  # noqa: E402
 import vol_forecast as vf  # noqa: E402
 from forecast_band import next_session  # noqa: E402
 from ledger_universe import symbols_for_region  # noqa: E402
+from slice_guard import feed_session_ok  # noqa: E402
 
 M = os.path.join(REPO, 'model')
 OUT = os.path.join(M, 'vol_forecasts.json')
@@ -167,12 +168,22 @@ def main():
         sys.exit('ERROR: model/vol_model.json missing; run tools/train_vol_model.py')
     spike_model = so.load_model()
     mk = {}
-    for t in ('^VIX', 'SPY'):
-        d = yf.download(t, period='6mo', progress=False, auto_adjust=False)
-        d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
-        mk[t] = completed(d.dropna(subset=['Close']))
+
+    def fetch_market():
+        for t in ('^VIX', 'SPY'):
+            d = yf.download(t, period='6mo', progress=False, auto_adjust=False)
+            d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
+            mk[t] = completed(d.dropna(subset=['Close']))
+        both = mk['SPY'].index.intersection(mk['^VIX'].index)
+        return both[-1].strftime('%Y-%m-%d') if len(both) else None
+
+    # The market series decide the session. When the feed is behind the calendar it is fetched
+    # again, and a slice older than the published one is never written (slice_guard.py).
+    ok, msession = feed_session_ok(OUT, fetch_market)
+    if not ok:
+        print(f'Kept {OUT}: the feed only reaches {msession}.')
+        return
     common = mk['SPY'].index.intersection(mk['^VIX'].index)
-    msession = common[-1].strftime('%Y-%m-%d')
     # Implied-vol inputs, as of the PREVIOUS session (what the model was trained on). Either
     # source failing leaves its features missing rather than stopping the forecast.
     prev_day = common[-2].strftime('%Y-%m-%d')

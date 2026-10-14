@@ -485,7 +485,7 @@ function coingeckoFetch(url) {
             if (_cgBreaker.fails >= CG_FAIL_LIMIT) {
                 _cgBreaker.until = Date.now() + CG_COOLDOWN_MS;
                 _cgBreaker.fails = 0;
-                console.warn(`[data] CoinGecko failed ${CG_FAIL_LIMIT}x; pausing calls for `
+                console.warn(`[data] CoinGecko failed ${CG_FAIL_LIMIT}x, pausing calls for `
                     + `${CG_COOLDOWN_MS / 1000}s. Crypto lists will use cached data until then.`);
             }
             throw e;

@@ -22,6 +22,7 @@ sys.path.insert(0, REPO)
 import yfinance as yf  # noqa: E402
 
 import reversion_setup as rv  # noqa: E402
+from slice_guard import published_session  # noqa: E402
 from ledger_universe import symbols_for_region  # noqa: E402
 
 OUT = os.path.join(REPO, 'model', 'setups.json')
@@ -83,8 +84,18 @@ def main():
                            'tier': res['tier'], 'vixBand': res['vixBand'],
                            'hitRate': c['hitRate'], 'netBps': c['netBps'], 'n': c['n'],
                            'heldOutHitRate': (res.get('heldOut') or {}).get('hitRate'),
-                           'heldOutNetBps': (res.get('heldOut') or {}).get('netBps')})
+                           'heldOutNetBps': (res.get('heldOut') or {}).get('netBps'),
+                           '_last': sub.index[-1].strftime('%Y-%m-%d')})
         time.sleep(1.0)
+
+    # A stock whose newest bar is older than the session was evaluated on an older close, so it
+    # cannot be listed under this session's header (the daily feed drops a bar now and then).
+    behind = [x['symbol'] for x in setups if x['_last'] != session]
+    setups = [x for x in setups if x['_last'] == session]
+    for x in setups:
+        x.pop('_last', None)
+    if behind:
+        print(f'  [skip] {len(behind)} setup(s) whose newest bar is not {session}: {", ".join(behind[:10])}', file=sys.stderr)
 
     # Deepest dips first: the calibration measured deeper dips paying more (+61 vs +34 bps).
     setups.sort(key=lambda x: x['rsi2'])
@@ -105,6 +116,10 @@ def main():
         'unflagged': unflagged,
         'setups': setups,
     }
+    have = published_session(OUT)
+    if have and session and have > session:
+        print(f'Kept {OUT}: it already has session {have}, and the feed only reaches {session}.')
+        return
     if scanned < 0.5 * len(syms):
         print(f'ERROR: only {scanned}/{len(syms)} symbols scanned, not publishing.', file=sys.stderr)
         sys.exit(1)

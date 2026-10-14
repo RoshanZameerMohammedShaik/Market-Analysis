@@ -20,7 +20,7 @@ function liveLine(rec) {
     const o = rec.overall;
     if (!o?.n) {
         return `<div class="vp-live"><strong>Live record:</strong> forecasts are graded once their 5 sessions
-            close; the first ones made ${rec.since ? shortDate(rec.since) : 'tonight'} are graded a week later.
+            close. The first ones made ${rec.since ? shortDate(rec.since) : 'tonight'} are graded a week later.
             ${rec.pending ? `${rec.pending.toLocaleString()} waiting.` : ''}</div>`;
     }
     const calls = o.calls ? ` Calls right <strong>${o.right.toLocaleString()} of ${o.calls.toLocaleString()}</strong> (${pct(o.right / o.calls)}).` : '';

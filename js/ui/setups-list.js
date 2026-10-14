@@ -16,6 +16,7 @@ import { escapeHtml } from './escape.js';
 import { fmtPriceTag } from './format.js';
 import { loadSetupsRecord } from '../reversion-setup.js';
 import { recordTableHtml } from './setups-record.js';
+import { loadSetupBaseline, baselineSentence } from '../setup-baseline.js';
 
 const SLICE_URL = 'model/setups.json';
 
@@ -52,11 +53,11 @@ function sharedStats(setups, rec) {
     const signed = (b) => `${b >= 0 ? '+' : '−'}${Math.abs(b / 100).toFixed(1)}%`;
     const o = rec?.overall;
     const live = o?.n
-        ? `<div class="su-stat"><span class="su-stat-big">${o.wins} of ${o.n}</span><span class="su-stat-cap">recovered live so far${o.open ? `, ${o.open} still open` : ''}${o.n < 30 ? ' (too early to judge)' : ''}</span></div>`
+        ? `<div class="su-stat"><span class="su-stat-big">${o.wins} of ${o.n}</span><span class="su-stat-cap">sold above their entry live so far${o.open ? `, ${o.open} still open` : ''}${o.n < 30 ? ' (too early to judge)' : ''}</span></div>`
         : '';
     return `
         <div class="su-stats">
-            <div class="su-stat"><span class="su-stat-big">${span(hits, pct0, 0.02)}</span><span class="su-stat-cap">of trades like these recovered over 12 years${recent.length ? ` (${span(recent, pct0, 0.02)} in 2023-26, which the model never saw)` : ''}</span></div>
+            <div class="su-stat"><span class="su-stat-big">${span(hits, pct0, 0.02)}</span><span class="su-stat-cap">of trades like these sold above their entry price over 12 years${recent.length ? ` (${span(recent, pct0, 0.02)} in 2023-26, which the model never saw)` : ''}</span></div>
             <div class="su-stat"><span class="su-stat-big">${span(nets, signed, 15)}</span><span class="su-stat-cap">average gain per trade, after costs</span></div>
             ${live}
         </div>`;
@@ -65,7 +66,7 @@ function sharedStats(setups, rec) {
 export async function renderSetupsList(onPick) {
     const host = document.getElementById('setups-section');
     if (!host) return;
-    const [s, rec] = await Promise.all([loadSlice(), loadSetupsRecord()]);
+    const [s, rec, baseline] = await Promise.all([loadSlice(), loadSetupsRecord(), loadSetupBaseline()]);
     if (!s) { host.hidden = true; return; }
     host.hidden = false;
     const rows = s.setups.slice(0, 30).map(x => {
@@ -104,6 +105,7 @@ export async function renderSetupsList(onPick) {
         : `<div class="su-empty">No setups at this close. They cluster after sharp market-wide dips and can be absent for days.</div>`}
         <div class="su-foot">Every row shares the same odds: they come from the history of the whole group, not the single stock.
             Per-stock odds were tested and did no better, so none are shown.
+            ${baselineSentence(baseline)}
             ${s.unflagged ? ` ${s.unflagged} more stocks qualified in market conditions where this trade has not paid, so they are left out.` : ''}</div>
         ${rec ? `
         <details class="sr-details">

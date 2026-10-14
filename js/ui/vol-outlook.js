@@ -52,9 +52,9 @@ export async function renderVolOutlook(onPick) {
         </div>
         <div class="su-intro">
             How much these stocks are likely to move, not which way. Over ${wf.forecasts.toLocaleString()} forecasts in
-            ${wf.years[0]}-${wf.years[1]} years the model never trained on, the calmer/choppier call was right
-            ${pct(wf.upHitRate)} overall and <strong>${pct(sureHit)}</strong> when it was at least 80% sure; the
-            confidence shown is that measured rate (on stocks this liquid). ${live}
+            ${wf.years[0]}-${wf.years[1]}, years the model never trained on, the calmer or choppier call was right
+            ${pct(wf.upHitRate)} of the time, and <strong>${pct(sureHit)}</strong> when it was at least 80% sure. The
+            confidence shown is that measured rate, on stocks this liquid. ${live}
         </div>
         <div class="vo-grid">
             <div class="vo-col"><h3>Getting choppier</h3>${table(pick('choppier'), model)}</div>

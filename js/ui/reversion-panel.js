@@ -1,6 +1,6 @@
 // The pullback setup, on the signal card. See js/reversion-setup.js for the rule and evidence.
 //
-// The number shown is how often the TRADE recovered, next to what it earned, next to the same
+// The number shown is how often the TRADE sold above its entry, next to what it earned, next to the same
 // figure on data the fit never saw. All three, always: a hit rate on its own is a dial (a nearer
 // target raises it and loses money), and a fitted number on its own asks to be trusted.
 
@@ -55,8 +55,8 @@ function panelHtml(rs, { currency = 'USD' } = {}) {
         <div class="rv-panel">
             <div class="rv-head"><span class="rv-title">Pullback setup</span>${state}</div>
             <div class="rv-body">
-                In 12 years of history, <strong>${pct(cell.hitRate)}</strong> of setups like this recovered
-                to their 5-day average within 10 sessions, and the trade averaged
+                In 12 years of history, <strong>${pct(cell.hitRate)}</strong> of setups like this sold
+                above their entry price (within 10 sessions), and the trade averaged
                 <strong>${bps(cell.netBps)}</strong> after costs
                 (${cell.n.toLocaleString()} trades, ${cell.positiveYears} of ${cell.years} years positive).
                 ${ho ? `It held <strong>${pct(ho.hitRate)}</strong> / ${bps(ho.netBps)} ${hoLabel}.` : ''}
@@ -66,7 +66,7 @@ function panelHtml(rs, { currency = 'USD' } = {}) {
                 <span><strong>Sell</strong> at the open after the first close above ${fmtPriceTag(rs.trigger, co)} (the 5-day average, recalculated each day). At most 10 sessions.</span>
                 <span><strong>No stop.</strong> Every stop tested turned this trade from a gain into a loss.</span>
             </div>
-            <div class="rv-note">This is how often the trade recovered, not a forecast that the price rises
+            <div class="rv-note">This is how often the trade ended above its entry, not a forecast that the price rises
                 tomorrow: next-day direction on these same setups is 53%, a coin flip.</div>
         </div>`;
 }

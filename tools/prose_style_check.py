@@ -75,6 +75,18 @@ def fix_semicolons(s):
     semicolon there changes behaviour rather than wording, so anything that looks like code
     is left exactly as it is.
     """
+    if '${' in s:
+        # A template literal: most of the app's copy. Its text between the ${...} expressions is
+        # prose and gets checked piece by piece. Until 2026-10-14 the '{' guard below skipped
+        # every one of them, which is how "at least 80% sure; the confidence shown" reached the
+        # page past this check.
+        out, last = [], 0
+        for a, b in template_text(s):
+            out.append(s[last:a])
+            out.append(fix_semicolons(s[a:b]))
+            last = b
+        out.append(s[last:])
+        return ''.join(out)
     if any(t in s for t in ('{', '}', '=>', '://', 'function', 'var ', 'const ', 'let ',
                             '!important', '&#', 'Mozilla/', 'compatible;')):
         return s
@@ -88,11 +100,37 @@ def fix_semicolons(s):
         # a CSS declaration, not a sentence
         if css_decl.search(';' + clause):
             return m.group(0)
+        # the next CSS declaration, after a value that came from an expression: style="width:${w}px; height: 2px"
+        if re.match(r'[-\w]+\s*:', s[m.start(2):]):
+            return m.group(0)
         if ENTITIES.search(clause + ';'):
             return m.group(0)
         return f'{before}, {after}'
 
     return re.sub(r'(\w);\s+([a-z])', rep, s)
+
+
+def template_text(s):
+    """(start, end) of the literal text in a template string body, the ${...} expressions left out.
+
+    Braces are balanced, so an expression holding an object or a nested template is skipped whole.
+    """
+    segs, i, start, n = [], 0, 0, len(s)
+    while i < n:
+        if s.startswith('${', i):
+            segs.append((start, i))
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if s[j] == '{':
+                    depth += 1
+                elif s[j] == '}':
+                    depth -= 1
+                j += 1
+            i = start = j
+            continue
+        i += 1
+    segs.append((start, n))
+    return [(a, b) for a, b in segs if b > a]
 
 
 def fix_prose(s, semicolons=True):

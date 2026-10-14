@@ -46,7 +46,7 @@ export function generateNewsImpact(title, sentimentLabel, symbol) {
     if (has(/\b(lawsuits?|su(e|es|ed|ing)|investigat\w*|sec|fraud\w*|probes?)\b/i)) return `Legal or regulatory risk for ${sym}. Investigations and lawsuits add uncertainty until they are resolved.`;
     if (has(/\b(partner\w*|deals?|contracts?|launch\w*|acqui\w*)\b/i)) return `Business news for ${sym}: a deal, contract, launch or acquisition. How much it matters depends on its size relative to the company.`;
     if (has(/\b(layoffs?|restructur\w*|job cuts?)\b/i)) return `Restructuring news for ${sym}. Cost cuts can help margins but often signal a harder business backdrop.`;
-    if (has(/\b(inflation|rates?|fed|fomc|treasury yields?)\b/i)) return `Macro or Fed news touching ${sym}. Rate and inflation news moves most stocks together; higher rates tend to weigh on growth stocks.`;
+    if (has(/\b(inflation|rates?|fed|fomc|treasury yields?)\b/i)) return `Macro or Fed news touching ${sym}. Rate and inflation news moves most stocks together, and higher rates tend to weigh on growth stocks.`;
     if (has(/\b(wars?|geopoliti\w*|sanctions?|tariffs?)\b/i)) return `Geopolitical news touching ${sym}. Events like these tend to raise volatility across the market.`;
 
     if (sentimentLabel === 'positive') return `Positive coverage for ${sym}. Upbeat news flow can support the price in the short term.`;
@@ -83,11 +83,11 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol, sna
     if (lower.includes('rsi')) {
         if (has('rsi')) {
             const v = snap.rsi;
-            if (v < 30) return `RSI is <strong>${v}</strong> for ${sym}, ${(30 - v).toFixed(1)} points below the 30 oversold line. Sellers look exhausted; this is the engine's strongest mean-reversion read, and at the short horizon oversold ${sym} has historically bounced back toward its mean.`;
-            if (v < 40) return `RSI is <strong>${v}</strong> for ${sym}, approaching the 30 oversold zone but not there yet. Downside momentum is cooling; a turn is plausible but not confirmed until RSI either crosses back up or tags 30.`;
-            if (v > 70) return `RSI is <strong>${v}</strong> for ${sym}, ${(v - 70).toFixed(1)} points above the 70 overbought line. The move is stretched; momentum can persist, but the odds of a pause or pullback rise sharply this far above 70.`;
-            if (v > 60) return `RSI is <strong>${v}</strong> for ${sym}, elevated but below the 70 overbought line. Buyers are still in control; watch for a push above 70 (exhaustion risk) or a roll-over back under 60 (momentum fading).`;
-            return `RSI is <strong>${v}</strong> for ${sym}, squarely in the neutral 40 to 60 band. No mean-reversion edge from RSI here; the call is leaning on other indicators.`;
+            if (v < 30) return `RSI is <strong>${v}</strong> for ${sym}, ${(30 - v).toFixed(1)} points below the 30 oversold line. Sellers look exhausted. This is the engine's strongest mean-reversion read, and at the short horizon oversold ${sym} has historically bounced back toward its mean.`;
+            if (v < 40) return `RSI is <strong>${v}</strong> for ${sym}, approaching the 30 oversold zone but not there yet. Downside momentum is cooling. A turn is plausible but not confirmed until RSI either crosses back up or tags 30.`;
+            if (v > 70) return `RSI is <strong>${v}</strong> for ${sym}, ${(v - 70).toFixed(1)} points above the 70 overbought line. The move is stretched. Momentum can persist, but the odds of a pause or pullback rise sharply this far above 70.`;
+            if (v > 60) return `RSI is <strong>${v}</strong> for ${sym}, elevated but below the 70 overbought line. Buyers are still in control. Watch for a push above 70 (exhaustion risk) or a roll-over back under 60 (momentum fading).`;
+            return `RSI is <strong>${v}</strong> for ${sym}, squarely in the neutral 40 to 60 band. No mean-reversion edge from RSI here, so the call is leaning on other indicators.`;
         }
         if (lower.includes('oversold')) return `RSI has dropped below 30 for ${sym}, oversold. Sellers look exhausted and a bounce is the most probable near-term outcome.`;
         if (lower.includes('overbought')) return `RSI is above 70 for ${sym}, overbought. The move is stretched and a pullback or consolidation becomes more likely.`;
@@ -98,7 +98,7 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol, sna
         const m = has('macd') ? snap.macd : null;
         const histTxt = m && m.hist != null ? ` (histogram ${m.hist >= 0 ? '+' : ''}${m.hist})` : '';
         if (lower.includes('crossover') || (m?.crossover)) return `MACD just crossed bullish for ${sym}${histTxt}, the fast line pulled above its signal line. Short-term momentum is now outrunning the longer-term trend, which often marks the start of an upward leg.`;
-        if (lower.includes('crossunder') || (m?.crossunder)) return `MACD just crossed bearish for ${sym}${histTxt}, the fast line dropped below its signal line. Short-term selling is overtaking buying; this frequently precedes further downside.`;
+        if (lower.includes('crossunder') || (m?.crossunder)) return `MACD just crossed bearish for ${sym}${histTxt}, the fast line dropped below its signal line. Short-term selling is overtaking buying, which frequently precedes further downside.`;
         if (lower.includes('positive momentum')) return `MACD histogram is positive for ${sym}${histTxt} and the line sits above zero, the uptrend has real momentum behind it, so the trend is more likely to continue than reverse.`;
         if (lower.includes('negative momentum')) return `MACD histogram is negative for ${sym}${histTxt} with the line below zero, selling momentum is building and bounces are getting weaker, a bearish short-term posture.`;
         if (lower.includes('turning positive')) return `MACD histogram is just turning positive for ${sym}${histTxt}, an early, not-yet-confirmed hint that downside momentum is easing. Watch for a full line-over-signal cross to confirm.`;
@@ -109,11 +109,11 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol, sna
     if (lower.includes('bollinger')) {
         const b = has('bb') ? snap.bb : null;
         if (lower.includes('lower')) {
-            if (b) return `${sym} is trading at or below its lower Bollinger Band (${px(b.lower)}${b.percentB != null ? `, %B ${b.percentB}` : ''}), roughly 2 standard deviations under its 20-day mean of ${px(b.middle)}. Statistically stretched to the downside; a reversion back toward the middle band is the higher-probability outcome.`;
+            if (b) return `${sym} is trading at or below its lower Bollinger Band (${px(b.lower)}${b.percentB != null ? `, %B ${b.percentB}` : ''}), roughly 2 standard deviations under its 20-day mean of ${px(b.middle)}. Statistically stretched to the downside. A reversion back toward the middle band is the higher-probability outcome.`;
             return `${sym}'s price has broken below its lower Bollinger Band, about 2σ under its 20-day average. Mean reversion back toward the middle band is the most probable path.`;
         }
         if (lower.includes('upper')) {
-            if (b) return `${sym} is trading at or above its upper Bollinger Band (${px(b.upper)}${b.percentB != null ? `, %B ${b.percentB}` : ''}), roughly 2 standard deviations over its 20-day mean of ${px(b.middle)}. Extended territory; breakouts can run, but the odds of reverting toward the mean are elevated.`;
+            if (b) return `${sym} is trading at or above its upper Bollinger Band (${px(b.upper)}${b.percentB != null ? `, %B ${b.percentB}` : ''}), roughly 2 standard deviations over its 20-day mean of ${px(b.middle)}. Extended territory. Breakouts can run, but the odds of reverting toward the mean are elevated.`;
             return `${sym} is at or above its upper Bollinger Band, about 2σ over its 20-day average. The move is extended and reversion risk is elevated.`;
         }
     }
@@ -127,7 +127,7 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol, sna
     }
     if (lower.includes('trending downward') || lower.includes('bearish trend')) {
         const adxTxt = has('adx') ? ` ADX is ${snap.adx} (${snap.adx > 25 ? 'a confirmed trend' : snap.adx < 20 ? 'weak, more chop than trend' : 'borderline'}).` : '';
-        return `${sym} is in a downtrend, short-term MA below long-term MA.${adxTxt} Bounces inside a downtrend tend to be short-lived; trading against it carries higher risk.`;
+        return `${sym} is in a downtrend, short-term MA below long-term MA.${adxTxt} Bounces inside a downtrend tend to be short-lived, and trading against it carries higher risk.`;
     }
 
     // ── Volume ───────────────────────────────────────────────────────────
@@ -148,7 +148,7 @@ export function generateTechnicalExplanation(reason, _overallSignal, symbol, sna
 
     // ── Multi-timeframe ──────────────────────────────────────────────────
     if (lower.includes('all timeframes align')) return `Daily, weekly, and 4-hour timeframes all agree on direction for ${sym}, the engine's highest-confidence technical setup. When every timeframe confirms, the odds of the move following through are at their peak.`;
-    if (lower.includes('conflict') || lower.includes('disagree')) return `Timeframes disagree for ${sym}, short-term and longer-term trends point different ways. That means higher uncertainty; consider a smaller position or waiting for alignment.`;
+    if (lower.includes('conflict') || lower.includes('disagree')) return `Timeframes disagree for ${sym}, short-term and longer-term trends point different ways. That means higher uncertainty. Consider a smaller position or waiting for alignment.`;
 
     // No textbook match → null, caller surfaces the raw (already specific) reason.
     return null;

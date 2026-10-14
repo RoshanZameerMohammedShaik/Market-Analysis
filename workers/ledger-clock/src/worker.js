@@ -78,7 +78,7 @@ async function tick(ms, env) {
     if (!slot) return { at: new Date(ms).toISOString(), action: 'none' };
     const [, , , task, regions] = slot;
     if (!env.GITHUB_DISPATCH_TOKEN) {
-        console.log(`${task} due, but GITHUB_DISPATCH_TOKEN is not set; the GitHub schedule is the only trigger.`);
+        console.log(`${task} due, but GITHUB_DISPATCH_TOKEN is not set, the GitHub schedule is the only trigger.`);
         return { task, action: 'no-token' };
     }
     let sessions = null;

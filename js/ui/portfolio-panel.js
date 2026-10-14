@@ -499,7 +499,7 @@ function openInstantiateModal() {
             const usd = amt * rate;
             fxHint.textContent = `≈ $${usd.toFixed(2)} USD at 1 ${cur} = ${rate.toFixed(4)} USD`;
         } catch (_) {
-            fxHint.textContent = `(couldn't fetch ${cur}→USD rate; check connection)`;
+            fxHint.textContent = `(couldn't fetch the ${cur}→USD rate, check your connection)`;
         }
     }
     curSel.addEventListener('change', refreshFxHint);

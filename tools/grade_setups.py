@@ -167,7 +167,7 @@ def main():
         json.dump(payload, f, separators=(',', ':'), allow_nan=False)
     o = payload['overall']
     print(f'Wrote {OUT}: {len(graded)} published setups since {payload["since"]} (+{added} tonight); '
-          f'{o["n"]} closed, {o["wins"]} recovered, {o["open"]} still open')
+          f'{o["n"]} closed, {o["wins"]} above entry, {o["open"]} still open')
 
 
 if __name__ == '__main__':

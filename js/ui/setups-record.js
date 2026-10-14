@@ -49,7 +49,7 @@ export function liveSummaryHtml(rec, { scope = 'every setup published here' } = 
     const range = o.hitLo95 != null ? ` (95% range ${pct(o.hitLo95, 0)}-${pct(o.hitHi95, 0)})` : '';
     const thin = o.n < 100 ? ' Too few trades yet to tell a good month from a real change, the range says how far it could be from the true rate.' : '';
     return `<strong>Live record</strong>, ${scope} since ${since}: <strong>${o.wins} of ${o.n}</strong> closed
-        trades recovered, <strong>${pct(o.hitRate)}</strong>${range}, averaging <strong>${bps(o.netBps)}</strong>
+        trades sold above their entry, <strong>${pct(o.hitRate)}</strong>${range}, averaging <strong>${bps(o.netBps)}</strong>
         after costs. The backtest expected ${pct(o.expectedHitRate)} and ${bps(o.expectedNetBps)} for these same
         trades.${o.open ? ` ${o.open} more still open.` : ''}${thin}`;
 }

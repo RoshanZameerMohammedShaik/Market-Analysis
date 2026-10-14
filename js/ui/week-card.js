@@ -24,7 +24,7 @@ function setupLine(rs, co) {
     if (!rs) return '';
     if (rs.active && rs.reliable && rs.cell) {
         return `<div class="wk-setup">↺ <strong>Pullback setup${rs.forming ? ' (confirms at the close)' : ''}:</strong> buy at the next open,
-            sell at the open after a close above ${fmtPriceTag(rs.trigger, co)}. ${Math.round(rs.cell.hitRate * 100)}% of these recovered.</div>`;
+            sell at the open after a close above ${fmtPriceTag(rs.trigger, co)}. ${Math.round(rs.cell.hitRate * 100)}% of these sold above their entry.</div>`;
     }
     const open = (rs.record?.symbol || []).find(e => e.status === 'open' || e.status === 'exiting' || e.status === 'pending');
     if (open) {

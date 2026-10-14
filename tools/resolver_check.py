@@ -284,6 +284,36 @@ check('date absent from the series -> None', ro.resolve_horizon(
     {'symbol': 'T', 'date': '2026-01-01', 'entry': 77.77, 'signal': 'BUY',
      'horizons': {}}, 1, SERIES) is None)
 
+print('\n=== a nightly slice never goes back a session ===')
+import tempfile  # noqa: E402
+import json as _json  # noqa: E402
+import slice_guard  # noqa: E402
+_tmp = tempfile.mkdtemp()
+_pub = os.path.join(_tmp, 'slice.json')
+with open(_pub, 'w', encoding='utf-8') as _f:
+    _json.dump({'sessionDate': '2026-10-13'}, _f)
+_night = datetime.datetime(2026, 10, 14, 1, 21, tzinfo=U)       # 21:21 New York, 10-13 has closed
+_calls = []
+
+
+def _feed(seq):
+    it = iter(seq)
+    return lambda: (_calls.append(1), next(it))[1]
+
+
+ok, ses = slice_guard.feed_session_ok(_pub, _feed(['2026-10-12'] * 3), now=_night, sleep=lambda s: None)
+check('a feed stuck a session behind never overwrites the newer slice', ok is False and ses == '2026-10-12', f'{ok} {ses}')
+check('and it was fetched again before giving up', len(_calls) == 3, str(len(_calls)))
+_calls.clear()
+ok, ses = slice_guard.feed_session_ok(_pub, _feed(['2026-10-12', '2026-10-13']), now=_night, sleep=lambda s: None)
+check('a feed that catches up on the retry is published', ok is True and ses == '2026-10-13' and len(_calls) == 2, f'{ok} {ses}')
+with open(_pub, 'w', encoding='utf-8') as _f:
+    _json.dump({'sessionDate': '2026-10-09'}, _f)
+ok, ses = slice_guard.feed_session_ok(_pub, _feed(['2026-10-12'] * 3), now=_night, sleep=lambda s: None)
+check('behind the calendar but newer than what is published: still an improvement', ok is True and ses == '2026-10-12')
+ok, ses = slice_guard.feed_session_ok(os.path.join(_tmp, 'none.json'), _feed(['2026-10-13']), now=_night, sleep=lambda s: None)
+check('nothing published yet: publish', ok is True)
+
 print(f"\n{'RESOLVER CHECK PASS' if not FAIL else 'RESOLVER CHECK FAIL'}: "
       f"{len(PASS)} passed, {len(FAIL)} failed")
 sys.exit(1 if FAIL else 0)

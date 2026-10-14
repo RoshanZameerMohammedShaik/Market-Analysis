@@ -97,6 +97,8 @@ const MODEL = [
     'model/spike_record.json',
     // The don't-chase-the-gap rule's record (tools/calibrate_gap_fade.py), read by js/ui/forecast-cards.js.
     'model/gap_fade.json',
+    // How much of the setup's hit rate is its exit rule (tools/calibrate_setup_baseline.py), read by js/setup-baseline.js.
+    'model/setup_baseline.json',
     'model/ledger/recent.json',
     // The 30-day compact history. Seven features read it (confidence trend, signal markers, equity
     // curve, accuracy-by-setup, ledger history, scanner aggregation, watchlist signals) and all of
