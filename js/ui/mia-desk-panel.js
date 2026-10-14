@@ -399,7 +399,7 @@ function render() {
         </div>
         ${stale ? `<p class="desk-note">She cycles about every 15 minutes while a job is running,
             and a new job is scheduled every 5 hours. A gap this long means the next scheduled job
-            has not been picked up yet &mdash; GitHub Actions delays queued runs under load, by
+            has not been picked up yet. GitHub Actions delays queued runs under load, by
             hours in recent days. The timeline below is still accurate for the runs that did
             happen.</p>` : ''}
 
@@ -796,7 +796,8 @@ function num(x) { return Number.isFinite(x) ? x : 0; }
 function money(usd, dp = 2) {
     const v = Number(usd);
     if (!Number.isFinite(v)) return 'n/a';
-    return `$${v.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
+    // The sign goes before the currency symbol, as everywhere else on the desk: "−$257.39", not "$-257.39".
+    return `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp })}`;
 }
 
 function signed(v, dp = 2, asMoney = false) {

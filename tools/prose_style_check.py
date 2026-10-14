@@ -272,6 +272,13 @@ def apply_spans(src, spans, semicolons=True):
 def process(path, fix):
     src = open(path, encoding='utf-8').read()
     orig = src
+    # The same dashes written as HTML entities or JS escapes render identically on the page:
+    # "picked up yet &mdash; GitHub Actions" in the Mia desk passed this check until 2026-10-14.
+    # Turned into the characters first, so the rules below treat them exactly alike.
+    for form, ch in (('&mdash;', EM), ('&#8212;', EM), ('&#x2014;', EM), ('\\u2014', EM),
+                     ('&ndash;', EN), ('&#8211;', EN), ('&#x2013;', EN), ('\\u2013', EN)):
+        if form in src:
+            src = src.replace(form, ch)
     if path.endswith(('.js', '.mjs')):
         # prose inside literals (dashes + semicolons), dashes everywhere else too
         src, _ = apply_spans(src, js_spans(src), semicolons=True)

@@ -22,7 +22,7 @@ import { fetchWithProxy } from './data.js';
 import { decimalsFor } from './price-round.js';
 
 const MODE_KEY = 'ma-currency-mode';
-const RATE_KEY = 'ma-fx-rates-v2';
+const RATE_KEY = 'ma-fx-rates-v3';   // v2 caches held only EUR (see fetchRates)
 const RATE_TTL_MS = 60 * 60 * 1000; // 1h
 
 const LISTENERS = new Set();
@@ -122,12 +122,17 @@ export async function fetchRates(force = false) {
     inflightFetch = (async () => {
         try {
             // Frankfurter.app: free, ECB-backed, all major currencies in one call.
-            const symbols = SUPPORTED_CODES.filter(c => c !== 'USD').join(', ');
-            const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${symbols}`;
+            // Commas only. The list was joined with ', ', and Frankfurter reads "EUR, GBP" as EUR
+            // and nothing else, so every currency but the euro silently
+            // showed dollar prices under its own name (INR selected, "$342.89" everywhere).
+            const want = SUPPORTED_CODES.filter(c => c !== 'USD');
+            const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${want.join(',')}`;
             const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
             if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
             const json = await res.json();
             if (!json.rates) throw new Error('no rates in response');
+            const got = want.filter(c => Number(json.rates[c]) > 0).length;
+            if (got < want.length * 0.8) throw new Error(`only ${got} of ${want.length} rates in response`);
             const v = { base: 'USD', rates: { ...json.rates, USD: 1 }, ts: Date.now() };
             saveCachedRates(v);
             return v;

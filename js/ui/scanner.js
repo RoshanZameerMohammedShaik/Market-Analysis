@@ -138,22 +138,14 @@ function buildAccuracyIndex(rows, windowCutoffISO = null) {
             }
         }
 
-        // Decide whether this ROW is resolved enough to score.
-        // Rule: if ANY horizon has directionMatch set, the row is
-        // graded, hit if any horizon hit, miss if none hit. This
-        // matches Roshan's "12 right + 8 wrong = 20 graded" mental
-        // model (one row → one verdict, not one row → 5 verdicts).
-        const horizons = r.horizons || {};
-        let anyResolved = false;
-        let anyHit = false;
-        for (const k of Object.keys(horizons)) {
-            const h = horizons[k];
-            if (!h || h.directionMatch == null) continue;
-            anyResolved = true;
-            if (h.directionMatch) { anyHit = true; break; }
-        }
-        if (!anyResolved) continue;
-        if (anyHit) slot.hits++;
+        // One row, one verdict: the call graded on its OWN horizon, the next session's close (h=1),
+        // as the accuracy report grades it. This used to score a row a hit when ANY of its
+        // horizons went the right way, and with several near-coin-flip horizons "at least one"
+        // is almost always true: AAPL read 9 of 9 and GOOG 3 of 3, "100% Success Rate", on 2026-10-14.
+        // A flat close (directionMatch null) is not graded either way.
+        const h1 = (r.horizons || {})['1'];
+        if (!h1 || h1.directionMatch == null) continue;
+        if (h1.directionMatch) slot.hits++;
         else slot.misses++;
     }
     // Compute daysSpan now that we have firstDate per symbol.
@@ -414,7 +406,7 @@ function fmtAccuracy(symbol) {
     const pct = graded > 0 ? (a.hits / graded) * 100 : 0;
     const color = accuracyColor(pct);
     const pending = a.total - graded;
-    const tip = `${a.hits} hits · ${a.misses} misses · ${a.total} total predictions · ${a.daysSpan}d since first prediction · ${pending} still pending`;
+    const tip = `${a.hits} right · ${a.misses} wrong on the next session's close · ${a.total} BUY/SELL calls · ${a.daysSpan}d since the first · ${pending} not graded yet (or closed flat)`;
     // Each number's color reflects engine PERFORMANCE, not just the
     // semantic label. Roshan's spec: if hits < misses, you can't paint
     // hits green, that misrepresents a losing symbol. So we tint

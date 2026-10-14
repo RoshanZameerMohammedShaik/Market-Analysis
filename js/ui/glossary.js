@@ -48,10 +48,10 @@ const SECTIONS = [
     {
         title: 'FAQs',
         items: [
-            ['How accurate is this?', 'It depends, see the per-confidence-bucket calibration. Anyone claiming "95% accuracy" on stock prediction is either lying or has overfit.'],
+            ['How accurate is this?', 'Every call shows its own measured record beside it. A BUY says how often trades like it sold above their entry and what they earned after costs, each range says how often ranges like it held, and the pullback setups list keeps the live record of every setup published. Plain up-or-down calls measured close to a coin flip, so the app never makes one. Anyone claiming "95% accuracy" on stock prediction is either lying or has overfit.'],
             ['Should I trade based on this?', 'No tool replaces your own judgment. This is one input among many. Position size matters more than entry.'],
-            ['Where does the data come from?', 'Yahoo Finance for stocks and crypto bars (Kraken when Yahoo has the wrong coin), CoinGecko for the crypto list, Yahoo and Bing News for headlines, alternative.me for Fear & Greed. All free, no API keys.'],
-            ['Is my data sent anywhere?', 'No. Everything runs in your browser. Your prediction history lives in your browser\'s localStorage.'],
+            ['Where does the data come from?', 'Yahoo Finance for stocks and crypto bars (Kraken when Yahoo has the wrong coin), CoinGecko for the crypto list, Yahoo, Bing and Google News for headlines (each article read from its own page), Cboe for the VIX and DoltHub for options prices in the volatility forecast, alternative.me for Fear & Greed. All free, no API keys.'],
+            ['Is my data sent anywhere?', 'Your portfolio, watchlist, settings and prediction history stay in this browser (localStorage). Prices, headlines and articles are fetched through the app\'s own Cloudflare Worker, which sees which symbols and links are requested and nothing about you. Messages to Mia go to the AI provider whose key you add (Gemini or Cloudflare).'],
             ['What\'s “dev mode”?', 'A diagnostic view for the developer. Shows calibration metadata, raw vs. calibrated confidence, and a personal-accuracy strip. Public users see a cleaner view.'],
         ],
     },
