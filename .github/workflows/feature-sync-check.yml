@@ -43,6 +43,8 @@ on:
       - 'js/ui/forecast-cards.js'
       - 'model/gap_fade.json'
       - 'tools/forecast_cards_check.mjs'
+      - 'js/crypto-stream.js'
+      - 'tools/crypto_stream_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -158,6 +160,8 @@ on:
       - 'js/ui/forecast-cards.js'
       - 'model/gap_fade.json'
       - 'tools/forecast_cards_check.mjs'
+      - 'js/crypto-stream.js'
+      - 'tools/crypto_stream_check.mjs'
       - 'earnings_calendar.py'
       - 'js/earnings-calendar-slice.js'
       - 'tools/earnings_sync_check.py'
@@ -432,6 +436,10 @@ jobs:
       # fires only on a real gap, in session, liquid, with the earnings calendar known and clear.
       - name: Check the prediction card's call
         run: node tools/forecast_cards_check.mjs
+      # The live crypto feed: one probe before the rest, and the switch to Kraken where Binance is
+      # unreachable. A fake WebSocket, so no network.
+      - name: Check the crypto price stream's venue switch
+        run: node tools/crypto_stream_check.mjs
 
   # A REAL BROWSER. Every other check in this repo runs in Node, and Node has no CORS, so
   # none of them can see the most likely way a browser-side data source dies.
