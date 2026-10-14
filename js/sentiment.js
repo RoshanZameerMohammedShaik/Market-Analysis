@@ -157,7 +157,12 @@ export async function analyzeNewsSentiment(newsItems, opts = {}) {
             sourceTier: tiers[i]?.tier ?? 4,
             sourceDomain: tiers[i]?.domain ?? null,
             tierWeight: +tierMul.toFixed(2),
+            // What this headline counted for in the score (recency x source tier), for the news
+            // card's weight bar, and the article lead that was read, so the card can show it.
+            weight: +weight.toFixed(4),
             usedFullText: !!enrichedTexts[i],
+            articleText: enrichedTexts[i] || null,
+            summary: item.summary || null,
         });
     }
 

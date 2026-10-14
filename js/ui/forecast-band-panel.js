@@ -143,6 +143,12 @@ function rowViz(r) {
     </span>`;
 }
 
+/**
+ * The last sessions scored against the ranges given for them. Shown below the week cards
+ * (Roshan, 2026-10-14: "I also want the old table ... how did we do on the last 7 sessions").
+ */
+export function renderBandHistory(hist, currency = 'USD') { return renderHistory(hist, currency); }
+
 function renderHistory(hist, currency) {
     if (!hist || !hist.rows?.length) return '';
     const rows = hist.rows.slice().reverse().map(r => {

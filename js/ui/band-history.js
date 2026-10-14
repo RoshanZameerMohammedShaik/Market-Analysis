@@ -222,10 +222,12 @@ export function buildBandHistory({ candles, lockedRows = [], sessions = 7, crypt
             // How much of the predicted range price actually used. Read WITH coverage:
             // a band that is never breached but 20% filled is too wide to be informative.
             fillPct: predWidth > 0 ? +(pct(actWidth, predWidth)).toFixed(0) : null,
-            // How far past the edge it went, as a % of the anchor, when it did break.
+            // How far past the edge it went, as a % of THAT EDGE, when it did break: the table says
+            // "Above by 2.09%" and means 2.09% above the range's high. It was a % of the anchor,
+            // which read as 2.24% for a high that was 2.09% over the line.
             missPct: lowHeld && highHeld ? null : +Math.max(
-                lowHeld ? 0 : (pred.low - bar.low) / pred.anchor * 100,
-                highHeld ? 0 : (bar.high - pred.high) / pred.anchor * 100,
+                lowHeld ? 0 : (1 - bar.low / pred.low) * 100,
+                highHeld ? 0 : (bar.high / pred.high - 1) * 100,
             ).toFixed(2),
             // HOW MUCH OF THE PREDICTED MOVE ACTUALLY HAPPENED, per direction.
             //

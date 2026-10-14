@@ -512,7 +512,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
                                       spike = null, spikeRecord = null, gapRec = null, liquid = false,
-                                      baseline = null } = {}) {
+                                      baseline = null, afterSignal = '', afterWeeks = '' } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     const head = headlineRange({ band, price, region, cryptoMode, todayBar, intraday, history });
@@ -538,15 +538,19 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
             <details class="fc-why"><summary>Why this call</summary><ul>${evidence.map(t => `<li>${t}</li>`).join('')}</ul></details>
         </div>`;
 
-    if (!rows) return signalCard;
+    // Order (Roshan, 2026-10-14): the call, then the news, then this week and next week, then the
+    // record of the last sessions. afterSignal and afterWeeks are the caller's HTML for those slots.
+    if (!rows) return signalCard + afterSignal + afterWeeks;
     const all = [...rows.thisWeek, ...rows.nextWeek];
     const x = scale([...all.flatMap(r => [r.low, r.high, r.actualLow, r.actualHigh]), price]);
-    if (!x) return signalCard;
+    if (!x) return signalCard + afterSignal + afterWeeks;
     const opts = { co, today: rows.today, price, band, earningsDay: band.earningsDay ?? null, symbol,
                    sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord };
     return signalCard
+        + afterSignal
         + weekCard('This week', rows.thisWeek, x, opts)
-        + weekCard('Next week', rows.nextWeek, x, opts);
+        + weekCard('Next week', rows.nextWeek, x, opts)
+        + afterWeeks;
 }
 
 /** Today's partial bar while the session runs, else null. */

@@ -111,3 +111,60 @@
     .fc-badge { font-size: 1.1rem; }
     .fc-num b { font-size: 0.95rem; }
 }
+
+/* ── news card: the weight bar and each article's own lead (js/ui/news.js) ───────────── */
+.fc-box .news-section { margin: 12px 0; }
+.news-weight { margin: 4px 0 12px; }
+.news-weight-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.06));
+}
+.news-weight-bar > span { display: block; height: 100%; }
+.nw-pos { background: var(--green, #22c55e); }
+.nw-neu { background: var(--text-muted, #6b7280); opacity: 0.45; }
+.nw-neg { background: var(--red, #ef4444); }
+.news-weight-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    margin-top: 6px;
+    font-size: var(--fs-2xs, 0.72rem);
+    color: var(--text-secondary);
+}
+.news-weight-legend .nw-note { color: var(--text-muted); }
+.nw-k { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.nw-k-pos { background: var(--green, #22c55e); }
+.nw-k-neu { background: var(--text-muted, #6b7280); opacity: 0.6; }
+.nw-k-neg { background: var(--red, #ef4444); }
+.news-lead {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--border-strong, rgba(255, 255, 255, 0.18));
+    background: var(--bg-tertiary, rgba(255, 255, 255, 0.03));
+    border-radius: 0 var(--radius-sm, 8px) var(--radius-sm, 8px) 0;
+}
+.news-lead-label {
+    font-size: var(--fs-2xs, 0.72rem);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.news-lead p {
+    margin: 0 0 8px;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-primary);
+}
+.news-lead-wait { font-size: var(--fs-xs, 0.78rem); color: var(--text-muted); }
+.news-lead[data-state="loading"] .news-lead-wait::after { content: ' '; animation: fc-dots 1.2s steps(4) infinite; }
+@keyframes fc-dots { 0% { content: ' '; } 25% { content: ' .'; } 50% { content: ' ..'; } 75% { content: ' ...'; } }
+.news-lead-more { font-size: var(--fs-xs, 0.78rem); font-weight: 600; color: var(--accent, #60a5fa); text-decoration: none; }
+.news-lead-more:hover { text-decoration: underline; }
+
+/* ── the record of the last sessions, below Next week ────────────────────────────────── */
+.fc-record .fb-history { margin: 0; border: 0; padding: 0; background: none; }

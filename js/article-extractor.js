@@ -30,7 +30,7 @@ const TIER_CACHE_MS = 24 * 60 * 60 * 1000;
  * object on success, null on failure. Caller decides what to do with
  * null (typically: fall back to the headline).
  */
-export async function fetchFullArticle(url) {
+export async function fetchFullArticle(url, { allowShort = false } = {}) {
     if (!url) return null;
     if (isCooling('article-extractor')) return null;
     try {
@@ -41,6 +41,12 @@ export async function fetchFullArticle(url) {
             return null;
         }
         const data = await res.json();
+        // allowShort: the news card shows a syndicated brief's opening line rather than nothing.
+        // The Worker flags those pages `unusable` (too short to score) but still sends the text.
+        if (allowShort && data?.unusable && data?.mainText && data.wordCount >= 8) {
+            recordSuccess('article-extractor');
+            return { ...data, preview: true };
+        }
         if (data?.error || !data?.mainText) {
             // Don't trip the breaker for per-article extraction failures, // one bad URL shouldn't kill all extractions site-wide.
             return null;

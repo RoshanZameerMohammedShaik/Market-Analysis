@@ -107,7 +107,7 @@ check('breaking only the high is a MISS, not a half-credit',
       after4.met === false && after4.lowHeld === true && after4.highHeld === false,
       JSON.stringify({ met: after4.met, low: after4.lowHeld, high: after4.highHeld }));
 check('and the side is named', after4.brokeSide === 'high', after4.brokeSide);
-check('missPct is reported as a % of the anchor', after4.missPct > 0, String(after4.missPct));
+check('missPct is reported as a % of the edge it broke', after4.missPct > 0, String(after4.missPct));
 check('a held session reports no miss', before.missPct === null, String(before.missPct));
 
 console.log();

@@ -3,7 +3,7 @@ import { recentSliceProblem, readSymbolRowsFromSlice } from '../ledger-reader.js
 import { buildBandHistory } from './band-history.js';
 import { fmtPriceTag, fmtPrice } from './format.js';
 import { humanizeReason, generateTechnicalExplanation } from './reasons.js';
-import { renderNews } from './news.js';
+import { renderNews, wireNews } from './news.js';
 import { isDev } from '../dev-mode.js';
 import { renderPennyDashboard } from './penny-dashboard.js';
 import { getCalibrationSource, regionFor } from '../calibration.js';
@@ -21,6 +21,7 @@ import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
 import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand } from './forecast-cards.js';
 import { loadSetupBaseline } from '../setup-baseline.js';
+import { renderBandHistory } from './forecast-band-panel.js';
 import { blendEligible } from '../forecast-band.js';
 import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
 
@@ -470,6 +471,8 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             spikeRecord: spikeMeta,
             gapRec: await loadGapRecord(),
             baseline: await loadSetupBaseline(),
+            afterSignal: newsHTML,
+            afterWeeks: bandHistory?.rows?.length ? `<div class="fc-card fc-record">${renderBandHistory(bandHistory, cur)}</div>` : '',
             // Liquid as of the session the band starts from (the gap rule's own gate).
             liquid: band?.anchor && Array.isArray(candles)
                 ? blendEligible(candles.slice(0, Math.max(0, candles.length - (lastDone ? 0 : 1))), region) : false,
@@ -487,12 +490,12 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                 <button class="refresh-btn small" id="share-prediction" title="Share this prediction as an image">⤴</button>
                 <button class="refresh-btn small" id="refresh-analysis" title="Re-run analysis">↻</button>
             </div>
-            ${cardsHTML}
-            ${newsHTML}
+            ${cardsHTML || newsHTML}
             <div class="risk-disclaimer">
                 <strong>Not financial advice.</strong> Forecasts are statistical, not guarantees.
             </div>
         </div>`;
+    try { wireNews(section); } catch (_) { /* the headlines still read without their article text */ }
 
     // GSAP entrance, the card lifts in, the signal label resolves word-by-word,
     // and the secondary sections cascade in just behind the dial sweep. Sets
