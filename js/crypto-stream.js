@@ -32,6 +32,15 @@ let binanceDown = (() => {
     } catch (_) { return false; }
 })();
 const subs = new Map();   // BASE -> { cbs: Set, venue, ws, retryMs, retryTimer, last }
+
+// ONE PROBE FIRST. Until a Binance socket has opened once this session, only one is in flight and
+// every other coin waits for its answer. The crypto Hot Picks subscribe ~30 coins at once, and on a
+// network that cannot reach Binance all 30 handshakes failed together, 30 console errors, before
+// the two-failure switch below had a chance to move them to Kraken.
+let binanceProven = false;
+let probing = false;
+let probeEntry = null;   // the one entry allowed to try (and retry) while the others wait
+const waiting = [];      // [base, entry] held while the probe is out
 let kr = null;            // Kraken shared socket state
 
 const canSocket = () => typeof WebSocket === 'function';
@@ -76,7 +85,17 @@ function unsubscribe(b, fn) {
     if (e.cbs.size) return;
     subs.delete(b);
     if (e.retryTimer) { clearTimeout(e.retryTimer); e.retryTimer = null; }
+    const wi = waiting.findIndex(([, x]) => x === e);
+    if (wi >= 0) waiting.splice(wi, 1);
     if (e.ws) { try { e.ws.onclose = null; e.ws.close(); } catch (_) {} e.ws = null; }
+    // The probe itself was dropped before it answered (open, or waiting to retry): the next
+    // waiting coin becomes the probe, or the rest would wait forever.
+    if (!binanceProven && probing && e === probeEntry) {
+        probing = false;
+        probeEntry = null;
+        const next = waiting.shift();
+        if (next && subs.get(next[0]) === next[1]) connect(next[0], next[1]);
+    }
     if (e.venue === 'kraken' && kr) {
         kr.pairs.delete(`${b}/USD`);
         if (kr.open) sendKraken({ method: 'unsubscribe', params: { channel: 'ticker', symbol: [`${b}/USD`] } });
@@ -87,13 +106,18 @@ function unsubscribe(b, fn) {
 
 function connect(b, e) {
     if (binanceDown) { krakenAdd(b, e); return; }
+    if (!binanceProven && probing && e !== probeEntry) { e.venue = 'waiting'; waiting.push([b, e]); return; }
+    if (!binanceProven) { probing = true; probeEntry = e; }
     e.venue = 'binance';
     let opened = false;
     let ws;
     try { ws = new WebSocket(`${BINANCE_WS}${b.toLowerCase()}usdt@trade`); }
     catch (_) { binanceFailed(b, e); return; }
     e.ws = ws;
-    ws.onopen = () => { opened = true; binanceFailures = 0; e.retryMs = 1000; };
+    ws.onopen = () => {
+        opened = true; binanceFailures = 0; e.retryMs = 1000;
+        if (!binanceProven) { binanceProven = true; probing = false; probeEntry = null; releaseWaiting(); }
+    };
     ws.onmessage = (ev) => {
         try {
             const price = parseFloat(JSON.parse(ev.data).p);
@@ -110,12 +134,24 @@ function connect(b, e) {
     };
 }
 
+function releaseWaiting() {
+    const held = waiting.splice(0);
+    for (const [sym, x] of held) if (subs.get(sym) === x) connect(sym, x);
+}
+
 function binanceFailed(b, e) {
     binanceFailures += 1;
-    if (binanceFailures < BINANCE_FAIL_LIMIT) { retryLater(b, e); return; }
+    if (binanceFailures < BINANCE_FAIL_LIMIT) {
+        // The probe failed once: it alone tries again, the rest keep waiting.
+        retryLater(b, e);
+        return;
+    }
     binanceDown = true;
+    probing = false;
+    probeEntry = null;
     try { localStorage.setItem(VENUE_MEMO_KEY, JSON.stringify({ venue: 'kraken', until: Date.now() + VENUE_MEMO_MS })); } catch (_) { /* no storage (Node, private mode) */ }
     // Move everything still waiting on Binance, not just this coin.
+    waiting.splice(0);
     for (const [sym, x] of subs) {
         if (x.venue === 'kraken') continue;
         if (x.retryTimer) { clearTimeout(x.retryTimer); x.retryTimer = null; }

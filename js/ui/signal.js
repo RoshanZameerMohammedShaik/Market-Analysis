@@ -460,6 +460,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
             confidence: cardCall.confidence, source: cardCall.source, line: cardCall.line } : null;
         cardsHTML = renderForecastCards({
             call: cardCall,
+            next: state.timeframe === 'tomorrow',
             symbol: state.currentSymbol, band, history: bandHistory,
             rs: prediction.reversionSetup || null, owned: ownedFlag,
             price: view.priceTargets?.currentPrice ?? prediction.priceTargets?.currentPrice ?? null,

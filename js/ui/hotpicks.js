@@ -86,7 +86,9 @@ export async function loadHotPicks(onPick) {
     // The title says what the list is: measured buys first (a pullback setup live, or today's open
     // its entry), then the day's biggest movers, each with the call its own card shows.
     const kind = state.mode === 'stock' ? 'stock' : 'crypto';
-    if (title) title.textContent = `🔥 Hot Picks: measured buys first, then ${tfLabel === 'Today' ? "today's" : "the latest"} biggest ${kind} movers`;
+    if (title) title.textContent = tfLabel === 'Today'
+        ? `🔥 Hot Picks: measured buys first, then today's biggest ${kind} movers`
+        : `🔥 Hot Picks: measured buys first, then ${kind === 'stock' ? 'stocks' : 'coins'} to watch tomorrow`;
 
     grid.innerHTML = `
         <div class="hp-skel-grid" style="grid-column: 1/-1;">

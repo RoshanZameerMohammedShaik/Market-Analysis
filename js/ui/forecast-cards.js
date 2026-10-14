@@ -545,6 +545,9 @@ export function headlineRange({ band, price, region = 'NYSE', cryptoMode = false
 }
 
 function weekCard(title, rows, x, opts) {
+    // A day past the band's last session has nothing to show: crypto's 10-day band ends before
+    // next Sunday, and a "no range" row reads as a fault.
+    rows = rows.filter(r => r.kind === 'past' || Number.isFinite(r.low));
     if (!rows.length) return '';
     const span = `${new Date(`${rows[0].date}T12:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })} to ${new Date(`${rows[rows.length - 1].date}T12:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
     return `
@@ -552,7 +555,7 @@ function weekCard(title, rows, x, opts) {
             <div class="fc-week-head"><span class="fc-week-title">${title}</span><span class="fc-week-span">${span}</span></div>
             <div class="fc-legend"><span class="fc-k fc-k-pred"></span>expected range <span class="fc-k fc-k-act"></span>where it traded <span class="fc-k fc-k-out"></span>outside <span class="fc-k fc-k-now"></span>price now</div>
             <div class="fc-days">${rows.map(r => dayRow(r, x, opts)).join('')}</div>
-            <div class="fc-week-foot">Tap a day for what is expected, how sure the app is, and why. Market holidays are left out.</div>
+            <div class="fc-week-foot">Tap a day for what is expected, how sure the app is, and why. ${opts.cryptoMode ? 'Crypto trades every day.' : 'Market holidays are left out.'}</div>
         </div>`;
 }
 
@@ -565,10 +568,12 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
                                       spike = null, spikeRecord = null, gapRec = null, liquid = false,
-                                      baseline = null, afterSignal = '', afterWeeks = '', call: given = null } = {}) {
+                                      baseline = null, afterSignal = '', afterWeeks = '', call: given = null,
+                                      next = false } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
-    const head = headlineRange({ band, price, region, cryptoMode, todayBar, intraday, history });
+    // next: the Tomorrow view, whose big bar is the next session's range even while today trades.
+    const head = headlineRange({ band, price, region, cryptoMode, todayBar, intraday, history, next });
     const rows = head.rows;
     const gap = gapSignal({ rec: gapRec, band, todayBar, liquid, region: cryptoMode ? 'CRYPTO' : region });
     const call = given || decideCall({ rs, owned, setupsLive, gap });
@@ -598,7 +603,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
     const x = scale([...all.flatMap(r => [r.low, r.high, r.actualLow, r.actualHigh]), price]);
     if (!x) return signalCard + afterSignal + afterWeeks;
     const opts = { co, today: rows.today, price, band, earningsDay: band.earningsDay ?? null, symbol,
-                   sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord };
+                   sigma: band.sigmaDaily, tier: band.volTier, news, spike, spikeRecord, cryptoMode };
     return signalCard
         + afterSignal
         + weekCard('This week', rows.thisWeek, x, opts)

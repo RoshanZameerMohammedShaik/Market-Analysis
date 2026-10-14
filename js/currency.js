@@ -22,8 +22,9 @@ import { fetchWithProxy } from './data.js';
 import { decimalsFor } from './price-round.js';
 
 const MODE_KEY = 'ma-currency-mode';
-const RATE_KEY = 'ma-fx-rates-v3';   // v2 caches held only EUR (see fetchRates)
+const RATE_KEY = 'ma-fx-rates-v4';   // v2 held only EUR, v3 could hold an hour-long INR-only fallback
 const RATE_TTL_MS = 60 * 60 * 1000; // 1h
+const PARTIAL_TTL_MS = 2 * 60 * 1000;   // a fallback set with only some currencies
 
 const LISTENERS = new Set();
 
@@ -121,34 +122,31 @@ export async function fetchRates(force = false) {
     if (inflightFetch) return inflightFetch;
     inflightFetch = (async () => {
         try {
-            // Frankfurter.app: free, ECB-backed, all major currencies in one call.
-            // Commas only. The list was joined with ', ', and Frankfurter reads "EUR, GBP" as EUR
-            // and nothing else, so every currency but the euro silently
-            // showed dollar prices under its own name (INR selected, "$342.89" everywhere).
-            const want = SUPPORTED_CODES.filter(c => c !== 'USD');
-            const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${want.join(',')}`;
-            const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-            if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
-            const json = await res.json();
-            if (!json.rates) throw new Error('no rates in response');
-            const got = want.filter(c => Number(json.rates[c]) > 0).length;
-            if (got < want.length * 0.8) throw new Error(`only ${got} of ${want.length} rates in response`);
-            const v = { base: 'USD', rates: { ...json.rates, USD: 1 }, ts: Date.now() };
+            const v = await frankfurter().catch(async () => {
+                // One more try before the fallback: at page load this request competes with the
+                // whole scan for the connection, and a timeout then left a partial set for an hour.
+                await new Promise(r => setTimeout(r, 2500));
+                return frankfurter();
+            });
             saveCachedRates(v);
             return v;
         } catch (e) {
-            // Yahoo INR fallback so INR mode still works if Frankfurter is down.
+            // Yahoo INR fallback so INR mode still works if Frankfurter is down. PARTIAL: with INR
+            // the only rate, INR listings convert while euro, yen and the rest stay native, so it
+            // is kept for two minutes, not the hour, and a retry repairs the page on its own.
             try {
                 const res = await fetchWithProxy('https://query2.finance.yahoo.com/v8/finance/chart/USDINR=X?range=1d&interval=1d');
                 const json = await res.json();
                 const meta = json?.chart?.result?.[0]?.meta;
                 const rate = meta?.regularMarketPrice;
                 if (typeof rate === 'number' && rate > 0) {
-                    const v = { base: 'USD', rates: { USD: 1, INR: rate }, ts: Date.now() };
+                    const v = { base: 'USD', rates: { USD: 1, INR: rate }, ts: Date.now() - RATE_TTL_MS + PARTIAL_TTL_MS, partial: true };
                     saveCachedRates(v);
+                    scheduleRepair();
                     return v;
                 }
             } catch (_) {}
+            scheduleRepair();
             // Last resort: keep stale cache if any.
             if (cachedRates) return cachedRates;
             throw e;
@@ -157,6 +155,34 @@ export async function fetchRates(force = false) {
         }
     })();
     return inflightFetch;
+}
+
+let repairTimer = null;
+function scheduleRepair() {
+    if (repairTimer) return;
+    repairTimer = setTimeout(async () => {
+        repairTimer = null;
+        try {
+            const v = await fetchRates(true);
+            if (v && !v.partial) rerenderAll();
+        } catch (_) { /* tries again on the next call */ }
+    }, PARTIAL_TTL_MS);
+}
+
+/** Frankfurter (free, ECB-backed): every supported currency in one call. Throws on a short answer. */
+async function frankfurter() {
+    // Commas only. The list was joined with ', ', and Frankfurter reads "EUR, GBP" as EUR and
+    // nothing else, so every currency but the euro silently showed dollar prices under its own
+    // name (INR selected, "$342.89" everywhere).
+    const want = SUPPORTED_CODES.filter(c => c !== 'USD');
+    const url = `https://api.frankfurter.dev/v1/latest?from=USD&to=${want.join(',')}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
+    const json = await res.json();
+    if (!json.rates) throw new Error('no rates in response');
+    const got = want.filter(c => Number(json.rates[c]) > 0).length;
+    if (got < want.length * 0.8) throw new Error(`only ${got} of ${want.length} rates in response`);
+    return { base: 'USD', rates: { ...json.rates, USD: 1 }, ts: Date.now() };
 }
 
 export function getRates() { return loadCachedRates(); }
@@ -249,8 +275,7 @@ function rerenderAll() {
 }
 
 export function initCurrency() {
-    fetchRates().catch(() => {});
-    if (getMode() !== 'USD') {
-        setTimeout(() => rerenderAll(), 1500);
-    }
+    // Re-render once the rates are in, whenever that is: prices drawn before then fell back to
+    // their native currency, and a fixed 1.5 s wait missed a slow answer at page load.
+    fetchRates().then(() => rerenderAll()).catch(() => {});
 }
