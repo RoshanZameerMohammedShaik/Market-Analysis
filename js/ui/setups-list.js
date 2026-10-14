@@ -88,7 +88,7 @@ export async function renderSetupsList(onPick) {
             <h2 class="section-title">↺ Pullback setups · from the ${escapeHtml(sessionLabel(s.sessionDate))} close${s.confirmed === false ? ' (forming, not final)' : ''}</h2>
         </div>
         <div class="su-intro">
-            Stocks in an uptrend that just fell several days running. The rule: <strong>buy at the next open</strong>-<strong>sell at the open after it closes above its 5-day average</strong>, or after 10 trading days at most. No stop-loss.
+            Stocks in an uptrend that just fell several days running. The rule: <strong>buy at the next open</strong>, then <strong>sell at the open after it closes above its 5-day average</strong>, or after 10 trading days at most. No stop-loss.
         </div>
         ${sharedStats(s.setups, rec)}
         ${s.setups.length ? `

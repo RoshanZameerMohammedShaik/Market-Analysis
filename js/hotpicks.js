@@ -26,6 +26,8 @@ import { computeFullConfidence } from './confidence.js';
 import { getCalibrationThresholds, getCalibrationThresholdsSync } from './calibration-thresholds.js';
 import { getEffectiveLock } from './ui/daily-lock.js';
 import { applyLockToPrediction } from './ui/lock-view.js';
+import { headlineRange, todayPartialBar, loadIntraday, freshestBand } from './ui/forecast-cards.js';
+import { regionFor } from './calibration.js';
 
 // THE CALL THE USER WILL SEE WHEN THEY OPEN THE SYMBOL.
 //
@@ -41,15 +43,27 @@ async function effectiveView(lockKey, result, timeframe) {
     } catch (_) { return { view: result, locked: false }; }
 }
 
-function pickFields(view) {
+// The range a card shows is the one its symbol's own card shows for today (headlineRange in
+// js/ui/forecast-cards.js): the band, widened live by what the session has already traded. The
+// locked band alone went stale the moment a stock broke out of it, so DOCN, down 14% on
+// 2026-10-14, read "Range Low $119.99 +9.2%" against a live $110.
+function pickFields(view, ctx = null) {
     const pt = view?.priceTargets || {};
+    let r = null;
+    if (ctx) {
+        const band = freshestBand(view?.forecastBand, ctx.result?.forecastBand);
+        try {
+            r = headlineRange({ band, price: ctx.price, region: ctx.region, cryptoMode: ctx.region === 'CRYPTO',
+                                todayBar: todayPartialBar(ctx.candles, ctx.region), intraday: ctx.intraday,
+                                next: ctx.timeframe === 'tomorrow' });
+        } catch (_) { r = null; }
+    }
     return {
         signal: view.signal,
         confidence: view.confidence,
-        expectedHigh: pt.predictedHigh ?? null,
-        expectedLow: pt.predictedLow ?? null,
-        expectedPct: pt.highPercent ?? null,
-        expectedLowPct: pt.lowPercent ?? null,
+        expectedHigh: r && Number.isFinite(r.high) ? r.high : (pt.predictedHigh ?? null),
+        expectedLow: r && Number.isFinite(r.low) ? r.low : (pt.predictedLow ?? null),
+        rangeLive: !!(r && r.liveF != null),
         reasons: view.reasons,
     };
 }
@@ -58,7 +72,7 @@ function pickFields(view) {
 // showed. Only these few: locking all ~70 scanned symbols would stamp calls the user never saw.
 async function lockShownPicks(picks, timeframe) {
     if (timeframe !== 'today') {
-        for (const p of picks) delete p._live;
+        for (const p of picks) { delete p._live; delete p._ctx; }
         return;
     }
     for (const p of picks) {
@@ -68,10 +82,11 @@ async function lockShownPicks(picks, timeframe) {
                 // Re-read the pick from the lock just taken. A new lock is anchored on the SESSION
                 // OPEN, not on the live price the scan saw, so on a symbol that has moved since
                 // the open the range differs: MOD showed $165-$186 here and $184-$207 on its card.
-                if (lock) Object.assign(p, pickFields(applyLockToPrediction(p._live, lock)), { _locked: true });
+                if (lock) Object.assign(p, pickFields(applyLockToPrediction(p._live, lock), p._ctx), { _locked: true });
             } catch (_) { /* card will lock on open */ }
         }
         delete p._live;
+        delete p._ctx;
     }
 }
 
@@ -238,6 +253,7 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     // re-fetching per partial render.
     const calThresh = await getCalibrationThresholds();
     const hotFloor = calThresh.hotPicksFloor;
+    const intraday = await loadIntraday().catch(() => null);
 
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${filteredSymbols.length} stocks…`);
 
@@ -276,17 +292,19 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const sparkline = data.candles.slice(-30).map(c => c.close);
                     const lockKey = data.symbol || symbol;
                     const { view, locked } = await effectiveView(lockKey, result, timeframe);
+                    const ctx = { result, candles: data.candles, price: data.currentPrice || meta.price,
+                                  region: regionFor(data.symbol || symbol), intraday, timeframe };
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
                         price: data.currentPrice || meta.price,
-                        ...pickFields(view),
+                        ...pickFields(view, ctx),
                         currency: data.currency || 'USD',
                         change: meta.changePercent || (data.currentPrice && data.previousClose
                             ? ((data.currentPrice - data.previousClose) / data.previousClose * 100)
                             : 0),
                         _sparkline: sparkline,
-                        _lockKey: lockKey, _locked: locked, _live: result,
+                        _lockKey: lockKey, _locked: locked, _live: result, _ctx: ctx,
                     };
                 } catch (e) {
                     return null;
@@ -449,6 +467,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
     const marketScore = await getMarketConditionsScore('crypto').catch(() => ({ score: 50 }));
     const calThreshC = await getCalibrationThresholds();
     const cryptoFloor = calThreshC.hotPicksFloor;
+    const cryptoIntraday = await loadIntraday().catch(() => null);
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${coins.length} cryptocurrencies...`);
 
     const results = [];
@@ -510,12 +529,13 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             // routing through derivs / cross-asset enrichments.
             const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false, newsLite: true });
             const { view, locked } = await effectiveView(sym, result, timeframe);
+            const ctx = { result, candles, price: px, region: 'CRYPTO', intraday: cryptoIntraday, timeframe };
             results.push({
                 symbol: sym, name: coin.name, id: coin.id, price: px,
-                ...pickFields(view),
+                ...pickFields(view, ctx),
                 currency: 'USD',
                 change: coin.change24h || 0, _sparkline: sparklineData,
-                _lockKey: sym, _locked: locked, _live: result,
+                _lockKey: sym, _locked: locked, _live: result, _ctx: ctx,
             });
             // Progressive update every ~10 coins so the UI can repaint.
             if (onPartial && analyzed % 10 === 0) onPartial(rankPicks(results, maxPicks, cryptoFloor));

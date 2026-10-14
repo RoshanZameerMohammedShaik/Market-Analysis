@@ -26,7 +26,7 @@ c = fc.decideCall({ rs: null, owned: true });
 check('nothing measured, owned -> HOLD, no confidence', c.kind === 'HOLD' && c.confidence === null);
 c = fc.decideCall({ rs: { active: true, reliable: true, cell }, owned: false });
 check('a live setup -> BUY at its measured profitability', c.kind === 'BUY' && c.confidence === cell.hitRate);
-check('...worded as trades that were profitable, not "recovered"', /were profitable/.test(c.line) && !/closed back above/.test(c.line), c.line);
+check('...worded as trades that sold above their entry, not "recovered"', /sold above their entry/.test(c.line) && !/recovered|closed back above/.test(c.line), c.line);
 c = fc.decideCall({ rs: { active: true, reliable: false, cell }, owned: false });
 check('an unreliable cell never makes a BUY', c.kind === 'DONT_BUY');
 const rec = (status, extra = {}) => ({ record: { symbol: [{ status, session: '2026-10-12', entryDate: '2026-10-13', hitRate: 0.67, expNetBps: 25, ...extra }] } });
@@ -54,6 +54,31 @@ c = fc.decideCall({ rs: null, owned: false, gap: g });
 check('gap, not owned -> DON\'T BUY at the measured rate', c.kind === 'DONT_BUY' && c.confidence === gapRec.closedBelowOpen, JSON.stringify(c).slice(0, 200));
 check('gap, owned -> HOLD, never SELL', fc.decideCall({ rs: null, owned: true, gap: g }).kind === 'HOLD');
 check('a live setup outranks the gap note', fc.decideCall({ rs: { active: true, reliable: true, cell }, owned: false, gap: g }).kind === 'BUY');
+
+console.log('\n=== Hot Picks and the card read one range for today (headlineRange) ===');
+// DOCN on 2026-10-14: locked at the 10-13 close of $128.21, then down 14% to $110 by midday.
+const intraday = JSON.parse(fs.readFileSync(path.join(repo, 'model', 'band_intraday.json'), 'utf8'));
+const docn = { confidence: 80, sigmaDaily: 3.4, volTier: 'active',
+    anchor: { session: '2026-10-13', price: 128.21, day1: '2026-10-14' },
+    days: [{ day: 1, low: 119.99, high: 136.99 }, { day: 2, low: 116.4, high: 141.2 }, { day: 3, low: 114.1, high: 144.0 }] };
+const traded = { high: 127.6, low: 109.5, open: 127.02 };
+const noon = Date.parse('2026-10-14T17:00:00Z');                    // 13:00 New York
+const r = fc.headlineRange({ band: docn, price: 110.16, region: 'NYSE', todayBar: traded, intraday, nowMs: noon });
+check('a stock that fell out of its locked band: the range follows the session', r && r.low < 109.5 && r.high >= 127.6, JSON.stringify(r && { low: r.low, high: r.high }));
+check('...so its low is never above the live price', r && r.low < 110.16);
+check('...and it is marked live', r && r.liveF != null && r.date === '2026-10-14');
+const pre = fc.headlineRange({ band: docn, price: 128.21, region: 'NYSE', todayBar: null, intraday, nowMs: Date.parse('2026-10-14T12:00:00Z') });
+check('before the open: the locked band itself', pre && pre.low === 119.99 && pre.high === 136.99 && pre.liveF == null, JSON.stringify(pre && { low: pre.low, high: pre.high }));
+const nxt = fc.headlineRange({ band: docn, price: 110.16, region: 'NYSE', todayBar: traded, intraday, nowMs: noon, next: true });
+check('the Tomorrow view reads the next session, started from the live price', nxt && nxt.date === '2026-10-15'
+    && nxt.low < 110.16 && nxt.high > 110.16, JSON.stringify(nxt && { date: nxt.date, low: nxt.low, high: nxt.high }));
+const day2 = r.rows.thisWeek.find(x => x.date === '2026-10-15');
+check('...keeping the band it replaced, to show', day2 && day2.morningLow === 116.4 && day2.fromPrice === 110.16);
+// Variance interpolation is exact at the ends: f = 1 gives the original width around the price.
+const atOpen = fc.weekRows({ band: docn, history: null, region: 'NYSE', cryptoMode: false, todayBar: traded,
+    live: { low: 100, high: 130, f: 1, confidence: 80 }, price: 128.21, nowMs: noon });
+const o2 = atOpen.thisWeek.find(x => x.date === '2026-10-15');
+check('with the whole session left, day 2 is the locked band', o2 && Math.abs(o2.low - 116.4) < 1e-6 && Math.abs(o2.high - 141.2) < 1e-6, JSON.stringify(o2 && { low: o2.low, high: o2.high }));
 
 console.log(`\n${fail ? 'FORECAST CARDS CHECK FAIL' : 'FORECAST CARDS CHECK PASS'}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

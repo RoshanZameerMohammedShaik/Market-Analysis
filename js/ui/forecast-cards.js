@@ -94,7 +94,7 @@ export function decideCall({ rs = null, owned = null, setupsLive = null, gap = n
         return { ...base, kind: own ? 'HOLD' : 'BUY', tone: 'up', confidence: rs.cell.hitRate, n: rs.cell.n, source: 'setup',
             title: own ? 'HOLD' : 'BUY',
             line: `${rs.forming ? 'A dip-recovery setup is forming today (it confirms at the close, and the measured entry is the next open).' : 'A dip-recovery setup is live: the measured entry is the next open.'} `
-                + `${pct(rs.cell.hitRate)} of ${rs.cell.n.toLocaleString()} trades like it were profitable, ${signedPct(rs.cell.netBps)} on average after costs.` };
+                + `${pct(rs.cell.hitRate)} of ${rs.cell.n.toLocaleString()} trades like it sold above their entry price, ${signedPct(rs.cell.netBps)} on average after costs.` };
     }
     // 2. Its exit fired: the recovery has happened.
     if (exiting) {
@@ -178,7 +178,7 @@ function callEvidence(call, rs, co, symbol, dirRec, baseline = null) {
     if (rs && rs.eligible === false && rs.reason) items.push(`Setup not available: ${esc(rs.reason)}.`);
     const c = rs?.cell;
     if (c && ['setup', 'setup-pending', 'setup-open'].includes(call.source)) {
-        items.push(`Track record for this volatility and market mood: ${pct(c.hitRate)} of ${c.n.toLocaleString()} trades were profitable, `
+        items.push(`Track record for this volatility and market mood: ${pct(c.hitRate)} of ${c.n.toLocaleString()} trades sold above their entry price, `
             + `average ${signedPct(c.netBps)} per trade after costs, positive in ${c.positiveYears} of ${c.years} years.`);
         const why = baselineSentence(baseline, { lead: 'Where the odds come from' });
         if (why) items.push(why);
@@ -334,6 +334,11 @@ function dayWhy({ row, band, k, earningsDay, symbol, sigma, tier }) {
         items.push(`How much this stock has been moving: about ±${sigma.toFixed(2)}% a day over the last 30 sessions (${esc(tier || '')} volatility). This is the main input.`);
     }
     if (k > 1) items.push(`${k} sessions ahead: the range widens with each session because the uncertainty adds up.`);
+    if (Number.isFinite(row.fromPrice)) {
+        items.push(`Started from the live price, ${fmtPriceTag(row.fromPrice, row.co)}, with ${Math.round(row.fromF * 100)}% of today still to trade, `
+            + `because the stock has moved since the ${shortDay(band.anchor?.session)} close the range was built on. From that close it read `
+            + `${fmtPriceTag(row.morningLow, row.co)} to ${fmtPriceTag(row.morningHigh, row.co)}.`);
+    }
     if (earningsDay > 0 && k >= earningsDay) {
         items.push(`Earnings move ${k === earningsDay ? 'this session' : 'an earlier session in this window'}, so it uses the much wider range measured on earnings weeks. <a href="https://finance.yahoo.com/calendar/earnings?symbol=${encodeURIComponent(symbol)}" target="_blank" rel="noopener">Earnings calendar</a>`);
     } else if (earningsDay === 0) {
@@ -397,20 +402,41 @@ function dayRow(row, x, opts) {
  * history: buildBandHistory() output (past sessions, locked or replayed); band: the live band with
  * an anchor; todayBar: today's partial daily bar while the session runs.
  */
-export function weekRows({ band, history, region, cryptoMode, todayBar = null, live = null }) {
-    const today = cryptoMode ? new Date().toISOString().slice(0, 10) : exchangeToday(region);
+export function weekRows({ band, history, region, cryptoMode, todayBar = null, live = null, price = null, nowMs = Date.now() }) {
+    const today = cryptoMode ? new Date(nowMs).toISOString().slice(0, 10) : exchangeToday(region, nowMs);
     if (!today) return null;
     const dates = bandRowDates(band, region, cryptoMode);
     const byDate = new Map(dates.map((d, i) => [d, { ...band.days[i], k: i + 1 }]));
     const past = new Map((history?.rows || []).map(r => [r.date, r]));
+    const tradingToday = !!(live && todayBar && Number.isFinite(todayBar.high) && byDate.has(today));
+    // The days AFTER a session that is trading start from the live price, not the close the band
+    // was built on: DOCN fell 14% on 2026-10-14 and its next session still read $116 to $141 from
+    // the 10-13 close, with the stock at $110. From now, day k is (k-2) full sessions, the f of
+    // today still to trade, and day k's own range away, so its width sits between the calibrated
+    // widths for k-1 and k sessions: interpolated in variance, exact at the close (f = 0, the
+    // horizon k-1 band from today's close) and at the open (f = 1, the original).
+    const A = band.anchor?.price;
+    const fromNow = (k) => {
+        if (!tradingToday || !(price > 0) || !(A > 0) || !(k >= 2)) return null;
+        const a = band.days[k - 2], b = band.days[k - 1];
+        if (!a || !b) return null;
+        const up1 = Math.log(a.high / A), up2 = Math.log(b.high / A), dn1 = Math.log(A / a.low), dn2 = Math.log(A / b.low);
+        if (![up1, up2, dn1, dn2].every(v => Number.isFinite(v) && v > 0)) return null;
+        const f = Math.min(1, Math.max(0, live.f));
+        const wu = Math.sqrt(up1 * up1 + f * Math.max(0, up2 * up2 - up1 * up1));
+        const wd = Math.sqrt(dn1 * dn1 + f * Math.max(0, dn2 * dn2 - dn1 * dn1));
+        return { low: price * Math.exp(-wd), high: price * Math.exp(wu), f };
+    };
     const build = (iso) => {
         const f = iso >= today ? byDate.get(iso) : null;
         if (f) {
-            const trading = iso === today && todayBar && Number.isFinite(todayBar.high);
-            const lv = trading && live ? live : null;
+            const trading = iso === today && tradingToday;
+            const lv = trading ? live : null;
+            const moved = iso > today ? fromNow(f.k) : null;
             return { date: iso, kind: trading ? 'today' : 'future', k: f.k,
-                     low: lv ? lv.low : f.low, high: lv ? lv.high : f.high,
-                     morningLow: lv ? f.low : null, morningHigh: lv ? f.high : null, liveF: lv ? lv.f : null,
+                     low: lv ? lv.low : moved ? moved.low : f.low, high: lv ? lv.high : moved ? moved.high : f.high,
+                     morningLow: lv || moved ? f.low : null, morningHigh: lv || moved ? f.high : null,
+                     liveF: lv ? lv.f : null, fromPrice: moved ? price : null, fromF: moved ? moved.f : null,
                      confidence: lv ? lv.confidence : band.confidence,
                      actualLow: trading ? todayBar.low : null, actualHigh: trading ? todayBar.high : null };
         }
@@ -424,6 +450,35 @@ export function weekRows({ band, history, region, cryptoMode, todayBar = null, l
     const thisWeek = weekOf(today, region, cryptoMode).map(build).filter(Boolean);
     const nextWeek = weekOf(addDays(today, 7), region, cryptoMode).map(build).filter(Boolean);
     return { today, thisWeek, nextWeek };
+}
+
+/**
+ * The band to show: the locked one, unless the live one starts from a newer close. After today's
+ * close the lock still starts from yesterday's, and every day after today would read from a price
+ * two sessions old.
+ */
+export function freshestBand(locked, live) {
+    const a = locked?.anchor?.session, b = live?.anchor?.session;
+    if (b && (!a || b > a)) return live;
+    return a ? locked : (live || locked || null);
+}
+
+/**
+ * The range the big bar shows: today's (widened live by what has already traded) when today is a
+ * session, else the next session's. Hot Picks reads it too, so a card and the symbol it opens can
+ * never show two different ranges for the same day (DOCN on 2026-10-14 showed the band locked at
+ * the 10-13 close, $119.99 to $136.99, beside a live $110 after a 14% fall).
+ */
+export function headlineRange({ band, price, region = 'NYSE', cryptoMode = false, todayBar = null, intraday = null,
+                                history = null, next = false, nowMs = Date.now() }) {
+    if (!band || !Array.isArray(band.days) || !band.days.length) return null;
+    const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region, nowMs });
+    const rows = band.anchor ? weekRows({ band, history, region, cryptoMode, todayBar, live, price, nowMs }) : null;
+    // next: the first session after today (the Tomorrow view), else today's or the next one.
+    const row = rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => (next ? r.date > rows.today : r.kind === 'today') || (!next && r.kind === 'future')) : null;
+    const d = row && Number.isFinite(row.low) ? row : { low: band.days[0].low, high: band.days[0].high, date: band.anchor?.day1 };
+    return { low: d.low, high: d.high, date: d.date || null, today: rows?.today || null, rows,
+             liveF: Number.isFinite(d.liveF) ? d.liveF : null, confidence: d.confidence ?? band.confidence };
 }
 
 function weekCard(title, rows, x, opts) {
@@ -450,14 +505,13 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                                       baseline = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
-    const live = liveToday({ intraday, band, price, todayBar, region: cryptoMode ? 'CRYPTO' : region });
-    const rows = band.anchor ? weekRows({ band, history, region, cryptoMode, todayBar, live }) : null;
+    const head = headlineRange({ band, price, region, cryptoMode, todayBar, intraday, history });
+    const rows = head.rows;
     const gap = gapSignal({ rec: gapRec, band, todayBar, liquid, region: cryptoMode ? 'CRYPTO' : region });
     const call = decideCall({ rs, owned, setupsLive, gap });
 
     // Today's range on the big bar: the row for today when the session is today, else the next one.
-    const todayRow = rows ? [...rows.thisWeek, ...rows.nextWeek].find(r => r.kind === 'today' || r.kind === 'future') : null;
-    const d = todayRow && Number.isFinite(todayRow.low) ? todayRow : { low: band.days[0].low, high: band.days[0].high, date: band.anchor?.day1 };
+    const d = head;
     const whenLabel = rows && d.date ? (d.date === rows.today ? (Number.isFinite(d.liveF) ? "Today's expected range, updated live" : "Today's expected range") : `Expected range, ${dayLabel(d.date, rows.today)}`) : "Next session's expected range";
 
     const evidence = callEvidence(call, rs, co, symbol, dirRec, baseline);

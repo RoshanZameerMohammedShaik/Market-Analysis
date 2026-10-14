@@ -19,7 +19,7 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand } from './forecast-cards.js';
 import { loadSetupBaseline } from '../setup-baseline.js';
 import { blendEligible } from '../forecast-band.js';
 import { isBarComplete, barSessionDate } from '../earnings-calendar-slice.js';
@@ -447,7 +447,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         } catch (_) { bandHistory = null; }
         // The locked band when it says where it starts; rows locked before 2026-10-13 do not, and
         // the live band (built the same way the cron now builds it) stands in for them.
-        const band = view.forecastBand?.anchor ? view.forecastBand : (prediction.forecastBand || view.forecastBand);
+        const band = freshestBand(view.forecastBand, prediction.forecastBand);
         const rec = prediction.reversionSetup?.record;
         const spikeMeta = await loadSpikeRecord();
         cardsHTML = renderForecastCards({
