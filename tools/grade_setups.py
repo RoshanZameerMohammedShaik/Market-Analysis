@@ -49,7 +49,9 @@ def grade(e, bars):
     the entry and exit are prices someone could actually have traded at."""
     dates = [b[0] for b in bars]
     if e['session'] not in dates:
-        return {**e, 'status': 'open', 'note': 'signal session missing from bars'}
+        # Not graded tonight: the bars do not reach (or skip) the signal session. Keep whatever the
+        # entry was. This used to mark it 'open' with no entry price.
+        return {**e, 'status': e.get('status') or 'pending', 'note': 'signal session missing from bars'}
     i = dates.index(e['session'])
     closes = [b[2] for b in bars]
     if i + 1 >= len(bars):
@@ -142,13 +144,28 @@ def main():
         if b and b[-1][0] == today and ny.hour < 16:
             bars[s] = b[:-1]
 
+    # A symbol whose bars stop before the last session the calendar says has closed is a feed that
+    # is behind (Yahoo drops bars for a few hours some nights): its entries are left as they were.
+    # On 2026-10-14 a run in such a window moved NVDA's trade from open back to pending and TXN's
+    # from exiting back to pending.
+    sys.path.insert(0, REPO)
+    from forecast_band import last_completed_session
+    want = last_completed_session('NYSE')
+    want = want.isoformat() if want else None
+    behind = {s for s, b in bars.items() if want and (not b or b[-1][0] < want)}
+    if behind:
+        print(f'  [keep] {len(behind)} symbol(s) whose bars stop before {want}: {", ".join(sorted(behind)[:10])}', file=sys.stderr)
+    RANK = {'pending': 0, 'open': 1, 'exiting': 2, 'closed': 3}
+
     graded = []
     for e in entries:
-        if e['status'] == 'closed' or e['symbol'] not in bars:
+        if e['status'] == 'closed' or e['symbol'] not in bars or e['symbol'] in behind:
             graded.append(e)
             continue
-        graded.append(grade({k: v for k, v in e.items() if k in (
-            'session', 'symbol', 'signalClose', 'tier', 'vixBand', 'rsi2', 'hitRate', 'expNetBps')}, bars[e['symbol']]))
+        g = grade({k: v for k, v in e.items() if k in (
+            'session', 'symbol', 'signalClose', 'tier', 'vixBand', 'rsi2', 'hitRate', 'expNetBps', 'status')}, bars[e['symbol']])
+        # A trade only ever moves forward: pending, open, exiting, closed.
+        graded.append(e if RANK.get(g.get('status'), 0) < RANK.get(e.get('status'), 0) else g)
     graded.sort(key=lambda r: (r['session'], r['symbol']))
 
     cells = {}

@@ -169,6 +169,16 @@ function callEvidence(call, rs, co, symbol, dirRec, baseline = null) {
         items.push(rs.active
             ? `RSI(2) is <strong>${rs.rsi2.toFixed(1)}</strong>, under 10: a sharp two-day drop.`
             : `RSI(2) is ${rs.rsi2.toFixed(0)}. The dip-recovery setup needs it under 10, so there is no dip to buy today.`);
+        // The setup's conditions are met, but not where it has paid: say so, with the numbers.
+        if (rs.active && rs.eligible !== false && !rs.reliable && call.source !== 'setup') {
+            const VIX = { low: 'under 20', elevated: 'between 20 and 30', high: 'above 30' };
+            const cc = rs.cell;
+            items.push(cc
+                ? `So the dip-recovery setup is ${rs.forming ? 'forming' : 'here'}, but not where it has paid: for stocks this volatile (${esc(rs.tier || '')}) with the VIX ${VIX[rs.vixBand] || esc(rs.vixBand || '')}, `
+                    + `${pct(cc.hitRate)} of ${cc.n.toLocaleString()} trades sold above their entry and they averaged ${signedPct(cc.netBps)} after costs `
+                    + `(95% range down to ${signedPct(cc.netBpsLo95)}). That is not a measured edge, so there is no BUY.`
+                : 'So the dip-recovery setup is here, but there is no history for stocks this volatile in this market, so there is no BUY.');
+        }
     }
     if (rs && Number.isFinite(rs.ma200) && Number.isFinite(rs.price)) {
         items.push(rs.price > rs.ma200
@@ -195,7 +205,7 @@ function callEvidence(call, rs, co, symbol, dirRec, baseline = null) {
         items.push('It is about today only: the next session after a gap like this is a coin flip. It is not a reason to sell short: after costs the margin is thin.');
     }
     if (dirRec?.n >= 30) {
-        items.push(`Plain "up or down tomorrow" calls are right ${pct(dirRec.hitRate)} of the time on ${dirRec.n.toLocaleString()} live calls, so they never make this call. Of every direction signal tested on 2014 to 2026 data (earnings surprises, analyst ratings, momentum, short interest, options), only the gap rule above beat its base rate by a useful margin.`);
+        items.push(`Plain "up or down tomorrow" calls are right ${pct(dirRec.hitRate)} of the time on ${dirRec.n.toLocaleString()} live calls, so they never make this call. Of every direction signal tested on 2014 to 2026 data (earnings surprises, analyst ratings, momentum, short interest, options), one beat its base rate by a useful margin: a big gap up on a liquid stock tends to close below its open, and the app uses it to say DON'T BUY on those mornings.`);
     }
     items.push(`Prices: <a href="https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}/history" target="_blank" rel="noopener">Yahoo Finance daily history</a>.`);
     return items;
@@ -545,7 +555,12 @@ export function todayPartialBar(candles, region, nowMs = Date.now()) {
     if (!c || !Number.isFinite(c.time)) return null;
     const iso = barSessionDate(region, c.time);
     const today = region === 'CRYPTO' ? new Date(nowMs).toISOString().slice(0, 10) : exchangeToday(region, nowMs);
-    return iso === today && c.high > 0 && c.low > 0 ? { high: c.high, low: c.low, open: c.open } : null;
+    if (iso !== today || !(c.high > 0) || !(c.low > 0)) return null;
+    // A trading day's high and low contain its open and its last print. Yahoo's live daily bar does
+    // not always: DOCN on 2026-10-14 came back with an open of $127.02 and a high of $126.19 (its
+    // 5-minute bars reached $127.10), which drew "where it traded" short of the opening print.
+    const prints = [c.open, c.close].filter(v => Number.isFinite(v) && v > 0);
+    return { high: Math.max(c.high, ...prints), low: Math.min(c.low, ...prints), open: c.open };
 }
 
 let _gapRec = null;

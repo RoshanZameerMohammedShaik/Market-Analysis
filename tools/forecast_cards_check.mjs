@@ -80,5 +80,17 @@ const atOpen = fc.weekRows({ band: docn, history: null, region: 'NYSE', cryptoMo
 const o2 = atOpen.thisWeek.find(x => x.date === '2026-10-15');
 check('with the whole session left, day 2 is the locked band', o2 && Math.abs(o2.low - 116.4) < 1e-6 && Math.abs(o2.high - 141.2) < 1e-6, JSON.stringify(o2 && { low: o2.low, high: o2.high }));
 
+// DOCN again: RSI(2) 6.2 in an uptrend is the setup, but its cell (wild volatility, VIX under 20)
+// has lost money. The card must say why there is no BUY instead of listing the conditions as met.
+const wildLow = { n: 691, hitRate: 0.5687, netBps: -69.5, netBpsLo95: -158.6 };
+const html = fc.renderForecastCards({ symbol: 'DOCN', band: docn, price: 110.16, region: 'NYSE', owned: false,
+    rs: { active: true, eligible: true, reliable: false, forming: true, rsi2: 6.2, tier: 'wild', vixBand: 'low',
+          cell: wildLow, price: 110.16, ma200: 108.64 } });
+check('an unreliable setup cell: DON\'T BUY, and the card says it has not paid there', /DON'T BUY/.test(html)
+    && /not where it has paid/.test(html) && /-0\.(69|70)%/.test(html), html.match(/So the dip[^<]*/)?.[0] || 'missing');
+
+const quirk = fc.todayPartialBar([{ time: Date.parse('2026-10-14T13:30:00Z') / 1000, open: 127.02, high: 126.19, low: 108.08, close: 110.19 }], 'NYSE', noon);
+check("Yahoo's live bar with a high under its open: the open still counts as traded", quirk && quirk.high === 127.02 && quirk.low === 108.08, JSON.stringify(quirk));
+
 console.log(`\n${fail ? 'FORECAST CARDS CHECK FAIL' : 'FORECAST CARDS CHECK PASS'}: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

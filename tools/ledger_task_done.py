@@ -13,8 +13,12 @@ that step's case table out of the YAML, so there is no second copy of the schedu
   python tools/ledger_task_done.py --schedule "35 13 * * 1-5"      -> prints task, done
   python tools/ledger_task_done.py --task predict-NYSE
 
-Prints `task=<name>` and `done=true|false` lines for $GITHUB_OUTPUT. Only predict-* tasks can
-be "done"; everything else (resolve, recalibrate, publish) is idempotent and always runs.
+Prints `task=<name>` and `done=true|false` lines for $GITHUB_OUTPUT. Predict tasks are done once
+their regions have rows for the day. The nightly resolve is done, for the late SCHEDULED fallback
+only, once tonight's volatility slice and setups list both cover the latest NYSE session: on
+2026-10-14 the fallback arrived at 01:21 UTC, three hours after the on-time run, inside a window
+when Yahoo had dropped that session's bars, and rewrote both files a session older. A manual or
+ledger-clock dispatch always runs. Everything else (recalibrate, publish) always runs.
 """
 import argparse
 import datetime
@@ -57,6 +61,36 @@ def regions_written(day_iso, ledger_dir=LEDGER):
     return seen
 
 
+RESOLVE_OUTPUTS = ('model/vol_forecasts.json', 'model/setups.json')
+
+
+def nyse_expected_session(now_utc):
+    """The NYSE session a resolve run at `now_utc` is for: today in New York once the close has
+    settled (16:10), else the weekday before. Holidays are not known here, so on one the answer is
+    'work to do' and the run goes ahead, as it always did."""
+    from zoneinfo import ZoneInfo
+    ny = now_utc.astimezone(ZoneInfo('America/New_York'))
+    d = ny.date()
+    if (ny.hour, ny.minute) < (16, 10):
+        d -= datetime.timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= datetime.timedelta(days=1)
+    return d.isoformat()
+
+
+def resolve_done(now_utc, repo=REPO):
+    """True when every nightly output already covers the expected session."""
+    want = nyse_expected_session(now_utc)
+    for rel in RESOLVE_OUTPUTS:
+        try:
+            with open(os.path.join(repo, rel), encoding='utf-8') as f:
+                if json.load(f).get('sessionDate') != want:
+                    return False
+        except (OSError, ValueError, AttributeError):
+            return False
+    return True
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--schedule', default='')
@@ -67,6 +101,8 @@ def main():
     day = a.date or datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
     need = REGIONS.get(task)
     done = bool(need) and set(need) <= regions_written(day)
+    if task == 'resolve-and-recalibrate' and a.schedule and not a.date:
+        done = resolve_done(datetime.datetime.now(datetime.timezone.utc))
     print(f'task={task}')
     print(f'done={"true" if done else "false"}')
     print(f'# {task or "(no task)"} on {day}: {"already recorded" if done else "work to do"}', file=sys.stderr)
