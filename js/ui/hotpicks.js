@@ -6,7 +6,7 @@ import { displayTicker } from './exchanges.js';
 import { escapeHtml } from './escape.js';
 import { bindLiveSparks, stopLiveSparks } from './live-spark.js';
 import { revealStagger, drawLine, countTo, canAnimate, flipCapture, flipAnimate } from './motion.js';
-import { success, cardArrival, click as clickSound, error as errorSound } from './ui-sound.js';
+import { gridReady } from './ui-sound.js';
 
 // Phase 8: Hot Picks penny sub-tabs.
 // `pennyMode` is one of: null (no filter), 'p10' (<$10), 'p5' (<$5), 'p1' (<$1).
@@ -36,14 +36,12 @@ export function setPennyFilter(mode) {
             <div class="empty-state-icon">📈</div>
             <p>No hot picks under ${labelFor(pennyFilter)} right now. Try a different filter.</p>
         </div>`;
-        errorSound();
     } else {
         renderCards(grid, filtered, false);
         bindCardClicks(grid, currentOnPick);
         // Cards already exist (past streaming) so we don't run the full
         // entrance, just the Flip re-order. flipAnimate no-ops on null state.
         flipAnimate(flipState, { duration: 0.5, stagger: 0.03 });
-        clickSound();
     }
     paintFilterButtons();
 }
@@ -268,13 +266,10 @@ function animateSettledGrid(grid, requestId) {
             if (Number.isFinite(target)) countTo(num, 0, target, { duration: 0.7 });
         }
     });
-    // Sound: one "grid ready" anchor, then up to 5 ascending arrival chirps
-    // trailing the visual cascade. Each deferred chirp re-checks canEmit() AND
-    // that this scan is still current (review Issue: stale deferred chirps).
-    success();
-    for (let i = 0; i < 5 && i < lead.length; i++) {
-        setTimeout(() => { if (requestId === state.hotPicksRequestId) cardArrival(i); }, i * 45);
-    }
+    // Sound: one quiet shimmer for the whole grid, once the cascade is under way, and only if
+    // this scan is still the current one. (The filter buttons already tick on press, so a
+    // re-filter adds nothing, and an empty filter is not an error.)
+    setTimeout(() => { if (requestId === state.hotPicksRequestId) gridReady(); }, 120);
 }
 
 function bindCardClicks(grid, onPick) {

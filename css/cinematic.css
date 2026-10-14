@@ -120,9 +120,11 @@ body, .app-header, .signal-box, .hot-pick-card, .accordion-item, .accordion-head
 .hot-pick-card:nth-child(9)  { animation-delay: 500ms; }
 .hot-pick-card:nth-child(10) { animation-delay: 560ms; }
 .hot-pick-card:nth-child(n+11) { animation-delay: 620ms; }
+/* Flat on purpose: no rotateX, no perspective. The 3D flip-in and the cursor tilt on these cards
+   both read as a cheap zoom (Roshan, 2026-10-14), so cards simply fade up into place. */
 @keyframes hp-flip {
-    from { opacity: 0; transform: perspective(700px) rotateX(-25deg) translateY(8px); }
-    to   { opacity: 1; transform: perspective(700px) rotateX(0deg) translateY(0); }
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
 }
 
 .hp-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; grid-column: 1/-1; }

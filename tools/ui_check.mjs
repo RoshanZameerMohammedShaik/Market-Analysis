@@ -155,7 +155,7 @@ const menuVisible = await page.evaluate(() => {
 check('menu becomes visible on click', menuVisible.shown);
 check('menu stays inside the viewport', menuVisible.onScreen, JSON.stringify(menuVisible));
 
-console.log('\n=== hovering a hot pick must NOT soften its neighbours ===');
+console.log('\n=== hovering a hot pick: a flat lift, no 3D zoom, neighbours crisp ===');
 // premium-3d.css blurred and dimmed every other card while one was hovered.
 // Removed on request, and guarded here because it is invisible in a static
 // screenshot and would come back silently if that rule were ever re-enabled.
@@ -185,13 +185,21 @@ console.log('\n=== hovering a hot pick must NOT soften its neighbours ===');
     await hp.waitForTimeout(400);
     const cards = await hp.$$('#hotpicks-grid .hot-pick-card');
     await cards[0].hover();
-    await hp.waitForTimeout(700);   // let --engage ramp and [data-lifting] land
+    await hp.waitForTimeout(700);   // past the hover transition, so the transform has settled
     const h = await hp.evaluate(() => {
         const g = document.getElementById('hotpicks-grid');
         const cs = [...g.querySelectorAll('.hot-pick-card')];
+        // A 2D lift is matrix(1, 0, 0, 1, x, y). Anything else (a matrix3d, a scale, a
+        // rotation) is the 3D zoom Roshan asked to remove on 2026-10-14.
+        const tf = getComputedStyle(cs[0]).transform;
+        const m = /^matrix\(([^)]+)\)$/.exec(tf);
+        const v = m ? m[1].split(',').map(Number) : null;
+        const flat = tf === 'none' || (!!v && Math.abs(v[0] - 1) < 1e-3 && Math.abs(v[1]) < 1e-3
+            && Math.abs(v[2]) < 1e-3 && Math.abs(v[3] - 1) < 1e-3);
         return {
             lifting: g.getAttribute('data-lifting'),
             tilting: cs.findIndex((c) => c.hasAttribute('data-tilting')),
+            flat, tf,
             soft: cs.slice(1).filter((c) => {
                 const s = getComputedStyle(c);
                 return s.filter !== 'none' || Number(s.opacity) < 0.99;
@@ -199,7 +207,7 @@ console.log('\n=== hovering a hot pick must NOT soften its neighbours ===');
             total: cs.length - 1,
         };
     });
-    check('the hovered card still lifts', h.lifting === '1' && h.tilting === 0,
+    check('the hovered card lifts flat (no tilt, no zoom)', h.lifting == null && h.tilting === -1 && h.flat,
         JSON.stringify(h));
     check('neighbours stay crisp and fully opaque (no blur, no dim)', h.soft === 0,
         `${h.soft} of ${h.total} softened`);

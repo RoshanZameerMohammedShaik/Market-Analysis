@@ -459,7 +459,7 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
 
     const evidence = callEvidence(call, rs, co, symbol, dirRec);
     const signalCard = `
-        <div class="fc-card fc-signal fc-tone-${call.tone}">
+        <div class="fc-card fc-signal fc-tone-${call.tone}" data-tone="${call.tone}" data-call="${call.kind}">
             <div class="fc-signal-head">
                 <span class="fc-badge fc-badge-${call.kind.toLowerCase()}">${call.title}</span>
                 ${call.confidence != null ? `<span class="fc-signal-conf"><b>${pct(call.confidence)}</b> measured</span>` : ''}

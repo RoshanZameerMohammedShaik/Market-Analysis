@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reads from the always-on debug-capture buffer that's already
     // running by the time we get here (loaded inline in <head>).
     initDebugPanel();
-    // General UI sound layer, delegated hover/click/tab cues across the app.
+    // General UI sound layer: tab and toggle ticks (never hover) across the app.
     // Shares Mia's mute + speaking gate; success/error fire from notify.js.
     initUiSound();
     // Background pre-warm of the user's watchlist. Runs after a short

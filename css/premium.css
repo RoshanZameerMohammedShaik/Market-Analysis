@@ -226,7 +226,7 @@ summary:focus-visible {
     overflow: hidden;
 }
 .hot-pick-card:hover {
-    transform: translateY(-4px) scale(1.012);
+    transform: translateY(-3px);   /* a plain lift, no zoom (Roshan 2026-10-14) */
     box-shadow: var(--shadow-card-hover), var(--glow-accent) !important;
 }
 .hot-pick-card:active { transform: translateY(-1px) scale(0.998); }

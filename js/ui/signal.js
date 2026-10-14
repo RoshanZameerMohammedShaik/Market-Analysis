@@ -507,8 +507,10 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const secondary = [...section.querySelectorAll('.price-targets, .trust-panel, .insight-summary, .attribution-section, .technical-section')];
         if (secondary.length) revealStagger(secondary, { y: 12, duration: 0.45, stagger: 0.07, delay: 0.30 });
     }
-    // "Signal landed" chord, distinct per direction, once per analysis.
-    signalLanded(signal);
+    // "The analysis landed" chime, shaped by the call the card shows (rising, falling or one soft
+    // note when nothing is measured), once per symbol and call.
+    const callEl = section.querySelector('.fc-signal');
+    signalLanded(callEl?.dataset.tone || 'flat', `${state.currentSymbol || ''}|${callEl?.dataset.call || ''}`);
 
     // The radial dial owns the confidence readout now. Sweep the arc +
     // count up the number on every render (also covers re-runs where the

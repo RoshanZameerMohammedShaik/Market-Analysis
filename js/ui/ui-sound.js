@@ -1,40 +1,33 @@
-// General UI sound layer, soft synthesized cues across the whole app
-// (hover, click/tap, tab switch, panel open/close, toggle, success, error).
+// The app's interface sounds, played through the shared engine (js/ui/sound-engine.js).
 //
-// Built entirely with the Web Audio API: every sound is oscillators +
-// envelopes through a low-pass filter, so it stays free, dependency-free, and
-// in keeping with the dynamic-only rule (nothing pre-recorded shipped). The
-// character matches Mia's "soft organic bubble" palette (js/mia/sound.js) so
-// the app has ONE coherent sonic identity, these are just the non-voice,
-// interaction-driven counterparts.
+// WHEN A SOUND PLAYS (2026-10-14, Roshan: "make all sounds sound premium and make sense where and
+// when they sound", and "remove sounds that sound when hovering"):
 //
-// HARD GATES (all must pass for any sound to play):
-//   1. uiSoundEnabled (settings, default ON, persisted), the mute.
-//   2. NOT Mia-speaking, shares mia/sound.js's speaking gate via
-//      isMiaSpeaking(), so UI cues never talk over her voice.
-//   3. prefers-reduced-motion: reduce → we honour it as "reduce non-essential
-//      feedback" and stay silent (motion-sensitive users often want quiet too).
+//   the analysis lands     one chime, shaped by the call on the card: rising for BUY or HOLD on
+//                          a measured rise, falling for SELL or a DON'T BUY on a measured fall, one
+//                          soft note when nothing is measured. Once per symbol and call.
+//   switching a tab        a tiny tactile tick, like a good keyboard.
+//   flipping a toggle      the same tick, a shade lower.
+//   a panel opens/closes   a breath of air (with a faint bell on open).
+//   success / error toast  a short bright arpeggio / a soft low pair, never harsh.
+//   a notification         one clear bell.
+//   Hot Picks finish       one quiet shimmer for the whole grid.
 //
-// Autoplay policy: the AudioContext can't start until a user gesture. Every
-// trigger here is gesture-driven (click/tap/hover-after-interaction), so
-// ensure() lazily creates + resumes the context on first real use.
+// Never: hovering anything, pressing an ordinary button or row, every card arriving.
 //
-// Volume is intentionally very low and cues are very short, ambient texture,
-// never a soundboard. Hover is throttled so sweeping the mouse doesn't machine-gun.
+// HARD GATES (every one must pass): the user's sound settings, Mia not speaking (her voice is
+// never talked over), prefers-reduced-motion not set, and the tab visible (a background poll
+// once played sounds into an idle tab).
 
 import { loadSettings, saveSettings } from '../mia/settings.js';
 import { isMiaSpeaking } from '../mia/sound.js';
+import { audio, now, bell, pluck, tap, air, NOTE } from './sound-engine.js';
 
-let ctx = null;
-let masterGain = null;
-const MASTER_VOLUME = 0.32;   // bumped from 0.14, cues were too quiet to hear
-
-// ── enable/mute (persisted, per-category) ────────────────────────────────
-// Categories: 'click' | 'hover' | 'notify'. Each maps to a settings flag.
-// The master `soundAllOff` silences every synthesized cue (UI + Mia actions)
-// except Mia's voice. `uiSoundEnabled` (legacy) is honoured as an extra gate
-// so an old "UI sounds off" state keeps working.
-const CATEGORY_FLAG = { click: 'soundClick', hover: 'soundHover', notify: 'soundNotify' };
+// ── enable/mute (persisted, per category) ─────────────────────────────────
+// Categories: 'click' (tabs, toggles) and 'notify' (chimes, toasts). `soundAllOff` silences every
+// synthesized cue (UI and Mia's actions) but never Mia's voice. `uiSoundEnabled` (legacy) still
+// works as an extra off switch.
+const CATEGORY_FLAG = { click: 'soundClick', notify: 'soundNotify' };
 
 export function isUiSoundEnabled() {
     const s = loadSettings();
@@ -42,289 +35,160 @@ export function isUiSoundEnabled() {
 }
 function categoryEnabled(category) {
     const s = loadSettings();
-    if (s.soundAllOff === true) return false;
-    if (s.uiSoundEnabled === false) return false;
+    if (s.soundAllOff === true || s.uiSoundEnabled === false) return false;
     const flag = CATEGORY_FLAG[category];
-    return !flag || s[flag] !== false;   // default ON per category
+    return !flag || s[flag] !== false;
 }
-
 export function setUiSoundEnabled(on) {
     saveSettings({ uiSoundEnabled: !!on });
-    applyMasterGain();
     return on;
 }
-
-// Per-category getters/setters for the Settings → Sounds submenu.
 export function getSoundSettings() {
     const s = loadSettings();
     return {
         click: s.soundClick !== false,
-        hover: s.soundHover !== false,
         notify: s.soundNotify !== false,
-        miaActions: s.soundEnabled !== false,   // Mia's action sounds (mia/sound.js reads this)
+        miaActions: s.soundEnabled !== false,
         allOff: s.soundAllOff === true,
     };
 }
 export function setSoundCategory(category, on) {
-    const key = { click: 'soundClick', hover: 'soundHover', notify: 'soundNotify' }[category];
-    if (!key) return;
-    saveSettings({ [key]: !!on });
-    applyMasterGain();
+    const key = CATEGORY_FLAG[category];
+    if (key) saveSettings({ [key]: !!on });
 }
 export function setSoundAllOff(off) {
     saveSettings({ soundAllOff: !!off });
-    applyMasterGain();
     return off;
 }
-function applyMasterGain() {
-    if (!masterGain || !ctx) return;
-    const on = isUiSoundEnabled();
-    try { masterGain.gain.setValueAtTime(on ? MASTER_VOLUME : 0, ctx.currentTime); } catch (_) {}
-}
-
-// ── audio graph ───────────────────────────────────────────────────────────
 
 function prefersReducedMotion() {
-    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
-    catch (_) { return false; }
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (_) { return false; }
 }
 
-function ensure() {
-    if (!isUiSoundEnabled()) return false;
-    if (!ctx) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return false;
-        try {
-            ctx = new AC();
-            masterGain = ctx.createGain();
-            masterGain.gain.value = MASTER_VOLUME;
-            masterGain.connect(ctx.destination);
-        } catch (_) { ctx = null; return false; }
-    }
-    if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
-    return true;
-}
-
-// `category` is 'click' | 'hover' | 'notify' (defaults to 'click'). The cue
-// only plays if that category is enabled, Mia isn't speaking, motion isn't
-// reduced, the TAB IS VISIBLE, and the audio context is live. The
-// document.hidden gate stops background cues, the watchlist poller fires
-// notify() on signal flips every few minutes, which was playing sound while
-// the app sat in the background (the "random sound" the user heard).
 function canEmit(category = 'click') {
     if (typeof document !== 'undefined' && document.hidden) return false;
-    return categoryEnabled(category) && !isMiaSpeaking() && !prefersReducedMotion() && ensure();
+    if (!categoryEnabled(category) || isMiaSpeaking() || prefersReducedMotion()) return false;
+    return !!audio();
 }
 
-// One soft blip: sine through a low-pass on a quick rounded envelope.
-function blip(freq, t0, peak = 0.5, dur = 0.12, glideTo = null) {
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, t0);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(60, glideTo || freq * 0.9), t0 + dur);
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(Math.min(2400, freq * 3), t0);
-    lp.Q.value = 0.5;
-
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-
-    osc.connect(lp); lp.connect(g); g.connect(masterGain);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.02);
-}
-
-function now() { return ctx ? ctx.currentTime : 0; }
-
-// ── public triggers ─────────────────────────────────────────────────────
+// ── cues ──────────────────────────────────────────────────────────────────
 // Each is a no-op when gated, so call sites never need to guard.
 
-// Featherweight hover tick, throttled so a mouse sweep doesn't stutter.
-let _lastHover = 0;
-export function hover() {
-    if (!canEmit('hover')) return;
-    const t = (ctx.currentTime * 1000);
-    if (t - _lastHover < 60) return;   // throttle: max ~16/s
-    _lastHover = t;
-    blip(720 + Math.random() * 40, now() + 0.001, 0.16, 0.07);
-}
+/** Hover is silent, always. Kept so old imports keep working. */
+export function hover() {}
 
-// Click / tap, a deliberate two-layer "tock": a low thud + a short mid body,
-// distinctly weightier and LOWER than the light, airy hover tick (720Hz) so
-// press vs. hover are unmistakable across the app.
+/** A deliberate press where one is wanted (the sound settings use it to confirm). */
 export function click() {
     if (!canEmit()) return;
-    const t = now() + 0.001;
-    blip(190 + Math.random() * 16, t, 0.40, 0.13, 150);   // low thud, glides down
-    blip(430 + Math.random() * 30, t, 0.30, 0.09);        // crisp mid body
+    tap(now(), { gain: 0.15, freq: 2400 });
 }
 
-// Brighter two-note rise for a tab / view switch.
+/** Switching a tab or a filter. */
 export function tab() {
     if (!canEmit()) return;
-    const t = now() + 0.001;
-    blip(480, t, 0.34, 0.10);
-    blip(680, t + 0.06, 0.34, 0.12);
+    tap(now(), { gain: 0.14, freq: 3000, body: 170 });
 }
 
-// Panel / drawer open, gentle upward swell.
-export function open() {
-    if (!canEmit()) return;
-    const t = now() + 0.001;
-    blip(380, t, 0.30, 0.14, 600);
-    blip(560, t + 0.07, 0.30, 0.16, 760);
-}
-
-// Panel / drawer close, gentle downward settle.
-export function close() {
-    if (!canEmit()) return;
-    const t = now() + 0.001;
-    blip(560, t, 0.28, 0.14, 420);
-    blip(360, t + 0.07, 0.26, 0.16, 280);
-}
-
-// Toggle flip, single crisp mid tick.
+/** Flipping a toggle. */
 export function toggle() {
     if (!canEmit()) return;
-    blip(620, now() + 0.001, 0.30, 0.09);
+    tap(now(), { gain: 0.14, freq: 2000, body: 140 });
 }
 
-// Success, warm rising major third+fifth (lighter than Mia's full triad).
+/** A panel or drawer opening. */
+export function open() {
+    if (!canEmit()) return;
+    const t = now();
+    air(t, { up: true });
+    bell(NOTE.A5, t + 0.08, { gain: 0.05, dur: 0.7, index: 1.1 });
+}
+
+/** A panel or drawer closing. */
+export function close() {
+    if (!canEmit()) return;
+    air(now(), { up: false, gain: 0.04 });
+}
+
+/** Something worked: a short bright arpeggio. */
 export function success() {
     if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(523, t, 0.38, 0.14);          // C5
-    blip(659, t + 0.09, 0.38, 0.16);   // E5
-    blip(784, t + 0.18, 0.40, 0.24);   // G5
+    const t = now();
+    bell(NOTE.D5, t, { gain: 0.13, dur: 0.9 });
+    bell(NOTE.Fs5, t + 0.07, { gain: 0.12, dur: 0.95 });
+    bell(NOTE.A5, t + 0.14, { gain: 0.13, dur: 1.2 });
 }
 
-// Error, soft low minor two-tone (a gentle "nope", never harsh).
+/** Something failed: a soft low pair, never a buzzer. */
 export function error() {
     if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(330, t, 0.40, 0.18, 300);
-    blip(247, t + 0.12, 0.40, 0.24, 220);
+    const t = now();
+    pluck(NOTE.E4, t, { gain: 0.16, dur: 0.45, bright: 3 });
+    pluck(NOTE.D4, t + 0.13, { gain: 0.15, dur: 0.6, bright: 3 });
 }
 
-// ── "Signal landed", distinct chord per call direction, fired once per
-// analysis when the signal card renders. Punchier than success() so a real
-// prediction reads as more momentous than a form-validation tick.
-
-// BUY, rising A4→D5→G5, clean held tones (confident, ascending).
-export function signalLandedBuy() {
-    if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(440, t, 0.34, 0.11);
-    blip(587, t + 0.10, 0.34, 0.14);
-    blip(784, t + 0.22, 0.38, 0.18);
-}
-// SELL, descending E5→A4→E4, each sliding down (cautious, settling).
-export function signalLandedSell() {
-    if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(659, t, 0.36, 0.12, 587);
-    blip(440, t + 0.11, 0.34, 0.14, 392);
-    blip(330, t + 0.24, 0.36, 0.18, 293);
-}
-// NEUTRAL / NO_TRADE, two equal C5 tones, no pitch motion ("wait and see").
-export function signalLandedNeutral() {
-    if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(523, t, 0.26, 0.20);
-    blip(523, t + 0.08, 0.26, 0.22);
-}
-// One dispatcher so callers make a single call by signal string.
-export function signalLanded(signal) {
-    if (signal === 'BUY') signalLandedBuy();
-    else if (signal === 'SELL') signalLandedSell();
-    else signalLandedNeutral();   // NEUTRAL + NO_TRADE
-}
-
-// Featherweight "card arrived" chirp, trailing the hot-picks entrance cascade.
-// Caller passes the card index; hard-capped at the first 5 so a 100-card grid
-// never machine-guns. Pitch rises across the volley. Peak kept at 0.14 so the
-// 5-chirp volley + the success() chord can't sum to clipping at MASTER_VOLUME.
-export function cardArrival(i = 0) {
-    if (!canEmit('notify')) return;
-    if (i > 4) return;
-    blip(660 + i * 28, now() + 0.001, 0.14, 0.07);
-}
-
-// Generic notification ping, a soft two-note rise for an info-kind toast
-// (success/error have their own cues). Notify category.
+/** A notification: one clear bell. */
 export function notification() {
     if (!canEmit('notify')) return;
-    const t = now() + 0.001;
-    blip(620, t, 0.34, 0.12);
-    blip(880, t + 0.08, 0.34, 0.16);
+    const t = now();
+    bell(NOTE.B5, t, { gain: 0.14, dur: 1.4, index: 1.5 });
+    bell(NOTE.Fs5, t + 0.09, { gain: 0.07, dur: 1.1, index: 1.2 });
 }
 
-// ── delegated auto-wiring ─────────────────────────────────────────────────
-// One set of document-level listeners drives most cues from a CSS allow-list,
-// so individual modules don't each have to import and call these. Modules can
-// still call the named triggers directly for semantic events (success/error).
+// ── the analysis lands ───────────────────────────────────────────────────
+// Shaped by the call the card actually shows (js/ui/forecast-cards.js data-tone), never by the
+// engine's raw coin-flip signal, and played once per symbol and call, not on every re-render.
+let _lastLanded = '';
 
-const CLICK_SEL = '.tab-btn, .refresh-btn, .spikers-btn, .pl-btn, .penny-filter-btn, ' +
-    '.header-btn, .header-menu-item, .portfolio-launcher, .mia-launcher, .hot-pick-card, ' +
-    '.sp-bucket, .engine-signals-toggle, .watch-toggle, .scanner-row, .sector-tile, ' +
-    '.earnings-cal-row, .options-scan-row, .resources-toggle, .time-travel-btn, ' +
-    '.scanner-summary, .sector-heatmap-summary, .earnings-cal-summary, .options-scan-summary, ' +
-    '.equity-curve-summary, .accuracy-report-summary, .mia-sound-pill';
+/** tone: 'up' | 'down' | 'flat' (also accepts the old BUY / SELL / NEUTRAL strings). */
+export function signalLanded(tone, key = '') {
+    const tn = tone === 'BUY' ? 'up' : tone === 'SELL' ? 'down' : (tone === 'up' || tone === 'down') ? tone : 'flat';
+    const id = `${key}|${tn}`;
+    if (key && id === _lastLanded) return;
+    _lastLanded = id;
+    if (!canEmit('notify')) return;
+    const t = now();
+    if (tn === 'up') {
+        bell(NOTE.D5, t, { gain: 0.12, dur: 1.0 });
+        bell(NOTE.A5, t + 0.1, { gain: 0.13, dur: 1.3 });
+        bell(NOTE.D6, t + 0.2, { gain: 0.06, dur: 1.4, index: 1.2 });
+    } else if (tn === 'down') {
+        bell(NOTE.A5, t, { gain: 0.11, dur: 1.0 });
+        bell(NOTE.E5, t + 0.12, { gain: 0.12, dur: 1.3 });
+    } else {
+        pluck(NOTE.Fs5, t, { gain: 0.11, dur: 0.7, wet: 0.3 });
+    }
+}
+export function signalLandedBuy() { signalLanded('up'); }
+export function signalLandedSell() { signalLanded('down'); }
+export function signalLandedNeutral() { signalLanded('flat'); }
 
-const HOVER_SEL = '.tab-btn, .hot-pick-card, .header-btn, .penny-filter-btn, ' +
-    '.refresh-btn, .spikers-btn, .portfolio-launcher, .sp-bucket, .sector-tile, ' +
-    '.header-menu-item, .mia-sound-pill, .resources-toggle, .scanner-summary, ' +
-    '.sector-heatmap-summary, .earnings-cal-summary, .options-scan-summary, ' +
-    '.equity-curve-summary, .accuracy-report-summary';
+/** Hot Picks finished loading: one quiet shimmer for the grid, not a chirp per card. */
+export function gridReady() {
+    if (!canEmit('notify')) return;
+    const t = now();
+    bell(NOTE.Fs6, t, { gain: 0.04, dur: 0.8, index: 1.0 });
+    bell(NOTE.D6, t + 0.05, { gain: 0.045, dur: 0.9, index: 1.0 });
+    bell(NOTE.A5, t + 0.1, { gain: 0.05, dur: 1.1, index: 1.0 });
+}
+/** Old per-card chirp, retired: the first call plays the grid shimmer, the rest are silent. */
+export function cardArrival(i = 0) { if (i === 0) gridReady(); }
 
+// ── wiring ────────────────────────────────────────────────────────────────
+// Only tabs and toggles make a sound on press. Nothing makes a sound on hover.
 const TAB_SEL = '.tab-btn, .penny-filter-btn, .sp-bucket';
+const TOGGLE_SEL = '.theme-toggle, .watch-toggle, [role="switch"]';
 
 let _wired = false;
 export function initUiSound() {
     if (_wired) return;
     _wired = true;
-
-    // Pre-warm the AudioContext on the VERY FIRST user gesture anywhere, so it's
-    // already 'running' by the time the user clicks a button. Without this, the
-    // first click(s) pay the context-resume latency and the sound lands late, // the "delay between click and sound" the user noticed. ensure() creates +
-    // resumes; we just call it early on the first pointerdown (capture phase, so
-    // it runs before the click cue below). One-shot via { once: true }.
-    document.addEventListener('pointerdown', () => { try { ensure(); } catch (_) {} },
+    // Warm the context on the first gesture anywhere, so the first real cue is not late.
+    document.addEventListener('pointerdown', () => { try { if (isUiSoundEnabled()) audio(); } catch (_) {} },
         { passive: true, capture: true, once: true });
-
     document.addEventListener('pointerdown', (e) => {
-        const el = e.target instanceof Element ? e.target.closest(CLICK_SEL) : null;
+        const el = e.target instanceof Element ? e.target : null;
         if (!el) return;
-        // Tab-like controls get the brighter rising cue; everything else the
-        // soft click. Keeps switching views feeling distinct from pressing.
         if (el.closest(TAB_SEL)) tab();
-        else click();
+        else if (el.closest(TOGGLE_SEL)) toggle();
     }, { passive: true, capture: true });
-
-    // Hover cue. ONCE per item entered, not per descendant. pointerover
-    // bubbles from every child node, so naively calling hover() on each event
-    // machine-guns ("tup tup tup") as the cursor crosses a card's inner
-    // elements. We track the allow-list element the pointer is currently
-    // "inside" and only fire when it CHANGES, true pointerenter semantics via
-    // delegation (one cue per card/button, regardless of how many children it
-    // has). Cleared on pointerout when leaving the element entirely.
-    let _hoveredItem = null;
-    document.addEventListener('pointerover', (e) => {
-        const el = e.target instanceof Element ? e.target.closest(HOVER_SEL) : null;
-        if (el === _hoveredItem) return;   // still inside the same item → silent
-        _hoveredItem = el;
-        if (el) hover();                   // newly entered a different item → one cue
-    }, { passive: true });
-    document.addEventListener('pointerout', (e) => {
-        // When the pointer truly leaves the current item (relatedTarget is
-        // outside it), drop the reference so re-entering fires a fresh cue.
-        if (!_hoveredItem) return;
-        const to = e.relatedTarget;
-        if (!to || !(to instanceof Node) || !_hoveredItem.contains(to)) _hoveredItem = null;
-    }, { passive: true });
 }

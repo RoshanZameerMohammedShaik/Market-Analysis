@@ -54,8 +54,10 @@ export function initTilt3d() {
   // NOTE: .signal-box (the main analysis card) is intentionally NOT a tilt
   // stage, cursor-tilt on that large card read as cheap/distracting, so it's
   // removed. It keeps its static resting depth + GSAP entrance, just no tilt.
+  // Hot Picks cards are NOT a stage either (Roshan, 2026-10-14: "I don't like the way it does a
+  // sort of 3d zoom for the cards in the hot picks"). They keep the plain lift on hover from
+  // components.css, nothing rotates or zooms toward the cursor.
   const STAGES = [
-    { root: '#hotpicks-grid', card: '.hot-pick-card', spec: true },
     { root: 'document', card: '.spikers-card', spec: true },
     { root: 'document', card: '.kbd-help-card', spec: true },
   ];

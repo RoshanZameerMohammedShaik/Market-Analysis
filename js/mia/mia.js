@@ -774,9 +774,8 @@ function renderSoundsSection() {
             <div class="mia-sounds-title">🔊 Sounds</div>
             ${pill('snd-alloff', 'Turn off all sounds', !off, false)}
             <div class="mia-sounds-grid" data-dimmed="${off ? '1' : '0'}">
-                ${pill('snd-click', 'Clicking', snd.click, off)}
-                ${pill('snd-hover', 'Hovering', snd.hover, off)}
-                ${pill('snd-notify', 'Notifications', snd.notify, off)}
+                ${pill('snd-click', 'Tabs and toggles', snd.click, off)}
+                ${pill('snd-notify', 'Results and notifications', snd.notify, off)}
                 ${pill('snd-mia', "Mia's action sounds", snd.miaActions, off)}
             </div>
             <p class="mia-help">“Turn off all sounds” silences everything above (and Mia’s action sounds), but never Mia’s voice / spoken responses.</p>
@@ -803,13 +802,12 @@ function wireSoundsSection(rerender) {
             } else {
                 const next = !snd[cat];
                 setSoundCategory(cat, next);
-                if (next) { try { cat === 'notify' ? uiNotification() : cat === 'hover' ? uiClick() : uiClick(); } catch (_) {} }
+                if (next) { try { cat === 'notify' ? uiNotification() : uiClick(); } catch (_) {} }
             }
             rerender();
         });
     };
     bindCat('snd-click', 'click');
-    bindCat('snd-hover', 'hover');
     bindCat('snd-notify', 'notify');
     bindCat('snd-mia', 'mia');
 }

@@ -39,8 +39,7 @@ const DEFAULT = {
     // current model and supersede it for the new Sounds settings submenu.
     uiSoundEnabled: true,
     // ── Per-category sound toggles (Settings → Sounds) ────────────────────
-    soundClick: true,        // click / tap / tab-switch / panel open-close cues
-    soundHover: true,        // hover ticks
+    soundClick: true,        // tab-switch / toggle / panel open-close cues (hover is always silent)
     soundNotify: true,       // notification + signal-landed + success/error cues
     // soundEnabled (above) = Mia's ACTION sounds (thinking loop, tool ticks), // NOT her voice/responses, which are never gated by sound settings.
     // Master kill: when true, ALL synthesized sounds are silenced (UI cues AND
