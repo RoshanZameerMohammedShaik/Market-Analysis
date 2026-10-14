@@ -75,7 +75,15 @@ function domainOf(url) {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch (_) { return ''; }
 }
 
+/** A paragraph the source cut off mid-word ends at its last whole word, with an ellipsis. */
+function tidyEnd(p) {
+    if (/[.!?…]["')\]]?$/.test(p)) return p;
+    const cut = p.replace(/\s+\S*$/, '');
+    return `${cut.length > 20 ? cut : p}…`;
+}
+
 function leadHtml(paras, domain, href, preview = false) {
+    if (paras.length) paras = [...paras.slice(0, -1), tidyEnd(paras[paras.length - 1])];
     return `
         <div class="news-lead-label">From the article${domain ? `, ${escapeHtml(domain)}` : ''}${preview ? ' · only its opening is readable outside the source' : ''}</div>
         ${paras.map(p => `<p>${escapeHtml(p)}</p>`).join('')}
