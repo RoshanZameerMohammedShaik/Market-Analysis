@@ -83,11 +83,10 @@ export async function loadHotPicks(onPick) {
     const title = document.getElementById('hotpicks-title');
     const tfLabel = state.timeframe === 'today' ? 'Today' : 'Tomorrow';
     const modeLabel = state.mode === 'stock' ? 'Stocks' : 'Crypto';
-    // "Top Stocks for Today" promised a ranking of winners. These are the engine's BUY calls, and
-    // its calls are right about half the time (the confidence on each card says exactly how often),
-    // so the title says what the list is rather than what it hopes to be.
-    const kind = state.mode === 'stock' ? 'Stock' : 'Crypto';
-    if (title) title.textContent = `🔥 Hot Picks: ${tfLabel === 'Today' ? "Today's" : "Tomorrow's"} ${kind} Buy Signals`;
+    // The title says what the list is: measured buys first (a pullback setup live, or today's open
+    // its entry), then the day's biggest movers, each with the call its own card shows.
+    const kind = state.mode === 'stock' ? 'stock' : 'crypto';
+    if (title) title.textContent = `🔥 Hot Picks: measured buys first, then ${tfLabel === 'Today' ? "today's" : "the latest"} biggest ${kind} movers`;
 
     grid.innerHTML = `
         <div class="hp-skel-grid" style="grid-column: 1/-1;">
@@ -136,11 +135,11 @@ export async function loadHotPicks(onPick) {
         const filtered = applyPennyFilter(picks);
 
         if (filtered.length === 0) {
-            // Hot Picks is BUY-only now. Empty means the engine read every
-            // symbol it scanned as DON'T BUY / AVOID / SELL, no buy at all.
+            // Empty only when the scan itself came back empty (or nothing is under a penny filter):
+            // the list is measured buys first, then the day's movers, so it is not BUY-only.
             grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;">
                 <div class="empty-state-icon">📊</div>
-                <p>No buy setups ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}right now, nothing the engine scanned came back as a BUY with at least a coin-flip track record. Sit it out, or check back later.</p>
+                <p>Nothing ${pennyFilter ? `under ${labelFor(pennyFilter)} ` : ''}came back from the scan right now. Try another filter, or refresh in a minute.</p>
             </div>`;
             return;
         }
@@ -161,19 +160,17 @@ export async function loadHotPicks(onPick) {
 
 function renderCards(grid, picks, withFooter) {
     const cardsHtml = picks.map(pick => {
-        // HOLD is reserved for owned-position framing (see prompt rules).
-        // Hot Picks shows BUY for engine BUYs, "DON'T BUY" for NEUTRAL,
-        // SELL for SELL, AVOID for NO_TRADE, same vocabulary as the
-        // main signal card and watchlist.
-        const isBuy = pick.signal === 'BUY';
-        const isSell = pick.signal === 'SELL';
-        const isAvoid = pick.signal === 'NO_TRADE';
-        const arrow = isBuy ? '▲' : isSell ? '▼' : '◆';
-        const signalClass = isBuy ? 'buy' : isSell ? 'sell' : 'neutral';
-        const signalLabel = isBuy ? 'BUY'
-            : isSell ? 'SELL'
-            : isAvoid ? 'AVOID'
-            : "DON'T BUY";
+        // The call the symbol's own card shows (js/hotpicks.js pick.call, from cardCallFor), with
+        // its measured rate when it has one. Never the engine's plain up/down call and its
+        // coin-flip percentage (Roshan, 2026-10-14: "card's call everywhere").
+        const call = pick.call || null;
+        const tone = call ? call.tone : 'flat';
+        const arrow = tone === 'up' ? '▲' : tone === 'down' ? '▼' : '◆';
+        const signalClass = tone === 'up' ? 'buy' : tone === 'down' ? 'sell' : 'neutral';
+        const signalLabel = call ? call.title : "DON'T BUY";
+        const confPct = call && call.confidence != null ? Math.round(call.confidence * 100) : null;
+        const moved = Number.isFinite(pick.change) && Math.abs(pick.change) >= 0.05
+            ? `<div class="hot-pick-move ${pick.change >= 0 ? 'up' : 'down'}">${pick.change >= 0 ? '▲' : '▼'} ${Math.abs(pick.change).toFixed(1)}% today</div>` : '';
         const sparkData = pick._sparkline && pick._sparkline.length > 1 ? pick._sparkline : null;
         const sparkSvg = sparkData ? sparkline(sparkData) : '<div class="spark-placeholder"></div>';
         // Seed attribute for live-ticking sparklines (crypto only). The
@@ -199,17 +196,18 @@ function renderCards(grid, picks, withFooter) {
         const lowHTML = (pick.expectedLow != null && Number.isFinite(pick.expectedLow))
             ? `<div class="hot-pick-target hot-pick-target-low"><span class="hot-pick-target-label">Range Low (80%)</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.expectedLow, co)}${pctTag(pctFrom(pick.expectedLow))}</span></div>`
             : '';
-        // What the percentage IS: the live hit rate of calls like this one.
-        const confTitle = Number.isFinite(pick.confidence)
-            ? `Calls like this one have been right ${pick.confidence}% of the time on this engine's live record.`
-            : 'Engine confidence (calibrated)';
+        // What the percentage IS: the measured record of the pattern behind the call.
+        const confTitle = call?.line || 'No pattern with a measured record points either way today.';
         return `
         <div class="hot-pick-card ${signalClass}" data-symbol="${escapeHtml(pick.symbol)}" data-id="${escapeHtml(pick.id || pick.symbol)}" data-flip-id="${escapeHtml(pick.symbol)}"${sparkSeed}>
             <div class="hot-pick-symbol">${escapeHtml(displayTicker(pick.symbol))}</div>
             <div class="hot-pick-name">${escapeHtml(pick.name)}</div>
             <div class="hot-pick-spark">${sparkSvg}</div>
             <div class="hot-pick-signal-badge ${signalClass}">${signalLabel}</div>
-            <div class="hot-pick-confidence ${signalClass}" title="${escapeHtml(confTitle)}"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${pick.confidence}">${pick.confidence}</span>% Confidence</div>
+            ${confPct != null
+                ? `<div class="hot-pick-confidence ${signalClass}" title="${escapeHtml(confTitle)}"><span class="hot-pick-arrow">${arrow}</span> <span class="hot-pick-conf-num" data-conf-target="${confPct}">${confPct}</span>% measured</div>`
+                : `<div class="hot-pick-confidence neutral" title="${escapeHtml(confTitle)}">No measured edge</div>`}
+            ${moved}
             ${highHTML}
             ${lowHTML}
             <div class="hot-pick-price hot-pick-current-price"><span class="hot-pick-target-label">Current Price</span> <span class="hot-pick-target-value">${fmtPriceTag(pick.price, co)}</span></div>

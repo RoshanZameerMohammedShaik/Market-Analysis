@@ -20,6 +20,7 @@ import { getEarningsProximity } from '../earnings.js';
 import { getSectorMappedSymbols } from '../sectors.js';
 import { analyzeAndCache } from '../analysis-cache.js';
 import { displayTicker } from './exchanges.js';
+import { cardCallFor, ownedLookup, loadGapRecord, callBadge } from './forecast-cards.js';
 
 let loaded = false;
 let loading = false;
@@ -27,12 +28,6 @@ const DEFAULT_WINDOW_DAYS = 14;
 const MAX_ROWS = 30;          // cap engine reads so the scan stays quick
 const PROX_CONCURRENCY = 6;   // parallel earnings-date lookups
 
-function sigLabel(sig) {
-    return sig === 'NO_TRADE' ? 'AVOID'
-        : sig === 'NEUTRAL' ? "DON'T BUY"
-        : sig || '';
-}
-function sigClass(sig) { return (sig || 'neutral').toLowerCase(); }
 
 function whenLabel(days) {
     if (days <= 0) return 'today';
@@ -79,14 +74,19 @@ async function gather(windowDays) {
         .sort((a, b) => a.daysUntil - b.daysUntil)
         .slice(0, MAX_ROWS);
     if (!upcoming.length) return [];
-    // 3. Engine read for each (bulkScan: fast, approximate, fine for a
-    //    list view; the click-through gives the full-fidelity card).
+    // 3. The call each stock's card shows (cardCallFor), not the engine's plain up/down call: that
+    //    one read "DON'T BUY 56%" on nearly every row and contradicted the cards (ASML was a BUY
+    //    on its own card, a pullback setup with today's open as its entry). bulkScan is still fine
+    //    here: the setup and the band come from the same year of bars either way.
+    const [gapRec, owned] = await Promise.all([loadGapRecord().catch(() => null), ownedLookup()]);
     const withSignal = await mapLimit(upcoming, 4, async (row) => {
         try {
             const entry = await analyzeAndCache(row.sym, 'today', 'stock', null, { bulkScan: true });
-            return { ...row, signal: entry.signal.signal, confidence: entry.signal.confidence };
+            const call = cardCallFor(entry.signal, { region: 'NYSE', owned: owned(row.sym), gapRec,
+                                                     candles: entry?.data?.daily?.candles || null });
+            return { ...row, call, signal: call?.kind || null, confidence: call?.confidence ?? null };
         } catch (_) {
-            return { ...row, signal: null, confidence: null };
+            return { ...row, call: null, signal: null, confidence: null };
         }
     });
     return withSignal;
@@ -104,8 +104,8 @@ function renderRows(rows) {
         <div class="earnings-cal-row" data-symbol="${r.sym}">
             <span class="earnings-cal-when ${whenClass(r.daysUntil)}">${whenLabel(r.daysUntil)}</span>
             <span><span class="earnings-cal-sym">${displayTicker(r.sym)}</span></span>
-            ${r.signal ? `<span class="earnings-cal-sig ${sigClass(r.signal)}">${sigLabel(r.signal)}</span>` : '<span class="earnings-cal-sig neutral">-</span>'}
-            <span class="earnings-cal-conf">${r.confidence != null ? r.confidence + '%' : ''}</span>
+            <span class="earnings-cal-sig">${callBadge(r.call ? { ...r.call, confidence: null } : null, { compact: true })}</span>
+            <span class="earnings-cal-conf" title="${r.confidence != null ? 'The measured record of the pattern behind this call' : 'No pattern with a measured record points either way'}">${r.confidence != null ? Math.round(r.confidence * 100) + '% measured' : ''}</span>
         </div>`).join('')}</div>`;
 }
 
@@ -157,7 +157,7 @@ export function initEarningsCalendar() {
             <details class="earnings-cal-details">
                 <summary class="earnings-cal-summary">
                     <span class="earnings-cal-title">📅 Upcoming Earnings</span>
-                    <span class="earnings-cal-hint">Large-cap earnings in the next 2 weeks, with the engine's pre-earnings read</span>
+                    <span class="earnings-cal-hint">Large-cap earnings in the next 2 weeks, with the call each stock's card shows</span>
                     <button class="earnings-cal-refresh" id="earnings-cal-refresh" title="Refresh earnings calendar">↻</button>
                 </summary>
                 <div class="earnings-cal-host" id="earnings-cal-host"></div>

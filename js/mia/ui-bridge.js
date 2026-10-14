@@ -19,7 +19,7 @@ import { searchStocks, searchCrypto } from '../data.js';
 import { getCalibrationStatus, getCalibrationCurve, getCalibrationByTier, getCalibrationByVolTier, getCalibrationRecency } from '../calibration.js';
 import { getStats, getSourceAccuracy } from '../outcome-tracker.js';
 import { setPennyFilter } from '../ui/hotpicks.js';
-import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
+import { loadBigMoves, bucketFor } from '../big-moves.js';
 import { scanStockHotPicks, scanCryptoHotPicks } from '../hotpicks.js';
 import { clearHistory as clearMiaHistory } from './memory.js';
 import { announce, pulseElementById, typeIntoInput, pressButton, sleep, showAgentToast } from './agent-pulse.js';
@@ -416,24 +416,24 @@ export function readAccuracyStats() {
     return getStats();
 }
 
-export async function findSpikersDirect({ bucket = 'gte10', limit = 10 } = {}) {
-    const b = bucketById(bucket);
-    if (!b) throw new Error(`unknown bucket: ${bucket}. Use one of: ${BUCKETS.map(x => x.id).join(', ')}`);
-    const scan = state.mode === 'crypto' ? scanCryptoHotPicks : scanStockHotPicks;
-    const picks = await scan(state.timeframe, 50, () => {});
-    const candidates = picks.map(p => ({ symbol: p.symbol, id: p.id, name: p.name, price: p.price, candles: null }));
-    const results = await findSpikers(candidates, b, () => {}, { mode: state.mode });
-    const lim = Math.max(1, Math.min(20, Number(limit) || 10));
+export async function findSpikersDirect({ earnings = 'any', limit = 10 } = {}) {
+    // The same measured odds the Spikers panel shows (js/big-moves.js): the chance of a move at least
+    // twice the stock's normal day, either way, next session. Direction is not predicted.
+    const d = await loadBigMoves();
+    if (!d) return { available: false, reason: 'no big-move odds are published right now' };
+    const lim = Math.max(1, Math.min(25, Number(limit) || 10));
+    const rows = d.rows.filter(r => earnings === 'only' ? r.earnings : earnings === 'exclude' ? (r.earningsKnown && !r.earnings) : true);
     return {
-        bucket: b.id,
-        bucketLabel: b.label,
-        mode: state.mode,
-        count: results.length,
-        candidates: results.slice(0, lim).map(r => ({
-            symbol: r.symbol, name: r.name, currentPrice: r.price,
-            targetPrice: r.targetPrice, projectedPct: r.projectedPct,
-            confidence: r.confidence, calibrated: r.calibrated, reason: r.reason,
-        })),
+        available: true,
+        question: 'chance of a move of at least twice the normal day, up or down, in the session named below',
+        session: d.session, publishedAfterClose: d.madeAfter,
+        record: d.backtest ? { forecasts: d.backtest.forecasts, auc: d.backtest.auc, ordinaryDayRate: d.backtest.baseRate,
+                               topTenthRate: d.backtest.top10pctRate, earningsNextRate: d.backtest.earningsNextRate } : null,
+        candidates: rows.slice(0, lim).map(r => {
+            const b = bucketFor(d.buckets, r.p);
+            return { symbol: r.symbol, chance: r.p, moveAtLeastPct: +(r.move * 100).toFixed(2), earningsDue: r.earnings,
+                     heldOutRateAtTheseOdds: b ? b.actual : null };
+        }),
     };
 }
 

@@ -1,13 +1,19 @@
-// Spikers UI, button on hot-picks header (Today only), bucket selector,
-// results modal, calls into js/spike-detector.js. Caches results for 5 min.
+// Spikers: the stocks most likely to make a big move in the next session, by MEASURED odds.
+//
+// Rebuilt 2026-10-14 (Roshan: "card's call everywhere"). It ranked a live screen by the engine's
+// direction call and showed an up target with a coin-flip confidence, "DOCN ▲ $127.48 (+15%) ·
+// 49% conf ✓", none of it measured. Now each row is the published chance of a move at least twice
+// the stock's normal day, either way (js/big-moves.js), with the record behind that number.
+// Direction is not predicted: nothing measured predicts it.
 
 import { state } from './state.js';
-import { findSpikers, BUCKETS, bucketById } from '../spike-detector.js';
-import { fmtPriceTag } from './format.js';
+import { loadBigMoves, bucketFor } from '../big-moves.js';
 import { displayTicker } from './exchanges.js';
+import { escapeHtml } from './escape.js';
 
-let cache = null; // { mode, ts, scoredAll: [...] } across buckets when feasible
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const LIMIT = 25;
+const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
+const day = (iso) => (iso ? new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');
 
 export function initSpikers({ onPickSymbol }) {
     syncVisibility();
@@ -28,8 +34,7 @@ function syncVisibility() {
 }
 
 function openModal(onPickSymbol) {
-    const existing = document.getElementById('spikers-modal');
-    if (existing) existing.remove();
+    document.getElementById('spikers-modal')?.remove();
     const el = document.createElement('div');
     el.id = 'spikers-modal';
     el.className = 'spikers-overlay';
@@ -39,27 +44,35 @@ function openModal(onPickSymbol) {
                 <div class="spikers-title">🚀 Spikers</div>
                 <button class="spikers-close" id="sp-close" aria-label="Close">✕</button>
             </div>
-            <div class="spikers-intro">
-                Candidates the engine thinks have <strong>above-baseline probability</strong> of moving by the chosen amount <strong>today</strong>.
-                Most won't hit, treat this as a watchlist, not a prediction. ATR-feasibility filtered, earnings-imminent skipped.
-            </div>
+            <div class="spikers-intro" id="sp-intro">Loading the published odds…</div>
             <div class="spikers-buckets">
-                ${BUCKETS.map(b => `<button class="sp-bucket" data-bucket="${b.id}">${b.label}</button>`).join('')}
+                <button class="sp-bucket active" data-filter="all">All</button>
+                <button class="sp-bucket" data-filter="no-earnings">No earnings due</button>
+                <button class="sp-bucket" data-filter="earnings">Earnings due</button>
             </div>
-            <div class="spikers-body" id="sp-body">
-                <div class="sp-empty">Pick a percentage above to scan.</div>
-            </div>
+            <div class="spikers-body" id="sp-body"><div class="sp-loading"><div class="loader"></div></div></div>
         </div>`;
     document.body.appendChild(el);
     el.addEventListener('click', e => { if (e.target === el) el.remove(); });
     document.getElementById('sp-close').addEventListener('click', () => el.remove());
-    el.querySelectorAll('.sp-bucket').forEach(b => b.addEventListener('click', async () => {
+    document.addEventListener('keydown', escClose);
+    let data = null;
+    const show = (filter) => {
+        if (data) render(data, filter, onPickSymbol);
+    };
+    el.querySelectorAll('.sp-bucket').forEach(b => b.addEventListener('click', () => {
         el.querySelectorAll('.sp-bucket').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
-        const bucket = bucketById(b.dataset.bucket);
-        await runScan(bucket, onPickSymbol);
+        show(b.dataset.filter);
     }));
-    document.addEventListener('keydown', escClose);
+    loadBigMoves().then((d) => {
+        data = d;
+        intro(d);
+        show('all');
+    }).catch(() => {
+        const body = document.getElementById('sp-body');
+        if (body) body.innerHTML = '<div class="sp-error">The big-move odds could not be loaded.</div>';
+    });
 }
 
 function escClose(e) {
@@ -69,73 +82,57 @@ function escClose(e) {
     }
 }
 
-async function buildCandidates() {
-    if (state.mode === 'stock') {
-        const { scanStockHotPicks } = await import('../hotpicks.js');
-        const picks = await scanStockHotPicks(state.timeframe, 50, () => {});
-        // Use picks as the candidate pool (already a wide live screener cast).
-        return picks.map(p => ({ symbol: p.symbol, name: p.name, price: p.price, candles: null }));
-    } else {
-        const { scanCryptoHotPicks } = await import('../hotpicks.js');
-        const picks = await scanCryptoHotPicks(state.timeframe, 50, () => {});
-        return picks.map(p => ({ symbol: p.symbol, id: p.id, name: p.name, price: p.price, candles: null }));
+function intro(d) {
+    const box = document.getElementById('sp-intro');
+    if (!box) return;
+    if (!d || !d.rows.length) {
+        box.textContent = 'No big-move odds are published right now. They come out with the nightly run.';
+        return;
     }
+    const wf = d.backtest;
+    const crypto = state.mode === 'crypto' ? ' Measured for liquid US stocks only, so no crypto is listed.' : '';
+    const record = wf ? ` On ${wf.forecasts.toLocaleString()} forecasts the model never trained on, a move like that happened
+        ${pct(wf.baseRate, 1)} of the time on an ordinary day, ${pct(wf.top10pctRate)} for the tenth of stocks it rated highest, and
+        ${pct(wf.earningsNextRate)} when earnings were due (ranking quality: AUC ${wf.auc.toFixed(2)}, where 0.5 is a coin flip).` : '';
+    const live = d.live?.n
+        ? ` Live since ${day(d.liveSince)}: ${d.live.n.toLocaleString()} graded, ${pct(d.live.spiked / d.live.n)} made the move against ${pct(d.live.predicted / d.live.n)} expected.`
+        : (d.pending ? ` Live grading started ${day(d.liveSince)}: ${d.pending.toLocaleString()} forecasts are waiting for their session to close.` : '');
+    box.innerHTML = `The chance each stock moves <strong>at least twice its normal day</strong>, up or down, on
+        <strong>${escapeHtml(day(d.session))}</strong> (published after the ${escapeHtml(day(d.madeAfter))} close).
+        It says how big, not which way: no measured signal says which way.${record}${live}${crypto}`;
 }
 
-async function runScan(bucket, onPickSymbol) {
+function render(d, filter, onPickSymbol) {
     const body = document.getElementById('sp-body');
     if (!body) return;
-    body.innerHTML = `<div class="sp-loading"><div class="loader"></div><div class="sp-progress" id="sp-progress">Initializing…</div></div>`;
-    const onProgress = msg => { const el = document.getElementById('sp-progress'); if (el) el.textContent = msg; };
-
-    try {
-        // Cached candidate pool (the expensive part). We re-score per bucket
-        // since ATR feasibility differs by bucket.
-        if (!cache || cache.mode !== state.mode || (Date.now() - cache.ts) > CACHE_TTL_MS) {
-            onProgress('Building candidate pool from live screeners…');
-            const candidates = await buildCandidates();
-            cache = { mode: state.mode, ts: Date.now(), candidates };
-        }
-        const candidates = cache.candidates;
-        const results = await findSpikers(candidates, bucket, onProgress, { mode: state.mode });
-
-        if (results.length === 0) {
-            body.innerHTML = `<div class="sp-empty">No candidates pass ATR-feasibility for ${bucket.label} today. That's a feature, not a bug, try a smaller bucket.</div>`;
-            return;
-        }
-        body.innerHTML = `
-            <div class="sp-results">
-                ${results.map(r => `
-                    <div class="sp-row" data-symbol="${r.symbol}">
-                        <div class="sp-row-main">
-                            <div class="sp-row-sym">${displayTicker(r.symbol)}</div>
-                            <div class="sp-row-name">${r.name || ''}</div>
-                            <div class="sp-row-reason">${r.reason}</div>
-                        </div>
-                        <div class="sp-row-numbers">
-                            <div class="sp-row-target"><span class="sp-row-arrow">▲</span> ${fmtPriceTag(r.targetPrice)} <span class="sp-row-pct">(+${r.projectedPct}%)</span></div>
-                            <div class="sp-row-current">from ${fmtPriceTag(r.price)}</div>
-                            <div class="sp-row-conf">${r.confidence}% conf${r.calibrated ? ' ✓' : ''}</div>
-                        </div>
+    if (!d || !d.rows.length) { body.innerHTML = '<div class="sp-empty">Nothing published yet.</div>'; return; }
+    const rows = d.rows.filter(r => filter === 'earnings' ? r.earnings : filter === 'no-earnings' ? (r.earningsKnown && !r.earnings) : true).slice(0, LIMIT);
+    if (!rows.length) { body.innerHTML = '<div class="sp-empty">No stocks in this group tonight.</div>'; return; }
+    const top = rows[0].p || 1;
+    body.innerHTML = `
+        <div class="sp-results">
+            ${rows.map(r => {
+                const b = bucketFor(d.buckets, r.p);
+                const held = b ? `On years the model never trained on, forecasts at these odds (${pct(b.lo)} to ${pct(Math.min(1, b.hi))}) were followed by the move ${pct(b.actual, 1)} of the time, ${b.n.toLocaleString()} of them.` : '';
+                return `
+                <div class="sp-row" data-symbol="${escapeHtml(r.symbol)}" title="${escapeHtml(held)}">
+                    <div class="sp-row-main">
+                        <div class="sp-row-sym">${escapeHtml(displayTicker(r.symbol))}${r.earnings ? '<span class="sp-earn">earnings due</span>' : ''}</div>
+                        <div class="sp-row-reason">a move of ±${(r.move * 100).toFixed(1)}% or more${b ? ` · at these odds ${pct(b.actual)} did, on unseen years` : ''}</div>
+                        <div class="sp-odds-bar"><span style="width:${Math.max(2, (r.p / top) * 100).toFixed(1)}%"></span></div>
                     </div>
-                `).join('')}
-            </div>
-            <div class="sp-footer">
-                <div class="sp-footer-meta">${results.length} candidates · bucket ${bucket.label} · ${cache.candidates.length} pool</div>
-                <button class="sp-rescan" id="sp-rescan">↻ Rescan pool</button>
-            </div>`;
-
-        body.querySelectorAll('.sp-row').forEach(row => row.addEventListener('click', () => {
-            const sym = row.dataset.symbol;
-            const overlay = document.getElementById('spikers-modal');
-            if (overlay) overlay.remove();
-            if (onPickSymbol) onPickSymbol(sym);
-        }));
-        document.getElementById('sp-rescan')?.addEventListener('click', async () => {
-            cache = null;
-            await runScan(bucket, onPickSymbol);
-        });
-    } catch (e) {
-        body.innerHTML = `<div class="sp-error">Scan failed: ${e.message}</div>`;
-    }
+                    <div class="sp-row-numbers">
+                        <div class="sp-row-target">${pct(r.p)}</div>
+                        <div class="sp-row-current">chance</div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+        <div class="sp-footer">
+            <div class="sp-footer-meta">${rows.length} of ${d.rows.length} stocks · odds for ${escapeHtml(day(d.session))} · tap one to open its card</div>
+        </div>`;
+    body.querySelectorAll('.sp-row').forEach(row => row.addEventListener('click', () => {
+        document.getElementById('spikers-modal')?.remove();
+        if (onPickSymbol) onPickSymbol(row.dataset.symbol);
+    }));
 }

@@ -13,9 +13,9 @@
 // (week-card.js), which stated the same forecast in percentages nobody could use.
 
 import { fmtPriceTag } from './format.js';
-import { bandDates, exchangeToday, barSessionDate, sessionProgress } from '../earnings-calendar-slice.js';
+import { bandDates, exchangeToday, barSessionDate, sessionProgress, isBarComplete } from '../earnings-calendar-slice.js';
 import { isSession } from '../market-sessions.js';
-import { blendHeldOut } from '../forecast-band.js';
+import { blendHeldOut, blendEligible } from '../forecast-band.js';
 import { baselineSentence } from '../setup-baseline.js';
 
 const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
@@ -463,6 +463,51 @@ export function weekRows({ band, history, region, cryptoMode, todayBar = null, l
 }
 
 /**
+ * THE CALL A SYMBOL'S CARD SHOWS, for every list that shows a call (Hot Picks, the Full Ledger,
+ * Upcoming Earnings). Roshan, 2026-10-14: "card's call everywhere". Before this the lists showed
+ * the engine's plain up/down call with its coin-flip percentage, so ASML read DON'T BUY 56% on
+ * the earnings list and BUY on its own card. The inputs are built exactly as js/ui/signal.js
+ * builds them for the card.
+ *
+ * prediction: a computeFullConfidence result. candles: its daily bars (the live one last, if the
+ * session is trading). lockedBand: the session's locked band when the list has one.
+ */
+export function cardCallFor(prediction, { region = 'NYSE', owned = null, gapRec = null, lockedBand = null,
+                                          candles = null, nowMs = Date.now() } = {}) {
+    if (!prediction) return null;
+    const bars = Array.isArray(candles) ? candles : (Array.isArray(prediction.dailyCandles) ? prediction.dailyCandles : []);
+    const band = freshestBand(lockedBand, prediction.forecastBand);
+    const last = bars.length ? bars[bars.length - 1] : null;
+    const lastDone = !!(last && Number.isFinite(last.time) && isBarComplete(region, barSessionDate(region, last.time), nowMs));
+    const todayBar = lastDone ? null : todayPartialBar(bars, region, nowMs);
+    const liquid = band?.anchor && bars.length ? blendEligible(bars.slice(0, Math.max(0, bars.length - (lastDone ? 0 : 1))), region) : false;
+    const gap = gapSignal({ rec: gapRec, band, todayBar, liquid, region, nowMs });
+    const rec = prediction.reversionSetup?.record;
+    return decideCall({ rs: prediction.reversionSetup || null, owned,
+                        setupsLive: rec?.overall?.n ? { ...rec.overall, since: rec.since } : null, gap });
+}
+
+/** Whether each symbol is in the practice portfolio: a lookup built once per list render. */
+export async function ownedLookup() {
+    try {
+        const { isInstantiated, heldSymbols } = await import('../portfolio/state.js');
+        if (!isInstantiated()) return () => null;
+        const held = new Set(heldSymbols().map(x => String(x).toUpperCase()));
+        return (sym) => {
+            const k = String(sym || '').toUpperCase();
+            return held.has(k) || held.has(`${k}-USD`) || held.has(k.replace(/-USD$/, ''));
+        };
+    } catch (_) { return () => null; }
+}
+
+/** A call as a small badge for a list row: the card's word, and its measured rate when there is one. */
+export function callBadge(call, { compact = false } = {}) {
+    if (!call) return '<span class="fc-mini fc-mini-flat">-</span>';
+    const conf = call.confidence != null ? `<span class="fc-mini-conf">${pct(call.confidence)}${compact ? '' : ' measured'}</span>` : '';
+    return `<span class="fc-mini fc-mini-${call.tone}" title="${esc(call.line || '')}">${call.title}</span>${conf}`;
+}
+
+/**
  * The band to show: the locked one, unless the live one starts from a newer close. After today's
  * close the lock still starts from yesterday's, and every day after today would read from a price
  * two sessions old.
@@ -512,13 +557,13 @@ export function renderForecastCards({ symbol, band, history = null, rs = null, o
                                       currency = 'USD', region = 'NYSE', cryptoMode = false, todayBar = null,
                                       news = [], dirRec = null, setupsLive = null, intraday = null,
                                       spike = null, spikeRecord = null, gapRec = null, liquid = false,
-                                      baseline = null, afterSignal = '', afterWeeks = '' } = {}) {
+                                      baseline = null, afterSignal = '', afterWeeks = '', call: given = null } = {}) {
     if (!band || !Array.isArray(band.days) || !band.days.length) return '';
     const co = { srcCurrency: currency };
     const head = headlineRange({ band, price, region, cryptoMode, todayBar, intraday, history });
     const rows = head.rows;
     const gap = gapSignal({ rec: gapRec, band, todayBar, liquid, region: cryptoMode ? 'CRYPTO' : region });
-    const call = decideCall({ rs, owned, setupsLive, gap });
+    const call = given || decideCall({ rs, owned, setupsLive, gap });
 
     // Today's range on the big bar: the row for today when the session is today, else the next one.
     const d = head;

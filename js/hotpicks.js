@@ -26,7 +26,7 @@ import { computeFullConfidence } from './confidence.js';
 import { getCalibrationThresholds, getCalibrationThresholdsSync } from './calibration-thresholds.js';
 import { getEffectiveLock } from './ui/daily-lock.js';
 import { applyLockToPrediction } from './ui/lock-view.js';
-import { headlineRange, todayPartialBar, loadIntraday, freshestBand } from './ui/forecast-cards.js';
+import { headlineRange, todayPartialBar, loadIntraday, freshestBand, cardCallFor, ownedLookup, loadGapRecord } from './ui/forecast-cards.js';
 import { regionFor } from './calibration.js';
 
 // THE CALL THE USER WILL SEE WHEN THEY OPEN THE SYMBOL.
@@ -58,9 +58,18 @@ function pickFields(view, ctx = null) {
                                 next: ctx.timeframe === 'tomorrow' });
         } catch (_) { r = null; }
     }
+    // The call the symbol's own card shows (cardCallFor), never the engine's plain up/down call.
+    let call = null;
+    if (ctx) {
+        try {
+            call = cardCallFor(ctx.result, { region: ctx.region, owned: ctx.owned ? ctx.owned(ctx.symbol) : null,
+                                             gapRec: ctx.gapRec, lockedBand: view?.forecastBand, candles: ctx.candles });
+        } catch (_) { call = null; }
+    }
     return {
         signal: view.signal,
         confidence: view.confidence,
+        call,
         expectedHigh: r && Number.isFinite(r.high) ? r.high : (pt.predictedHigh ?? null),
         expectedLow: r && Number.isFinite(r.low) ? r.low : (pt.predictedLow ?? null),
         rangeLive: !!(r && r.liveF != null),
@@ -254,6 +263,8 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
     const calThresh = await getCalibrationThresholds();
     const hotFloor = calThresh.hotPicksFloor;
     const intraday = await loadIntraday().catch(() => null);
+    const gapRec = await loadGapRecord().catch(() => null);
+    const owned = await ownedLookup();
 
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${filteredSymbols.length} stocks…`);
 
@@ -293,7 +304,8 @@ export async function scanStockHotPicks(timeframe = 'today', maxPicks = 20, onPr
                     const lockKey = data.symbol || symbol;
                     const { view, locked } = await effectiveView(lockKey, result, timeframe);
                     const ctx = { result, candles: data.candles, price: data.currentPrice || meta.price,
-                                  region: regionFor(data.symbol || symbol), intraday, timeframe };
+                                  region: regionFor(data.symbol || symbol), intraday, timeframe,
+                                  gapRec, owned, symbol: data.symbol || symbol };
                     return {
                         symbol: data.symbol,
                         name: data.name || meta.name || symbol,
@@ -354,10 +366,22 @@ export function getHotPicksFloor() {
 // record, more often wrong than right. It used to be shown anyway with a "low track record"
 // badge, which left the reader to reconcile "BUY" with "worse than a coin flip". The detail card
 // still shows it (with its hedge) for anyone who opens the symbol.
+// RANKING (Roshan, 2026-10-14: "card's call everywhere"): measured buys first, the calls the
+// symbol's own card makes from a pattern with a record (a pullback setup live, or today's open its
+// entry), by their measured rate. Then today's biggest movers, each with the call its card shows
+// and today's range. The engine's plain up/down call no longer decides what is listed: its live
+// record is a coin flip, and it contradicted the cards (BUY 52% here, DON'T BUY on the card).
+const MEASURED_BUY = new Set(['setup', 'setup-pending']);
 function rankPicks(results, maxPicks, _floor) {
+    const measured = (r) => !!(r.call && MEASURED_BUY.has(r.call.source));
     return results
-        .filter(r => r.signal === 'BUY' && Number.isFinite(r.confidence) && r.confidence >= 50)
-        .sort((a, b) => b.confidence - a.confidence)
+        .slice()
+        .sort((a, b) => {
+            const ma = measured(a), mb = measured(b);
+            if (ma !== mb) return ma ? -1 : 1;
+            if (ma && mb) return (b.call.confidence ?? 0) - (a.call.confidence ?? 0);
+            return Math.abs(b.change || 0) - Math.abs(a.change || 0);
+        })
         .slice(0, maxPicks);
 }
 
@@ -468,6 +492,7 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
     const calThreshC = await getCalibrationThresholds();
     const cryptoFloor = calThreshC.hotPicksFloor;
     const cryptoIntraday = await loadIntraday().catch(() => null);
+    const cryptoOwned = await ownedLookup();
     if (onProgress) onProgress(`Running ${isTomorrow ? 'predictive' : 'real-time'} analysis on ${coins.length} cryptocurrencies...`);
 
     const results = [];
@@ -529,7 +554,8 @@ export async function scanCryptoHotPicks(timeframe = 'today', maxPicks = 20, onP
             // routing through derivs / cross-asset enrichments.
             const result = await computeFullConfidence(multiData, 'crypto', coin.id, timeframe, { bulkScan: false, newsLite: true });
             const { view, locked } = await effectiveView(sym, result, timeframe);
-            const ctx = { result, candles, price: px, region: 'CRYPTO', intraday: cryptoIntraday, timeframe };
+            const ctx = { result, candles, price: px, region: 'CRYPTO', intraday: cryptoIntraday, timeframe,
+                          gapRec: null, owned: cryptoOwned, symbol: sym };
             results.push({
                 symbol: sym, name: coin.name, id: coin.id, price: px,
                 ...pickFields(view, ctx),

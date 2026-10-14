@@ -89,6 +89,16 @@ const html = fc.renderForecastCards({ symbol: 'DOCN', band: docn, price: 110.16,
 check('an unreliable setup cell: DON\'T BUY, and the card says it has not paid there', /DON'T BUY/.test(html)
     && /not where it has paid/.test(html) && /-0\.(69|70)%/.test(html), html.match(/So the dip[^<]*/)?.[0] || 'missing');
 
+console.log('\n=== every list shows the call the card shows (cardCallFor) ===');
+// The engine says BUY 56%: no list may repeat that unless a measured pattern says so.
+const engineBuy = { signal: 'BUY', confidence: 56, forecastBand: docn, reversionSetup: null };
+const listCall = fc.cardCallFor(engineBuy, { region: 'NYSE', candles: [], nowMs: noon });
+check("the engine's own BUY 56% is not the call: no measured pattern -> DON'T BUY", listCall && listCall.kind === 'DONT_BUY' && listCall.confidence === null, JSON.stringify(listCall && { kind: listCall.kind, c: listCall.confidence }));
+const asml = { signal: 'NEUTRAL', confidence: 56, forecastBand: docn, reversionSetup: rec('pending') };
+check('a pullback setup with today\'s open as its entry -> BUY on every list, as on its card', fc.cardCallFor(asml, { region: 'NYSE', candles: [], nowMs: noon }).kind === 'BUY');
+check('...and HOLD for someone who owns it', fc.cardCallFor(asml, { region: 'NYSE', owned: true, candles: [], nowMs: noon }).kind === 'HOLD');
+check('the list badge shows the card\'s word', /DON'T BUY/.test(fc.callBadge(listCall)) && !/56/.test(fc.callBadge(listCall)));
+
 const quirk = fc.todayPartialBar([{ time: Date.parse('2026-10-14T13:30:00Z') / 1000, open: 127.02, high: 126.19, low: 108.08, close: 110.19 }], 'NYSE', noon);
 check("Yahoo's live bar with a high under its open: the open still counts as traded", quirk && quirk.high === 127.02 && quirk.low === 108.08, JSON.stringify(quirk));
 

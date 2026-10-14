@@ -19,7 +19,7 @@ import { renderSuggestedDecision } from './suggested-decision.js';
 import { renderReversionPanel } from './reversion-panel.js';
 import { renderVolPanel } from './vol-panel.js';
 import { directionRecord } from './suggested-decision.js';
-import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand } from './forecast-cards.js';
+import { renderForecastCards, todayPartialBar, loadIntraday, loadSpikeRecord, loadGapRecord, freshestBand, cardCallFor } from './forecast-cards.js';
 import { loadSetupBaseline } from '../setup-baseline.js';
 import { renderBandHistory } from './forecast-band-panel.js';
 import { blendEligible } from '../forecast-band.js';
@@ -451,9 +451,17 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
         const band = freshestBand(view.forecastBand, prediction.forecastBand);
         const rec = prediction.reversionSetup?.record;
         const spikeMeta = await loadSpikeRecord();
+        const gapRecNow = await loadGapRecord();
+        const ownedFlag = await ownedNow(state.currentSymbol);
+        const cardCall = cardCallFor(prediction, { region, owned: ownedFlag, gapRec: gapRecNow,
+                                                   lockedBand: view.forecastBand, candles });
+        // Mia reads this object (setLatestSignal in core.js), so she quotes the call on the card.
+        prediction.cardCall = cardCall ? { kind: cardCall.kind, title: cardCall.title, tone: cardCall.tone,
+            confidence: cardCall.confidence, source: cardCall.source, line: cardCall.line } : null;
         cardsHTML = renderForecastCards({
+            call: cardCall,
             symbol: state.currentSymbol, band, history: bandHistory,
-            rs: prediction.reversionSetup || null, owned: await ownedNow(state.currentSymbol),
+            rs: prediction.reversionSetup || null, owned: ownedFlag,
             price: view.priceTargets?.currentPrice ?? prediction.priceTargets?.currentPrice ?? null,
             currency: cur, region, cryptoMode: state.mode === 'crypto',
             todayBar: lastDone ? null : todayPartialBar(candles, region),
@@ -469,7 +477,7 @@ export async function renderSignal(prediction, newsData = [], sentiment = null) 
                          trainedOn: spikeMeta?.backtest?.trainedOn ?? null };
             })(),
             spikeRecord: spikeMeta,
-            gapRec: await loadGapRecord(),
+            gapRec: gapRecNow,
             baseline: await loadSetupBaseline(),
             afterSignal: newsHTML,
             afterWeeks: bandHistory?.rows?.length ? `<div class="fc-card fc-record">${renderBandHistory(bandHistory, cur)}</div>` : '',

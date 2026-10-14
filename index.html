@@ -286,7 +286,7 @@
 
             <section class="hotpicks-section">
                 <div class="section-header">
-                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks: Today's Stock Buy Signals</h2>
+                    <h2 class="section-title" id="hotpicks-title">🔥 Hot Picks: measured buys first, then today's biggest stock movers</h2>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <button class="spikers-btn" id="spikers-btn" title="Find candidates likely to spike today">🚀 Spikers</button>
                         <button class="refresh-btn has-spinner" id="refresh-hotpicks" title="Refresh hot picks (r)"><span class="rb-icon" aria-hidden="true"><span class="rb-arrow">↻</span><span class="rb-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span><span class="rb-label">Refresh</span></button>
@@ -323,13 +323,13 @@
                     <div class="scanner-controls">
                         <input type="text" id="scanner-filter" class="scanner-filter" placeholder="Filter by symbol or region (e.g. AAPL, NSE)..." autocomplete="off">
                         <select id="scanner-signal-filter" class="scanner-select">
-                            <option value="">All signals</option>
+                            <option value="">All calls</option>
                             <option value="BUY">BUY only</option>
-                            <option value="SELL">SELL only</option>
-                            <option value="NEUTRAL">DON'T BUY</option>
-                            <option value="NO_TRADE">AVOID</option>
+                            <option value="HOLD">HOLD (owned)</option>
+                            <option value="SELL">SELL (owned)</option>
+                            <option value="DONT_BUY">DON'T BUY</option>
                         </select>
-                        <div class="scanner-window" title="Limit Prediction Accuracy to predictions made within this lookback window">
+                        <div class="scanner-window" title="Limit the past up/down calls to those made within this lookback window">
                             <span class="scanner-window-label">Accuracy window:</span>
                             <input type="number" id="scanner-window-n" class="scanner-window-n" min="1" step="1" value="" placeholder="all" aria-label="Lookback amount">
                             <select id="scanner-window-unit" class="scanner-select scanner-window-unit" aria-label="Lookback unit">
@@ -351,7 +351,7 @@
                                     <th data-sort="confidence" class="sortable-num">Confidence</th>
                                     <th data-sort="entry" class="sortable-num">Entry</th>
                                     <th data-sort="rsi" class="sortable-num">RSI</th>
-                                    <th data-sort="accuracy" class="sortable-num">Prediction Accuracy</th>
+                                    <th data-sort="accuracy" class="sortable-num" title="How the engine's plain next-day up/down calls on this stock did on the next close. Kept for the record: they measure close to a coin flip, so no list or card makes them any more.">Past up/down calls</th>
                                 </tr>
                             </thead>
                             <tbody id="scanner-tbody"></tbody>

@@ -83,11 +83,11 @@ VERIFY USER CLAIMS
 When the user asserts a past prediction was right/wrong, call get_ledger_history with the symbol and quote BOTH the recorded prediction (signal, confidence, entry, band) AND the resolved outcome. Don't agree from memory. If the ledger has no row, say so plainly, don't fabricate a "yes we got it right".
 
 CONVICTION HONESTY
-The engine commits to BUY / SELL only when the score crosses 60/40 AND calibrated confidence ≥ 55. Anything weaker becomes NEUTRAL → which the UI labels "DON'T BUY". Use the same vocabulary when you speak: BUY / SELL / DON'T BUY / AVOID (the four user-facing labels).
-- internal NEUTRAL → say "DON'T BUY" (no edge, sit out, and one-line why: sources disagree, low conviction, range-bound, etc.)
-- internal NO_TRADE → say "AVOID" (hard event risk in window, earnings within 1 day, recent gap, calendar event)
-- HOLD is NOT an engine signal. Use HOLD only when get_portfolio shows the user already owns the symbol AND the engine is NEUTRAL/NO_TRADE: frame as "engine has no fresh signal, your existing position can hold." Never call HOLD on a symbol the user doesn't own.
-- Don't soften BUY/SELL with "leaning slightly", those bands now require strong signal AND strong confidence. If the engine committed, commit with it.
+The call is the card's call (cardCall / CURRENT CALL), the same one every list in the app shows: BUY, HOLD, SELL or DON'T BUY. Quote it with its measured rate and its reason. Never present the engine's plain up/down score as a call: its live record is a coin flip, and the app stopped showing it.
+- BUY (HOLD when owned): a pullback setup is live or today's open is its entry, in conditions where that trade has paid. Its rate is how often trades like it sold above their entry.
+- SELL (owned only): that setup's exit fired. It is the second half of the trade, not a forecast of a fall.
+- DON'T BUY: nothing with a measured record points up (no edge, not a forecast of a fall), or a big gap up on a liquid stock (those closed below their open about 58% of the time), or a setup's trade is already under way.
+- HOLD for an owner with nothing measured means no measured reason to sell, not a forecast of a rise.
 
 SCOPED ANSWERS, pick one source, don't blend
 Our tools cover ~530 symbols: S&P 500, Nasdaq 100, sector reps, top crypto, liquid NSE/HKEX/TYO/LSE/DAX/ASX names. Outside that, micro-caps, OTC pinks, small-cap foreign ADRs, we have nothing.
@@ -132,7 +132,7 @@ RESPONSE SHAPE: lead with the answer in the first sentence, not with setup or re
 
 FRAMING: first sentence states the answer, even if it's zero or "no action needed". Don't invent intermediate targets the user didn't ask for. When the math reduces to a trivial answer, THAT is the entire answer, stop there. If genuinely ambiguous, ask one specific clarifying question instead of guessing.
 
-VOCAB: The four user-facing signals are BUY / SELL / DON'T BUY / AVOID. Internal engine NEUTRAL → say "DON'T BUY"; internal NO_TRADE → say "AVOID". HOLD applies ONLY when get_portfolio shows the user already owns the symbol AND engine is NEUTRAL/AVOID, frame as "engine has no fresh signal, your existing position can hold". Never say HOLD on a symbol the user doesn't own.
+VOCAB: The user-facing calls are BUY / HOLD / SELL / DON'T BUY, exactly as the card shows them (CURRENT CALL). HOLD and SELL only ever apply to a symbol the user owns. Never say AVOID, and never turn the engine's up/down score into a call.
 
 MATH: this turn has no calculator. If the user asks for arithmetic or a break-even computation, do NOT attempt the math in prose (you'll make errors). Tell the user you'll work it out on the next turn so the calculator can run, or quote the formula and let them pass numbers. Don't fabricate a computed result.
 
@@ -174,14 +174,14 @@ export function buildContextBlock(latestSignal) {
 
     if (latestSignal) {
         lines.push('');
-        lines.push('## CURRENT SIGNAL (source of truth)');
-        // Translate engine signal to user-facing label so Mia sees the
-        // same vocabulary the user sees on the card. Engine internals
-        // unchanged, just the framing.
-        const userFacing = latestSignal.signal === 'NO_TRADE' ? 'AVOID'
-            : latestSignal.signal === 'NEUTRAL' ? "DON'T BUY"
-            : latestSignal.signal;
-        lines.push(`Signal: ${userFacing} (engine: ${latestSignal.signal}) • Confidence: ${latestSignal.confidence}%${latestSignal.calibrationApplied ? ' (calibrated)' : ' (uncalibrated)'}`);
+        lines.push('## CURRENT CALL (source of truth: exactly what the card shows)');
+        const cc = latestSignal.cardCall;
+        if (cc) {
+            lines.push(`Call: ${cc.title}${cc.confidence != null ? ` • measured ${Math.round(cc.confidence * 100)}%` : ' • no measured edge'} • why: ${cc.line}`);
+        } else {
+            lines.push('Call: not computed for this view');
+        }
+        lines.push(`Engine's plain up/down score (internal, near a coin flip, never quote it as a call): ${latestSignal.signal} ${latestSignal.confidence}%`);
         if (latestSignal.trendRegime) lines.push(`Regime: ${latestSignal.trendRegime}`);
         if (latestSignal.breakdown) {
             const bd = latestSignal.breakdown;

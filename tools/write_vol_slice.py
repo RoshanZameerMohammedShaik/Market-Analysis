@@ -306,7 +306,10 @@ def main():
     srec['generatedAt'] = datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
     srec['pending'] = len(spk_still)
     if spike_model:
+        # bucketsHeldOut is what the UI quotes: `buckets` is the isotonic fit on the same rows, equal to
+        # its own predictions by construction, so it is no evidence of anything.
         srec['backtest'] = {'walkForward': spike_model.get('walkForward'), 'buckets': spike_model.get('buckets'),
+                            'bucketsHeldOut': spike_model.get('bucketsHeldOut'),
                             'trainedOn': spike_model.get('trainedOn')}
     with open(SPIKE_PENDING, 'w', encoding='utf-8') as fh:
         json.dump(spk_still, fh, separators=(',', ':'))

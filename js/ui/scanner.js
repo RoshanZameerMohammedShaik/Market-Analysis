@@ -26,6 +26,10 @@ import { calculateRSI } from '../analysis.js';
 import { fmtPrice } from './format.js';
 import { state } from './state.js';
 import { loadLedger } from '../ledger-reader.js';
+import { cardCallFor, ownedLookup, loadGapRecord, headlineRange, todayPartialBar, loadIntraday, callBadge, freshestBand } from './forecast-cards.js';
+
+// What each row needs to compute the call its card shows, loaded once per scan.
+let callCtx = { gapRec: null, owned: () => null, intraday: null };
 
 let scanState = {
     started: false,
@@ -240,11 +244,22 @@ function entryToRow(symbol, entry) {
     const candles = entry?.data?.daily?.candles || [];
     const last = candles[candles.length - 1];
     const closes = candles.map(c => c.close);
+    const region = inferRegion(symbol);
+    // The call this symbol's card shows (Roshan, 2026-10-14: "card's call everywhere"), not the
+    // engine's plain up/down call, and today's range as the card's big bar reads it.
+    let call = null, range = null;
+    try {
+        call = cardCallFor(sig, { region, owned: callCtx.owned(symbol), gapRec: callCtx.gapRec, candles });
+        range = headlineRange({ band: freshestBand(null, sig.forecastBand), price: last?.close, region,
+                                cryptoMode: region === 'CRYPTO', todayBar: todayPartialBar(candles, region),
+                                intraday: callCtx.intraday });
+    } catch (_) { call = null; range = null; }
     return {
         symbol,
-        region: inferRegion(symbol),
-        signal: sig.signal || 'NEUTRAL',
-        confidence: Math.round(sig.confidence || 0),
+        region,
+        signal: call ? call.kind : 'DONT_BUY',
+        confidence: call && call.confidence != null ? Math.round(call.confidence * 100) : null,
+        call, range,
         entry: last?.close ?? null,
         indicators: { rsi: calculateRSI(closes) ?? null },
         // Hold a reference to the engine result so the inline drawer
@@ -274,6 +289,8 @@ async function startScan() {
     scanState.mode = mode;
     scanState.rows = [];           // ensure fresh start (was kept across reopens)
 
+    callCtx = { gapRec: await loadGapRecord().catch(() => null), owned: await ownedLookup(),
+                intraday: await loadIntraday().catch(() => null) };
     const symbols = await buildUniverse(mode);
     scanState.progress = { done: 0, total: symbols.length, errors: 0 };
 
@@ -367,11 +384,9 @@ function sortRows(rows) {
 
 // ── Render ───────────────────────────────────────────────────────────
 
-function fmtSignal(signal) {
-    if (signal === 'BUY') return '<span class="scanner-sig sig-buy">▲ BUY</span>';
-    if (signal === 'SELL') return '<span class="scanner-sig sig-sell">▼ SELL</span>';
-    if (signal === 'NO_TRADE') return '<span class="scanner-sig sig-no_trade">⊘ AVOID</span>';
-    return '<span class="scanner-sig sig-neutral">◆ DON\'T BUY</span>';
+function fmtSignal(row) {
+    // The card's word only: the measured rate has its own column.
+    return callBadge(row.call ? { ...row.call, confidence: null } : null, { compact: true });
 }
 
 // Smooth red→amber→green gradient based on hit-rate percentage.
@@ -449,53 +464,27 @@ function fmtAccuracy(symbol) {
 function renderDrawer(row) {
     const sig = row._signal;
     if (!sig) return '<div class="scanner-drawer-empty">Analysis unavailable for this row.</div>';
-    const breakdown = sig.breakdown || {};
-    const reasons = (sig.reasons || []).slice(0, 8);
-    const tgt = sig.priceTargets;
-    const co = { srcCurrency: 'USD' };  // ledger entries currency-aware via formatter
-
-    const sourceRows = ['ai', 'technical', 'sentiment', 'market']
-        .filter(k => breakdown[k])
-        .map(k => {
-            const b = breakdown[k];
-            const score = Math.round(b.score || 0);
-            const weight = Math.round(b.weight || 0);
-            const label = k === 'ai' ? 'AI Model' : k.charAt(0).toUpperCase() + k.slice(1);
-            return `
-                <div class="drawer-source">
-                    <span class="drawer-source-label">${label} <span class="drawer-source-weight">(${weight}%)</span></span>
-                    <span class="drawer-source-bar"><span class="drawer-source-fill" style="width:${score}%"></span></span>
-                    <span class="drawer-source-score">${score}</span>
-                </div>`;
-        }).join('');
-
-    const reasonsHTML = reasons.length
-        ? `<ul class="drawer-reasons">${reasons.map(r => `<li>${r}</li>`).join('')}</ul>`
-        : '<p class="drawer-empty-reasons">No driver explanations from the engine for this run.</p>';
-
-    const targetsHTML = tgt ? `
+    const call = row.call;
+    const r = row.range;
+    const co = { srcCurrency: (sig.currency || 'USD').toUpperCase() };
+    const when = r ? (r.liveF != null ? "Today's range, updated live" : (r.today && r.date === r.today ? "Today's range" : "The next session's range")) : '';
+    const rangeHTML = r && Number.isFinite(r.low) && Number.isFinite(r.high) ? `
         <div class="drawer-targets">
-            <div class="drawer-target"><span class="drawer-target-label">Possible High</span> <span class="drawer-target-value high">${fmtPrice(tgt.predictedHigh, co)} ▲ +${tgt.highPercent}%</span></div>
-            <div class="drawer-target"><span class="drawer-target-label">Current</span> <span class="drawer-target-value">${fmtPrice(tgt.currentPrice, co)}</span></div>
-            <div class="drawer-target"><span class="drawer-target-label">Possible Low</span> <span class="drawer-target-value low">${fmtPrice(tgt.predictedLow, co)} ▼ ${tgt.lowPercent}%</span></div>
-        </div>` : '';
-
+            <div class="drawer-target"><span class="drawer-target-label">Expected low</span> <span class="drawer-target-value low">${fmtPrice(r.low, co)}</span></div>
+            <div class="drawer-target"><span class="drawer-target-label">Now</span> <span class="drawer-target-value">${fmtPrice(row.entry, co)}</span></div>
+            <div class="drawer-target"><span class="drawer-target-label">Expected high</span> <span class="drawer-target-value high">${fmtPrice(r.high, co)}</span></div>
+        </div>
+        <div class="drawer-note">${when}: ${r.confidence}% chance the day's high and low both land inside.</div>` : '';
     return `
         <div class="scanner-drawer">
             <div class="drawer-head">
-                <div class="drawer-verdict ${row.signal.toLowerCase()}">
-                    <span class="drawer-verdict-arrow">${row.signal === 'BUY' ? '▲' : row.signal === 'SELL' ? '▼' : row.signal === 'NO_TRADE' ? '⊘' : '◆'}</span>
-                    <span class="drawer-verdict-label">${row.signal === 'NO_TRADE' ? 'AVOID' : row.signal === 'NEUTRAL' ? "DON'T BUY" : row.signal}</span>
-                    <span class="drawer-verdict-conf">${row.confidence}% confidence</span>
-                </div>
+                <div class="drawer-verdict">${callBadge(call)}</div>
                 <button class="drawer-close" type="button" aria-label="Collapse" data-action="collapse">×</button>
             </div>
-            <div class="drawer-section-title">Confidence Sources</div>
-            <div class="drawer-sources">${sourceRows || '<div class="drawer-empty-reasons">No source breakdown.</div>'}</div>
-            ${targetsHTML}
-            <div class="drawer-section-title">Why this signal, top drivers</div>
-            ${reasonsHTML}
+            ${call?.line ? `<p class="drawer-call-line">${call.line}</p>` : ''}
+            ${rangeHTML}
             <div class="drawer-foot">
+                <span class="drawer-note">The evidence for the call, each day's range and the news are on its card.</span>
                 <button class="drawer-load-chart" type="button" data-action="load-chart" data-symbol="${row.symbol}">Open in chart above ↑</button>
             </div>
         </div>`;
@@ -508,8 +497,10 @@ function rowInnerHTML(r) {
     return `<td class="scanner-symbol"><a href="#" class="scanner-symbol-link" data-action="load-chart" data-symbol="${r.symbol}">${r.symbol}</a>
                 <button class="scanner-loadchart-btn" data-action="load-chart" data-symbol="${r.symbol}" title="Load ${r.symbol} into the chart + analysis above">Load chart ↗</button></td>
             <td class="scanner-region">${r.region || '-'}</td>
-            <td>${fmtSignal(r.signal)}</td>
-            <td class="scanner-num"><span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num">${r.confidence}%</span></td>
+            <td>${fmtSignal(r)}</td>
+            <td class="scanner-num">${r.confidence != null
+                ? `<span class="scanner-conf-bar"><span class="scanner-conf-fill" style="width: ${Math.max(0, Math.min(100, r.confidence))}%"></span></span><span class="scanner-conf-num" title="The measured record of the pattern behind this call">${r.confidence}%</span>`
+                : '<span class="scanner-conf-none" title="No pattern with a measured record points either way">none measured</span>'}</td>
             <td class="scanner-num">${typeof r.entry === 'number' ? r.entry.toFixed(2) : '-'}</td>
             <td class="scanner-num">${r.indicators?.rsi != null ? r.indicators.rsi.toFixed(1) : '-'}</td>
             <td class="scanner-acc">${fmtAccuracy(r.symbol)}</td>`;

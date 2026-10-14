@@ -24,15 +24,17 @@
 
 import { initPriceAlerts, getAlert, setAlert, isCryptoSymbol, getLastPrice, listAlerts } from './price-alerts.js';
 import { notify } from './notify.js';
-import { loadLedger } from '../ledger-reader.js';
+import { analyzeAndCache } from '../analysis-cache.js';
+import { regionFor } from '../calibration.js';
+import { cardCallFor, ownedLookup, loadGapRecord, callBadge } from './forecast-cards.js';
 import { isPushConfigured, isPushSupported, enablePush, disablePush, syncAlerts, getActiveSubscription, iosNeedsInstall } from '../push/push-client.js';
 
 const LS_KEY = 'ma-watchlist-v1';
-const LS_LAST_SEEN = 'ma-watchlist-last-seen-v1';
+const LS_LAST_SEEN = 'ma-watchlist-last-seen-v2';
 const POLL_MS = 5 * 60 * 1000;
 
 let watchlist = new Set();
-let lastSeenSignal = {}; // { symbol: 'BUY' }
+let lastSeenSignal = {}; // { symbol: 'BUY' | 'HOLD' | 'SELL' | 'DONT_BUY' }, the card's call
 let pollHandle = null;
 
 function loadWatchlist() {
@@ -82,35 +84,29 @@ export function toggleWatch(symbol) {
 
 function todayIso() { return new Date().toISOString().slice(0, 10); }
 
+// The call each watched symbol's own card shows (cardCallFor), computed the way the card computes
+// it and through the same 5-minute analysis cache. This used to read the cron's engine call from
+// the ledger, "BUY 56%" and its flips, which no card shows any more (Roshan, 2026-10-14: "card's
+// call everywhere").
 async function getCurrentSignals() {
-    const rows = await loadLedger();
-    const today = todayIso();
-    let scoped = rows.filter(r => r.date === today);
-    if (!scoped.length) {
-        const dates = [...new Set(rows.map(r => r.date))].sort().reverse();
-        if (dates.length) scoped = rows.filter(r => r.date === dates[0]);
-    }
+    const [gapRec, owned] = await Promise.all([loadGapRecord().catch(() => null), ownedLookup()]);
     const map = {};
-    for (const r of scoped) {
-        if (watchlist.has(String(r.symbol).toUpperCase())) {
-            map[r.symbol.toUpperCase()] = {
-                symbol: r.symbol,
-                signal: r.signal,
-                confidence: r.confidence,
-                entry: r.entry,
-                date: r.date,
-                region: r.region,
-            };
-        }
+    for (const sym of watchlist) {
+        const mode = /-USD$/i.test(sym) ? 'crypto' : 'stock';
+        try {
+            const entry = await analyzeAndCache(sym, 'today', mode, null, { bulkScan: true });
+            const region = mode === 'crypto' ? 'CRYPTO' : regionFor(sym);
+            const call = cardCallFor(entry?.signal, { region, owned: owned(sym), gapRec, candles: entry?.data?.daily?.candles || null });
+            if (!call) continue;
+            map[sym] = { symbol: sym, call, signal: call.kind, confidence: call.confidence, region };
+        } catch (_) { /* this symbol shows "not available" until the next poll */ }
     }
     return map;
 }
 
 // Display vocabulary, mirror signal.js so toasts read like the cards.
 function sigLabelFor(sig) {
-    return sig === 'NO_TRADE' ? 'AVOID'
-        : sig === 'NEUTRAL' ? "DON'T BUY"
-        : sig || 'unknown';
+    return sig === 'DONT_BUY' ? "DON'T BUY" : sig || 'unknown';
 }
 
 // "The engine changed its mind" moment. Fires TWO channels:
@@ -118,16 +114,13 @@ function sigLabelFor(sig) {
 //   2. A browser Notification, only if the user granted permission, so
 //      they get pinged even when the tab is backgrounded.
 // Also pulses the watchlist row so the change is visible in-context.
-function notifyChange(sym, oldSig, newSig, conf) {
+function notifyChange(sym, oldSig, newSig, info) {
     const from = sigLabelFor(oldSig);
     const to = sigLabelFor(newSig);
-    // Kind reflects the direction of the new call so the toast tint is
-    // meaningful: turning bullish = success, bearish = warn, avoid = error.
-    const kind = newSig === 'BUY' ? 'success'
-        : newSig === 'SELL' ? 'warn'
-        : newSig === 'NO_TRADE' ? 'error' : 'info';
+    const kind = newSig === 'BUY' ? 'success' : newSig === 'SELL' ? 'warn' : 'info';
+    const rate = info?.confidence != null ? ` (${Math.round(info.confidence * 100)}% measured)` : '';
     try {
-        notify(`${sym}: ${from} → ${to} @ ${conf}%, the engine changed its mind`, { kind, autoCloseMs: 9000 });
+        notify(`${sym}: ${from} → ${to}${rate}. ${info?.call?.line || ''}`, { kind, autoCloseMs: 9000 });
     } catch (_) {}
     pulseRow(sym, newSig);
 
@@ -135,7 +128,7 @@ function notifyChange(sym, oldSig, newSig, conf) {
     // the OS permission, turning notifications off in-app silences these.
     if (!notificationsEnabled()) return;
     try {
-        const body = `${from} → ${to} @ ${conf}% confidence`;
+        const body = `${from} → ${to}${rate}`;
         new Notification(`Market Analyzer · ${sym}`, {
             body,
             tag: `ma-watch-${sym}`,
@@ -172,7 +165,7 @@ async function pollOnce() {
         if (last !== info.signal) {
             // First time we see the symbol after subscribing also fires, // that's fine, it shows current state. Subsequent runs only
             // notify on actual changes.
-            if (last !== undefined) notifyChange(sym, last, info.signal, info.confidence);
+            if (last !== undefined) notifyChange(sym, last, info.signal, info);
             lastSeenSignal[sym] = info.signal;
             any = true;
         }
@@ -208,7 +201,7 @@ function refreshPanel(currentSignalsMap) {
     const list = document.getElementById('watchlist-list');
     if (!list) return;
     if (!watchlist.size) {
-        list.innerHTML = '<div class="watchlist-empty">No symbols watched yet. Star a stock or crypto to track its signal.</div>';
+        list.innerHTML = '<div class="watchlist-empty">No symbols watched yet. Star a stock or crypto to track its call.</div>';
         return;
     }
     const arr = [...watchlist].sort();
@@ -221,24 +214,18 @@ function refreshPanel(currentSignalsMap) {
                 <div class="watchlist-item" data-symbol="${sym}">
                     <div class="watchlist-row-main">
                         <span class="watchlist-symbol">${sym}</span>
-                        <span class="watchlist-meta">no ledger data today</span>
+                        <span class="watchlist-meta">not available right now</span>
                         <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
                     </div>
                     ${alertHtml}
                 </div>`;
         }
-        const sigClass = (info.signal || 'NEUTRAL').toLowerCase();
-        // Same display translation as signal.js so the watchlist row
-        // matches the main card vocabulary.
-        const sigLabel = info.signal === 'NO_TRADE' ? 'AVOID'
-            : info.signal === 'NEUTRAL' ? "DON'T BUY"
-            : info.signal;
         return `
             <div class="watchlist-item" data-symbol="${sym}">
                 <div class="watchlist-row-main">
                     <span class="watchlist-symbol">${sym}</span>
-                    <span class="watchlist-sig sig-${sigClass}">${sigLabel}</span>
-                    <span class="watchlist-conf">${info.confidence}%</span>
+                    <span class="watchlist-sig">${callBadge(info.call ? { ...info.call, confidence: null } : null, { compact: true })}</span>
+                    <span class="watchlist-conf" title="${info.confidence != null ? 'The measured record of the pattern behind this call' : 'No pattern with a measured record points either way'}">${info.confidence != null ? `${Math.round(info.confidence * 100)}% measured` : ''}</span>
                     <button class="watchlist-remove" data-symbol="${sym}" title="Remove">✕</button>
                 </div>
                 ${alertHtml}
@@ -303,7 +290,7 @@ function ensureWatchlistPanel() {
             <details class="watchlist-details">
                 <summary class="watchlist-summary">
                     <span class="watchlist-title">⭐ Watchlist</span>
-                    <span class="watchlist-hint">Get notified when a watched signal flips</span>
+                    <span class="watchlist-hint">Get notified when a watched stock's call changes</span>
                     <!-- Glass slot the Enable button swooshes INTO when notifications
                          are on (becomes "Turn Off Browser Notifications"). -->
                     <span class="watchlist-notif-dock" id="watchlist-notif-dock"></span>
@@ -492,7 +479,7 @@ function refreshPermissionUI() {
     } else {
         // Move the button back to the controls row, fade the checkbox back in.
         if (row && btn.parentElement !== row) row.insertBefore(btn, row.firstChild);
-        state.textContent = 'Click to allow signal-flip alerts.';
+        state.textContent = 'Click to allow alerts when a call changes.';
         state.classList.remove('on');
         if (check && isPushConfigured() && isPushSupported()) {
             check.hidden = false;

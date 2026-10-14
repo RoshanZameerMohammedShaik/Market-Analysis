@@ -168,3 +168,37 @@
 
 /* ── the record of the last sessions, below Next week ────────────────────────────────── */
 .fc-record .fb-history { margin: 0; border: 0; padding: 0; background: none; }
+
+/* ── the card's call in a list row (callBadge) and Hot Picks' move line ─────────────── */
+.fc-mini {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: var(--fs-2xs, 0.72rem);
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+.fc-mini-up { color: var(--green, #22c55e); border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.08); }
+.fc-mini-down { color: var(--red, #ef4444); border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.08); }
+.fc-mini-flat { color: var(--text-secondary); }
+.fc-mini-conf { margin-left: 6px; font-size: var(--fs-2xs, 0.72rem); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.hot-pick-move { font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 2px 0 4px; }
+.hot-pick-move.up { color: var(--green, #22c55e); }
+.hot-pick-move.down { color: var(--red, #ef4444); }
+
+/* ── Spikers: measured big-move odds (js/ui/spikers.js) ─────────────────────────────── */
+.sp-earn {
+    margin-left: 8px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--yellow, #fbbf24);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    vertical-align: 1px;
+}
+.sp-odds-bar { margin-top: 6px; height: 5px; border-radius: 999px; background: var(--bg-tertiary, rgba(255, 255, 255, 0.06)); overflow: hidden; }
+.sp-odds-bar > span { display: block; height: 100%; background: var(--accent, #60a5fa); border-radius: 999px; }

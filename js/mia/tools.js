@@ -110,7 +110,11 @@ const TOOLS = {
             if (!sig) return { signal: null, note: 'No symbol selected.' };
             return {
                 symbol: state.currentSymbol,
-                signal: sig.signal, confidence: sig.confidence, rawConfidence: sig.rawConfidence,
+                // What the card shows the user. Quote this as the call, with its measured rate and reason.
+                cardCall: sig.cardCall || null,
+                // The engine's plain up/down score: measured near a coin flip and NOT shown as a call
+                // anywhere in the app. Background only, never present it as a recommendation.
+                engineSignal: sig.signal, engineConfidence: sig.confidence, rawConfidence: sig.rawConfidence,
                 calibrationApplied: sig.calibrationApplied, trendRegime: sig.trendRegime,
                 breakdown: sig.breakdown, priceTargets: sig.priceTargets, forecastBand: sig.forecastBand,
                 topReasons: sig.reasons?.slice(0, 8),
@@ -353,9 +357,9 @@ const TOOLS = {
         kind: 'control',
     },
     find_spikers: {
-        desc: 'scan the live pool for spike candidates today. buckets: gte10 (≥10%), 10to20, 20to30, 30to40, 40to50, gt50.',
-        args: '{"bucket":"gte10","limit":10}',
-        run: ({ bucket, limit }) => findSpikersDirect({ bucket, limit }),
+        desc: 'the US stocks most likely to make a big move next session: the measured chance of a move at least twice the stock\'s normal day, up or down (not direction). earnings: any | only | exclude.',
+        args: '{"earnings":"any","limit":10}',
+        run: ({ earnings, limit }) => findSpikersDirect({ earnings, limit }),
         kind: 'read',
     },
     get_prediction_log: {
