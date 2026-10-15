@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-14T14:38:37Z",
-  "runs": 1840,
+  "updatedAt": "2026-10-15T00:39:15Z",
+  "runs": 1860,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9658.448524,
-    "cashUSD": 5078.050264,
-    "unsettledCashUSD": 1110.237868,
-    "holdingsUSD": 3470.160392,
+    "equityUSD": 9787.164605,
+    "cashUSD": 6188.288132,
+    "unsettledCashUSD": 0.0,
+    "holdingsUSD": 3598.876473,
     "realizedUSD": -257.388128,
-    "unrealizedUSD": -84.163348,
+    "unrealizedUSD": 44.552733,
     "feesUSD": 20.084131,
-    "pnlUSD": -341.551476,
-    "pnlPct": -3.4155,
+    "pnlUSD": -212.835395,
+    "pnlPct": -2.1284,
     "trades": 19
   },
   "sleeves": {
@@ -21,9 +21,9 @@
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1263.654591,
+      "cashUSD": 2373.892459,
       "positions": {},
-      "pendingUSD": 1110.237868,
+      "pendingUSD": 0.0,
       "realizedUSD": -126.013893,
       "feesUSD": 6.313099,
       "trades": 6
@@ -99,19 +99,14 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [
-      {
-        "amountUSD": 1110.237868,
-        "settlesOn": "2026-10-15"
-      }
-    ],
+    "pending": [],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
       "2026-10-07"
     ],
     "openedToday": {},
-    "lastAccrual": "2026-10-14",
+    "lastAccrual": "2026-10-15",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -121,10 +116,8 @@
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "reversion:MAN": "2026-10-12T14:08:43Z"
     },
-    "tradesToday": {
-      "engine": 1
-    },
-    "day": "2026-10-14"
+    "tradesToday": {},
+    "day": "2026-10-15"
   },
   "equityOpen": {
     "engine": 2500.0,
@@ -132,7 +125,5 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {
-    "engine": 1110.237868
-  }
+  "pendingBySleeve": {}
 }
