@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-17T22:05:34Z",
+  "generatedAt": "2026-10-18T22:05:56Z",
   "engineVersion": "2026.09.29-trend-gate",
   "skippedOldEngineRows": 41664,
   "skippedOldEngineResolved": 202944,
@@ -410,6 +410,6 @@
       }
     }
   },
-  "totalRowsConsidered": 109788,
+  "totalRowsConsidered": 109955,
   "totalResolvedHorizons": 16741
 }
