@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-10-30T15:54:14Z",
-  "runs": 2660,
+  "updatedAt": "2026-10-31T00:33:11Z",
+  "runs": 2680,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9492.047887,
+    "equityUSD": 9716.413939,
     "cashUSD": 5060.689214,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 4431.358673,
+    "holdingsUSD": 4655.724725,
     "realizedUSD": -257.388128,
-    "unrealizedUSD": -250.563985,
+    "unrealizedUSD": -26.197933,
     "feesUSD": 21.098057,
-    "pnlUSD": -507.952113,
-    "pnlPct": -5.0795,
+    "pnlUSD": -283.586061,
+    "pnlPct": -2.8359,
     "trades": 20
   },
   "sleeves": {
@@ -117,7 +117,7 @@
       "2026-10-07"
     ],
     "openedToday": {},
-    "lastAccrual": "2026-10-30",
+    "lastAccrual": "2026-10-31",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -129,7 +129,7 @@
       "engine:MAN": "2026-10-19T15:22:21Z"
     },
     "tradesToday": {},
-    "day": "2026-10-30"
+    "day": "2026-10-31"
   },
   "equityOpen": {
     "engine": 2500.0,
