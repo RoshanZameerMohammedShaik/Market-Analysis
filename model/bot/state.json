@@ -1,27 +1,27 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-11-03T09:29:47Z",
-  "runs": 2860,
+  "updatedAt": "2026-11-03T14:32:58Z",
+  "runs": 2869,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9710.942175,
-    "cashUSD": 5060.689214,
+    "equityUSD": 9482.650189,
+    "cashUSD": 3939.371709,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 4650.252961,
+    "holdingsUSD": 5543.27848,
     "realizedUSD": -257.388128,
-    "unrealizedUSD": -31.669697,
-    "feesUSD": 21.098057,
-    "pnlUSD": -289.057825,
-    "pnlPct": -2.8906,
-    "trades": 20
+    "unrealizedUSD": -259.961683,
+    "feesUSD": 22.218254,
+    "pnlUSD": -517.349811,
+    "pnlPct": -5.1735,
+    "trades": 21
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1246.293541,
+      "cashUSD": 124.976036,
       "positions": {
         "MAN": {
           "units": 27.20562645575032,
@@ -32,12 +32,22 @@
               "openedAt": "2026-10-19T15:22:21Z"
             }
           ]
+        },
+        "BTC-USD": {
+          "units": 0.014523131500494928,
+          "lots": [
+            {
+              "units": 0.014523131500494928,
+              "costUSD": 1121.3175048157932,
+              "openedAt": "2026-11-03T14:32:58Z"
+            }
+          ]
         }
       },
       "pendingUSD": 0.0,
       "realizedUSD": -126.013893,
-      "feesUSD": 7.327025,
-      "trades": 7
+      "feesUSD": 8.447222,
+      "trades": 8
     },
     "reversion": {
       "id": "reversion",
@@ -116,7 +126,11 @@
     "dayTrades": [
       "2026-10-07"
     ],
-    "openedToday": {},
+    "openedToday": {
+      "2026-11-03": {
+        "BTC-USD": 0.014523131500494928
+      }
+    },
     "lastAccrual": "2026-11-03",
     "violations": []
   },
@@ -126,9 +140,12 @@
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
       "reversion:MAN": "2026-10-12T14:08:43Z",
-      "engine:MAN": "2026-10-19T15:22:21Z"
+      "engine:MAN": "2026-10-19T15:22:21Z",
+      "engine:BTC-USD": "2026-11-03T14:32:58Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "engine": 1
+    },
     "day": "2026-11-03"
   },
   "equityOpen": {
