@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T22:05:57Z",
+  "generatedAt": "2026-11-08T22:05:49Z",
   "engineVersion": "2026.09.29-trend-gate",
   "skippedOldEngineRows": 41664,
   "skippedOldEngineResolved": 206749,
@@ -254,14 +254,14 @@
           "actual": 69.6
         },
         "55-60": {
-          "n": 143,
+          "n": 144,
           "predicted": 57.3,
-          "actual": 64.3
+          "actual": 63.9
         },
         "60-65": {
-          "n": 29,
+          "n": 30,
           "predicted": 62.0,
-          "actual": 44.8
+          "actual": 43.3
         },
         "65-70": {
           "n": 20,
@@ -271,19 +271,19 @@
       },
       "BUY": {
         "50-55": {
-          "n": 616,
+          "n": 624,
           "predicted": 51.8,
-          "actual": 39.9
+          "actual": 40.5
         },
         "60-65": {
-          "n": 49,
+          "n": 50,
           "predicted": 61.4,
-          "actual": 71.4
+          "actual": 72.0
         },
         "55-60": {
-          "n": 291,
+          "n": 295,
           "predicted": 57.1,
-          "actual": 50.9
+          "actual": 51.2
         },
         "65-70": {
           "n": 15,
@@ -298,7 +298,7 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 2127,
+          "n": 2128,
           "predicted": 50.0,
           "actual": 5.3
         }
@@ -401,19 +401,19 @@
     },
     "NSE": {
       "50-55": {
-        "n": 1539,
+        "n": 1547,
         "predicted": 52.1,
-        "actual": 49.8
+        "actual": 50.0
       },
       "55-60": {
-        "n": 634,
+        "n": 639,
         "predicted": 57.0,
-        "actual": 51.9
+        "actual": 52.0
       },
       "60-65": {
-        "n": 107,
+        "n": 109,
         "predicted": 61.4,
-        "actual": 60.7
+        "actual": 60.6
       },
       "65-70": {
         "n": 27,
@@ -493,6 +493,6 @@
       }
     }
   },
-  "totalRowsConsidered": 128040,
-  "totalResolvedHorizons": 53260
+  "totalRowsConsidered": 128206,
+  "totalResolvedHorizons": 53276
 }
