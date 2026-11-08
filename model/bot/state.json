@@ -1,19 +1,19 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-11-07T23:58:51Z",
-  "runs": 3140,
+  "updatedAt": "2026-11-08T10:00:44Z",
+  "runs": 3160,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9673.578762,
+    "equityUSD": 9675.808154,
     "cashUSD": 3939.371709,
     "unsettledCashUSD": 0.0,
-    "holdingsUSD": 5734.207053,
+    "holdingsUSD": 5736.436445,
     "realizedUSD": -257.388128,
-    "unrealizedUSD": -69.03311,
+    "unrealizedUSD": -66.803718,
     "feesUSD": 22.218254,
-    "pnlUSD": -326.421238,
-    "pnlPct": -3.2642,
+    "pnlUSD": -324.191846,
+    "pnlPct": -3.2419,
     "trades": 21
   },
   "sleeves": {
@@ -127,7 +127,7 @@
       "2026-10-07"
     ],
     "openedToday": {},
-    "lastAccrual": "2026-11-07",
+    "lastAccrual": "2026-11-08",
     "violations": []
   },
   "brokerSummary": "Cash account: no leverage, settled cash only, T+1 settlement, no shorting. Constrained by settlement rather than PDT.",
@@ -140,7 +140,7 @@
       "engine:BTC-USD": "2026-11-03T14:32:58Z"
     },
     "tradesToday": {},
-    "day": "2026-11-07"
+    "day": "2026-11-08"
   },
   "equityOpen": {
     "engine": 2500.0,
