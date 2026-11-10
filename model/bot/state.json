@@ -1,43 +1,32 @@
 {
   "schema": 1,
   "createdAt": "2026-09-08T18:13:12Z",
-  "updatedAt": "2026-11-10T10:11:33Z",
-  "runs": 3280,
+  "updatedAt": "2026-11-10T17:25:48Z",
+  "runs": 3281,
   "seedUSD": 10000.0,
   "totals": {
-    "equityUSD": 9719.55611,
-    "cashUSD": 5156.105899,
-    "unsettledCashUSD": 0.0,
-    "holdingsUSD": 4563.450211,
-    "realizedUSD": -168.223252,
-    "unrealizedUSD": -112.220638,
-    "feesUSD": 23.343932,
-    "pnlUSD": -280.44389,
-    "pnlPct": -2.8044,
-    "trades": 22
+    "equityUSD": 9284.718789,
+    "cashUSD": 5156.084075,
+    "unsettledCashUSD": 1058.262682,
+    "holdingsUSD": 3070.372032,
+    "realizedUSD": -231.278075,
+    "unrealizedUSD": -484.003136,
+    "feesUSD": 24.425078,
+    "pnlUSD": -715.281211,
+    "pnlPct": -7.1528,
+    "trades": 23
   },
   "sleeves": {
     "engine": {
       "id": "engine",
       "name": "The Engine",
       "blurb": "Our technical engine plus the LSTM, exactly as the app shows it. The sleeve that answers \"is Market Analyzer any good?\"",
-      "cashUSD": 1341.710226,
-      "positions": {
-        "BTC-USD": {
-          "units": 0.014523131500494928,
-          "lots": [
-            {
-              "units": 0.014523131500494928,
-              "costUSD": 1121.3175048157932,
-              "openedAt": "2026-11-03T14:32:58Z"
-            }
-          ]
-        }
-      },
-      "pendingUSD": 0.0,
-      "realizedUSD": -36.849017,
-      "feesUSD": 9.5729,
-      "trades": 9
+      "cashUSD": 1341.688402,
+      "positions": {},
+      "pendingUSD": 1058.262682,
+      "realizedUSD": -99.90384,
+      "feesUSD": 10.654046,
+      "trades": 10
     },
     "reversion": {
       "id": "reversion",
@@ -110,7 +99,12 @@
     "accountType": "cash",
     "plan": "ibkr-lite",
     "benchmarkRatePct": 4.33,
-    "pending": [],
+    "pending": [
+      {
+        "amountUSD": 1058.262682,
+        "settlesOn": "2026-11-11"
+      }
+    ],
     "debitUSD": 0.0,
     "interestUSD": 0.0,
     "dayTrades": [
@@ -125,10 +119,11 @@
     "openedAt": {
       "mia-ai:MAN": "2026-09-08T18:14:44Z",
       "control:BTC-USD": "2026-09-08T18:14:44Z",
-      "reversion:MAN": "2026-10-12T14:08:43Z",
-      "engine:BTC-USD": "2026-11-03T14:32:58Z"
+      "reversion:MAN": "2026-10-12T14:08:43Z"
     },
-    "tradesToday": {},
+    "tradesToday": {
+      "engine": 1
+    },
     "day": "2026-11-10"
   },
   "equityOpen": {
@@ -137,5 +132,7 @@
     "mia-ai": 2500.0,
     "control": 2500.0
   },
-  "pendingBySleeve": {}
+  "pendingBySleeve": {
+    "engine": 1058.262682
+  }
 }
