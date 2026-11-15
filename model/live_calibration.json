@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T22:05:42Z",
+  "generatedAt": "2026-11-15T22:06:20Z",
   "engineVersion": "2026.09.29-trend-gate",
   "skippedOldEngineRows": 41664,
   "skippedOldEngineResolved": 206749,
@@ -245,7 +245,7 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 6571,
+          "n": 6572,
           "predicted": 50.0,
           "actual": 8.8
         }
@@ -303,7 +303,7 @@
       },
       "NEUTRAL": {
         "50-55": {
-          "n": 3810,
+          "n": 3812,
           "predicted": 50.0,
           "actual": 5.4
         }
@@ -498,6 +498,6 @@
       }
     }
   },
-  "totalRowsConsidered": 134203,
-  "totalResolvedHorizons": 67098
+  "totalRowsConsidered": 134369,
+  "totalResolvedHorizons": 67101
 }
