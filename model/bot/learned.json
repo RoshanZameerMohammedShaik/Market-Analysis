@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-10T17:25:48Z",
+  "generatedAt": "2026-11-17T19:10:18Z",
   "roundTrips": 10,
-  "tradeRows": 23,
+  "tradeRows": 24,
   "trialsExamined": 3,
   "deflatedTBar": 2.0,
   "minRoundTrips": 20,
