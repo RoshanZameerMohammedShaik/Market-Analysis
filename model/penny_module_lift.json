@@ -1,8 +1,8 @@
 {
-  "runDate": "2026-11-23T14:07:50.426375Z",
-  "sampleSize": 4037,
-  "hitRateWith": 50.8,
-  "hitRateWithout": 50.8,
+  "runDate": "2026-11-24T14:39:53.804129Z",
+  "sampleSize": 3995,
+  "hitRateWith": 51.1,
+  "hitRateWithout": 51.0,
   "liftPp": 0.0,
   "ciHalfWidthPp": 2.2,
   "confident": true,
